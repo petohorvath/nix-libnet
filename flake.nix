@@ -1,10 +1,24 @@
 {
   description = "libnet — pure-Nix IP, MAC, and network-address library (zero nixpkgs dependency in the core)";
 
-  outputs = { self, ... }: {
-    lib = import ./.;
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # Expose the test suite as a flake output so `nix-instantiate --eval -A checks tests/default.nix {}` works too.
-    # Note: core tests run dep-free; types tests require nixpkgs.lib to be injected at eval time.
-  };
+  outputs = { self, nixpkgs }:
+    let
+      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+    in {
+      lib = import ./.;
+
+      checks = forAllSystems (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          runEval = name: args: pkgs.runCommand name {
+            passed = (import ./tests/default.nix args).passed;
+          } "touch $out";
+        in {
+          core = runEval "libnet-core-tests" { lib = null; };
+          full = runEval "libnet-full-tests" { lib = pkgs.lib; };
+        });
+    };
 }

@@ -846,9 +846,9 @@ in
 - CIDR algebra: `summarize` collapses adjacent pairs and drops sub-ranges, preserves order, handles mixed families by partitioning; `exclude` produces minimal covering lists with hand-checked expected outputs; `intersect` returns `null` when no overlap.
 - Port constants: each constant is a valid Port value with the expected integer; `port.isWellKnown port.ssh == true`.
 - Bogon: `ip.isBogon (ipv4.parse "127.0.0.1") == true`, `ip.isBogon (ipv4.parse "8.8.8.8") == false`, parallel IPv6 cases.
-- Module types (via `withLib`): each `types.*` accepts valid strings unchanged, rejects malformed input with a useful error pointing at the offending option path, and merges last-wins. Mixed-family rejection for `types.ipv4Cidr`/`types.ipv6Cidr`. Smart constructor `types.*.mk` validates and fails loudly on bad input. These tests run only when `nixpkgs.lib` is provided as a test-time arg (`--arg lib '(import <nixpkgs> {}).lib'`); core test suite stays dep-free.
+- Module types (via `withLib`): each `types.*` accepts valid strings unchanged, rejects malformed input with a useful error pointing at the offending option path, and merges last-wins. Mixed-family rejection for `types.ipv4Cidr`/`types.ipv6Cidr`. Smart constructor `types.*.mk` validates and fails loudly on bad input. These tests are exercised by the `full` flake check, which injects `nixpkgs.lib`; the `core` check runs with `lib = null` and skips them, proving the core stays dep-free.
 
-**Invocation**: `nix-instantiate --eval tests/default.nix` must return `{ passed = N; }` and exit 0.
+**Invocation**: `nix flake check` must build both `checks.<system>.core` and `checks.<system>.full` successfully. A failing test aborts `.drv` instantiation via `builtins.throw` with the harness's formatted diff.
 
 ## Test Coverage Matrix (100% target)
 
@@ -1077,6 +1077,6 @@ All originally-open questions are resolved:
 4. **Iteration guards:** `cidr.hosts` throws when the block exceeds 2¹⁶ addresses (IPv4 wider than `/16`, IPv6 wider than `/112`). `portRange.ports` throws above 2¹² (4096) entries. `listener.toEndpoints` follows the portRange guard. Each has a `*Unbounded` sibling that bypasses the check. Indexed access via `cidr.host n`, `listener.endpoint n`, and equivalent is the recommended way to reach entries in large ranges.
 5. **Mixed-family comparison in `libnet.ip.compare`:** lenient — IPv4 sorts before IPv6 as a stable tiebreak. Enables `sort` on mixed lists without partitioning. `eq` across families is always false. No separate `compareStrict` variant; callers who need strictness check `ip.version` first.
 6. **Module-type coercion:** option values stay strings, matching existing NixOS idioms. Types validate via the core `isValid` predicates but never transform the stored value. Downstream code calls `libnet.ipv4.parse` (or similar) explicitly when structure is needed.
-7. **Module-type test dependency:** `tests/types.nix` takes `lib` as a function argument; `tests/default.nix` accepts optional `lib` and routes `types.nix` tests to it only when provided. Core test suite remains dep-free. Users wanting full coverage invoke `nix-instantiate --arg lib '(import <nixpkgs> {}).lib' tests/default.nix`.
+7. **Module-type test dependency:** `tests/types.nix` takes `lib` as a function argument; `tests/default.nix` accepts optional `lib` and routes `types.nix` tests to it only when provided. The flake exposes two checks: `core` (invokes with `lib = null`, proves the dep-free guarantee) and `full` (invokes with `pkgs.lib`, adds module-type coverage). Users run either via `nix build .#checks.<system>.{core,full}` or both via `nix flake check`.
 
 The spec has no remaining open questions. Implementation can begin immediately upon plan approval.

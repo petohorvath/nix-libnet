@@ -121,18 +121,31 @@ negative), every CIDR prefix boundary, every arithmetic carry/borrow case.
 ## Running the tests
 
 ```sh
-# Core tests (no dependencies):
-nix-instantiate --eval --strict tests/default.nix --arg lib null
+# All checks across every supported system (core + full):
+nix flake check
 
-# Or with all args:
-nix-instantiate --eval --strict --expr 'import ./tests/default.nix {}'
+# Core tests only (dep-free eval, wrapped as a derivation):
+nix build .#checks.x86_64-linux.core
 
-# Full test suite (includes NixOS module-type tests):
-nix-instantiate --eval --strict --arg lib '(import <nixpkgs> {}).lib' \
-  --expr 'import ./tests/default.nix { lib = (import <nixpkgs> {}).lib; }'
+# Full suite (adds NixOS module-type tests; pulls nixpkgs.lib):
+nix build .#checks.x86_64-linux.full
 ```
 
-Expected output: `{ passed = N; }` (or a failure diff via `builtins.throw`).
+Tests evaluate at `.drv` instantiation time — a failing test aborts the build
+with the harness's formatted diff via `builtins.throw`. A passing check
+produces an empty `$out`.
+
+**Why two checks?** They encode two separate contracts:
+
+- `core` — passing proves the library itself has **zero nixpkgs dependency**
+  (the whole suite evaluates with `lib = null`). If any core file ever reaches
+  into `nixpkgs.lib`, this check breaks.
+- `full` — supersets `core` and additionally runs the module-type tests
+  against real `nixpkgs.lib`, proving `withLib` integration works.
+
+The library itself (`self.lib`) stays dep-free; `inputs.nixpkgs` is used only
+to wrap the eval harness as a derivation and to supply `nixpkgs.lib` to the
+module-type tests.
 
 ## Requirements
 
