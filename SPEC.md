@@ -772,13 +772,13 @@ nix-libnet/
 │   ├── cidr.nix
 │   ├── ip.nix               # Unified dispatch namespace
 │   ├── port.nix
-│   ├── portRange.nix
+│   ├── port-range.nix
 │   ├── endpoint.nix
 │   ├── listener.nix
 │   ├── range.nix
 │   ├── interface.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
-│   ├── withLib.nix          # `withLib lib` entry point, composes types.nix
+│   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
 │       ├── bits.nix         # Shift emulation, mask helpers
 │       ├── carry.nix        # u32 add/sub with carry propagation
@@ -794,7 +794,7 @@ nix-libnet/
 │   ├── cidr.nix
 │   ├── ip.nix
 │   ├── port.nix
-│   ├── portRange.nix
+│   ├── port-range.nix
 │   ├── endpoint.nix
 │   ├── listener.nix
 │   ├── range.nix
@@ -988,10 +988,10 @@ Once the spec is approved, implementation proceeds in dependency order:
 10. **`lib/range.nix`** + tests — depends on ipv4/ipv6/cidr.
 11. **`lib/interface.nix`** + tests — depends on ipv4/ipv6/cidr.
 12. **`lib/port.nix`** + tests — trivial type plus well-known-port constants; unblocks endpoint/listener.
-13. **`lib/portRange.nix`** + tests — depends on `port`.
+13. **`lib/port-range.nix`** + tests — depends on `port`.
 14. **`lib/endpoint.nix`** + tests — depends on `ipv4`, `ipv6`, `port`.
 15. **`lib/listener.nix`** + tests — depends on `ipv4`, `ipv6`, `portRange`.
-16. **`lib/types.nix` + `lib/withLib.nix`** + tests — NixOS module type wrappers; tests require `lib` as arg and are skipped from the default suite.
+16. **`lib/types.nix` + `lib/with-lib.nix`** + tests — NixOS module type wrappers; tests require `lib` as arg and are skipped from the default suite.
 17. **`default.nix`** — compose everything into a single attrset exposing core API + `withLib`.
 18. **README.md** — usage, API index, `withLib` example.
 

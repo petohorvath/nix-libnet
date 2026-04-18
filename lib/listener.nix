@@ -4,7 +4,7 @@ let
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   port = import ./port.nix;
-  portRange = import ./portRange.nix;
+  portRange = import ./port-range.nix;
   endpoint = import ./endpoint.nix;
 
   mk = addr: pr: {

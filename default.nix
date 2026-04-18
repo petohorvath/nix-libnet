@@ -6,13 +6,11 @@ let
     mac = import ./lib/mac.nix;
     cidr = import ./lib/cidr.nix;
     port = import ./lib/port.nix;
-    portRange = import ./lib/portRange.nix;
+    portRange = import ./lib/port-range.nix;
     endpoint = import ./lib/endpoint.nix;
     listener = import ./lib/listener.nix;
     range = import ./lib/range.nix;
     interface = import ./lib/interface.nix;
   };
-
-  withLibFactory = import ./lib/withLib.nix;
 in
-core // { withLib = withLibFactory core; }
+core // { withLib = import ./lib/with-lib.nix core; }

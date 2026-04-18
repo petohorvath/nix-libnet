@@ -5,7 +5,7 @@ let
   ip = import ./ip.nix;
   mac = import ./mac.nix;
   cidr = import ./cidr.nix;
-  portRange = import ./portRange.nix;
+  portRange = import ./port-range.nix;
   endpoint = import ./endpoint.nix;
   listener = import ./listener.nix;
   range = import ./range.nix;

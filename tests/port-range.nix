@@ -1,6 +1,6 @@
 { harness }:
 let
-  pr = import ../lib/portRange.nix;
+  pr = import ../lib/port-range.nix;
   port = import ../lib/port.nix;
   inherit (harness) throws;
   p = pr.parse;

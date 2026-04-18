@@ -88,7 +88,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.mac`](./lib/mac.nix) | parse (4 formats), toString(Hyphen/Cisco/Bare), OUI/NIC split, setLocal/setMulticast, toEui64 |
 | [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, host(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), 31 well-known constants (`port.http`, `port.ssh`, …) |
-| [`libnet.portRange`](./lib/portRange.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
+| [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, toEndpoints, endpoint(n) |
 | [`libnet.range`](./lib/range.nix) | parse, contains, merge, toCidrs, fromCidr |

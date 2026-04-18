@@ -23,7 +23,7 @@ let
     // prefix "range" (tryImport "range.nix")
     // prefix "iface" (tryImport "interface.nix")
     // prefix "port" (tryImport "port.nix")
-    // prefix "pr" (tryImport "portRange.nix")
+    // prefix "pr" (tryImport "port-range.nix")
     // prefix "ep" (tryImport "endpoint.nix")
     // prefix "ln" (tryImport "listener.nix");
 
