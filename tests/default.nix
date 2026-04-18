@@ -25,7 +25,10 @@ let
     // prefix "port" (tryImport "port.nix")
     // prefix "pr" (tryImport "port-range.nix")
     // prefix "ep" (tryImport "endpoint.nix")
-    // prefix "ln" (tryImport "listener.nix");
+    // prefix "ln" (tryImport "listener.nix")
+    // prefix "iparse" (tryImport "internal/parse.nix")
+    // prefix "ifmt" (tryImport "internal/format.nix")
+    // prefix "itype" (tryImport "internal/types.nix");
 
   typeTests =
     if lib != null && builtins.pathExists (./. + "/types.nix") then

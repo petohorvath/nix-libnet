@@ -110,6 +110,20 @@ in
     expected = 6;
   };
 
+  # ===== toUri (alias of toString) =====
+  toUri-v4 = {
+    expr = ep.toUri (p "1.2.3.4:80");
+    expected = "1.2.3.4:80";
+  };
+  toUri-v6 = {
+    expr = ep.toUri (p "[2001:db8::1]:443");
+    expected = "[2001:db8::1]:443";
+  };
+  toUri-matches-toString = {
+    expr = ep.toUri (p "[::1]:80") == ep.toString (p "[::1]:80");
+    expected = true;
+  };
+
   # ===== Predicates =====
   is-parsed = {
     expr = ep.is (p "1.2.3.4:80");
