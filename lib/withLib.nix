@@ -1,2 +1,1 @@
-core: lib:
-  core // (import ./types.nix { inherit lib; })
+core: lib: core // (import ./types.nix { inherit lib; })

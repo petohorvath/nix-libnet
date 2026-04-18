@@ -1,46 +1,53 @@
 let
   parse' = import ./internal/parse.nix;
-  types  = import ./internal/types.nix;
-  ipv4   = import ./ipv4.nix;
-  ipv6   = import ./ipv6.nix;
-  port   = import ./port.nix;
+  types = import ./internal/types.nix;
+  ipv4 = import ./ipv4.nix;
+  ipv6 = import ./ipv6.nix;
+  port = import ./port.nix;
 
-  mk = addr: pt: { _type = "endpoint"; address = addr; port = pt; };
+  mk = addr: pt: {
+    _type = "endpoint";
+    address = addr;
+    port = pt;
+  };
 
   # ===== Parsing =====
 
   # Bracketed form: [<ipv6>]:<port>
-  tryParseBracketed = s:
-    let parts = parse'.splitOn "]:" s; in
-      if builtins.length parts != 2
-      then types.tryErr "libnet.endpoint.parse: malformed bracketed form \"${s}\""
+  tryParseBracketed =
+    s:
+    let
+      parts = parse'.splitOn "]:" s;
+    in
+    if builtins.length parts != 2 then
+      types.tryErr "libnet.endpoint.parse: malformed bracketed form \"${s}\""
+    else
+      let
+        left = builtins.elemAt parts 0;
+        portStr = builtins.elemAt parts 1;
+        hasOpenBracket = builtins.stringLength left >= 1 && builtins.substring 0 1 left == "[";
+        addrStr =
+          if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
+      in
+      if addrStr == null then
+        types.tryErr "libnet.endpoint.parse: missing '[' in \"${s}\""
       else
         let
-          left = builtins.elemAt parts 0;
-          portStr = builtins.elemAt parts 1;
-          hasOpenBracket = builtins.stringLength left >= 1
-                        && builtins.substring 0 1 left == "[";
-          addrStr = if hasOpenBracket
-                    then builtins.substring 1 (builtins.stringLength left - 1) left
-                    else null;
+          addrRes = ipv6.tryParse addrStr;
+          portRes = port.tryParse portStr;
         in
-          if addrStr == null
-          then types.tryErr "libnet.endpoint.parse: missing '[' in \"${s}\""
-          else
-            let
-              addrRes = ipv6.tryParse addrStr;
-              portRes = port.tryParse portStr;
-            in
-              if !addrRes.success
-              then types.tryErr "libnet.endpoint.parse: invalid IPv6 in \"${s}\""
-              else if !portRes.success
-              then types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
-              else types.tryOk (mk addrRes.value portRes.value);
+        if !addrRes.success then
+          types.tryErr "libnet.endpoint.parse: invalid IPv6 in \"${s}\""
+        else if !portRes.success then
+          types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
+        else
+          types.tryOk (mk addrRes.value portRes.value);
 
   # Unbracketed form: <ipv4>:<port>. Exactly one ':'.
-  tryParseV4Form = s:
-    if parse'.countOccurrences ":" s != 1
-    then types.tryErr "libnet.endpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
+  tryParseV4Form =
+    s:
+    if parse'.countOccurrences ":" s != 1 then
+      types.tryErr "libnet.endpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
     else
       let
         parts = parse'.splitOn ":" s;
@@ -49,37 +56,49 @@ let
         addrRes = ipv4.tryParse addrStr;
         portRes = port.tryParse portStr;
       in
-        if !addrRes.success
-        then types.tryErr "libnet.endpoint.parse: invalid IPv4 in \"${s}\""
-        else if !portRes.success
-        then types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
-        else types.tryOk (mk addrRes.value portRes.value);
+      if !addrRes.success then
+        types.tryErr "libnet.endpoint.parse: invalid IPv4 in \"${s}\""
+      else if !portRes.success then
+        types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
+      else
+        types.tryOk (mk addrRes.value portRes.value);
 
-  tryParse = s:
-    if !(builtins.isString s)
-    then types.tryErr "libnet.endpoint.parse: input must be a string"
-    else if parse'.startsWith "[" s
-    then tryParseBracketed s
-    else tryParseV4Form s;
+  tryParse =
+    s:
+    if !(builtins.isString s) then
+      types.tryErr "libnet.endpoint.parse: input must be a string"
+    else if parse'.startsWith "[" s then
+      tryParseBracketed s
+    else
+      tryParseV4Form s;
 
-  parse = s:
-    let r = tryParse s;
-    in if r.success then r.value else builtins.throw r.error;
+  parse =
+    s:
+    let
+      r = tryParse s;
+    in
+    if r.success then r.value else builtins.throw r.error;
 
-  toString = ep:
-    let portStr = port.toString ep.port; in
-      if types.isIpv4 ep.address
-      then "${ipv4.toString ep.address}:${portStr}"
-      else "[${ipv6.toString ep.address}]:${portStr}";
+  toString =
+    ep:
+    let
+      portStr = port.toString ep.port;
+    in
+    if types.isIpv4 ep.address then
+      "${ipv4.toString ep.address}:${portStr}"
+    else
+      "[${ipv6.toString ep.address}]:${portStr}";
 
   toUri = toString;
 
-  make = addr: pt:
-    if !(types.isIp addr)
-    then builtins.throw "libnet.endpoint.make: address must be ipv4 or ipv6"
-    else if !(types.isPort pt)
-    then builtins.throw "libnet.endpoint.make: expected port value"
-    else mk addr pt;
+  make =
+    addr: pt:
+    if !(types.isIp addr) then
+      builtins.throw "libnet.endpoint.make: address must be ipv4 or ipv6"
+    else if !(types.isPort pt) then
+      builtins.throw "libnet.endpoint.make: expected port value"
+    else
+      mk addr pt;
 
   # ===== Predicates =====
 
@@ -91,40 +110,45 @@ let
   # ===== Accessors =====
 
   address = ep: ep.address;
-  port_   = ep: ep.port;
+  port_ = ep: ep.port;
   version = ep: if types.isIpv4 ep.address then 4 else 6;
 
   # ===== Forwarded predicates (apply to address) =====
 
-  fwd = ctx: v4Fn: v6Fn: ep:
-    if types.isIpv4 ep.address then v4Fn ep.address
-    else v6Fn ep.address;
+  fwd =
+    ctx: v4Fn: v6Fn: ep:
+    if types.isIpv4 ep.address then v4Fn ep.address else v6Fn ep.address;
 
-  isLoopback      = fwd "isLoopback"      ipv4.isLoopback      ipv6.isLoopback;
-  isLinkLocal     = fwd "isLinkLocal"     ipv4.isLinkLocal     ipv6.isLinkLocal;
-  isMulticast     = fwd "isMulticast"     ipv4.isMulticast     ipv6.isMulticast;
-  isUnspecified   = fwd "isUnspecified"   ipv4.isUnspecified   ipv6.isUnspecified;
+  isLoopback = fwd "isLoopback" ipv4.isLoopback ipv6.isLoopback;
+  isLinkLocal = fwd "isLinkLocal" ipv4.isLinkLocal ipv6.isLinkLocal;
+  isMulticast = fwd "isMulticast" ipv4.isMulticast ipv6.isMulticast;
+  isUnspecified = fwd "isUnspecified" ipv4.isUnspecified ipv6.isUnspecified;
   isDocumentation = fwd "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation;
-  isGlobal        = fwd "isGlobal"        ipv4.isGlobal        ipv6.isGlobal;
+  isGlobal = fwd "isGlobal" ipv4.isGlobal ipv6.isGlobal;
 
   # ===== Comparison =====
 
-  eq = a: b:
+  eq =
+    a: b:
     a.address._type == b.address._type
     && (if types.isIpv4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address)
     && port.eq a.port b.port;
 
-  compare = a: b:
-    if types.isIpv4 a.address && types.isIpv6 b.address then -1
-    else if types.isIpv6 a.address && types.isIpv4 b.address then 1
+  compare =
+    a: b:
+    if types.isIpv4 a.address && types.isIpv6 b.address then
+      -1
+    else if types.isIpv6 a.address && types.isIpv4 b.address then
+      1
     else
       let
-        addrCmp = if types.isIpv4 a.address
-                  then ipv4.compare a.address b.address
-                  else ipv6.compare a.address b.address;
+        addrCmp =
+          if types.isIpv4 a.address then
+            ipv4.compare a.address b.address
+          else
+            ipv6.compare a.address b.address;
       in
-        if addrCmp != 0 then addrCmp
-        else port.compare a.port b.port;
+      if addrCmp != 0 then addrCmp else port.compare a.port b.port;
 
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
@@ -134,10 +158,37 @@ let
   max = a: b: if ge a b then a else b;
 in
 {
-  inherit parse tryParse toString toUri make;
-  inherit isValid is isIpv4 isIpv6;
+  inherit
+    parse
+    tryParse
+    toString
+    toUri
+    make
+    ;
+  inherit
+    isValid
+    is
+    isIpv4
+    isIpv6
+    ;
   inherit address version;
   port = port_;
-  inherit isLoopback isLinkLocal isMulticast isUnspecified isDocumentation isGlobal;
-  inherit eq lt le gt ge compare min max;
+  inherit
+    isLoopback
+    isLinkLocal
+    isMulticast
+    isUnspecified
+    isDocumentation
+    isGlobal
+    ;
+  inherit
+    eq
+    lt
+    le
+    gt
+    ge
+    compare
+    min
+    max
+    ;
 }
