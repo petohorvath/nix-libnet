@@ -91,46 +91,12 @@ let
   min = a: b: if a.value <= b.value then a else b;
   max = a: b: if a.value >= b.value then a else b;
 
-  # ===== Boundary values (raw ints, not Port values — no collision) =====
+  # ===== Boundary values (raw ints, not Port values) =====
 
   wellKnownMax = 1023;
   registeredMax = 49151;
   lowestValue = 0;
   highestValue = portMax;
-
-  # ===== Well-known service ports (all Port values per RFC 6335) =====
-
-  ftpData = mk 20;
-  ftp = mk 21;
-  ssh = mk 22;
-  telnet = mk 23;
-  smtp = mk 25;
-  dns = mk 53;
-  http = mk 80;
-  pop3 = mk 110;
-  ntp = mk 123;
-  imap = mk 143;
-  snmp = mk 161;
-  snmpTrap = mk 162;
-  bgp = mk 179;
-  ldap = mk 389;
-  https = mk 443;
-  smtps = mk 465;
-  submission = mk 587;
-  ldaps = mk 636;
-  dnsTls = mk 853;
-  imaps = mk 993;
-  pop3s = mk 995;
-  mysql = mk 3306;
-  rdp = mk 3389;
-  postgres = mk 5432;
-  rabbitmq = mk 5672;
-  vnc = mk 5900;
-  redis = mk 6379;
-  irc = mk 6667;
-  elasticsearch = mk 9200;
-  memcached = mk 11211;
-  mongodb = mk 27017;
 in
 {
   inherit
@@ -171,42 +137,5 @@ in
     registeredMax
     lowestValue
     highestValue
-    ;
-  inherit
-    ftpData
-    ftp
-    ssh
-    telnet
-    smtp
-    dns
-    http
-    pop3
-    ntp
-    imap
-    snmp
-    snmpTrap
-    bgp
-    ldap
-    ;
-  inherit
-    https
-    smtps
-    submission
-    ldaps
-    dnsTls
-    imaps
-    pop3s
-    ;
-  inherit
-    mysql
-    rdp
-    postgres
-    rabbitmq
-    vnc
-    redis
-    irc
-    elasticsearch
-    memcached
-    mongodb
     ;
 }

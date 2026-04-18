@@ -5,6 +5,7 @@ let
   ipv4 = import ../lib/ipv4.nix;
   ipv6 = import ../lib/ipv6.nix;
   ip = import ../lib/ip.nix;
+  port = import ../lib/port.nix;
 
   v4Strings = registry.bogons.ipv4;
   v6Strings = registry.bogons.ipv6;
@@ -20,6 +21,13 @@ let
 
   inV4 = s: inAnyV4 (ipv4.parse s);
   inV6 = s: inAnyV6 (ipv6.parse s);
+
+  wkp = registry.wellKnownPorts;
+  sharedNames = builtins.attrNames (builtins.intersectAttrs wkp.tcp wkp.udp);
+
+  isValidInt = v: builtins.isInt v && v >= 0 && v <= 65535;
+  allValidInts = ports: builtins.all (n: isValidInt ports.${n}) (builtins.attrNames ports);
+  allLiftable = ports: builtins.all (n: port.is (port.fromInt ports.${n})) (builtins.attrNames ports);
 in
 {
   # ===== Shape =====
@@ -131,5 +139,72 @@ in
   excludes-cloudflare-v6 = {
     expr = inV6 "2606:4700:4700::1111";
     expected = false;
+  };
+
+  # ===== wellKnownPorts — shape =====
+  wkp-tcp-nonempty = {
+    expr = wkp.tcp != { };
+    expected = true;
+  };
+  wkp-udp-nonempty = {
+    expr = wkp.udp != { };
+    expected = true;
+  };
+
+  # ===== wellKnownPorts — range =====
+  wkp-tcp-all-valid-ints = {
+    expr = allValidInts wkp.tcp;
+    expected = true;
+  };
+  wkp-udp-all-valid-ints = {
+    expr = allValidInts wkp.udp;
+    expected = true;
+  };
+
+  # ===== wellKnownPorts — liftable to Port =====
+  wkp-tcp-all-liftable = {
+    expr = allLiftable wkp.tcp;
+    expected = true;
+  };
+  wkp-udp-all-liftable = {
+    expr = allLiftable wkp.udp;
+    expected = true;
+  };
+
+  # ===== wellKnownPorts — cross-protocol consistency =====
+  # Every name present in both tcp and udp must map to the same integer.
+  wkp-shared-consistent = {
+    expr = builtins.all (n: wkp.tcp.${n} == wkp.udp.${n}) sharedNames;
+    expected = true;
+  };
+
+  # ===== wellKnownPorts — spot checks =====
+  wkp-tcp-http = {
+    expr = wkp.tcp.http;
+    expected = 80;
+  };
+  wkp-tcp-https = {
+    expr = wkp.tcp.https;
+    expected = 443;
+  };
+  wkp-tcp-ssh = {
+    expr = wkp.tcp.ssh;
+    expected = 22;
+  };
+  wkp-tcp-postgres = {
+    expr = wkp.tcp.postgres;
+    expected = 5432;
+  };
+  wkp-tcp-mongodb = {
+    expr = wkp.tcp.mongodb;
+    expected = 27017;
+  };
+  wkp-udp-dns = {
+    expr = wkp.udp.dns;
+    expected = 53;
+  };
+  wkp-udp-ntp = {
+    expr = wkp.udp.ntp;
+    expected = 123;
   };
 }

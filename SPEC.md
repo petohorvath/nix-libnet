@@ -491,40 +491,7 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `wellKnownMax` | `1023` |
 | `registeredMax` | `49151` |
 
-**Well-known service ports** (all Port values, IANA-assigned per RFC 6335):
-| `ftpData` | 20 |
-| `ftp` | 21 |
-| `ssh` | 22 |
-| `telnet` | 23 |
-| `smtp` | 25 |
-| `dns` | 53 |
-| `http` | 80 |
-| `pop3` | 110 |
-| `ntp` | 123 |
-| `imap` | 143 |
-| `snmp` | 161 |
-| `snmpTrap` | 162 |
-| `bgp` | 179 |
-| `ldap` | 389 |
-| `https` | 443 |
-| `smtps` | 465 |
-| `submission` | 587 |
-| `ldaps` | 636 |
-| `dnsTls` | 853 |
-| `imaps` | 993 |
-| `pop3s` | 995 |
-| `mysql` | 3306 |
-| `rdp` | 3389 |
-| `postgres` | 5432 |
-| `rabbitmq` | 5672 |
-| `vnc` | 5900 |
-| `redis` | 6379 |
-| `irc` | 6667 |
-| `elasticsearch` | 9200 |
-| `memcached` | 11211 |
-| `mongodb` | 27017 |
-
-Each is a Port value, not a raw int — so `port.isWellKnown port.http == true`. Use `port.toInt port.http` for the bare number.
+**Well-known service ports** live in [`libnet.registry.wellKnownPorts`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `dnsTls`, `rdp`, `memcached`) share the same port number under each key.
 
 ### `libnet.portRange`
 
@@ -844,7 +811,7 @@ in
 - Reverse DNS: `toArpa` for representative IPv4 and IPv6 addresses; round-trip through a DNS name parser not required (we only emit).
 - EUI-64: `mac.toEui64` output matches RFC 4291 § 2.5.1 for known vectors; `ipv6.fromEui64` composes correctly with a `/64` prefix and throws for prefixes > 64.
 - CIDR algebra: `summarize` collapses adjacent pairs and drops sub-ranges, preserves order, handles mixed families by partitioning; `exclude` produces minimal covering lists with hand-checked expected outputs; `intersect` returns `null` when no overlap.
-- Port constants: each constant is a valid Port value with the expected integer; `port.isWellKnown port.ssh == true`.
+- Registry well-known ports: every entry in `registry.wellKnownPorts.{tcp,udp}` lifts to a valid Port via `port.fromInt`; shared names across tcp/udp map to the same integer.
 - Bogon: `ip.isBogon (ipv4.parse "127.0.0.1") == true`, `ip.isBogon (ipv4.parse "8.8.8.8") == false`, parallel IPv6 cases.
 - Module types (via `withLib`): each `types.*` accepts valid strings unchanged, rejects malformed input with a useful error pointing at the offending option path, and merges last-wins. Mixed-family rejection for `types.ipv4Cidr`/`types.ipv6Cidr`. Smart constructor `types.*.mk` validates and fails loudly on bad input. These tests are exercised by the `full` flake check, which injects `nixpkgs.lib`; the `core` check runs with `lib = null` and skips them, proving the core stays dep-free.
 
@@ -921,7 +888,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Parse `0`, `65535`, `1`, `80`. Reject `65536`, `-1`, `+80`, `0x50`, empty, `" 80"`.
 - Predicates: `isWellKnown 22` true, `isWellKnown 1024` false, `isRegistered 1024` true, `isDynamic 49152` true, `isReserved 0` true.
 - Arithmetic: `65535 + 1` throws, `0 - 1` throws.
-- Each well-known constant has the expected int value (`toInt port.http == 80`, etc.) and is a valid Port (`is port.http == true`).
+- Registry well-known ports: spot checks for a handful of entries (e.g. `registry.wellKnownPorts.tcp.http == 80`) and fold-based validation that every integer is in range and `port.fromInt`-liftable.
 
 **PortRange**
 - Parse: `8080` (singleton), `5500-6000`, `5500:6000` (iptables), equal from/to.

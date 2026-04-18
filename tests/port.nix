@@ -203,52 +203,6 @@ in
     expected = 81;
   };
 
-  # ===== Well-known constants =====
-  const-http = {
-    expr = port.toInt port.http;
-    expected = 80;
-  };
-  const-https = {
-    expr = port.toInt port.https;
-    expected = 443;
-  };
-  const-ssh = {
-    expr = port.toInt port.ssh;
-    expected = 22;
-  };
-  const-dns = {
-    expr = port.toInt port.dns;
-    expected = 53;
-  };
-  const-smtp = {
-    expr = port.toInt port.smtp;
-    expected = 25;
-  };
-  const-postgres = {
-    expr = port.toInt port.postgres;
-    expected = 5432;
-  };
-  const-redis = {
-    expr = port.toInt port.redis;
-    expected = 6379;
-  };
-  const-mongodb = {
-    expr = port.toInt port.mongodb;
-    expected = 27017;
-  };
-  const-is-valid = {
-    expr = port.is port.http;
-    expected = true;
-  };
-  const-isWellKnown = {
-    expr = port.isWellKnown port.http;
-    expected = true;
-  };
-  const-registered = {
-    expr = port.isRegistered port.postgres;
-    expected = true;
-  };
-
   # Boundary-value ints
   wellKnownMax = {
     expr = port.wellKnownMax;

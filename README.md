@@ -6,7 +6,7 @@ interface values. Zero nixpkgs dependency in the core.
 - **IPv4**, **IPv6**, **MAC** addresses — parse, format, predicates, arithmetic, comparison
 - **CIDR** — network math, containment, iteration, subnet/supernet, set algebra
   (summarize/exclude/intersect)
-- **Ports** + **PortRange** — RFC 6335 classification, 31 well-known service constants
+- **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.wellKnownPorts`](./lib/registry.nix)
 - **Endpoint** (`ADDR:PORT`) + **Listener** (`[ADDR]:PORT[-END]`) — RFC 3986 bracketed IPv6
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
 - **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
@@ -87,12 +87,13 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.ip`](./lib/ip.nix) | Unified dispatch (auto-detect v4/v6); forwarded predicates and toArpa |
 | [`libnet.mac`](./lib/mac.nix) | parse (4 formats), toString(Hyphen/Cisco/Bare), OUI/NIC split, setLocal/setMulticast, toEui64 |
 | [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, host(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
-| [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), 31 well-known constants (`port.http`, `port.ssh`, …) |
+| [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, toEndpoints, endpoint(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
+| [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 
 ## Design highlights
