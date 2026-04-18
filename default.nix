@@ -11,6 +11,7 @@ let
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;
+    registry = import ./lib/registry.nix;
   };
 in
 core // { withLib = import ./lib/with-lib.nix core; }
