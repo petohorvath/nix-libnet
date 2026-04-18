@@ -28,6 +28,10 @@ let
   isValidInt = v: builtins.isInt v && v >= 0 && v <= 65535;
   allValidInts = ports: builtins.all (n: isValidInt ports.${n}) (builtins.attrNames ports);
   allLiftable = ports: builtins.all (n: port.is (port.fromInt ports.${n})) (builtins.attrNames ports);
+
+  icmp = registry.icmpTypes;
+  isIcmpByte = v: builtins.isInt v && v >= 0 && v <= 255;
+  allIcmpBytes = types: builtins.all (n: isIcmpByte types.${n}) (builtins.attrNames types);
 in
 {
   # ===== Shape =====
@@ -206,5 +210,104 @@ in
   wkp-udp-ntp = {
     expr = wkp.udp.ntp;
     expected = 123;
+  };
+
+  # ===== icmpTypes — shape =====
+  icmp-v4-nonempty = {
+    expr = icmp.ipv4 != { };
+    expected = true;
+  };
+  icmp-v6-nonempty = {
+    expr = icmp.ipv6 != { };
+    expected = true;
+  };
+
+  # ===== icmpTypes — range (8-bit) =====
+  icmp-v4-all-bytes = {
+    expr = allIcmpBytes icmp.ipv4;
+    expected = true;
+  };
+  icmp-v6-all-bytes = {
+    expr = allIcmpBytes icmp.ipv6;
+    expected = true;
+  };
+
+  # ===== icmpTypes — ICMPv6 partition (error <128, informational >=128) =====
+  # Per RFC 4443 §2.1, the high bit distinguishes the two classes.
+  icmp-v6-echoRequest-informational = {
+    expr = icmp.ipv6.echoRequest >= 128;
+    expected = true;
+  };
+  icmp-v6-destinationUnreachable-error = {
+    expr = icmp.ipv6.destinationUnreachable < 128;
+    expected = true;
+  };
+
+  # ===== icmpTypes — spot checks =====
+  icmp-v4-echoReply = {
+    expr = icmp.ipv4.echoReply;
+    expected = 0;
+  };
+  icmp-v4-echoRequest = {
+    expr = icmp.ipv4.echoRequest;
+    expected = 8;
+  };
+  icmp-v4-destinationUnreachable = {
+    expr = icmp.ipv4.destinationUnreachable;
+    expected = 3;
+  };
+  icmp-v4-timeExceeded = {
+    expr = icmp.ipv4.timeExceeded;
+    expected = 11;
+  };
+  icmp-v4-extendedEchoRequest = {
+    expr = icmp.ipv4.extendedEchoRequest;
+    expected = 42;
+  };
+  icmp-v4-extendedEchoReply = {
+    expr = icmp.ipv4.extendedEchoReply;
+    expected = 43;
+  };
+  icmp-v6-echoRequest = {
+    expr = icmp.ipv6.echoRequest;
+    expected = 128;
+  };
+  icmp-v6-echoReply = {
+    expr = icmp.ipv6.echoReply;
+    expected = 129;
+  };
+  icmp-v6-neighborSolicitation = {
+    expr = icmp.ipv6.neighborSolicitation;
+    expected = 135;
+  };
+  icmp-v6-neighborAdvertisement = {
+    expr = icmp.ipv6.neighborAdvertisement;
+    expected = 136;
+  };
+  icmp-v6-routerAdvertisement = {
+    expr = icmp.ipv6.routerAdvertisement;
+    expected = 134;
+  };
+  icmp-v6-extendedEchoRequest = {
+    expr = icmp.ipv6.extendedEchoRequest;
+    expected = 160;
+  };
+  icmp-v6-extendedEchoReply = {
+    expr = icmp.ipv6.extendedEchoReply;
+    expected = 161;
+  };
+  icmp-v6-rplControl = {
+    expr = icmp.ipv6.rplControl;
+    expected = 155;
+  };
+
+  # Extended Echo pair parity across v4 (RFC 8335) and v6 (RFC 8335)
+  icmp-extendedEcho-names-match = {
+    expr =
+      (icmp.ipv4 ? extendedEchoRequest)
+      && (icmp.ipv4 ? extendedEchoReply)
+      && (icmp.ipv6 ? extendedEchoRequest)
+      && (icmp.ipv6 ? extendedEchoReply);
+    expected = true;
   };
 }

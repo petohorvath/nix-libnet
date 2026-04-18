@@ -67,4 +67,46 @@
       memcached = 11211;
     };
   };
+
+  icmpTypes = {
+    ipv4 = {
+      echoReply = 0;
+      destinationUnreachable = 3;
+      redirect = 5;
+      echoRequest = 8;
+      routerAdvertisement = 9;
+      routerSolicitation = 10;
+      timeExceeded = 11;
+      parameterProblem = 12;
+      extendedEchoRequest = 42;
+      extendedEchoReply = 43;
+    };
+
+    ipv6 = {
+      destinationUnreachable = 1;
+      packetTooBig = 2;
+      timeExceeded = 3;
+      parameterProblem = 4;
+      echoRequest = 128;
+      echoReply = 129;
+      multicastListenerQuery = 130;
+      multicastListenerReport = 131;
+      multicastListenerDone = 132;
+      routerSolicitation = 133;
+      routerAdvertisement = 134;
+      neighborSolicitation = 135;
+      neighborAdvertisement = 136;
+      redirect = 137;
+      multicastListenerReportV2 = 143;
+      multicastRouterAdvertisement = 151;
+      multicastRouterSolicitation = 152;
+      multicastRouterTermination = 153;
+      rplControl = 155;
+      duplicateAddressRequest = 157;
+      duplicateAddressConfirmation = 158;
+      mplControl = 159;
+      extendedEchoRequest = 160;
+      extendedEchoReply = 161;
+    };
+  };
 }
