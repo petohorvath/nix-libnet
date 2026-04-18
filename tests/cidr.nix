@@ -449,6 +449,45 @@ in
     expr = throws (cidr.subnet 17 (p "10.0.0.0/8"));
     expected = true;
   };
+  subnet-v6-1-split-2 = {
+    expr = map cidr.toString (cidr.subnet 1 (p "2001:db8::/64"));
+    expected = [
+      "2001:db8::/65"
+      "2001:db8:0:0:8000::/65"
+    ];
+  };
+  subnet-v6-2-split-4 = {
+    expr = map cidr.toString (cidr.subnet 2 (p "2001:db8::/64"));
+    expected = [
+      "2001:db8::/66"
+      "2001:db8:0:0:4000::/66"
+      "2001:db8:0:0:8000::/66"
+      "2001:db8:0:0:c000::/66"
+    ];
+  };
+  subnet-v6-0-identity = {
+    expr = map cidr.toString (cidr.subnet 0 (p "2001:db8::/64"));
+    expected = [ "2001:db8::/64" ];
+  };
+  subnet-v6-of-0 = {
+    expr = map cidr.toString (cidr.subnet 1 (p "::/0"));
+    expected = [
+      "::/1"
+      "8000::/1"
+    ];
+  };
+  subnet-v6-of-127 = {
+    expr = map cidr.toString (cidr.subnet 1 (p "2001:db8::/127"));
+    expected = [
+      "2001:db8::/128"
+      "2001:db8::1/128"
+    ];
+  };
+  subnet-v6-exceeds-max = {
+    expr = throws (cidr.subnet 1 (p "::1/128"));
+    expected = true;
+  };
+
   supernet-1 = {
     expr = cidr.toString (cidr.supernet 1 (p "10.0.0.0/24"));
     expected = "10.0.0.0/23";
@@ -532,6 +571,37 @@ in
       "10.0.0.64/26"
       "10.0.0.128/25"
     ];
+  };
+  exclude-v6-half = {
+    expr = map cidr.toString (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/65"));
+    expected = [ "2001:db8:0:0:8000::/65" ];
+  };
+  exclude-v6-self = {
+    expr = cidr.exclude (p "2001:db8::/64") (p "2001:db8::/64");
+    expected = [ ];
+  };
+  exclude-v6-depth-2 = {
+    expr = map cidr.toString (cidr.exclude (p "2001:db8::/126") (p "2001:db8::/128"));
+    expected = [
+      "2001:db8::1/128"
+      "2001:db8::2/127"
+    ];
+  };
+  exclude-v6-deep-len = {
+    expr = builtins.length (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128"));
+    expected = 64;
+  };
+  exclude-v6-deep-first = {
+    expr = cidr.toString (builtins.elemAt (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128")) 0);
+    expected = "2001:db8::1/128";
+  };
+  exclude-v6-deep-last = {
+    expr = cidr.toString (builtins.elemAt (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128")) 63);
+    expected = "2001:db8:0:0:8000::/65";
+  };
+  exclude-v6-not-parent = {
+    expr = throws (cidr.exclude (p "2001:db8::/64") (p "2001:dead::/128"));
+    expected = true;
   };
 
   intersect-contained = {

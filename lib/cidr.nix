@@ -1,5 +1,6 @@
 let
   bits = import ./internal/bits.nix;
+  carry = import ./internal/carry.nix;
   parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
@@ -293,6 +294,58 @@ let
     in
     if isV4 c.address then c.address.value == n.value else c.address.words == n.words;
 
+  # Internal: ipv6 value = base + (i * 2^shift), computed directly on words.
+  # Used by subnet for v6 where 2^(mp - newPrefix) can exceed pow2's 62-bit cap.
+  # Preconditions (enforced by subnet caller): 0 <= shift < 128 when i > 0;
+  # bits.shl (shift mod 32) i must fit in a Nix int.
+  v6AddBlockOffset =
+    shift: i: base:
+    if i == 0 then
+      base
+    else
+      let
+        wordIdx = 3 - (shift / 32);
+        inWord = shift - 32 * (shift / 32);
+        shifted = bits.shl inWord i;
+        lowPart = builtins.bitAnd shifted bits.mask32;
+        highPart = if inWord == 0 then 0 else bits.shr (32 - inWord) i;
+      in
+      if wordIdx == 0 && highPart > 0 then
+        builtins.throw "libnet.cidr.subnet: block offset overflow beyond 2^128"
+      else
+        let
+          offsetOf =
+            idx:
+            if idx == wordIdx then
+              lowPart
+            else if idx == wordIdx - 1 then
+              highPart
+            else
+              0;
+          o0 = offsetOf 0;
+          o1 = offsetOf 1;
+          o2 = offsetOf 2;
+          o3 = offsetOf 3;
+          ws = base.words;
+          w0 = builtins.elemAt ws 0;
+          w1 = builtins.elemAt ws 1;
+          w2 = builtins.elemAt ws 2;
+          w3 = builtins.elemAt ws 3;
+          r3 = carry.add32 w3 o3 0;
+          r2 = carry.add32 w2 o2 r3.carry;
+          r1 = carry.add32 w1 o1 r2.carry;
+          r0 = carry.add32 w0 o0 r1.carry;
+        in
+        if r0.carry == 1 then
+          builtins.throw "libnet.cidr.subnet: block offset overflow beyond 2^128"
+        else
+          ipv6.fromWords [
+            r0.sum
+            r1.sum
+            r2.sum
+            r3.sum
+          ];
+
   subnet =
     n: c:
     if !(builtins.isInt n) || n < 0 then
@@ -310,10 +363,17 @@ let
         let
           count = bits.pow2 n;
           base = network c;
-          blockSize = bits.pow2 (mp - newPrefix);
-          addFn = if isV4 c.address then ipv4.add else ipv6.add;
+          bitsToShift = mp - newPrefix;
+          mkBlock =
+            if isV4 c.address then
+              let
+                blockSize = bits.pow2 bitsToShift;
+              in
+              i: mk (ipv4.add (i * blockSize) base) newPrefix
+            else
+              i: mk (v6AddBlockOffset bitsToShift i base) newPrefix;
         in
-        builtins.genList (i: mk (addFn (i * blockSize) base) newPrefix) count;
+        builtins.genList mkBlock count;
 
   supernet =
     n: c:
