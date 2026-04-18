@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"endpoint"`, `"listener"`, `"range"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"endpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -42,7 +42,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Spec scope | Comprehensive: IPv4, IPv6, MAC, CIDR, Port, PortRange, Endpoint, Listener, Range, Interface — plus reverse-DNS (`toArpa`), EUI-64 derivation, CIDR set algebra (`summarize`/`exclude`/`intersect`), well-known port constants, bogon predicate | User answers across multiple iterations. One coherent API rather than iterative expansion. |
+| Spec scope | Comprehensive: IPv4, IPv6, MAC, CIDR, Port, PortRange, Endpoint, Listener, IpRange, Interface — plus reverse-DNS (`toArpa`), EUI-64 derivation, CIDR set algebra (`summarize`/`exclude`/`intersect`), well-known port constants, bogon predicate | User answers across multiple iterations. One coherent API rather than iterative expansion. |
 | IPv6 internal representation | 4 × u32 words | User answer 2. Simpler carry math than 8 × u16; u32 comfortably fits Nix's signed 64-bit ints (max 2⁶³−1 ≈ 9.2 × 10¹⁸). |
 | Namespace | Flat per-family + unified `ip.*` | User answer 3. `libnet.ipv4.*`, `libnet.ipv6.*`, `libnet.mac.*`, `libnet.cidr.*`, `libnet.ip.*`. |
 | IPv4 internal representation | single u32 int | 32 bits fits natively. Simplest possible arithmetic. |
@@ -58,12 +58,12 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 | PortRange internal representation | `{ _type; from; to; }` with `from <= to` | Contiguous range is the only shape we support (no disjoint sets in v1). |
 | Endpoint internal representation | `{ _type; address; port; }` with both required | Fully-specified destination; mirrors RFC 3986 authority. |
 | Listener internal representation | `{ _type; address; portRange; }` with `address` nullable | Relaxed form for listen/bind; port is always a range (possibly size 1). |
-| Range internal representation | `{ _type; from; to; }` — both same-family tagged addresses, `to >= from` | Non-CIDR contiguous range. Parallels portRange for addresses. |
+| IpRange internal representation | `{ _type; from; to; }` — both same-family tagged addresses, `to >= from` | Non-CIDR contiguous range. Parallels portRange for addresses. |
 | Interface internal representation | `{ _type; address; prefix; }` — same shape as cidr, distinguished by tag | Address-on-a-subnet semantics (Python's `IPv4Interface` analog). Distinct from cidr by type tag: cidr address is usually canonical (network), interface address is the host. `interface.network` derives the canonical cidr. |
 | Endpoint IPv6 format | brackets mandatory on parse and output (`[::1]:80`) | RFC 3986 § 3.2.2. Unbracketed IPv6 ambiguous vs port separator. |
 | PortRange canonical separator | `-` (hyphen) | Dominant modern convention (nftables, Docker, k8s, pf). `:` accepted on parse for iptables interop. |
 | Listener wildcard input forms | `*`, `any`, `0.0.0.0`, `[::]`, or missing address | Accept all common conventions; canonical output omits address entirely (`:8080`). |
-| Range canonical separator | `-` (hyphen) | Parallels portRange separator. |
+| IpRange canonical separator | `-` (hyphen) | Parallels portRange separator. |
 | EUI-64 form | Modified EUI-64 per RFC 4291 (u/l bit flipped) | This is the form used for IPv6 interface identifiers. Raw EUI-64 not exposed in v1. |
 
 ## Data Model
@@ -181,10 +181,10 @@ Fully-specified destination for "connect". Canonical text form follows RFC 3986:
 ```
 Listen/bind target with relaxed semantics: address may be absent (means "any interface"), and the port portion may be a range. Canonical text form: `[address]:from[-to]` where the address bracket rule matches endpoint, and `-to` is omitted when `from == to`. Empty address renders as `:8080`. Input accepts `*`, `any`, `0.0.0.0`, `[::]`, or missing address as equivalent wildcards.
 
-### Range value
+### IpRange value
 ```nix
 {
-  _type = "range";
+  _type = "ipRange";
   from = <ipv4 value | ipv6 value>;
   to   = <ipv4 value | ipv6 value>;   # same family as `from`; ipToInt to >= ipToInt from
 }
@@ -219,7 +219,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `portRange` | — | `from`, `to` (int, int) |
 | `endpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
-| `range` | `from`, `to` (Ipv4/Ipv6) | — |
+| `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6) | `prefix` (int) |
 
 Rationale for the asymmetry in PortRange vs Endpoint: a Port standing alone has semantic meaning and predicates (`isWellKnown`, etc.), so Endpoint carries it tagged. A port-range boundary only exists within a range and never travels alone, so from/to stay as ints (parallel to how `cidr.prefix` is an int).
@@ -618,42 +618,42 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, portRange)`. Null address sorts before any non-null address. Mixed family follows the lenient v4-before-v6 rule.
 
-### `libnet.range`
+### `libnet.ipRange`
 
 Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr` as a network-block abstraction but without alignment constraints. Useful for firewall iprange rules and DHCP pools.
 
 **Parsing & formatting**
-| `parse` | `String → Range` | `"1.2.3.4-1.2.3.10"` or `"2001:db8::1-2001:db8::ff"`. Throws on malformed, wrong ordering (`to < from`), or mixed families. |
-| `tryParse` | `String → TryResult Range` |
-| `toString` | `Range → String` | Canonical `from-to`. |
-| `make` | `(Ipv4 | Ipv6) → (Ipv4 | Ipv6) → Range` | Same family required; throws if `to < from`. |
-| `singleton` | `(Ipv4 | Ipv6) → Range` | Range containing exactly one address. |
+| `parse` | `String → IpRange` | `"1.2.3.4-1.2.3.10"` or `"2001:db8::1-2001:db8::ff"`. Throws on malformed, wrong ordering (`to < from`), or mixed families. |
+| `tryParse` | `String → TryResult IpRange` |
+| `toString` | `IpRange → String` | Canonical `from-to`. |
+| `make` | `(Ipv4 | Ipv6) → (Ipv4 | Ipv6) → IpRange` | Same family required; throws if `to < from`. |
+| `singleton` | `(Ipv4 | Ipv6) → IpRange` | Range containing exactly one address. |
 
 **Predicates**
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
-| `isIpv4` / `isIpv6` | `Range → Bool` |
-| `isSingleton` | `Range → Bool` |
+| `isIpv4` / `isIpv6` | `IpRange → Bool` |
+| `isSingleton` | `IpRange → Bool` |
 
 **Accessors**
-| `from` / `to` | `Range → (Ipv4 | Ipv6)` |
-| `size` | `Range → Int` | `ipToInt(to) - ipToInt(from) + 1`. Throws on IPv6 ranges wider than 2⁶³ addresses. |
-| `version` | `Range → Int` |
+| `from` / `to` | `IpRange → (Ipv4 | Ipv6)` |
+| `size` | `IpRange → Int` | `ipToInt(to) - ipToInt(from) + 1`. Throws on IPv6 ranges wider than 2⁶³ addresses. |
+| `version` | `IpRange → Int` |
 
 **Containment & relationships**
-| `contains` | `Range → (Ipv4 | Ipv6) → Bool` |
-| `overlaps` | `Range → Range → Bool` | Symmetric. |
-| `isSubrangeOf` | `Range → Range → Bool` |
-| `isSuperrangeOf` | `Range → Range → Bool` |
-| `merge` | `Range → Range → (Range | null)` | Unified range if adjacent or overlapping, else `null`. |
+| `contains` | `IpRange → (Ipv4 | Ipv6) → Bool` |
+| `overlaps` | `IpRange → IpRange → Bool` | Symmetric. |
+| `isSubrangeOf` | `IpRange → IpRange → Bool` |
+| `isSuperrangeOf` | `IpRange → IpRange → Bool` |
+| `merge` | `IpRange → IpRange → (IpRange | null)` | Unified range if adjacent or overlapping, else `null`. |
 
 **Enumeration**
-| `addresses` | `Range → [(Ipv4 | Ipv6)]` | Enumerate all addresses. Throws if `size > 2¹⁶`; use `addressesUnbounded` to bypass. |
-| `addressesUnbounded` | `Range → [(Ipv4 | Ipv6)]` | No size guard. |
+| `addresses` | `IpRange → [(Ipv4 | Ipv6)]` | Enumerate all addresses. Throws if `size > 2¹⁶`; use `addressesUnbounded` to bypass. |
+| `addressesUnbounded` | `IpRange → [(Ipv4 | Ipv6)]` | No size guard. |
 
 **CIDR interop**
-| `toCidrs` | `Range → [Cidr]` | Minimal set of CIDRs exactly covering this range. Inverse of a naive CIDR-to-range. |
-| `fromCidr` | `Cidr → Range` | Convert a CIDR block into a range (network..broadcast or network..last for IPv6). |
+| `toCidrs` | `IpRange → [Cidr]` | Minimal set of CIDRs exactly covering this range. Inverse of a naive CIDR-to-range. |
+| `fromCidr` | `Cidr → IpRange` | Convert a CIDR block into a range (network..broadcast or network..last for IPv6). |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on `(family, from, to)`. Lenient cross-family rule.
 
@@ -683,7 +683,7 @@ Address-on-a-subnet descriptor: *"host X is on network Y"*. Distinct from CIDR (
 
 **Conversions**
 | `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. |
-| `toRange` | `Interface → Range` | Convert the network to a range. |
+| `toRange` | `Interface → IpRange` | Convert the network to a range. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on `(family, address, prefix)`.
 
@@ -722,7 +722,7 @@ in {
 | `types.portRange` | String (`from-to` or single `port`). | String. |
 | `types.endpoint` | String (RFC 3986 `host:port` or `[IPv6]:port`). | String. |
 | `types.listener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
-| `types.range` | String (`from-to`). | String. |
+| `types.ipRange` | String (`from-to`). | String. |
 | `types.interface` | String (`<addr>/<prefix>`, host bits preserved). | String. |
 | `types.ipv4Interface` / `types.ipv6Interface` | As above, family-restricted. | String. |
 
@@ -775,7 +775,7 @@ nix-libnet/
 │   ├── port-range.nix
 │   ├── endpoint.nix
 │   ├── listener.nix
-│   ├── range.nix
+│   ├── ip-range.nix
 │   ├── interface.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
@@ -797,7 +797,7 @@ nix-libnet/
 │   ├── port-range.nix
 │   ├── endpoint.nix
 │   ├── listener.nix
-│   ├── range.nix
+│   ├── ip-range.nix
 │   ├── interface.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
@@ -839,7 +839,7 @@ in
 - PortRange: parse of single port, `from-to`, `from:to`; `from > to` rejected; `contains`/`overlaps`/`merge` edge cases at adjacency boundaries; `ports` size guard triggers at 4097 (4097-wide range throws, 4096-wide passes); `portsUnbounded` bypasses.
 - Endpoint: IPv4 and IPv6 parse both succeed; unbracketed IPv6 rejected with a clear error; missing port rejected; canonical round-trip for each family.
 - Listener: `:8080`, `:5500-6000`, `*:80`, `any:80`, `0.0.0.0:80`, `[::]:80` all parse to the expected shape; `isAnyAddress` matches on all wildcard variants; `toEndpoints` respects size guard.
-- Range: parse of IPv4/IPv6, rejects `to < from` and mixed families; `contains`/`overlaps`/`merge` edge cases; `toCidrs`/`fromCidr` round-trip for aligned ranges and a few unaligned cases; `addresses` size guard at 2¹⁶.
+- IpRange: parse of IPv4/IPv6, rejects `to < from` and mixed families; `contains`/`overlaps`/`merge` edge cases; `toCidrs`/`fromCidr` round-trip for aligned ranges and a few unaligned cases; `addresses` size guard at 2¹⁶.
 - Interface: parse preserves host address (does NOT zero host bits, unlike CIDR); `toCidr` extracts network; equality semantics distinguish `192.168.1.5/24` from `192.168.1.5/25` and from a bare CIDR value.
 - Reverse DNS: `toArpa` for representative IPv4 and IPv6 addresses; round-trip through a DNS name parser not required (we only emit).
 - EUI-64: `mac.toEui64` output matches RFC 4291 § 2.5.1 for known vectors; `ipv6.fromEui64` composes correctly with a `/64` prefix and throws for prefixes > 64.
@@ -945,12 +945,12 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - `toEndpoints` on non-wildcard listener with 10-port range yields 10 endpoints in ascending order; throws on null address; respects size guard.
 - `endpoint n listener`: valid `n`, boundary `n`, out-of-range throws, null address throws.
 
-**Range**
+**IpRange**
 - Parse: `1.2.3.4-1.2.3.10` (IPv4), `2001:db8::1-2001:db8::ff` (IPv6), singleton `1.2.3.4-1.2.3.4`.
 - Reject: mixed families `1.2.3.4-::1`, reversed `1.2.3.10-1.2.3.4`, missing dash, single address without range form.
 - `contains`, `overlaps`, `merge` (adjacent yields combined, disjoint yields null).
 - `toCidrs`: aligned range `10.0.0.0-10.0.0.255` → `[10.0.0.0/24]`; unaligned `10.0.0.1-10.0.0.6` → `[10.0.0.1/32, 10.0.0.2/31, 10.0.0.4/31, 10.0.0.6/32]`.
-- `fromCidr (parse "10.0.0.0/24") == range "10.0.0.0-10.0.0.255"`.
+- `fromCidr (parse "10.0.0.0/24") == ipRange "10.0.0.0-10.0.0.255"`.
 - `size` guard: 2¹⁶ addresses works; one larger throws.
 
 **Interface**
@@ -985,7 +985,7 @@ Once the spec is approved, implementation proceeds in dependency order:
 7. **`lib/ipv6.nix`** + tests — largest module; parsing is the hardest piece.
 8. **`lib/cidr.nix`** + tests — composes on top of ipv4/ipv6.
 9. **`lib/ip.nix`** + tests — thin dispatch layer, includes `isBogon` and `toArpa` dispatch.
-10. **`lib/range.nix`** + tests — depends on ipv4/ipv6/cidr.
+10. **`lib/ip-range.nix`** + tests — depends on ipv4/ipv6/cidr.
 11. **`lib/interface.nix`** + tests — depends on ipv4/ipv6/cidr.
 12. **`lib/port.nix`** + tests — trivial type plus well-known-port constants; unblocks endpoint/listener.
 13. **`lib/port-range.nix`** + tests — depends on `port`.

@@ -194,17 +194,17 @@ in
     expected = true;
   };
 
-  # ===== range =====
-  range-v4 = {
-    expr = types.range.check "1.2.3.4-1.2.3.10";
+  # ===== ipRange =====
+  ipRange-v4 = {
+    expr = types.ipRange.check "1.2.3.4-1.2.3.10";
     expected = true;
   };
-  range-v6 = {
-    expr = types.range.check "::1-::ff";
+  ipRange-v6 = {
+    expr = types.ipRange.check "::1-::ff";
     expected = true;
   };
-  range-bad = {
-    expr = types.range.check "1.2.3.4";
+  ipRange-bad = {
+    expr = types.ipRange.check "1.2.3.4";
     expected = false;
   };
 

@@ -8,7 +8,7 @@ let
     portRange = "portRange";
     endpoint = "endpoint";
     listener = "listener";
-    range = "range";
+    ipRange = "ipRange";
     interface = "interface";
   };
 
@@ -22,7 +22,7 @@ let
   isPortRange = hasTag tags.portRange;
   isEndpoint = hasTag tags.endpoint;
   isListener = hasTag tags.listener;
-  isRange = hasTag tags.range;
+  isIpRange = hasTag tags.ipRange;
   isInterface = hasTag tags.interface;
   isIp = v: isIpv4 v || isIpv6 v;
 
@@ -57,7 +57,7 @@ in
     isPortRange
     isEndpoint
     isListener
-    isRange
+    isIpRange
     isInterface
     isIp
     ;

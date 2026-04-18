@@ -8,7 +8,7 @@ let
   portRange = import ./port-range.nix;
   endpoint = import ./endpoint.nix;
   listener = import ./listener.nix;
-  range = import ./range.nix;
+  ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
   port = import ./port.nix;
 
@@ -100,10 +100,10 @@ let
     validator = listener.isValid;
   };
 
-  rangeType = mkStrType {
-    typeName = "range";
-    description = "an address range (from-to)";
-    validator = range.isValid;
+  ipRangeType = mkStrType {
+    typeName = "ipRange";
+    description = "an IP address range (from-to)";
+    validator = ipRange.isValid;
   };
 
   interfaceType = mkStrType {
@@ -160,7 +160,7 @@ in
     portRange = portRangeType;
     endpoint = endpointType;
     listener = listenerType;
-    range = rangeType;
+    ipRange = ipRangeType;
     interface = interfaceType;
     ipv4Interface = ipv4InterfaceType;
     ipv6Interface = ipv6InterfaceType;

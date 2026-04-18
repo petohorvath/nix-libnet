@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full v1 implementation of all 11 type namespaces:
   - `lib/ipv4.nix`, `lib/ipv6.nix`, `lib/ip.nix`, `lib/mac.nix`, `lib/cidr.nix`
   - `lib/port.nix` (with 31 well-known service constants), `lib/port-range.nix`
-  - `lib/endpoint.nix`, `lib/listener.nix`, `lib/range.nix`, `lib/interface.nix`
+  - `lib/endpoint.nix`, `lib/listener.nix`, `lib/ip-range.nix`, `lib/interface.nix`
 - Internal primitives: `lib/internal/{bits,carry,parse,format,types}.nix`
 - Opt-in NixOS module types via `libnet.withLib pkgs.lib` (see `lib/types.nix`).
 - `default.nix` + `flake.nix` entry points.

@@ -7,7 +7,7 @@ let
   cidr = import ./cidr.nix;
 
   mk = f: t: {
-    _type = "range";
+    _type = "ipRange";
     from = f;
     to = t;
   };
@@ -27,14 +27,14 @@ let
   tryParse =
     s:
     if !(builtins.isString s) then
-      types.tryErr "libnet.range.parse: input must be a string"
+      types.tryErr "libnet.ipRange.parse: input must be a string"
     else
       let
         parts = parse'.splitOn "-" s;
         len = builtins.length parts;
       in
       if len != 2 then
-        types.tryErr "libnet.range.parse: missing '-' or too many: \"${s}\""
+        types.tryErr "libnet.ipRange.parse: missing '-' or too many: \"${s}\""
       else
         let
           fromStr = builtins.elemAt parts 0;
@@ -44,13 +44,13 @@ let
           toRes = if isV6Str toStr then ipv6.tryParse toStr else ipv4.tryParse toStr;
         in
         if !fromRes.success then
-          types.tryErr "libnet.range.parse: invalid 'from': ${fromRes.error}"
+          types.tryErr "libnet.ipRange.parse: invalid 'from': ${fromRes.error}"
         else if !toRes.success then
-          types.tryErr "libnet.range.parse: invalid 'to': ${toRes.error}"
+          types.tryErr "libnet.ipRange.parse: invalid 'to': ${toRes.error}"
         else if fromRes.value._type != toRes.value._type then
-          types.tryErr "libnet.range.parse: mixed families in \"${s}\""
+          types.tryErr "libnet.ipRange.parse: mixed families in \"${s}\""
         else if !(leFor fromRes.value fromRes.value toRes.value) then
-          types.tryErr "libnet.range.parse: 'from' > 'to' in \"${s}\""
+          types.tryErr "libnet.ipRange.parse: 'from' > 'to' in \"${s}\""
         else
           types.tryOk (mk fromRes.value toRes.value);
 
@@ -71,27 +71,27 @@ let
   make =
     f: t:
     if !(types.isIp f) then
-      builtins.throw "libnet.range.make: 'from' must be ipv4 or ipv6"
+      builtins.throw "libnet.ipRange.make: 'from' must be ipv4 or ipv6"
     else if !(types.isIp t) then
-      builtins.throw "libnet.range.make: 'to' must be ipv4 or ipv6"
+      builtins.throw "libnet.ipRange.make: 'to' must be ipv4 or ipv6"
     else if f._type != t._type then
-      builtins.throw "libnet.range.make: mixed families"
+      builtins.throw "libnet.ipRange.make: mixed families"
     else if !(leFor f f t) then
-      builtins.throw "libnet.range.make: 'from' > 'to'"
+      builtins.throw "libnet.ipRange.make: 'from' > 'to'"
     else
       mk f t;
 
   singleton =
     addr:
     if !(types.isIp addr) then
-      builtins.throw "libnet.range.singleton: expected ipv4 or ipv6 value"
+      builtins.throw "libnet.ipRange.singleton: expected ipv4 or ipv6 value"
     else
       mk addr addr;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = types.isRange;
+  is = types.isIpRange;
   isIpv4 = r: isV4 r.from;
   isIpv6 = r: isV6 r.from;
   isSingleton = r: if isV4 r.from then r.from.value == r.to.value else r.from.words == r.to.words;
@@ -187,7 +187,7 @@ let
       sz = size r;
     in
     if sz > bits.pow2 16 then
-      builtins.throw "libnet.range.addresses: range too large (${builtins.toString sz} > 2^16); use addressesUnbounded"
+      builtins.throw "libnet.ipRange.addresses: range too large (${builtins.toString sz} > 2^16); use addressesUnbounded"
     else
       addressesUnbounded r;
 
@@ -196,7 +196,7 @@ let
   fromCidr =
     c:
     if !(types.isCidr c) then
-      builtins.throw "libnet.range.fromCidr: expected a cidr value"
+      builtins.throw "libnet.ipRange.fromCidr: expected a cidr value"
     else
       mk (cidr.network c) (cidr.topAddress c);
 

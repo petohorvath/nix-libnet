@@ -20,7 +20,7 @@ let
     // prefix "ipv6" (tryImport "ipv6.nix")
     // prefix "cidr" (tryImport "cidr.nix")
     // prefix "ip" (tryImport "ip.nix")
-    // prefix "range" (tryImport "range.nix")
+    // prefix "ipRange" (tryImport "ip-range.nix")
     // prefix "iface" (tryImport "interface.nix")
     // prefix "port" (tryImport "port.nix")
     // prefix "pr" (tryImport "port-range.nix")

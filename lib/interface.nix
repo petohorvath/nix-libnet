@@ -4,7 +4,7 @@ let
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
-  range = import ./range.nix;
+  ipRange = import ./ip-range.nix;
 
   mk = addr: prefix: {
     _type = "interface";
@@ -113,7 +113,7 @@ let
 
   toCidr = i: network i;
 
-  toRange = i: range.fromCidr (network i);
+  toRange = i: ipRange.fromCidr (network i);
 
   # ===== Comparison =====
 

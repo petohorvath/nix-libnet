@@ -9,7 +9,7 @@ let
     portRange = import ./lib/port-range.nix;
     endpoint = import ./lib/endpoint.nix;
     listener = import ./lib/listener.nix;
-    range = import ./lib/range.nix;
+    ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;
   };
 in

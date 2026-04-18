@@ -91,7 +91,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, toEndpoints, endpoint(n) |
-| [`libnet.range`](./lib/range.nix) | parse, contains, merge, toCidrs, fromCidr |
+| [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 
