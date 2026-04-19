@@ -1,3 +1,16 @@
+/*
+  libnet.ipv4
+
+  Parse, format, compare, and do arithmetic on IPv4 addresses. The
+  canonical internal form is a single u32 carried on a tagged attrset.
+
+  Example:
+    libnet.ipv4.parse "192.0.2.1"
+    => { _type = "ipv4"; value = 3221225985; }
+
+    libnet.ipv4.toString (libnet.ipv4.next (libnet.ipv4.parse "10.0.0.1"))
+    => "10.0.0.2"
+*/
 let
   bits = import ./internal/bits.nix;
   parse' = import ./internal/parse.nix;

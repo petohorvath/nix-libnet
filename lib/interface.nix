@@ -1,3 +1,15 @@
+/*
+  libnet.interface
+
+  Network interface descriptor: an optional Linux ifname combined
+  with an optional address and prefix length. The ifname validator
+  mirrors the kernel's dev_valid_name (length < IFNAMSIZ, not "." or
+  "..", no '/', ':', or whitespace).
+
+  Example:
+    libnet.interface.make (libnet.ipv4.parse "192.0.2.1") 24
+    => { _type = "interface"; name = null; address = <ipv4>; prefix = 24; }
+*/
 let
   parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;

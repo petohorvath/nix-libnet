@@ -1,3 +1,17 @@
+/*
+  libnet.ipv6
+
+  Parse, format, compare, and do arithmetic on IPv6 addresses. The
+  internal form is four u32 words (high-to-low, words[0] most
+  significant); output follows RFC 5952 canonical formatting.
+
+  Example:
+    libnet.ipv6.parse "2001:DB8:0:0::0001"
+    => { _type = "ipv6"; words = [ 536939960 0 0 1 ]; }
+
+    libnet.ipv6.toString (libnet.ipv6.parse "2001:DB8:0:0::0001")
+    => "2001:db8::1"
+*/
 let
   bits = import ./internal/bits.nix;
   parse' = import ./internal/parse.nix;

@@ -1,3 +1,17 @@
+/*
+  libnet.mac
+
+  Parse, format, and manipulate 48-bit MAC addresses. Accepts colon,
+  hyphen, Cisco dotted, and bare 12-hex-char input; supports OUI/NIC
+  split and EUI-64 modified form.
+
+  Example:
+    libnet.mac.parse "a0:36:9f:1b:1e:55"
+    => { _type = "mac"; value = 176028872726357; }
+
+    libnet.mac.toString (libnet.mac.parse "a036.9f1b.1e55")
+    => "a0:36:9f:1b:1e:55"
+*/
 let
   bits = import ./internal/bits.nix;
   parse' = import ./internal/parse.nix;

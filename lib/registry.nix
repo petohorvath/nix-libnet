@@ -1,3 +1,18 @@
+/*
+  libnet.registry
+
+  Static lookup tables: bogon prefix lists for IPv4 and IPv6, common
+  TCP/UDP well-known service ports, and ICMP / ICMPv6 type numbers.
+  All entries are plain Nix literals — parse them through libnet.cidr
+  or libnet.port as needed.
+
+  Example:
+    libnet.registry.wellKnownPorts.tcp.https
+    => 443
+
+    builtins.head libnet.registry.bogons.ipv4
+    => "0.0.0.0/32"
+*/
 {
   bogons = {
     ipv4 = [

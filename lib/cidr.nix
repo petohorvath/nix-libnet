@@ -1,3 +1,17 @@
+/*
+  libnet.cidr
+
+  Parse and operate on CIDR blocks (IPv4 and IPv6). Provides network,
+  broadcast, and host derivation, prefix arithmetic (subnet, supernet),
+  and set operations (summarize, exclude, intersect).
+
+  Example:
+    libnet.cidr.parse "192.0.2.0/24"
+    => { _type = "cidr"; address = <ipv4 192.0.2.0>; prefix = 24; }
+
+    libnet.cidr.toString (libnet.cidr.parse "2001:DB8::/32")
+    => "2001:db8::/32"
+*/
 let
   bits = import ./internal/bits.nix;
   carry = import ./internal/carry.nix;

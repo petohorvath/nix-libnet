@@ -1,3 +1,17 @@
+/*
+  libnet.listener
+
+  A listening socket: an optional IP address paired with a port range.
+  Parses bare-port (":8080"), address+port ("192.0.2.1:80"), bracketed
+  v6 ("[::1]:80"), and range ("192.0.2.1:8000-8100") forms.
+
+  Example:
+    libnet.listener.parse "192.0.2.1:8000-8100"
+    => { _type = "listener"; address = <ipv4>; portRange = <8000-8100>; }
+
+    builtins.length (libnet.listener.toEndpoints (libnet.listener.parse ":80-82"))
+    => 3
+*/
 let
   parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;

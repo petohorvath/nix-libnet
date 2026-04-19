@@ -1,3 +1,17 @@
+/*
+  libnet.ip
+
+  Unified IPv4/IPv6 dispatch. Auto-detects the family from input
+  (strings containing ':' go to ipv6) and forwards predicates,
+  comparisons, and arithmetic to the underlying family module.
+
+  Example:
+    libnet.ip.parse "192.0.2.1"    # tagged ipv4
+    libnet.ip.parse "2001:db8::1"  # tagged ipv6
+
+    libnet.ip.version (libnet.ip.parse "::1")
+    => 6
+*/
 let
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;

@@ -1,3 +1,16 @@
+/*
+  libnet.endpoint
+
+  An IP address paired with a port. Parses the v4 dotted form
+  ("host:port") and the v6 bracketed form ("[host]:port").
+
+  Example:
+    libnet.endpoint.parse "192.0.2.1:8080"
+    => { _type = "endpoint"; address = <ipv4>; port = <port 8080>; }
+
+    libnet.endpoint.toString (libnet.endpoint.parse "[2001:db8::1]:80")
+    => "[2001:db8::1]:80"
+*/
 let
   parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;

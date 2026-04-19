@@ -1,3 +1,19 @@
+/*
+  libnet.types
+
+  NixOS option-type integration. Produces string-backed option types
+  (ipv4, ipv6, ip, mac, cidr, port, portRange, endpoint, listener,
+  ipRange, interface) plus `.mk` coercers that validate and return
+  the string.
+
+  Requires `nixpkgs.lib`. This and `lib/with-lib.nix` are the only
+  files allowed to consume injected lib; reach this module only
+  through `libnet.withLib pkgs.lib`.
+
+  Example:
+    (libnet.withLib pkgs.lib).types.ipv4.mk "192.0.2.1"
+    => "192.0.2.1"
+*/
 { lib }:
 let
   ipv4 = import ./ipv4.nix;

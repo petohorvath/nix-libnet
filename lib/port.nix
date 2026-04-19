@@ -1,3 +1,17 @@
+/*
+  libnet.port
+
+  Validate and manipulate TCP/UDP port numbers (0..65535). Predicates
+  classify ports as well-known (0..1023), registered (1024..49151),
+  or dynamic / ephemeral (49152..65535).
+
+  Example:
+    libnet.port.parse "8080"
+    => { _type = "port"; value = 8080; }
+
+    libnet.port.isDynamic (libnet.port.parse "50000")
+    => true
+*/
 let
   parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;

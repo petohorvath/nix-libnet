@@ -1,3 +1,18 @@
+/*
+  libnet.ipRange
+
+  An inclusive range of IP addresses stored as from / to endpoints.
+  Supports containment, overlap, adjacency, enumeration, and
+  conversion to and from a minimal CIDR set.
+
+  Example:
+    libnet.ipRange.parse "192.0.2.0-192.0.2.255"
+    => { _type = "ipRange"; from = <ipv4>; to = <ipv4>; }
+
+    map libnet.cidr.toString
+      (libnet.ipRange.toCidrs (libnet.ipRange.parse "10.0.0.0-10.0.0.3"))
+    => [ "10.0.0.0/30" ]
+*/
 let
   bits = import ./internal/bits.nix;
   parse' = import ./internal/parse.nix;

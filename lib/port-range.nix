@@ -1,3 +1,17 @@
+/*
+  libnet.portRange
+
+  A contiguous inclusive range of ports. Parses hyphen ("8000-8100")
+  and colon ("8000:8100") forms; supports containment, overlap,
+  merging, and bounded enumeration.
+
+  Example:
+    libnet.portRange.parse "8000-8100"
+    => { _type = "portRange"; from = <port 8000>; to = <port 8100>; }
+
+    libnet.portRange.size (libnet.portRange.parse "8000-8100")
+    => 101
+*/
 let
   bits = import ./internal/bits.nix;
   parse' = import ./internal/parse.nix;
