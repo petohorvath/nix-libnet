@@ -21,6 +21,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 832 core tests (dep-free) + 53 module-type tests (opt-in with nixpkgs.lib).
 - MIT license.
 
+### Changed
+- `libnet.interface` now carries an optional Linux ifname alongside the existing
+  address-on-subnet binding. A parsed interface is
+  `{ _type; name; address; prefix }` where each of `name`, `address`, `prefix`
+  may be null; at least one of `name`/`address` is non-null and `address`↔`prefix`
+  are paired. Three valid shapes: addr-only (legacy), name-only, and named+addr.
+- New functions: `parseName`, `tryParseName`, `makeName`, `makeNamed`,
+  `withName`, `withAddress`, `isValidName`, `name`, `hasName`, `hasAddress`.
+- `isValidName` is byte-for-byte kernel `dev_valid_name` parity: non-empty,
+  length < `IFNAMSIZ` (16), not `.` / `..`, no `/`, no `:`, no `isspace(3)`
+  whitespace.
+- `toString` of a named+addr value emits only `<addr>/<prefix>`. The name is
+  metadata; access via `interface.name iface`. Linux tooling keeps name and
+  address structurally separate and has no widely-adopted single-string
+  composite (RFC 4007 `%<zone>` is scoped to IPv6 link-local only and remains
+  deferred per SPEC.md Non-Goals).
+- `isIpv4` / `isIpv6` / `version` are null-safe on name-only values (return
+  false / null; no throw). `network`, `netmask`, `hostmask`, `broadcast`,
+  `toCidr`, `toRange` throw with `libnet.interface.<fn>: name-only interface
+  has no <thing>`.
+- `eq` and `compare` are null-safe across all three shapes. `compare` gives a
+  strict total order: addr-present values sort before name-only values; legacy
+  ordering between two addr-only values is preserved.
+- `parse` / `tryParse` / `isValid` remain strict on the CIDR form — bare names
+  still throw / return false (use `parseName` / `isValidName`). The NixOS
+  option types `types.interface` / `types.ipv4Interface` / `types.ipv6Interface`
+  are unchanged in their accept set.
+- **Soft attr-shape change**: parsed interface values now have a `name` key
+  (value null for legacy inputs). Consumers that enumerate `builtins.attrNames`
+  of an interface value must accept the extra key; all accessor-based consumers
+  are unaffected.
+
 ### Fixed (during first-pass review)
 - `ipv6.isGlobal` previously shortcut to `!isBogon` (a 6-predicate check). The
   spec defines `isGlobal` as "none of the above special categories" which for

@@ -59,7 +59,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 | Endpoint internal representation | `{ _type; address; port; }` with both required | Fully-specified destination; mirrors RFC 3986 authority. |
 | Listener internal representation | `{ _type; address; portRange; }` with `address` nullable | Relaxed form for listen/bind; port is always a range (possibly size 1). |
 | IpRange internal representation | `{ _type; from; to; }` — both same-family tagged addresses, `to >= from` | Non-CIDR contiguous range. Parallels portRange for addresses. |
-| Interface internal representation | `{ _type; address; prefix; }` — same shape as cidr, distinguished by tag | Address-on-a-subnet semantics (Python's `IPv4Interface` analog). Distinct from cidr by type tag: cidr address is usually canonical (network), interface address is the host. `interface.network` derives the canonical cidr. |
+| Interface internal representation | `{ _type; name; address; prefix; }` where `name`, `address`, `prefix` are each nullable (at least one of `name`/`address` is non-null; `address` and `prefix` are paired). | Combines Python's `IPv4Interface` / `IPv6Interface` (address-on-a-subnet) with a Linux ifname carrier. A value may be addr-only (classic CIDR-style), name-only (bare ifname), or both. Distinct from cidr by type tag: cidr is "here is network Y"; interface is "host X / device N is on network Y". `interface.network` derives the canonical cidr from an addr-carrying value. |
 | Endpoint IPv6 format | brackets mandatory on parse and output (`[::1]:80`) | RFC 3986 § 3.2.2. Unbracketed IPv6 ambiguous vs port separator. |
 | PortRange canonical separator | `-` (hyphen) | Dominant modern convention (nftables, Docker, k8s, pf). `:` accepted on parse for iptables interop. |
 | Listener wildcard input forms | `*`, `any`, `0.0.0.0`, `[::]`, or missing address | Accept all common conventions; canonical output omits address entirely (`:8080`). |
@@ -198,15 +198,29 @@ Contiguous non-CIDR range. Canonical text form: `from-to` (e.g. `10.0.0.1-10.0.0
 ### Interface value
 ```nix
 {
-  _type = "interface";
-  address = <ipv4 value | ipv6 value>;   # the specific host address
-  prefix  = <int>;                        # 0..32 for ipv4, 0..128 for ipv6
+  _type   = "interface";
+  name    = <string | null>;              # Linux ifname (kernel dev_valid_name)
+  address = <ipv4 value | ipv6 value | null>;
+  prefix  = <int | null>;                 # 0..32 for ipv4, 0..128 for ipv6
 }
 ```
 Invariants:
-- `prefix` is in `[0, 32]` if address is ipv4, `[0, 128]` if ipv6.
+- At least one of `name` and `address` is non-null.
+- `address` and `prefix` are either both null or both set.
+- If `address` is non-null: `prefix` is in `[0, 32]` if ipv4, `[0, 128]` if ipv6.
+- If `name` is non-null: it passes `interface.isValidName` (kernel-parity `dev_valid_name`: non-empty, length < IFNAMSIZ=16, not `.` / `..`, no `/`, no `:`, no whitespace per `isspace(3)`).
 
-Identical shape to `cidr`, distinguished only by the `_type` tag. Semantics differ: a cidr is "here is network Y" (address is usually canonical); an interface is "host X is on network Y" (address is the specific host, network is derived). `interface.network :: Interface → Cidr` derives the canonical network on demand. Canonical text form: `<address>/<prefix>` — same shape as CIDR text, the distinction is in the type you parse into. Python's `IPv4Interface` / `IPv6Interface` equivalent.
+Three valid shapes:
+- **Addr-only**: `{ name = null; address = <ip>; prefix = <int>; }` — Python's `IPv4Interface` equivalent.
+- **Name-only**: `{ name = <str>; address = null; prefix = null; }` — a standalone Linux interface identifier.
+- **Named+addr**: both set — an addressed assignment on a named device.
+
+Canonical text forms:
+- Addr-only → `<address>/<prefix>` (same shape as a CIDR string; distinction is in the type tag).
+- Name-only → `<name>` (bare ifname).
+- Named+addr → `<address>/<prefix>` — the name is metadata, not part of the canonical text form. Linux tooling (`ip addr`, netlink, NixOS modules) keeps the two fields structurally separate; no widely-adopted single-string composite form exists. Name is accessed via `interface.name iface`. RFC 4007 `%<zone>` is defined only for IPv6 link-local scope (see Non-Goals); libnet does not overload it as a general composite separator.
+
+Distinct from `cidr` by `_type` tag: a cidr is "here is network Y" (address is usually canonical); an interface is "host X / device N is on network Y". `interface.network :: Interface → Cidr` derives the canonical network on demand (throws on name-only values).
 
 ### Tagging convention
 
@@ -220,7 +234,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `endpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
-| `interface` | `address` (Ipv4/Ipv6) | `prefix` (int) |
+| `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
 
 Rationale for the asymmetry in PortRange vs Endpoint: a Port standing alone has semantic meaning and predicates (`isWellKnown`, etc.), so Endpoint carries it tagged. A port-range boundary only exists within a range and never travels alone, so from/to stay as ints (parallel to how `cidr.prefix` is an int).
 
@@ -626,33 +640,44 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 
 ### `libnet.interface`
 
-Address-on-a-subnet descriptor: *"host X is on network Y"*. Distinct from CIDR (which says "here is network Y"). Python's `IPv4Interface` / `IPv6Interface` equivalent. Typical use: per-NIC config.
+Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / `IPv6Interface`), *Linux interface name* (kernel `dev_valid_name`), or both combined. Distinct from CIDR (which says "here is network Y"). Typical use: per-NIC config, firewall rules that reference `eth0`, named address assignments.
 
 **Parsing & formatting**
-| `parse` | `String → Interface` | `"192.168.1.5/24"` — same shape as a CIDR string but distinguished by type tag. The address is preserved as the host address (NOT zeroed to network), even when the host bits happen to be zero. IPv6: `"2001:db8::5/64"`. Throws only on malformed input or prefix out of range. |
+| `parse` | `String → Interface` | `"192.168.1.5/24"` — addr-only shape. Same text as a CIDR string, distinguished by type tag. Address preserved as the host (NOT zeroed to network). IPv6: `"2001:db8::5/64"`. Throws on malformed input, prefix out of range, or bare names (use `parseName`). Output has `name = null`. |
 | `tryParse` | `String → TryResult Interface` |
-| `toString` | `Interface → String` | Canonical: `<address>/<prefix>`. |
-| `make` | `(Ipv4 | Ipv6) → Int → Interface` | Construct; validates prefix range for family. |
-| `fromAddressAndNetwork` | `(Ipv4 | Ipv6) → Cidr → Interface` | Validates `address ∈ network`. |
+| `parseName` | `String → Interface` | Bare ifname like `"eth0"`. Output has `address = null`, `prefix = null`. Throws on kernel-invalid names per `dev_valid_name`. |
+| `tryParseName` | `String → TryResult Interface` |
+| `toString` | `Interface → String` | Addr-only → `<address>/<prefix>`. Name-only → `<name>`. Named+addr → `<address>/<prefix>` (name is metadata; access via `name iface`). Always total. |
+| `make` | `(Ipv4 | Ipv6) → Int → Interface` | Construct addr-only; validates prefix range for family. |
+| `makeName` | `String → Interface` | Construct name-only; validates per `dev_valid_name`. |
+| `makeNamed` | `(Ipv4 | Ipv6) → Int → String → Interface` | Construct named+addr; validates both the addr+prefix and the name. |
+| `fromAddressAndNetwork` | `(Ipv4 | Ipv6) → Cidr → Interface` | Validates `address ∈ network`. Output has `name = null`. |
+
+**Combinators**
+| `withName` | `String → Interface → Interface` | Attach or replace the name. Validates. |
+| `withAddress` | `(Ipv4 | Ipv6) → Int → Interface → Interface` | Attach or replace the addr+prefix. Validates. Preserves `name`. |
 
 **Predicates**
-| `isValid` | `String → Bool` |
+| `isValid` | `String → Bool` | Accepts `<addr>/<prefix>` form only. Bare names return false (use `isValidName`). |
+| `isValidName` | `String → Bool` | Pure kernel-parity check: non-empty, length < 16, not `.` / `..`, no `/`, `:`, or whitespace. |
 | `is` | `Any → Bool` |
-| `isIpv4` / `isIpv6` | `Interface → Bool` |
+| `isIpv4` / `isIpv6` | `Interface → Bool` | Return false on name-only values (never throw). |
+| `hasName` / `hasAddress` | `Interface → Bool` |
 
 **Accessors**
-| `address` | `Interface → Ipv4 | Ipv6` | The host address. |
-| `prefix` | `Interface → Int` | Prefix length. |
-| `network` | `Interface → Cidr` | Derived: the canonical network containing the host. |
-| `netmask` / `hostmask` | `Interface → Ipv4 | Ipv6` | Same as `cidr.netmask (network i)`. |
-| `version` | `Interface → Int` |
-| `broadcast` | `Interface → Ipv4` | IPv4 only; throws for IPv6. |
+| `name` | `Interface → String | null` |
+| `address` | `Interface → Ipv4 | Ipv6 | null` | Null on name-only. |
+| `prefix` | `Interface → Int | null` | Null on name-only. |
+| `network` | `Interface → Cidr` | Canonical network containing the host. Throws on name-only. |
+| `netmask` / `hostmask` | `Interface → Ipv4 | Ipv6` | Throws on name-only. |
+| `version` | `Interface → Int | null` | Null on name-only; 4 or 6 otherwise. |
+| `broadcast` | `Interface → Ipv4` | IPv4 only; throws on name-only or IPv6. |
 
 **Conversions**
-| `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. |
-| `toRange` | `Interface → IpRange` | Convert the network to a range. |
+| `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. Throws on name-only. |
+| `toRange` | `Interface → IpRange` | Convert the network to a range. Throws on name-only. |
 
-**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on `(family, address, prefix)`.
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is field-wise null-safe. `compare` is a strict total order: addr-present values sort before name-only values; within addr-present, `(family, address, prefix, null-name-first, name-lex)`; within name-only, name lex. Preserves every legacy ordering of two addr-only values.
 
 ### `libnet.withLib` (opt-in NixOS module types)
 
@@ -925,7 +950,13 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - `network` derives `192.168.1.0/24` (canonical).
 - `toCidr` extracts the network.
 - Distinction from CIDR: `cidr.parse "192.168.1.5/24"` and `interface.parse "192.168.1.5/24"` produce values that are NOT `eq` (different `_type`).
-- Reject: prefix out of range, empty prefix, missing `/`.
+- Reject: prefix out of range, empty prefix, missing `/`, bare name (use `parseName`).
+- `isValidName` kernel-parity coverage: reject empty, 16-byte, `.`, `..`, strings containing `/`, `:`, or any `isspace(3)` byte (SP, HT, LF, VT, FF, CR); accept up to 15 bytes of anything else (dash, dot-in-middle, underscore).
+- `parseName`: produces a name-only value with `address = null`, `prefix = null`.
+- `withName`: attaches/replaces `name`; throws on invalid. `withAddress`: attaches/replaces addr+prefix; preserves name.
+- Address-dependent accessors (`network`, `netmask`, `hostmask`, `broadcast`, `toCidr`, `toRange`) throw with `libnet.interface.<fn>: name-only interface has no <thing>` on name-only values. `isIpv4` / `isIpv6` / `version` return false / null respectively (no throw).
+- `toString` on a named+addr value emits only `<addr>/<prefix>` (name is metadata; access via `name iface`).
+- `compare` strict total order: addr-present < name-only; within addr-present, (family, address, prefix, null-name-first, name-lex); within name-only, name lex.
 
 **Module types** (via `withLib`, opt-in)
 - Each `types.*.check` returns true for valid strings, false for invalid.

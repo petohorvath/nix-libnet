@@ -6,8 +6,26 @@ let
   cidr = import ./cidr.nix;
   ipRange = import ./ip-range.nix;
 
-  mk = addr: prefix: {
+  # IFNAMSIZ from <linux/if.h>: the kernel stores names in a 16-byte
+  # buffer including the terminating NUL, so the on-wire length is < 16.
+  ifnamsiz = 16;
+
+  # Kernel-parity interface-name validator, matching net/core/dev.c
+  # dev_valid_name(): non-empty, length < IFNAMSIZ, not "." / "..",
+  # no '/', no ':', no isspace(3) byte.  [[:space:]] in POSIX ERE covers
+  # the six kernel-recognized whitespace bytes (SP HT LF VT FF CR).
+  isValidName =
+    s:
+    builtins.isString s
+    && s != ""
+    && builtins.stringLength s < ifnamsiz
+    && s != "."
+    && s != ".."
+    && builtins.match ".*[/:[:space:]].*" s == null;
+
+  mk = name: addr: prefix: {
     _type = "interface";
+    inherit name;
     address = addr;
     inherit prefix;
   };
@@ -43,7 +61,7 @@ let
         else if prefInt > maxPrefix addrRes.value then
           types.tryErr "libnet.interface.parse: prefix /${prefStr} out of range"
         else
-          types.tryOk (mk addrRes.value prefInt);
+          types.tryOk (mk null addrRes.value prefInt);
 
   parse =
     s:
@@ -52,12 +70,48 @@ let
     in
     if r.success then r.value else builtins.throw r.error;
 
+  tryParseName =
+    s:
+    if !(builtins.isString s) then
+      types.tryErr "libnet.interface.parseName: input must be a string"
+    else if s == "" then
+      types.tryErr "libnet.interface.parseName: empty name"
+    else if builtins.stringLength s >= ifnamsiz then
+      types.tryErr "libnet.interface.parseName: name too long (max 15 bytes): \"${s}\""
+    else if s == "." || s == ".." then
+      types.tryErr "libnet.interface.parseName: reserved name \"${s}\""
+    else if builtins.match ".*[/:[:space:]].*" s != null then
+      types.tryErr "libnet.interface.parseName: name contains '/' or ':' or whitespace: \"${s}\""
+    else
+      types.tryOk (mk s null null);
+
+  parseName =
+    s:
+    let
+      r = tryParseName s;
+    in
+    if r.success then r.value else builtins.throw r.error;
+
+  # ===== Formatting =====
+
+  # Canonical text form carries addr/prefix only. When an iface has both
+  # a name and an address, toString emits only the addr/prefix — the name
+  # is metadata (access via `name iface`). Linux tooling keeps the two
+  # fields structurally separate (`ip addr add <addr/prefix> dev <name>`);
+  # there is no widely-adopted single-string composite form. RFC 4007's
+  # `%<zone>` syntax is defined only for IPv6 link-local scope, and
+  # SPEC.md defers zone identifiers to v2.
   toString =
     i:
-    let
-      s = if isV4 i.address then ipv4.toString i.address else ipv6.toString i.address;
-    in
-    "${s}/${builtins.toString i.prefix}";
+    if i.address == null then
+      i.name
+    else
+      let
+        s = if isV4 i.address then ipv4.toString i.address else ipv6.toString i.address;
+      in
+      "${s}/${builtins.toString i.prefix}";
+
+  # ===== Construction =====
 
   make =
     addr: prefix:
@@ -66,7 +120,27 @@ let
     else if !(builtins.isInt prefix) || prefix < 0 || prefix > maxPrefix addr then
       builtins.throw "libnet.interface.make: prefix out of range"
     else
-      mk addr prefix;
+      mk null addr prefix;
+
+  makeName =
+    name:
+    let
+      r = tryParseName name;
+    in
+    if r.success then r.value else builtins.throw r.error;
+
+  makeNamed =
+    addr: prefix: name:
+    if !(types.isIp addr) then
+      builtins.throw "libnet.interface.makeNamed: address must be ipv4 or ipv6"
+    else if !(builtins.isInt prefix) || prefix < 0 || prefix > maxPrefix addr then
+      builtins.throw "libnet.interface.makeNamed: prefix out of range"
+    else if !(isValidName name) then
+      builtins.throw "libnet.interface.makeNamed: invalid name \"${
+        if builtins.isString name then name else builtins.typeOf name
+      }\""
+    else
+      mk name addr prefix;
 
   fromAddressAndNetwork =
     addr: net:
@@ -79,55 +153,132 @@ let
     else if !(cidr.containsAddress net addr) then
       builtins.throw "libnet.interface.fromAddressAndNetwork: address not in network"
     else
-      mk addr net.prefix;
+      mk null addr net.prefix;
+
+  # ===== Combinators =====
+
+  withName =
+    name: i:
+    if !(isValidName name) then
+      builtins.throw "libnet.interface.withName: invalid name \"${
+        if builtins.isString name then name else builtins.typeOf name
+      }\""
+    else
+      mk name i.address i.prefix;
+
+  withAddress =
+    addr: prefix: i:
+    if !(types.isIp addr) then
+      builtins.throw "libnet.interface.withAddress: address must be ipv4 or ipv6"
+    else if !(builtins.isInt prefix) || prefix < 0 || prefix > maxPrefix addr then
+      builtins.throw "libnet.interface.withAddress: prefix out of range"
+    else
+      mk i.name addr prefix;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
   is = types.isInterface;
-  isIpv4 = i: isV4 i.address;
-  isIpv6 = i: !(isV4 i.address);
+  isIpv4 = i: i.address != null && isV4 i.address;
+  isIpv6 = i: i.address != null && !(isV4 i.address);
+  hasName = i: i.name != null;
+  hasAddress = i: i.address != null;
 
   # ===== Accessors =====
 
+  name = i: i.name;
   address = i: i.address;
   prefix = i: i.prefix;
-  version = i: if isV4 i.address then 4 else 6;
+  version =
+    i:
+    if i.address == null then
+      null
+    else if isV4 i.address then
+      4
+    else
+      6;
 
   network =
     i:
-    # Derive the canonical cidr by zeroing host bits.
-    cidr.canonical (cidr.make i.address i.prefix);
+    if i.address == null then
+      builtins.throw "libnet.interface.network: name-only interface has no network"
+    else
+      cidr.canonical (cidr.make i.address i.prefix);
 
-  netmask = i: cidr.netmask (cidr.make i.address i.prefix);
-  hostmask = i: cidr.hostmask (cidr.make i.address i.prefix);
+  netmask =
+    i:
+    if i.address == null then
+      builtins.throw "libnet.interface.netmask: name-only interface has no netmask"
+    else
+      cidr.netmask (cidr.make i.address i.prefix);
+
+  hostmask =
+    i:
+    if i.address == null then
+      builtins.throw "libnet.interface.hostmask: name-only interface has no hostmask"
+    else
+      cidr.hostmask (cidr.make i.address i.prefix);
 
   broadcast =
     i:
-    if !(isV4 i.address) then
+    if i.address == null then
+      builtins.throw "libnet.interface.broadcast: name-only interface has no broadcast"
+    else if !(isV4 i.address) then
       builtins.throw "libnet.interface.broadcast: IPv6 has no broadcast"
     else
       cidr.broadcast (cidr.make i.address i.prefix);
 
   # ===== Conversions =====
 
-  toCidr = i: network i;
+  toCidr =
+    i:
+    if i.address == null then
+      builtins.throw "libnet.interface.toCidr: name-only interface has no CIDR"
+    else
+      network i;
 
-  toRange = i: ipRange.fromCidr (network i);
+  toRange =
+    i:
+    if i.address == null then
+      builtins.throw "libnet.interface.toRange: name-only interface has no range"
+    else
+      ipRange.fromCidr (network i);
 
   # ===== Comparison =====
 
   eq =
     a: b:
-    a.address._type == b.address._type
-    && a.prefix == b.prefix
+    a.name == b.name
+    && (a.address == null) == (b.address == null)
     && (
-      if isV4 a.address then a.address.value == b.address.value else a.address.words == b.address.words
+      a.address == null
+      || (
+        a.address._type == b.address._type
+        && a.prefix == b.prefix
+        && (if isV4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address)
+      )
     );
 
+  # Strict total order. Primary key: addr-present values sort before
+  # name-only values. Within addr-present: v4 < v6, then address, then
+  # prefix, then null-name < set-name, then name lex. Within name-only:
+  # name lex. This preserves every legacy ordering of two addr-only
+  # values.
   compare =
     a: b:
-    if isV4 a.address && !(isV4 b.address) then
+    if a.address != null && b.address == null then
+      -1
+    else if a.address == null && b.address != null then
+      1
+    else if a.address == null then
+      # both name-only
+      if a.name < b.name then
+        -1
+      else if a.name > b.name then
+        1
+      else
+        0
+    else if isV4 a.address && !(isV4 b.address) then
       -1
     else if !(isV4 a.address) && isV4 b.address then
       1
@@ -141,6 +292,16 @@ let
       else if a.prefix < b.prefix then
         -1
       else if a.prefix > b.prefix then
+        1
+      else if a.name == null && b.name == null then
+        0
+      else if a.name == null then
+        -1
+      else if b.name == null then
+        1
+      else if a.name < b.name then
+        -1
+      else if a.name > b.name then
         1
       else
         0;
@@ -156,17 +317,27 @@ in
   inherit
     parse
     tryParse
+    parseName
+    tryParseName
     toString
     make
+    makeName
+    makeNamed
     fromAddressAndNetwork
+    withName
+    withAddress
     ;
   inherit
     isValid
+    isValidName
     is
     isIpv4
     isIpv6
+    hasName
+    hasAddress
     ;
   inherit
+    name
     address
     prefix
     version
