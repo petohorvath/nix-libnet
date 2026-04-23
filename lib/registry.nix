@@ -77,7 +77,7 @@
       ntp = 123;
       snmp = 161;
       snmpTrap = 162;
-      dnsTls = 853;
+      dnsQuic = 853;
       rdp = 3389;
       memcached = 11211;
     };

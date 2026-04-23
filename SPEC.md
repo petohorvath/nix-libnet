@@ -505,7 +505,7 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `wellKnownMax` | `1023` |
 | `registeredMax` | `49151` |
 
-**Well-known service ports** live in [`libnet.registry.wellKnownPorts`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `dnsTls`, `rdp`, `memcached`) share the same port number under each key.
+**Well-known service ports** live in [`libnet.registry.wellKnownPorts`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `rdp`, `memcached`) share the same port number under each key. Port `853` appears on both protocols under different names — `tcp.dnsTls` (DNS-over-TLS, RFC 7858) and `udp.dnsQuic` (DNS-over-QUIC, RFC 9250) — since IANA assigns the two distinct services to the same port.
 
 ### `libnet.portRange`
 
