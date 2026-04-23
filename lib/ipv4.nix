@@ -177,6 +177,9 @@ let
     || isUnspecified ip
     || isBroadcast ip;
 
+  # IPv4 has no transition/interop forms analogous to v6's IPv4-mapped,
+  # IPv4-compatible, or 6to4, so isGlobal collapses to !isBogon. The v6
+  # counterpart is strictly tighter — see ipv6.nix.
   isGlobal = ip: !(isBogon ip);
 
   # ===== Arithmetic =====

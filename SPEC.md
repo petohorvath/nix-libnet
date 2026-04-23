@@ -279,7 +279,7 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `isUnspecified` | `Ipv4 → Bool` | `0.0.0.0`. |
 | `isReserved` | `Ipv4 → Bool` | `240.0.0.0/4` (excluding broadcast). |
 | `isDocumentation` | `Ipv4 → Bool` | `192.0.2/24`, `198.51.100/24`, `203.0.113/24`. |
-| `isGlobal` | `Ipv4 → Bool` | None of the above special categories. |
+| `isGlobal` | `Ipv4 → Bool` | Exactly `!isBogon`. IPv4 has no transition/interop forms to exclude, so this is strictly the complement of `isBogon` (unlike the IPv6 counterpart — see below). |
 | `isBogon` | `Ipv4 → Bool` | Not globally routable: any of `isLoopback`, `isPrivate`, `isLinkLocal`, `isMulticast`, `isReserved`, `isDocumentation`, `isUnspecified`, `isBroadcast`. |
 
 **Arithmetic**
@@ -336,8 +336,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `isIpv4Mapped` | `::ffff:0:0/96` |
 | `isIpv4Compatible` | `::0.0.0.0/96` — deprecated form, still testable |
 | `is6to4` | `2002::/16` |
-| `isGlobal` | none of the above |
-| `isBogon` | `Ipv6 → Bool` — not globally routable: any of `isLoopback`, `isUnspecified`, `isLinkLocal`, `isUniqueLocal`, `isMulticast`, `isDocumentation`. |
+| `isGlobal` | Stricter than `!isBogon`: additionally excludes `isIpv4Mapped`, `isIpv4Compatible`, and `is6to4`. Those transition/interop forms are technically routable but do not represent native IPv6 global unicast, so `isGlobal` rules them out. Intentionally asymmetric with `ipv4.isGlobal`, which has no such transition forms to consider. |
+| `isBogon` | `Ipv6 → Bool` — not globally routable: any of `isLoopback`, `isUnspecified`, `isLinkLocal`, `isUniqueLocal`, `isMulticast`, `isDocumentation`. Does **not** include the IPv4 transition/interop forms (`isIpv4Mapped`, `isIpv4Compatible`, `is6to4`) — those are excluded by `isGlobal` but are not classified as bogons. |
 
 **IPv4 interop**:
 | `fromIpv4Mapped` | `Ipv4 → Ipv6` | `1.2.3.4 → ::ffff:1.2.3.4` |
@@ -473,7 +473,7 @@ Auto-detects address family from input. All functions accept either IPv4 or IPv6
 | `isLinkLocal` | `(Ipv4 | Ipv6) → Bool` |
 | `isMulticast` | `(Ipv4 | Ipv6) → Bool` |
 | `isDocumentation` | `(Ipv4 | Ipv6) → Bool` |
-| `isGlobal` | `(Ipv4 | Ipv6) → Bool` |
+| `isGlobal` | `(Ipv4 | Ipv6) → Bool` — family-aware. For IPv4 equals `!isBogon`; for IPv6 it additionally excludes `isIpv4Mapped`, `isIpv4Compatible`, and `is6to4`. See each family's entry for the rationale. |
 | `isBogon` | `(Ipv4 | Ipv6) → Bool` — family-aware "not globally routable". |
 | `toArpa` | `(Ipv4 | Ipv6) → String` — reverse-DNS formatting. |
 

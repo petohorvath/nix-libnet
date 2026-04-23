@@ -351,8 +351,12 @@ let
     || isMulticast ip
     || isDocumentation ip;
 
-  # Spec: isGlobal means "none of the above" — wider set than isBogon,
-  # additionally excluding isIpv4Mapped, isIpv4Compatible, is6to4.
+  # Stricter than !isBogon: also excludes the IPv4 transition/interop
+  # forms (IPv4-mapped, IPv4-compatible, 6to4). Those addresses are
+  # technically routable in v6 space but don't represent native v6
+  # global unicast, so isGlobal rules them out while isBogon does not.
+  # IPv4 has no such forms, so ipv4.isGlobal is simply !isBogon — this
+  # family asymmetry is intentional and documented in SPEC.md.
   isGlobal = ip: !(isBogon ip || isIpv4Mapped ip || isIpv4Compatible ip || is6to4 ip);
 
   # ===== IPv4 interop =====
