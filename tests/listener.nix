@@ -165,27 +165,27 @@ in
   };
 
   # ===== Expansion =====
-  toEndpoints = {
-    expr = map endpoint.toString (lst.toEndpoints (p "1.2.3.4:80-82"));
+  endpoints = {
+    expr = map endpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
     expected = [
       "1.2.3.4:80"
       "1.2.3.4:81"
       "1.2.3.4:82"
     ];
   };
-  toEndpoints-v6 = {
-    expr = map endpoint.toString (lst.toEndpoints (p "[::1]:80-81"));
+  endpoints-v6 = {
+    expr = map endpoint.toString (lst.endpoints (p "[::1]:80-81"));
     expected = [
       "[::1]:80"
       "[::1]:81"
     ];
   };
-  toEndpoints-null = {
-    expr = throws (lst.toEndpoints (p ":80-82"));
+  endpoints-null = {
+    expr = throws (lst.endpoints (p ":80-82"));
     expected = true;
   };
-  toEndpoints-big = {
-    expr = throws (lst.toEndpoints (p "1.2.3.4:0-5000"));
+  endpoints-big = {
+    expr = throws (lst.endpoints (p "1.2.3.4:0-5000"));
     expected = true;
   };
 

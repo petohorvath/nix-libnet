@@ -90,7 +90,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
-| [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, toEndpoints, endpoint(n) |
+| [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpoint(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
 | [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |

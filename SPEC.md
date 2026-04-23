@@ -159,7 +159,7 @@ Endpoint and Listener solve different problems:
 - **Endpoint** = *"connect to where?"* A fully-resolved outbound destination. Both address and port are required. No wildcards. Directly dialable. Think: outbound HTTP target, upstream proxy, database URL.
 - **Listener** = *"listen how?"* A server-side listen/accept configuration. Address may be `null` (wildcard — accept on any interface); port is always a range (may be size 1). Think: `systemd ListenStream=`, `nginx listen`, firewall allow-rule.
 
-Keeping them as distinct types gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. Conversion is asymmetric: `listener.toEndpoints` materializes a listener into concrete endpoints (throws if the address is null); wrapping an endpoint as a listener is a one-liner and does not warrant a dedicated helper.
+Keeping them as distinct types gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete endpoints (throws if the address is null); wrapping an endpoint as a listener is a one-liner and does not warrant a dedicated helper.
 
 ### Endpoint value
 ```nix
@@ -593,8 +593,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 | `version` | `Listener → Int | null` | `4`, `6`, or `null` if address is null. |
 
 **Expansion & interop**
-| `toEndpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `toEndpointsUnbounded` to bypass. |
-| `toEndpointsUnbounded` | `Listener → [Endpoint]` | No size guard. Caller's responsibility. |
+| `endpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
+| `endpointsUnbounded` | `Listener → [Endpoint]` | No size guard. Caller's responsibility. |
 | `endpoint` | `Int → Listener → Endpoint` | Pick the n-th port from the range as a concrete endpoint. Operator-first curry order, parallels `cidr.host`. Throws on null address or out-of-range n. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, portRange)`. Null address sorts before any non-null address. Mixed family follows the lenient v4-before-v6 rule.
@@ -830,7 +830,7 @@ in
 - Port: parse rejects negative, >65535, empty, non-digit; predicates cover each RFC 6335 range.
 - PortRange: parse of single port, `from-to`, `from:to`; `from > to` rejected; `contains`/`overlaps`/`merge` edge cases at adjacency boundaries; `ports` size guard triggers at 4097 (4097-wide range throws, 4096-wide passes); `portsUnbounded` bypasses.
 - Endpoint: IPv4 and IPv6 parse both succeed; unbracketed IPv6 rejected with a clear error; missing port rejected; canonical round-trip for each family.
-- Listener: `:8080`, `:5500-6000`, `*:80`, `any:80`, `0.0.0.0:80`, `[::]:80` all parse to the expected shape; `isAnyAddress` matches on all wildcard variants; `toEndpoints` respects size guard.
+- Listener: `:8080`, `:5500-6000`, `*:80`, `any:80`, `0.0.0.0:80`, `[::]:80` all parse to the expected shape; `isAnyAddress` matches on all wildcard variants; `endpoints` respects size guard.
 - IpRange: parse of IPv4/IPv6, rejects `to < from` and mixed families; `contains`/`overlaps`/`merge` edge cases; `toCidrs`/`fromCidr` round-trip for aligned ranges and a few unaligned cases; `addresses` size guard at 2¹⁶.
 - Interface: parse preserves host address (does NOT zero host bits, unlike CIDR); `toCidr` extracts network; equality semantics distinguish `192.168.1.5/24` from `192.168.1.5/25` and from a bare CIDR value.
 - Reverse DNS: `toArpa` for representative IPv4 and IPv6 addresses; round-trip through a DNS name parser not required (we only emit).
@@ -934,7 +934,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Reject: `::1:80` (unbracketed IPv6), invalid port, `5500-` (open range).
 - `isAnyAddress` true for all four wildcard forms (null, `0.0.0.0`, `::`, `*`/`any` after parse).
 - `isRange` true iff portRange size > 1.
-- `toEndpoints` on non-wildcard listener with 10-port range yields 10 endpoints in ascending order; throws on null address; respects size guard.
+- `endpoints` on non-wildcard listener with 10-port range yields 10 endpoints in ascending order; throws on null address; respects size guard.
 - `endpoint n listener`: valid `n`, boundary `n`, out-of-range throws, null address throws.
 
 **IpRange**
@@ -1072,7 +1072,7 @@ All originally-open questions are resolved:
 1. **License:** MIT.
 2. **Flake:** optional; `flake.nix` shipped, library also importable via `import ./default.nix {}` without flakes.
 3. **Internal modules:** not exposed through the public `libnet` attrset at all. Tests and sibling modules import them by relative path. Internals can be refactored without API impact.
-4. **Iteration guards:** `cidr.hosts` throws when the block exceeds 2¹⁶ addresses (IPv4 wider than `/16`, IPv6 wider than `/112`). `portRange.ports` throws above 2¹² (4096) entries. `listener.toEndpoints` follows the portRange guard. Each has a `*Unbounded` sibling that bypasses the check. Indexed access via `cidr.host n`, `listener.endpoint n`, and equivalent is the recommended way to reach entries in large ranges.
+4. **Iteration guards:** `cidr.hosts` throws when the block exceeds 2¹⁶ addresses (IPv4 wider than `/16`, IPv6 wider than `/112`). `portRange.ports` throws above 2¹² (4096) entries. `listener.endpoints` follows the portRange guard. Each has a `*Unbounded` sibling that bypasses the check. Indexed access via `cidr.host n`, `listener.endpoint n`, and equivalent is the recommended way to reach entries in large ranges.
 5. **Mixed-family comparison in `libnet.ip.compare`:** lenient — IPv4 sorts before IPv6 as a stable tiebreak. Enables `sort` on mixed lists without partitioning. `eq` across families is always false. No separate `compareStrict` variant; callers who need strictness check `ip.version` first.
 6. **Module-type coercion:** option values stay strings, matching existing NixOS idioms. Types validate via the core `isValid` predicates but never transform the stored value. Downstream code calls `libnet.ipv4.parse` (or similar) explicitly when structure is needed.
 7. **Module-type test dependency:** `tests/types.nix` takes `lib` as a function argument; `tests/default.nix` accepts optional `lib` and routes `types.nix` tests to it only when provided. The flake exposes two checks: `core` (invokes with `lib = null`, proves the dep-free guarantee) and `full` (invokes with `pkgs.lib`, adds module-type coverage). Users run either via `nix build .#checks.<system>.{core,full}` or both via `nix flake check`.

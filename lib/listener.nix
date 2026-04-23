@@ -9,7 +9,7 @@
     libnet.listener.parse "192.0.2.1:8000-8100"
     => { _type = "listener"; address = <ipv4>; portRange = <8000-8100>; }
 
-    builtins.length (libnet.listener.toEndpoints (libnet.listener.parse ":80-82"))
+    builtins.length (libnet.listener.endpoints (libnet.listener.parse ":80-82"))
     => 3
 */
 let
@@ -202,25 +202,25 @@ let
 
   # ===== Expansion =====
 
-  toEndpointsUnbounded =
+  endpointsUnbounded =
     lst:
     if lst.address == null then
-      builtins.throw "libnet.listener.toEndpoints: null address cannot be materialized into endpoints"
+      builtins.throw "libnet.listener.endpoints: null address cannot be materialized into endpoints"
     else
       let
         ports = portRange.portsUnbounded lst.portRange;
       in
       map (pt: endpoint.make lst.address pt) ports;
 
-  toEndpoints =
+  endpoints =
     lst:
     let
       sz = portRange.size lst.portRange;
     in
     if sz > 4096 then
-      builtins.throw "libnet.listener.toEndpoints: range too large (${builtins.toString sz} > 4096); use toEndpointsUnbounded"
+      builtins.throw "libnet.listener.endpoints: range too large (${builtins.toString sz} > 4096); use endpointsUnbounded"
     else
-      toEndpointsUnbounded lst;
+      endpointsUnbounded lst;
 
   endpointAt =
     n: lst:
@@ -300,7 +300,7 @@ in
     ;
   inherit address version;
   portRange = portRange';
-  inherit toEndpoints toEndpointsUnbounded;
+  inherit endpoints endpointsUnbounded;
   endpoint = endpointAt;
   inherit
     eq
