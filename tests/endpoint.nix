@@ -171,6 +171,26 @@ in
     expr = ep.isLinkLocal (p "[fe80::1]:80");
     expected = true;
   };
+  fwd-bogon-v4 = {
+    expr = ep.isBogon (p "10.0.0.1:80");
+    expected = true;
+  };
+  fwd-bogon-v6 = {
+    expr = ep.isBogon (p "[fc00::1]:80");
+    expected = true;
+  };
+  fwd-bogon-no = {
+    expr = ep.isBogon (p "8.8.8.8:80");
+    expected = false;
+  };
+  fwd-toArpa-v4 = {
+    expr = ep.toArpa (p "1.2.3.4:80");
+    expected = "4.3.2.1.in-addr.arpa";
+  };
+  fwd-toArpa-v6 = {
+    expr = ep.toArpa (p "[::1]:80");
+    expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+  };
 
   # ===== Comparison =====
   eq-same = {

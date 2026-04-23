@@ -187,6 +187,39 @@ let
   isIpv4 = lst: lst.address != null && isV4 lst.address;
   isIpv6 = lst: lst.address != null && isV6 lst.address;
 
+  # ===== Forwarded predicates (apply to address) =====
+  #
+  # Null-address listeners (wildcard binds) don't denote a specific
+  # address, so boolean predicates return false rather than throwing —
+  # consistent with isIpv4/isIpv6. toArpa has no sensible value without
+  # an address and throws, matching endpoints/network/netmask.
+
+  fwd =
+    v4Fn: v6Fn: lst:
+    if lst.address == null then
+      false
+    else if isV4 lst.address then
+      v4Fn lst.address
+    else
+      v6Fn lst.address;
+
+  isLoopback = fwd ipv4.isLoopback ipv6.isLoopback;
+  isUnspecified = fwd ipv4.isUnspecified ipv6.isUnspecified;
+  isLinkLocal = fwd ipv4.isLinkLocal ipv6.isLinkLocal;
+  isMulticast = fwd ipv4.isMulticast ipv6.isMulticast;
+  isDocumentation = fwd ipv4.isDocumentation ipv6.isDocumentation;
+  isGlobal = fwd ipv4.isGlobal ipv6.isGlobal;
+  isBogon = fwd ipv4.isBogon ipv6.isBogon;
+
+  toArpa =
+    lst:
+    if lst.address == null then
+      builtins.throw "libnet.listener.toArpa: null address has no reverse-DNS form"
+    else if isV4 lst.address then
+      ipv4.toArpa lst.address
+    else
+      ipv6.toArpa lst.address;
+
   # ===== Accessors =====
 
   address = lst: lst.address;
@@ -297,6 +330,16 @@ in
     isRange
     isIpv4
     isIpv6
+    ;
+  inherit
+    isLoopback
+    isUnspecified
+    isLinkLocal
+    isMulticast
+    isDocumentation
+    isGlobal
+    isBogon
+    toArpa
     ;
   inherit address version;
   portRange = portRange';

@@ -191,6 +191,39 @@ let
   hasName = i: i.name != null;
   hasAddress = i: i.address != null;
 
+  # ===== Forwarded predicates (apply to address) =====
+  #
+  # Name-only interfaces have no address to inspect, so boolean
+  # predicates return false rather than throwing — consistent with
+  # isIpv4/isIpv6. toArpa throws in that case, matching network /
+  # netmask / broadcast.
+
+  fwd =
+    v4Fn: v6Fn: i:
+    if i.address == null then
+      false
+    else if isV4 i.address then
+      v4Fn i.address
+    else
+      v6Fn i.address;
+
+  isLoopback = fwd ipv4.isLoopback ipv6.isLoopback;
+  isUnspecified = fwd ipv4.isUnspecified ipv6.isUnspecified;
+  isLinkLocal = fwd ipv4.isLinkLocal ipv6.isLinkLocal;
+  isMulticast = fwd ipv4.isMulticast ipv6.isMulticast;
+  isDocumentation = fwd ipv4.isDocumentation ipv6.isDocumentation;
+  isGlobal = fwd ipv4.isGlobal ipv6.isGlobal;
+  isBogon = fwd ipv4.isBogon ipv6.isBogon;
+
+  toArpa =
+    i:
+    if i.address == null then
+      builtins.throw "libnet.interface.toArpa: name-only interface has no reverse-DNS form"
+    else if isV4 i.address then
+      ipv4.toArpa i.address
+    else
+      ipv6.toArpa i.address;
+
   # ===== Accessors =====
 
   name = i: i.name;
@@ -342,6 +375,16 @@ in
     isIpv6
     hasName
     hasAddress
+    ;
+  inherit
+    isLoopback
+    isUnspecified
+    isLinkLocal
+    isMulticast
+    isDocumentation
+    isGlobal
+    isBogon
+    toArpa
     ;
   inherit
     name

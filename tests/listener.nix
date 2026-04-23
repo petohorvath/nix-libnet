@@ -210,6 +210,72 @@ in
     expected = true;
   };
 
+  # ===== Forwarded predicates =====
+  fwd-loopback-v4 = {
+    expr = lst.isLoopback (p "127.0.0.1:80");
+    expected = true;
+  };
+  fwd-loopback-v6 = {
+    expr = lst.isLoopback (p "[::1]:80");
+    expected = true;
+  };
+  fwd-loopback-no = {
+    expr = lst.isLoopback (p "8.8.8.8:80");
+    expected = false;
+  };
+  fwd-loopback-null = {
+    expr = lst.isLoopback (p ":80");
+    expected = false;
+  };
+  fwd-unspecified-null = {
+    expr = lst.isUnspecified (p ":80");
+    expected = false;
+  };
+  fwd-linkLocal-v6 = {
+    expr = lst.isLinkLocal (p "[fe80::1]:80");
+    expected = true;
+  };
+  fwd-multicast-v4 = {
+    expr = lst.isMulticast (p "224.0.0.1:80");
+    expected = true;
+  };
+  fwd-documentation-v4 = {
+    expr = lst.isDocumentation (p "192.0.2.1:80");
+    expected = true;
+  };
+  fwd-global-v4 = {
+    expr = lst.isGlobal (p "8.8.8.8:80");
+    expected = true;
+  };
+  fwd-global-null = {
+    expr = lst.isGlobal (p ":80");
+    expected = false;
+  };
+  fwd-bogon-v4 = {
+    expr = lst.isBogon (p "10.0.0.1:80");
+    expected = true;
+  };
+  fwd-bogon-v6 = {
+    expr = lst.isBogon (p "[fc00::1]:80");
+    expected = true;
+  };
+  fwd-bogon-null = {
+    expr = lst.isBogon (p ":80");
+    expected = false;
+  };
+  fwd-toArpa-v4 = {
+    expr = lst.toArpa (p "1.2.3.4:80");
+    expected = "4.3.2.1.in-addr.arpa";
+  };
+  fwd-toArpa-v6 = {
+    expr = lst.toArpa (p "[::1]:80");
+    expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+  };
+  fwd-toArpa-null = {
+    expr = throws (lst.toArpa (p ":80"));
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = lst.eq (p ":80") (p ":80");

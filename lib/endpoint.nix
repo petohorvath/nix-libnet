@@ -129,15 +129,17 @@ let
   # ===== Forwarded predicates (apply to address) =====
 
   fwd =
-    ctx: v4Fn: v6Fn: ep:
+    v4Fn: v6Fn: ep:
     if types.isIpv4 ep.address then v4Fn ep.address else v6Fn ep.address;
 
-  isLoopback = fwd "isLoopback" ipv4.isLoopback ipv6.isLoopback;
-  isLinkLocal = fwd "isLinkLocal" ipv4.isLinkLocal ipv6.isLinkLocal;
-  isMulticast = fwd "isMulticast" ipv4.isMulticast ipv6.isMulticast;
-  isUnspecified = fwd "isUnspecified" ipv4.isUnspecified ipv6.isUnspecified;
-  isDocumentation = fwd "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation;
-  isGlobal = fwd "isGlobal" ipv4.isGlobal ipv6.isGlobal;
+  isLoopback = fwd ipv4.isLoopback ipv6.isLoopback;
+  isUnspecified = fwd ipv4.isUnspecified ipv6.isUnspecified;
+  isLinkLocal = fwd ipv4.isLinkLocal ipv6.isLinkLocal;
+  isMulticast = fwd ipv4.isMulticast ipv6.isMulticast;
+  isDocumentation = fwd ipv4.isDocumentation ipv6.isDocumentation;
+  isGlobal = fwd ipv4.isGlobal ipv6.isGlobal;
+  isBogon = fwd ipv4.isBogon ipv6.isBogon;
+  toArpa = fwd ipv4.toArpa ipv6.toArpa;
 
   # ===== Comparison =====
 
@@ -188,11 +190,13 @@ in
   port = port_;
   inherit
     isLoopback
+    isUnspecified
     isLinkLocal
     isMulticast
-    isUnspecified
     isDocumentation
     isGlobal
+    isBogon
+    toArpa
     ;
   inherit
     eq

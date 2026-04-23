@@ -438,6 +438,72 @@ in
     expected = "1.2.3.4/24";
   };
 
+  # ===== Forwarded predicates =====
+  fwd-loopback-v4 = {
+    expr = iface.isLoopback (p "127.0.0.1/8");
+    expected = true;
+  };
+  fwd-loopback-v6 = {
+    expr = iface.isLoopback (p "::1/128");
+    expected = true;
+  };
+  fwd-loopback-no = {
+    expr = iface.isLoopback (p "8.8.8.8/32");
+    expected = false;
+  };
+  fwd-loopback-name-only = {
+    expr = iface.isLoopback (pn "eth0");
+    expected = false;
+  };
+  fwd-unspecified-name-only = {
+    expr = iface.isUnspecified (pn "eth0");
+    expected = false;
+  };
+  fwd-linkLocal-v6 = {
+    expr = iface.isLinkLocal (p "fe80::1/64");
+    expected = true;
+  };
+  fwd-multicast-v4 = {
+    expr = iface.isMulticast (p "224.0.0.1/32");
+    expected = true;
+  };
+  fwd-documentation-v4 = {
+    expr = iface.isDocumentation (p "192.0.2.1/24");
+    expected = true;
+  };
+  fwd-global-v4 = {
+    expr = iface.isGlobal (p "8.8.8.8/32");
+    expected = true;
+  };
+  fwd-global-name-only = {
+    expr = iface.isGlobal (pn "eth0");
+    expected = false;
+  };
+  fwd-bogon-v4 = {
+    expr = iface.isBogon (p "10.0.0.1/24");
+    expected = true;
+  };
+  fwd-bogon-v6 = {
+    expr = iface.isBogon (p "fc00::1/64");
+    expected = true;
+  };
+  fwd-bogon-name-only = {
+    expr = iface.isBogon (pn "eth0");
+    expected = false;
+  };
+  fwd-toArpa-v4 = {
+    expr = iface.toArpa (p "1.2.3.4/32");
+    expected = "4.3.2.1.in-addr.arpa";
+  };
+  fwd-toArpa-v6 = {
+    expr = iface.toArpa (p "::1/128");
+    expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+  };
+  fwd-toArpa-name-only = {
+    expr = throws (iface.toArpa (pn "eth0"));
+    expected = true;
+  };
+
   # ===== Round-trips =====
   roundtrip-addr-only = {
     expr = iface.toString (p "192.168.1.5/24");

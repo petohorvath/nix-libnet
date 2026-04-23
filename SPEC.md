@@ -558,13 +558,15 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `port` | `Endpoint → Port` |
 | `version` | `Endpoint → Int` | `4` or `6` (family of the address). |
 
-**Forwarded predicates** (apply to the endpoint's address component):
+**Forwarded predicates & formatters** (apply to the endpoint's address component — same set as `libnet.ip`):
 | `isLoopback` | `Endpoint → Bool` |
+| `isUnspecified` | `Endpoint → Bool` |
 | `isLinkLocal` | `Endpoint → Bool` |
 | `isMulticast` | `Endpoint → Bool` |
-| `isUnspecified` | `Endpoint → Bool` |
 | `isDocumentation` | `Endpoint → Bool` |
 | `isGlobal` | `Endpoint → Bool` |
+| `isBogon` | `Endpoint → Bool` |
+| `toArpa` | `Endpoint → String` |
 
 Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT forwarded; call them via `ipv4.isPrivate (endpoint.address e)` to stay explicit about family.
 
@@ -591,6 +593,16 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 | `address` | `Listener → Ipv4 | Ipv6 | null` |
 | `portRange` | `Listener → PortRange` |
 | `version` | `Listener → Int | null` | `4`, `6`, or `null` if address is null. |
+
+**Forwarded predicates & formatters** (apply to the listener's address component — same set as `libnet.ip` / `endpoint`):
+| `isLoopback` | `Listener → Bool` | `false` on null address. |
+| `isUnspecified` | `Listener → Bool` | `false` on null address. |
+| `isLinkLocal` | `Listener → Bool` | `false` on null address. |
+| `isMulticast` | `Listener → Bool` | `false` on null address. |
+| `isDocumentation` | `Listener → Bool` | `false` on null address. |
+| `isGlobal` | `Listener → Bool` | `false` on null address. |
+| `isBogon` | `Listener → Bool` | `false` on null address. |
+| `toArpa` | `Listener → String` | Throws on null address (no reverse-DNS form). |
 
 **Expansion & interop**
 | `endpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
@@ -676,6 +688,16 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 **Conversions**
 | `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. Throws on name-only. |
 | `toRange` | `Interface → IpRange` | Convert the network to a range. Throws on name-only. |
+
+**Forwarded predicates & formatters** (apply to the interface's address component — same set as `libnet.ip` / `endpoint` / `listener`):
+| `isLoopback` | `Interface → Bool` | `false` on name-only. |
+| `isUnspecified` | `Interface → Bool` | `false` on name-only. |
+| `isLinkLocal` | `Interface → Bool` | `false` on name-only. |
+| `isMulticast` | `Interface → Bool` | `false` on name-only. |
+| `isDocumentation` | `Interface → Bool` | `false` on name-only. |
+| `isGlobal` | `Interface → Bool` | `false` on name-only. |
+| `isBogon` | `Interface → Bool` | `false` on name-only. |
+| `toArpa` | `Interface → String` | Throws on name-only (no reverse-DNS form). |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is field-wise null-safe. `compare` is a strict total order: addr-present values sort before name-only values; within addr-present, `(family, address, prefix, null-name-first, name-lex)`; within name-only, name lex. Preserves every legacy ordering of two addr-only values.
 
