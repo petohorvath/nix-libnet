@@ -96,10 +96,10 @@ let
     else
       mk f t;
 
-  singleton =
+  fromAddress =
     addr:
     if !(types.isIp addr) then
-      builtins.throw "libnet.ipRange.singleton: expected ipv4 or ipv6 value"
+      builtins.throw "libnet.ipRange.fromAddress: expected ipv4 or ipv6 value"
     else
       mk addr addr;
 
@@ -298,7 +298,7 @@ in
     tryParse
     toString
     make
-    singleton
+    fromAddress
     ;
   inherit
     isValid

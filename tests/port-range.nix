@@ -51,7 +51,7 @@ in
     expected = "80";
   };
 
-  # ===== make / singleton =====
+  # ===== make / fromPort =====
   make-ok = {
     expr = pr.toString (pr.make 100 200);
     expected = "100-200";
@@ -68,8 +68,8 @@ in
     expr = throws (pr.make 0 65536);
     expected = true;
   };
-  singleton-ok = {
-    expr = pr.toString (pr.singleton (port.fromInt 80));
+  fromPort-ok = {
+    expr = pr.toString (pr.fromPort (port.fromInt 80));
     expected = "80";
   };
 

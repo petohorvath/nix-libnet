@@ -515,7 +515,7 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `toString` | `PortRange → String` | Canonical `from-to` (hyphen). Single-port range emits `"8080"` (no hyphen). |
 | `toStringColon` | `PortRange → String` | iptables-style `from:to`. |
 | `make` | `Int → Int → PortRange` | Throws if out of range or `from > to`. |
-| `singleton` | `Port → PortRange` | Construct range containing one port. |
+| `fromPort` | `Port → PortRange` | Construct range containing one port. Parallels `cidr.fromAddress` and `ipRange.fromAddress`. |
 
 **Predicates**
 | `isValid` | `String → Bool` |
@@ -608,7 +608,7 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 | `tryParse` | `String → TryResult IpRange` |
 | `toString` | `IpRange → String` | Canonical `from-to`. |
 | `make` | `(Ipv4 | Ipv6) → (Ipv4 | Ipv6) → IpRange` | Same family required; throws if `to < from`. |
-| `singleton` | `(Ipv4 | Ipv6) → IpRange` | Range containing exactly one address. |
+| `fromAddress` | `(Ipv4 | Ipv6) → IpRange` | Range containing exactly one address. Parallels `cidr.fromAddress` and `portRange.fromPort`. |
 
 **Predicates**
 | `isValid` | `String → Bool` |

@@ -117,10 +117,10 @@ let
     else
       mk f t;
 
-  singleton =
+  fromPort =
     pt:
     if !(types.isPort pt) then
-      builtins.throw "libnet.portRange.singleton: expected a port value"
+      builtins.throw "libnet.portRange.fromPort: expected a port value"
     else
       mk pt.value pt.value;
 
@@ -201,7 +201,7 @@ in
     toString
     toStringColon
     make
-    singleton
+    fromPort
     ;
   inherit isValid is isSingleton;
   inherit from to size;
