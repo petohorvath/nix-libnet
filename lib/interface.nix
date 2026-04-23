@@ -134,12 +134,7 @@ let
     else
       mk null addr prefix;
 
-  makeName =
-    name:
-    let
-      r = tryParseName name;
-    in
-    if r.success then r.value else builtins.throw r.error;
+  makeName = parseName;
 
   makeNamed =
     addr: prefix: name:
