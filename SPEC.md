@@ -301,7 +301,7 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `min` / `max` | `Ipv4 → Ipv4 → Ipv4` |
 
 **Constants**
-| `any` | `0.0.0.0` |
+| `unspecified` | `0.0.0.0` — matches the `isUnspecified` predicate. |
 | `broadcast` | `255.255.255.255` |
 | `loopback` | `127.0.0.1` |
 
@@ -348,7 +348,7 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on the word list (MSB-first), so `compare` matches the natural numeric ordering.
 
 **Constants**
-| `any` | `::` |
+| `unspecified` | `::` — matches the `isUnspecified` predicate. |
 | `loopback` | `::1` |
 
 (No `broadcast` constant — IPv6 has no broadcast concept.)
@@ -373,7 +373,7 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `isUniversal` | `Mac → Bool` | Bit 1 of first octet is 0. |
 | `isLocal` | `Mac → Bool` | Bit 1 of first octet is 1 (locally administered). |
 | `isBroadcast` | `Mac → Bool` | `ff:ff:ff:ff:ff:ff`. |
-| `isZero` | `Mac → Bool` | `00:00:00:00:00:00`. |
+| `isUnspecified` | `Mac → Bool` | `00:00:00:00:00:00`. |
 | `setLocal` | `Mac → Mac` | Set bit 1 of first octet. |
 | `setUniversal` | `Mac → Mac` | Clear bit 1 of first octet. |
 | `setMulticast` | `Mac → Mac` | Set bit 0 of first octet. |
@@ -391,7 +391,7 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 **Arithmetic & comparison**: `add`, `sub`, `diff`, `next`, `prev`, `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — parallel to IPv4.
 
 **Constants**
-| `any` | `00:00:00:00:00:00` |
+| `unspecified` | `00:00:00:00:00:00` — matches the `isUnspecified` predicate. |
 | `broadcast` | `ff:ff:ff:ff:ff:ff` |
 
 ### `libnet.cidr`

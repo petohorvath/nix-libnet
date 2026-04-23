@@ -223,7 +223,7 @@ let
 
   # ===== Constants =====
 
-  any = mk 0;
+  unspecified = mk 0;
   broadcast = mk bits.mask32;
   loopback = fromOctets [
     127
@@ -275,5 +275,5 @@ in
     min
     max
     ;
-  inherit any broadcast loopback;
+  inherit unspecified broadcast loopback;
 }

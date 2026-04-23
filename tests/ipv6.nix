@@ -674,8 +674,8 @@ in
   };
 
   # ===== Constants =====
-  const-any = {
-    expr = ipv6.toString ipv6.any;
+  const-unspecified = {
+    expr = ipv6.toString ipv6.unspecified;
     expected = "::";
   };
   const-loopback = {

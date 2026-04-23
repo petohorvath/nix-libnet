@@ -593,7 +593,7 @@ let
 
   # ===== Constants =====
 
-  any = mk [
+  unspecified = mk [
     0
     0
     0
@@ -658,5 +658,5 @@ in
     min
     max
     ;
-  inherit any loopback;
+  inherit unspecified loopback;
 }

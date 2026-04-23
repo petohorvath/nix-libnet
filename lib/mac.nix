@@ -189,7 +189,7 @@ let
   isUniversal = mac: builtins.bitAnd (firstOctet mac) 2 == 0;
   isLocal = mac: builtins.bitAnd (firstOctet mac) 2 == 2;
   isBroadcast = mac: mac.value == bits.mask48;
-  isZero = mac: mac.value == 0;
+  isUnspecified = mac: mac.value == 0;
 
   # ===== Bit setters =====
 
@@ -282,7 +282,7 @@ let
 
   # ===== Constants =====
 
-  any = mk 0;
+  unspecified = mk 0;
   broadcast = mk bits.mask48;
 in
 {
@@ -307,7 +307,7 @@ in
     isUniversal
     isLocal
     isBroadcast
-    isZero
+    isUnspecified
     ;
   inherit
     setMulticast
@@ -339,5 +339,5 @@ in
     min
     max
     ;
-  inherit any broadcast;
+  inherit unspecified broadcast;
 }

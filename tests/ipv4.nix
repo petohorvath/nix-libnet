@@ -569,8 +569,8 @@ in
   };
 
   # ===== Constants =====
-  const-any = {
-    expr = ipv4.toString ipv4.any;
+  const-unspecified = {
+    expr = ipv4.toString ipv4.unspecified;
     expected = "0.0.0.0";
   };
   const-broadcast = {

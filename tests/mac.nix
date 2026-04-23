@@ -244,12 +244,12 @@ in
     expr = mac.isBroadcast (p "ff:ff:ff:ff:ff:fe");
     expected = false;
   };
-  zero-pos = {
-    expr = mac.isZero (p "00:00:00:00:00:00");
+  unspecified-pos = {
+    expr = mac.isUnspecified (p "00:00:00:00:00:00");
     expected = true;
   };
-  zero-neg = {
-    expr = mac.isZero (p "00:00:00:00:00:01");
+  unspecified-neg = {
+    expr = mac.isUnspecified (p "00:00:00:00:00:01");
     expected = false;
   };
 
@@ -401,8 +401,8 @@ in
   };
 
   # ===== Constants =====
-  const-any = {
-    expr = mac.toString mac.any;
+  const-unspecified = {
+    expr = mac.toString mac.unspecified;
     expected = "00:00:00:00:00:00";
   };
   const-broadcast = {
