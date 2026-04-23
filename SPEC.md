@@ -499,9 +499,9 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — parallel to ipv4/mac.
 
-**Constants**
-| `min` | port `0` |
-| `max` | port `65535` |
+**Constants** (raw ints, not Port values — `min`/`max` are taken by the comparison helpers)
+| `lowestValue` | `0` |
+| `highestValue` | `65535` |
 | `wellKnownMax` | `1023` |
 | `registeredMax` | `49151` |
 
