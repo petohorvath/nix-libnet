@@ -703,6 +703,26 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is field-wise null-safe. `compare` is a strict total order: addr-present values sort before name-only values; within addr-present, `(family, address, prefix, null-name-first, name-lex)`; within name-only, name lex. Preserves every legacy ordering of two addr-only values.
 
+### `libnet.registry`
+
+Static lookup tables shipped as plain Nix literals (no parsed values — lift into libnet types on demand via `cidr.parse`, `port.fromInt`, etc.):
+
+| Attribute | Shape | Contents |
+|---|---|---|
+| `bogons.ipv4` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv4 (loopback, RFC 1918, link-local, multicast, reserved, documentation, 0.0.0.0/32). |
+| `bogons.ipv6` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv6 (unspecified, loopback, unique-local, link-local, multicast, documentation). |
+| `wellKnownPorts.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers. |
+| `wellKnownPorts.udp` | `{ name = Int; ... }` | Common UDP service names → port numbers. |
+| `icmpTypes.ipv4` | `{ name = Int; ... }` | ICMP (IPv4) message-type numbers. |
+| `icmpTypes.ipv6` | `{ name = Int; ... }` | ICMPv6 message-type numbers. |
+
+**Bogon sources — registry vs. predicate**: `registry.bogons.{ipv4,ipv6}` and `{ipv4,ipv6}.isBogon` cover the same address space but decompose it differently. The registry is a list of CIDR literals convenient for iteration, filtering, and display; the predicate is a union of named classifications (`isLoopback`, `isPrivate`, `isLinkLocal`, ...) convenient for branching. Examples:
+
+- IPv4 `255.255.255.255` is covered by the registry entry `240.0.0.0/4`; the predicate matches it via `isBroadcast` (with `isReserved` covering `240.0.0.0/4 \ broadcast` separately).
+- IPv4 `0.0.0.0` appears in the registry as the explicit `/32`; the predicate matches it via `isUnspecified`.
+
+Both lists are kept in lock-step by `tests/registry.nix` (`v4-isBogon-network`, `v6-isBogon-network` and related): every registry entry's network address must satisfy the corresponding `isBogon` predicate. Adding a new bogon requires touching both places.
+
 ### `libnet.withLib` (opt-in NixOS module types)
 
 Calling `libnet.withLib lib` returns libnet augmented with a `types` attrset of NixOS-compatible option types. The caller supplies `nixpkgs.lib`; the core library never imports it. Downstream shape:
