@@ -266,10 +266,6 @@ let
   # ===== Comparison =====
 
   eq = a: b: a.value == b.value;
-  lt = a: b: a.value < b.value;
-  le = a: b: a.value <= b.value;
-  gt = a: b: a.value > b.value;
-  ge = a: b: a.value >= b.value;
 
   compare =
     a: b:
@@ -280,8 +276,12 @@ let
     else
       0;
 
-  min = a: b: if a.value <= b.value then a else b;
-  max = a: b: if a.value >= b.value then a else b;
+  lt = a: b: compare a b == -1;
+  le = a: b: compare a b <= 0;
+  gt = a: b: compare a b == 1;
+  ge = a: b: compare a b >= 0;
+  min = a: b: if le a b then a else b;
+  max = a: b: if ge a b then a else b;
 
   # ===== Constants =====
 
