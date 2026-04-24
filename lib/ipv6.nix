@@ -5,6 +5,10 @@
   internal form is four u32 words (high-to-low, words[0] most
   significant); output follows RFC 5952 canonical formatting.
 
+  Note: `diff a b` returns `b - a` as an Int (second arg minus first),
+  throwing if the result exceeds signed 63-bit range. Matches ipv4 /
+  mac / port curry direction.
+
   Example:
     libnet.ipv6.parse "2001:DB8:0:0::0001"
     => { _type = "ipv6"; words = [ 536939960 0 0 1 ]; }

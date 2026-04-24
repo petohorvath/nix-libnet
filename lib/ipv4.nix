@@ -4,6 +4,9 @@
   Parse, format, compare, and do arithmetic on IPv4 addresses. The
   canonical internal form is a single u32 carried on a tagged attrset.
 
+  Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
+  matching the other scalar modules (ipv6, mac, port) for consistency.
+
   Example:
     libnet.ipv4.parse "192.0.2.1"
     => { _type = "ipv4"; value = 3221225985; }

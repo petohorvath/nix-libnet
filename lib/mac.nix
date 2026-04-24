@@ -5,6 +5,9 @@
   hyphen, Cisco dotted, and bare 12-hex-char input; supports OUI/NIC
   split and EUI-64 modified form.
 
+  Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
+  matching the other scalar modules (ipv4, ipv6, port) for consistency.
+
   Example:
     libnet.mac.parse "a0:36:9f:1b:1e:55"
     => { _type = "mac"; value = 176028872726357; }

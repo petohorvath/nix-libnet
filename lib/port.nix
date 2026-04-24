@@ -5,6 +5,9 @@
   classify ports as well-known (0..1023), registered (1024..49151),
   or dynamic / ephemeral (49152..65535).
 
+  Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
+  matching the other scalar modules (ipv4, ipv6, mac) for consistency.
+
   Example:
     libnet.port.parse "8080"
     => { _type = "port"; value = 8080; }
