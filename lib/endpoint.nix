@@ -123,7 +123,6 @@ let
   # ===== Accessors =====
 
   address = ep: ep.address;
-  port_ = ep: ep.port;
   version = ep: if types.isIpv4 ep.address then 4 else 6;
 
   # ===== Forwarded predicates (apply to address) =====
@@ -187,7 +186,7 @@ in
     isIpv6
     ;
   inherit address version;
-  port = port_;
+  port = ep: ep.port;
   inherit
     isLoopback
     isUnspecified

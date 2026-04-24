@@ -227,7 +227,6 @@ let
   # ===== Accessors =====
 
   address = lst: lst.address;
-  portRange' = lst: lst.portRange;
   version =
     lst:
     if lst.address == null then
@@ -346,7 +345,7 @@ in
     toArpa
     ;
   inherit address version;
-  portRange = portRange';
+  portRange = lst: lst.portRange;
   inherit endpoints endpointsUnbounded endpointAt;
   inherit
     eq
