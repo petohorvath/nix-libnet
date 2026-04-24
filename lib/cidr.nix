@@ -223,14 +223,14 @@ let
 
   # ===== Enumeration =====
 
-  host =
+  hostAt =
     n: c:
     let
       sz = size c;
       idx = if n < 0 then sz + n else n;
     in
     if idx < 0 || idx >= sz then
-      builtins.throw "libnet.cidr.host: index out of range [0, ${builtins.toString sz})"
+      builtins.throw "libnet.cidr.hostAt: index out of range [0, ${builtins.toString sz})"
     else
       let
         n' = network c;
@@ -252,7 +252,7 @@ let
       sz = size c;
     in
     if sz > bits.pow2 16 then
-      builtins.throw "libnet.cidr.hosts: block too large (${builtins.toString sz} addresses > 2^16); use host or hostsUnbounded"
+      builtins.throw "libnet.cidr.hosts: block too large (${builtins.toString sz} addresses > 2^16); use hostAt or hostsUnbounded"
     else
       hostsUnbounded c;
 
@@ -569,7 +569,7 @@ in
     size
     numHosts
     ;
-  inherit host hosts hostsUnbounded;
+  inherit hostAt hosts hostsUnbounded;
   inherit contains containsAddress containsCidr;
   inherit isSubnetOf isSupernetOf overlaps;
   inherit

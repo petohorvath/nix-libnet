@@ -262,14 +262,14 @@ let
   endpointAt =
     n: lst:
     if lst.address == null then
-      builtins.throw "libnet.listener.endpoint: null address cannot be materialized"
+      builtins.throw "libnet.listener.endpointAt: null address cannot be materialized"
     else
       let
         sz = portRange.size lst.portRange;
         idx = if n < 0 then sz + n else n;
       in
       if idx < 0 || idx >= sz then
-        builtins.throw "libnet.listener.endpoint: index out of range [0, ${builtins.toString sz})"
+        builtins.throw "libnet.listener.endpointAt: index out of range [0, ${builtins.toString sz})"
       else
         let
           pt = port.fromInt (lst.portRange.from + idx);
@@ -347,8 +347,7 @@ in
     ;
   inherit address version;
   portRange = portRange';
-  inherit endpoints endpointsUnbounded;
-  endpoint = endpointAt;
+  inherit endpoints endpointsUnbounded endpointAt;
   inherit
     eq
     lt

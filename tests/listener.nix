@@ -189,24 +189,24 @@ in
     expected = true;
   };
 
-  endpoint-at-0 = {
-    expr = endpoint.toString (lst.endpoint 0 (p "1.2.3.4:80-82"));
+  endpointAt-0 = {
+    expr = endpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:80";
   };
-  endpoint-at-2 = {
-    expr = endpoint.toString (lst.endpoint 2 (p "1.2.3.4:80-82"));
+  endpointAt-2 = {
+    expr = endpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
-  endpoint-at-neg = {
-    expr = endpoint.toString (lst.endpoint (-1) (p "1.2.3.4:80-82"));
+  endpointAt-neg = {
+    expr = endpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
-  endpoint-oob = {
-    expr = throws (lst.endpoint 3 (p "1.2.3.4:80-82"));
+  endpointAt-oob = {
+    expr = throws (lst.endpointAt 3 (p "1.2.3.4:80-82"));
     expected = true;
   };
-  endpoint-null = {
-    expr = throws (lst.endpoint 0 (p ":80-82"));
+  endpointAt-null = {
+    expr = throws (lst.endpointAt 0 (p ":80-82"));
     expected = true;
   };
 

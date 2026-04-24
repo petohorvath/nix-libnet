@@ -270,32 +270,32 @@ in
   };
 
   # ===== Enumeration =====
-  host-0 = {
-    expr = c4 (cidr.host 0 (p "10.0.0.0/28"));
+  hostAt-0 = {
+    expr = c4 (cidr.hostAt 0 (p "10.0.0.0/28"));
     expected = "10.0.0.0";
   };
-  host-5 = {
-    expr = c4 (cidr.host 5 (p "10.0.0.0/28"));
+  hostAt-5 = {
+    expr = c4 (cidr.hostAt 5 (p "10.0.0.0/28"));
     expected = "10.0.0.5";
   };
-  host-last = {
-    expr = c4 (cidr.host 15 (p "10.0.0.0/28"));
+  hostAt-last = {
+    expr = c4 (cidr.hostAt 15 (p "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  host-neg-1 = {
-    expr = c4 (cidr.host (-1) (p "10.0.0.0/28"));
+  hostAt-neg-1 = {
+    expr = c4 (cidr.hostAt (-1) (p "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  host-neg-2 = {
-    expr = c4 (cidr.host (-2) (p "10.0.0.0/28"));
+  hostAt-neg-2 = {
+    expr = c4 (cidr.hostAt (-2) (p "10.0.0.0/28"));
     expected = "10.0.0.14";
   };
-  host-oob-pos = {
-    expr = throws (cidr.host 16 (p "10.0.0.0/28"));
+  hostAt-oob-pos = {
+    expr = throws (cidr.hostAt 16 (p "10.0.0.0/28"));
     expected = true;
   };
-  host-oob-neg = {
-    expr = throws (cidr.host (-17) (p "10.0.0.0/28"));
+  hostAt-oob-neg = {
+    expr = throws (cidr.hostAt (-17) (p "10.0.0.0/28"));
     expected = true;
   };
 

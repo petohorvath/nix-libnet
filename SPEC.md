@@ -425,7 +425,7 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `numHosts` | `Cidr → Int` | Usable host count. Same overflow rules. |
 
 **Enumeration**
-| `host` | `Int → Cidr → Ipv4 | Ipv6` | n-th host offset. Throws if n exceeds range. Negative n counts from the end. |
+| `hostAt` | `Int → Cidr → Ipv4 | Ipv6` | n-th host offset. Throws if n exceeds range. Negative n counts from the end. Parallels `listener.endpointAt`. |
 | `hosts` | `Cidr → [Ipv4 | Ipv6]` | List of all usable hosts. Throws if `size` > 2¹⁶ to prevent accidental memory blow-ups; users can override via `hostsUnbounded`. |
 | `hostsUnbounded` | `Cidr → [Ipv4 | Ipv6]` | No size guard. Caller's responsibility. |
 
@@ -609,7 +609,7 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 **Expansion & interop**
 | `endpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
 | `endpointsUnbounded` | `Listener → [Endpoint]` | No size guard. Caller's responsibility. |
-| `endpoint` | `Int → Listener → Endpoint` | Pick the n-th port from the range as a concrete endpoint. Operator-first curry order, parallels `cidr.host`. Throws on null address or out-of-range n. |
+| `endpointAt` | `Int → Listener → Endpoint` | Pick the n-th port from the range as a concrete endpoint. Operator-first curry order, parallels `cidr.hostAt`. Throws on null address or out-of-range n. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, portRange)`. Null address sorts before any non-null address. Mixed family follows the lenient v4-before-v6 rule.
 
@@ -769,7 +769,7 @@ External users who genuinely need these primitives can import by path; they are 
 
 Two patterns, used consistently:
 
-**Throwing form** — `parse`, `fromInt`, `add` on overflow, `host` on out-of-range, `subnet` on size explosion, `toIpv4Mapped` on non-mapped addresses. Throws via `builtins.throw "libnet: <context>: <reason>"`. Error messages always prefixed with `"libnet:"` for grep-ability.
+**Throwing form** — `parse`, `fromInt`, `add` on overflow, `hostAt` on out-of-range, `subnet` on size explosion, `toIpv4Mapped` on non-mapped addresses. Throws via `builtins.throw "libnet: <context>: <reason>"`. Error messages always prefixed with `"libnet:"` for grep-ability.
 
 **Recoverable form** — only `tryParse` for each type. Returns `{ success; value; error; }`. All other recoverable paths are modeled as predicates (`isValid`, `isCanonical`, `contains`, ...).
 
@@ -915,7 +915,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
   - `/31` and `/32` IPv4: `firstHost == network`, `lastHost == broadcast-or-top`, `numHosts ∈ {1, 2}`.
   - `/127` and `/128` IPv6: analogous.
   - `/0` IPv4: `size == 2^32`, `/0` IPv6: `size` throws (too large).
-- `host n`: positive `n`, negative `n` (from end), `n == 0`, out-of-range throws.
+- `hostAt n`: positive `n`, negative `n` (from end), `n == 0`, out-of-range throws.
 - `hosts`: returns list for `/24`; throws on `/15` (> 2¹⁶); `hostsUnbounded` works.
 - `contains`: address at `network`, at `broadcast`, at `network-1`, at `broadcast+1`, with a sub-CIDR of the same family, cross-family (returns `false`).
 - `isSubnetOf`/`isSupernetOf`: both directions, equal CIDRs (both true), disjoint (both false), cross-family (both false).
@@ -1096,7 +1096,7 @@ All originally-open questions are resolved:
 1. **License:** MIT.
 2. **Flake:** optional; `flake.nix` shipped, library also importable via `import ./default.nix {}` without flakes.
 3. **Internal modules:** not exposed through the public `libnet` attrset at all. Tests and sibling modules import them by relative path. Internals can be refactored without API impact.
-4. **Iteration guards:** `cidr.hosts` throws when the block exceeds 2¹⁶ addresses (IPv4 wider than `/16`, IPv6 wider than `/112`). `portRange.ports` throws above 2¹² (4096) entries. `listener.endpoints` follows the portRange guard. Each has a `*Unbounded` sibling that bypasses the check. Indexed access via `cidr.host n`, `listener.endpoint n`, and equivalent is the recommended way to reach entries in large ranges.
+4. **Iteration guards:** `cidr.hosts` throws when the block exceeds 2¹⁶ addresses (IPv4 wider than `/16`, IPv6 wider than `/112`). `portRange.ports` throws above 2¹² (4096) entries. `listener.endpoints` follows the portRange guard. Each has a `*Unbounded` sibling that bypasses the check. Indexed access via `cidr.hostAt n`, `listener.endpointAt n`, and equivalent is the recommended way to reach entries in large ranges.
 5. **Mixed-family comparison in `libnet.ip.compare`:** lenient — IPv4 sorts before IPv6 as a stable tiebreak. Enables `sort` on mixed lists without partitioning. `eq` across families is always false. No separate `compareStrict` variant; callers who need strictness check `ip.version` first.
 6. **Module-type coercion:** option values stay strings, matching existing NixOS idioms. Types validate via the core `isValid` predicates but never transform the stored value. Downstream code calls `libnet.ipv4.parse` (or similar) explicitly when structure is needed.
 7. **Module-type test dependency:** `tests/types.nix` takes `lib` as a function argument; `tests/default.nix` accepts optional `lib` and routes `types.nix` tests to it only when provided. The flake exposes two checks: `core` (invokes with `lib = null`, proves the dep-free guarantee) and `full` (invokes with `pkgs.lib`, adds module-type coverage). Users run either via `nix build .#checks.<system>.{core,full}` or both via `nix flake check`.

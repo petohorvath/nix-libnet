@@ -86,11 +86,11 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.ipv6`](./lib/ipv6.nix) | parse (RFC 5952), toString, from/toWords/Groups/Bytes, fromEui64, IPv4-mapped interop |
 | [`libnet.ip`](./lib/ip.nix) | Unified dispatch (auto-detect v4/v6); forwarded predicates and toArpa |
 | [`libnet.mac`](./lib/mac.nix) | parse (4 formats), toString(Hyphen/Cisco/Bare), OUI/NIC split, setLocal/setMulticast, toEui64 |
-| [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, host(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
+| [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, hostAt(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
-| [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpoint(n) |
+| [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
 | [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
