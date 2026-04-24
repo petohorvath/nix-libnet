@@ -117,6 +117,10 @@ let
       else
         types.tryOk (mk addrRes.value prOpt);
 
+  # "*:PORT", "any:PORT", and ":PORT" all mean "listen on any interface"
+  # and collapse to the same `{address = null; ...}` value. toString
+  # emits the canonical `:PORT` form — so parse → toString is not
+  # round-trip-stable for these three spellings (by design).
   tryParse =
     s:
     if !(builtins.isString s) then

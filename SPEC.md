@@ -580,6 +580,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 | `toString` | `Listener → String` | Canonical: `:from[-to]` when address is null, `<ADDR>:<range>` otherwise; IPv6 bracketed. |
 | `make` | `(Ipv4 | Ipv6 | null) → PortRange → Listener` | |
 
+**Round-trip note**: `parse → toString` is not round-trip-stable for the three wildcard input spellings. `parse "*:80"`, `parse "any:80"`, and `parse ":80"` all produce the same `{address = null; ...}` value, and `toString` always emits the canonical `:80`. This is by design — the three inputs mean the same thing and the structural value records that — but callers that want to preserve the exact input string should keep the string alongside the parsed value. `parse → toString` *is* stable for the explicit-family wildcards (`0.0.0.0:80`, `[::]:80`) because those preserve the address field.
+
 **Predicates**
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
