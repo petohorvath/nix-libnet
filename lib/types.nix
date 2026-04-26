@@ -3,8 +3,8 @@
 
   NixOS option-type integration. Produces string-backed option types
   (ipv4, ipv6, ip, mac, cidr, port, portRange, endpoint, listener,
-  ipRange, interface) plus `.mk` coercers that validate and return
-  the string.
+  ipRange, interface, interfaceName) plus `.mk` coercers that validate
+  and return the string.
 
   Requires `nixpkgs.lib`. This and `lib/with-lib.nix` are the only
   files allowed to consume injected lib; reach this module only
@@ -140,6 +140,12 @@ let
     validator = s: interface.isValid s && interface.isIpv6 (interface.parse s);
   };
 
+  interfaceNameType = mkStrType {
+    typeName = "interfaceName";
+    description = "a Linux interface name (ifname; kernel dev_valid_name parity)";
+    validator = interface.isValidName;
+  };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -180,5 +186,6 @@ in
     interface = interfaceType;
     ipv4Interface = ipv4InterfaceType;
     ipv6Interface = ipv6InterfaceType;
+    interfaceName = interfaceNameType;
   };
 }

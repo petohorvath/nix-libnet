@@ -226,6 +226,60 @@ in
     expected = false;
   };
 
+  # ===== interfaceName =====
+  ifname-ok = {
+    expr = types.interfaceName.check "eth0";
+    expected = true;
+  };
+  ifname-ok-max = {
+    expr = types.interfaceName.check "abcdefghijklmno"; # 15 bytes
+    expected = true;
+  };
+  ifname-empty = {
+    expr = types.interfaceName.check "";
+    expected = false;
+  };
+  ifname-too-long = {
+    expr = types.interfaceName.check "abcdefghijklmnop"; # 16 bytes
+    expected = false;
+  };
+  ifname-dot = {
+    expr = types.interfaceName.check ".";
+    expected = false;
+  };
+  ifname-dotdot = {
+    expr = types.interfaceName.check "..";
+    expected = false;
+  };
+  ifname-slash = {
+    expr = types.interfaceName.check "eth/0";
+    expected = false;
+  };
+  ifname-colon = {
+    expr = types.interfaceName.check "eth:0";
+    expected = false;
+  };
+  ifname-space = {
+    expr = types.interfaceName.check "eth 0";
+    expected = false;
+  };
+  ifname-int = {
+    expr = types.interfaceName.check 0;
+    expected = false;
+  };
+  ifname-mk-ok = {
+    expr = types.interfaceName.mk "wg0";
+    expected = "wg0";
+  };
+  ifname-mk-bad = {
+    expr = throws (types.interfaceName.mk "..");
+    expected = true;
+  };
+  ifname-rej-cidr = {
+    expr = types.interfaceName.check "10.0.0.5/24";
+    expected = false; # the address-on-subnet form is the `interface` type
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
