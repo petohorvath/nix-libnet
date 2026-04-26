@@ -248,7 +248,7 @@ Every function is documented with:
 - Throws-or-not
 - Example (where non-obvious)
 
-Curry order throughout: **operators come first, operand last**, so `add 1` is a partially applied "add one" function useful in `map`/`foldl'`. This applies to `add`, `sub`, `diff`, `host`, `endpoint` (on Listener), `subnet`, `supernet`, `contains` (where applicable), and predicates that take a parameter.
+Curry order throughout: **operators come first, operand last**, so `add 1` is a partially applied "add one" function useful in `map`/`foldl'`. This applies to `add`, `sub`, `diff`, `hostAt`, `endpointAt` (on Listener), `subnet`, `supernet`, `contains` (where applicable), and predicates that take a parameter.
 
 **`isValid` vs `is`**: every family has both. `isValid :: String → Bool` tests "does this string parse successfully" (string-level validation). `is :: Any → Bool` tests "is this value a parsed X value" (structural check on the `_type` tag). They are not interchangeable: `ipv4.isValid "10.0.0.1"` is `true`, but `ipv4.is "10.0.0.1"` is `false` (a raw string is not a parsed ipv4 value).
 
@@ -292,6 +292,8 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `prev` | `Ipv4 → Ipv4` | Throws at `0.0.0.0`. |
 
 **Comparison**
+| Function | Signature |
+|---|---|
 | `eq` | `Ipv4 → Ipv4 → Bool` |
 | `lt` | `Ipv4 → Ipv4 → Bool` |
 | `le` | `Ipv4 → Ipv4 → Bool` |
@@ -301,6 +303,8 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `min` / `max` | `Ipv4 → Ipv4 → Ipv4` |
 
 **Constants**
+| Constant | Value |
+|---|---|
 | `unspecified` | `0.0.0.0` — matches the `isUnspecified` predicate. |
 | `broadcast` | `255.255.255.255` |
 | `loopback` | `127.0.0.1` |
@@ -327,6 +331,8 @@ Mirrors `libnet.ipv4` one-for-one with these additions/adjustments:
 No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` only if a user asks.)
 
 **Predicates** (differences from IPv4):
+| Function | Coverage |
+|---|---|
 | `isLoopback` | `::1` |
 | `isUnspecified` | `::` |
 | `isLinkLocal` | `fe80::/10` |
@@ -340,6 +346,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `isBogon` | `Ipv6 → Bool` — not globally routable: any of `isLoopback`, `isUnspecified`, `isLinkLocal`, `isUniqueLocal`, `isMulticast`, `isDocumentation`. Does **not** include the IPv4 transition/interop forms (`isIpv4Mapped`, `isIpv4Compatible`, `is6to4`) — those are excluded by `isGlobal` but are not classified as bogons. |
 
 **IPv4 interop**:
+| Function | Signature | Notes |
+|---|---|---|
 | `fromIpv4Mapped` | `Ipv4 → Ipv6` | `1.2.3.4 → ::ffff:1.2.3.4` |
 | `toIpv4Mapped` | `Ipv6 → Ipv4` | Throws if not in `::ffff:0:0/96`. |
 
@@ -348,6 +356,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on the word list (MSB-first), so `compare` matches the natural numeric ordering.
 
 **Constants**
+| Constant | Value |
+|---|---|
 | `unspecified` | `::` — matches the `isUnspecified` predicate. |
 | `loopback` | `::1` |
 
@@ -356,6 +366,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 ### `libnet.mac`
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Mac` | Accepts any of: `aa:bb:cc:dd:ee:ff`, `aa-bb-cc-dd-ee-ff`, `aabb.ccdd.eeff`, `aabbccddeeff`. Case-insensitive. |
 | `tryParse` | `String → TryResult Mac` |
 | `toString` | `Mac → String` | Canonical: `aa:bb:cc:dd:ee:ff` (colon, lowercase). |
@@ -366,6 +378,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `fromBytes` / `toBytes` | `[Int] ↔ Mac` | 6 bytes, MSB first. |
 
 **Predicates & bit manipulation**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isUnicast` | `Mac → Bool` | Bit 0 of first octet is 0. |
@@ -380,23 +394,31 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `setUnicast` | `Mac → Mac` | Clear bit 0 of first octet. |
 
 **OUI / NIC split**
+| Function | Signature | Notes |
+|---|---|---|
 | `oui` | `Mac → Int` | Upper 24 bits (as u24 int). |
 | `nic` | `Mac → Int` | Lower 24 bits. |
 | `fromOuiNic` | `Int → Int → Mac` | Reconstruct. |
 | `ouiToString` | `Int → String` | `aa:bb:cc` formatted OUI. |
 
 **EUI-64**
+| Function | Signature | Notes |
+|---|---|---|
 | `toEui64` | `Mac → [Int]` | 8-byte modified EUI-64 identifier per RFC 4291 § 2.5.1: insert `0xFF, 0xFE` between OUI and NIC, flip the u/l bit of the first octet. Output suitable as lower 64 bits of an IPv6 address. |
 
 **Arithmetic & comparison**: `add`, `sub`, `diff`, `next`, `prev`, `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — parallel to IPv4.
 
 **Constants**
+| Constant | Value |
+|---|---|
 | `unspecified` | `00:00:00:00:00:00` — matches the `isUnspecified` predicate. |
 | `broadcast` | `ff:ff:ff:ff:ff:ff` |
 
 ### `libnet.cidr`
 
 **Parsing & construction**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Cidr` | `"10.0.0.0/24"` or `"2001:db8::/32"`. Throws on invalid. |
 | `tryParse` | `String → TryResult Cidr` |
 | `toString` | `Cidr → String` | Canonical form uses the stored address as-is (may be non-canonical). |
@@ -404,32 +426,42 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `fromAddress` | `(Ipv4 | Ipv6) → Cidr` | Uses `/32` or `/128`. |
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` | Does the string parse as a CIDR. |
 | `is` | `Any → Bool` | Structural: value is a `{_type="cidr";…}`. |
 | `isIpv4` | `Cidr → Bool` |
 | `isIpv6` | `Cidr → Bool` |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `address` | `Cidr → Ipv4 | Ipv6` | The stored base address. |
 | `prefix` | `Cidr → Int` | Prefix length. |
 | `version` | `Cidr → Int` | `4` or `6`. |
 
 **Derived values**
+| Function | Signature | Notes |
+|---|---|---|
 | `network` | `Cidr → Ipv4 | Ipv6` | Base address with host bits zeroed. |
 | `broadcast` | `Cidr → Ipv4` | IPv4 only; throws for IPv6. |
 | `netmask` | `Cidr → Ipv4 | Ipv6` | E.g. `/24` → `255.255.255.0`. |
 | `hostmask` | `Cidr → Ipv4 | Ipv6` | Inverse of netmask. |
 | `firstHost` | `Cidr → Ipv4 | Ipv6` | First usable. For IPv4 `/31`,`/32` returns network; for `/30` and wider returns network+1. For IPv6: returns network+1 unless `/128`. |
 | `lastHost` | `Cidr → Ipv4 | Ipv6` | Last usable. IPv4 `/31`/`/32`: returns top; `/30` and wider: broadcast-1. IPv6: returns top unless `/128`. |
-| `size` | `Cidr → Int` | Total addresses. Throws for any block with ≥ 2⁶³ addresses (which is IPv4 not possible; IPv6 prefixes ≤ 65). For wider IPv6 blocks, callers can infer `size = 2^(128 - prefix)` externally or convert to a Range and use its size logic. |
+| `size` | `Cidr → Int` | Total addresses. Throws for any block with ≥ 2⁶³ addresses (impossible for IPv4; IPv6 prefixes ≤ 65). For wider IPv6 blocks, callers can infer `size = 2^(128 - prefix)` externally or convert to a Range and use its size logic. |
 | `numHosts` | `Cidr → Int` | Usable host count. Same overflow rules. |
 
 **Enumeration**
+| Function | Signature | Notes |
+|---|---|---|
 | `hostAt` | `Int → Cidr → Ipv4 | Ipv6` | n-th host offset. Throws if n exceeds range. Negative n counts from the end. Parallels `listener.endpointAt`. |
 | `hosts` | `Cidr → [Ipv4 | Ipv6]` | List of all usable hosts. Throws if `size` > 2¹⁶ to prevent accidental memory blow-ups; users can override via `hostsUnbounded`. |
 | `hostsUnbounded` | `Cidr → [Ipv4 | Ipv6]` | No size guard. Caller's responsibility. |
 
 **Containment & relationships**
+| Function | Signature | Notes |
+|---|---|---|
 | `contains` | `Cidr → (Ipv4 | Ipv6 | Cidr) → Bool` | Overloaded on second arg. Mixed-family returns false rather than throwing. |
 | `containsAddress` | `Cidr → (Ipv4 | Ipv6) → Bool` | Strict version. |
 | `containsCidr` | `Cidr → Cidr → Bool` | Strict version. |
@@ -438,12 +470,16 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `overlaps` | `Cidr → Cidr → Bool` | Symmetric. |
 
 **Normalization & restructuring**
+| Function | Signature | Notes |
+|---|---|---|
 | `canonical` | `Cidr → Cidr` | Zeroes host bits. |
 | `isCanonical` | `Cidr → Bool` |
 | `subnet` | `Int → Cidr → [Cidr]` | Split into equal-sized subnets with the given additional prefix bits. E.g. `subnet 2 (parse "10/8")` → four `/10` blocks. Throws on size explosion like `hosts`. |
 | `supernet` | `Int → Cidr → Cidr` | Expand by n bits. `supernet 8 (parse "10.1.0.0/24")` → `10.0.0.0/16`. |
 
 **Set algebra**
+| Function | Signature | Notes |
+|---|---|---|
 | `summarize` | `[Cidr] → [Cidr]` | Coalesce a list of CIDRs into the minimal equivalent set: merges adjacent same-size pairs into supernets, drops duplicates and fully-covered entries, sorts output. Mixed families partitioned, each family collapsed separately. Python's `ipaddress.collapse_addresses` equivalent. |
 | `exclude` | `Cidr → Cidr → [Cidr]` | `exclude parent child`: return the minimal list of CIDRs covering `parent \ child`. Throws if `child` is not contained in `parent`. Returns `[]` if `child == parent`. |
 | `intersect` | `Cidr → Cidr → (Cidr | null)` | The largest CIDR contained in both (always the smaller of the two if one contains the other, else `null`). |
@@ -455,6 +491,8 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 Auto-detects address family from input. All functions accept either IPv4 or IPv6.
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → (Ipv4 | Ipv6)` | Detects by presence of `:`. Throws on invalid. |
 | `tryParse` | `String → TryResult (Ipv4 | Ipv6)` |
 | `toString` | `(Ipv4 | Ipv6) → String` |
@@ -464,10 +502,14 @@ Auto-detects address family from input. All functions accept either IPv4 or IPv6
 | `isIpv6` | `Any → Bool` |
 
 **Dispatched operations**
+| Function | Signature | Notes |
+|---|---|---|
 | `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` | — | Mixed family: cross-family values compare by version (v4 < v6), so lists sort stably. `eq` across families is always `false`. |
 | `add`, `sub`, `diff`, `next`, `prev` | — | Dispatches to the family-specific implementation. `diff` across families throws. |
 
 **Forwarded predicates & formatters** (same name in both families):
+| Function | Signature | Notes |
+|---|---|---|
 | `isLoopback` | `(Ipv4 | Ipv6) → Bool` |
 | `isUnspecified` | `(Ipv4 | Ipv6) → Bool` |
 | `isLinkLocal` | `(Ipv4 | Ipv6) → Bool` |
@@ -482,12 +524,16 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 ### `libnet.port`
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Port` | Accepts decimal digits only. Rejects leading +/−, whitespace, hex. Throws on out-of-range. |
 | `tryParse` | `String → TryResult Port` |
 | `toString` | `Port → String` | Decimal. |
 | `fromInt` / `toInt` | `Int ↔ Port` | Throws on out-of-range. |
 
 **Predicates** (per RFC 6335)
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isWellKnown` | `Port → Bool` | `0..1023`. |
@@ -500,6 +546,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — parallel to ipv4/mac.
 
 **Constants** (raw ints, not Port values — `min`/`max` are taken by the comparison helpers)
+| Constant | Value |
+|---|---|
 | `lowestValue` | `0` |
 | `highestValue` | `65535` |
 | `wellKnownMax` | `1023` |
@@ -510,6 +558,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 ### `libnet.portRange`
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → PortRange` | Accepts `"8080"` (single), `"5500-6000"` (canonical), `"5500:6000"` (iptables form). Throws if `from > to` or out of range. |
 | `tryParse` | `String → TryResult PortRange` |
 | `toString` | `PortRange → String` | Canonical `from-to` (hyphen). Single-port range emits `"8080"` (no hyphen). |
@@ -518,15 +568,21 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `fromPort` | `Port → PortRange` | Construct range containing one port. Parallels `cidr.fromAddress` and `ipRange.fromAddress`. |
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isSingleton` | `PortRange → Bool` |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `from` / `to` | `PortRange → Int` |
 | `size` | `PortRange → Int` | `to - from + 1`. |
 
 **Containment & relationships**
+| Function | Signature | Notes |
+|---|---|---|
 | `contains` | `PortRange → Port → Bool` |
 | `overlaps` | `PortRange → PortRange → Bool` | Symmetric. |
 | `isSubrangeOf` | `PortRange → PortRange → Bool` | `isSubrangeOf a b` true iff `a ⊆ b`. Same subject-first convention as `cidr.isSubnetOf`. |
@@ -534,6 +590,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `merge` | `PortRange → PortRange → (PortRange | null)` | Returns unified range if adjacent or overlapping; `null` otherwise. |
 
 **Enumeration**
+| Function | Signature | Notes |
+|---|---|---|
 | `ports` | `PortRange → [Port]` | Enumerate all ports. Throws if `size > 2¹²` (4096); use `portsUnbounded` to bypass. |
 | `portsUnbounded` | `PortRange → [Port]` | No size guard. Caller's responsibility. |
 
@@ -542,6 +600,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 ### `libnet.endpoint`
 
 **Parsing & formatting** (RFC 3986 § 3.2)
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Endpoint` | IPv4: `"1.2.3.4:80"`. IPv6: `"[::1]:80"` — brackets **required** to disambiguate. Throws on unbracketed IPv6, missing port, or invalid parts. |
 | `tryParse` | `String → TryResult Endpoint` |
 | `toString` | `Endpoint → String` | Canonical: IPv4 unbracketed, IPv6 bracketed. |
@@ -549,16 +609,22 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `make` | `(Ipv4 | Ipv6) → Port → Endpoint` | Combine pre-parsed address and port. |
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isIpv4` / `isIpv6` | `Endpoint → Bool` |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `address` | `Endpoint → Ipv4 | Ipv6` |
 | `port` | `Endpoint → Port` |
 | `version` | `Endpoint → Int` | `4` or `6` (family of the address). |
 
 **Forwarded predicates & formatters** (apply to the endpoint's address component — same set as `libnet.ip`):
+| Function | Signature | Notes |
+|---|---|---|
 | `isLoopback` | `Endpoint → Bool` |
 | `isUnspecified` | `Endpoint → Bool` |
 | `isLinkLocal` | `Endpoint → Bool` |
@@ -575,6 +641,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 ### `libnet.listener`
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Listener` | Accepts: `:8080` (any+single), `:8080-8090` (any+range), `0.0.0.0:8080`, `[::]:8080`, `1.2.3.4:5000-6000`, `[::1]:5000-6000`, `*:8080`, `any:8080`. Both `*:PORT`/`any:PORT` normalize to `{address = null; ...}` (same shape as no-address input). `0.0.0.0:PORT` and `[::]:PORT` preserve the explicit family address (not normalized to null) so consumers can still tell them apart. Throws on malformed input. |
 | `tryParse` | `String → TryResult Listener` |
 | `toString` | `Listener → String` | Canonical: `:from[-to]` when address is null, `<ADDR>:<range>` otherwise; IPv6 bracketed. |
@@ -583,6 +651,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 **Round-trip note**: `parse → toString` is not round-trip-stable for the three wildcard input spellings. `parse "*:80"`, `parse "any:80"`, and `parse ":80"` all produce the same `{address = null; ...}` value, and `toString` always emits the canonical `:80`. This is by design — the three inputs mean the same thing and the structural value records that — but callers that want to preserve the exact input string should keep the string alongside the parsed value. `parse → toString` *is* stable for the explicit-family wildcards (`0.0.0.0:80`, `[::]:80`) because those preserve the address field.
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isAnyAddress` | `Listener → Bool` | `true` iff `address == null` or address is `0.0.0.0`/`::`. |
@@ -592,11 +662,15 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 | `isIpv6` | `Listener → Bool` | `false` when address is null. |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `address` | `Listener → Ipv4 | Ipv6 | null` |
 | `portRange` | `Listener → PortRange` |
 | `version` | `Listener → Int | null` | `4`, `6`, or `null` if address is null. |
 
 **Forwarded predicates & formatters** (apply to the listener's address component — same set as `libnet.ip` / `endpoint`):
+| Function | Signature | Notes |
+|---|---|---|
 | `isLoopback` | `Listener → Bool` | `false` on null address. |
 | `isUnspecified` | `Listener → Bool` | `false` on null address. |
 | `isLinkLocal` | `Listener → Bool` | `false` on null address. |
@@ -607,6 +681,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 | `toArpa` | `Listener → String` | Throws on null address (no reverse-DNS form). |
 
 **Expansion & interop**
+| Function | Signature | Notes |
+|---|---|---|
 | `endpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
 | `endpointsUnbounded` | `Listener → [Endpoint]` | No size guard. Caller's responsibility. |
 | `endpointAt` | `Int → Listener → Endpoint` | Pick the n-th port from the range as a concrete endpoint. Operator-first curry order, parallels `cidr.hostAt`. Throws on null address or out-of-range n. |
@@ -618,6 +694,8 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr` as a network-block abstraction but without alignment constraints. Useful for firewall iprange rules and DHCP pools.
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → IpRange` | `"1.2.3.4-1.2.3.10"` or `"2001:db8::1-2001:db8::ff"`. Throws on malformed, wrong ordering (`to < from`), or mixed families. |
 | `tryParse` | `String → TryResult IpRange` |
 | `toString` | `IpRange → String` | Canonical `from-to`. |
@@ -625,17 +703,23 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 | `fromAddress` | `(Ipv4 | Ipv6) → IpRange` | Range containing exactly one address. Parallels `cidr.fromAddress` and `portRange.fromPort`. |
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
 | `isIpv4` / `isIpv6` | `IpRange → Bool` |
 | `isSingleton` | `IpRange → Bool` |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `from` / `to` | `IpRange → (Ipv4 | Ipv6)` |
 | `size` | `IpRange → Int` | `ipToInt(to) - ipToInt(from) + 1`. Throws on IPv6 ranges wider than 2⁶³ addresses. |
 | `version` | `IpRange → Int` |
 
 **Containment & relationships**
+| Function | Signature | Notes |
+|---|---|---|
 | `contains` | `IpRange → (Ipv4 | Ipv6) → Bool` |
 | `overlaps` | `IpRange → IpRange → Bool` | Symmetric. |
 | `isSubrangeOf` | `IpRange → IpRange → Bool` |
@@ -643,10 +727,14 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 | `merge` | `IpRange → IpRange → (IpRange | null)` | Unified range if adjacent or overlapping, else `null`. |
 
 **Enumeration**
+| Function | Signature | Notes |
+|---|---|---|
 | `addresses` | `IpRange → [(Ipv4 | Ipv6)]` | Enumerate all addresses. Throws if `size > 2¹⁶`; use `addressesUnbounded` to bypass. |
 | `addressesUnbounded` | `IpRange → [(Ipv4 | Ipv6)]` | No size guard. |
 
 **CIDR interop**
+| Function | Signature | Notes |
+|---|---|---|
 | `toCidrs` | `IpRange → [Cidr]` | Minimal set of CIDRs exactly covering this range. Inverse of a naive CIDR-to-range. |
 | `fromCidr` | `Cidr → IpRange` | Convert a CIDR block into a range (network..broadcast or network..last for IPv6). |
 
@@ -657,6 +745,8 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / `IPv6Interface`), *Linux interface name* (kernel `dev_valid_name`), or both combined. Distinct from CIDR (which says "here is network Y"). Typical use: per-NIC config, firewall rules that reference `eth0`, named address assignments.
 
 **Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
 | `parse` | `String → Interface` | `"192.168.1.5/24"` — addr-only shape. Same text as a CIDR string, distinguished by type tag. Address preserved as the host (NOT zeroed to network). IPv6: `"2001:db8::5/64"`. Throws on malformed input, prefix out of range, or bare names (use `parseName`). Output has `name = null`. |
 | `tryParse` | `String → TryResult Interface` |
 | `parseName` | `String → Interface` | Bare ifname like `"eth0"`. Output has `address = null`, `prefix = null`. Throws on kernel-invalid names per `dev_valid_name`. |
@@ -668,10 +758,14 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 | `fromAddressAndNetwork` | `(Ipv4 | Ipv6) → Cidr → Interface` | Validates `address ∈ network`. Output has `name = null`. |
 
 **Combinators**
+| Function | Signature | Notes |
+|---|---|---|
 | `withName` | `String → Interface → Interface` | Attach or replace the name. Validates. |
 | `withAddress` | `(Ipv4 | Ipv6) → Int → Interface → Interface` | Attach or replace the addr+prefix. Validates. Preserves `name`. |
 
 **Predicates**
+| Function | Signature | Notes |
+|---|---|---|
 | `isValid` | `String → Bool` | Accepts `<addr>/<prefix>` form only. Bare names return false (use `isValidName`). |
 | `isValidName` | `String → Bool` | Pure kernel-parity check: non-empty, length < 16, not `.` / `..`, no `/`, `:`, or whitespace. |
 | `is` | `Any → Bool` |
@@ -679,6 +773,8 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 | `hasName` / `hasAddress` | `Interface → Bool` |
 
 **Accessors**
+| Function | Signature | Notes |
+|---|---|---|
 | `name` | `Interface → String | null` |
 | `address` | `Interface → Ipv4 | Ipv6 | null` | Null on name-only. |
 | `prefix` | `Interface → Int | null` | Null on name-only. |
@@ -688,10 +784,14 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 | `broadcast` | `Interface → Ipv4` | IPv4 only; throws on name-only or IPv6. |
 
 **Conversions**
+| Function | Signature | Notes |
+|---|---|---|
 | `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. Throws on name-only. |
 | `toRange` | `Interface → IpRange` | Convert the network to a range. Throws on name-only. |
 
 **Forwarded predicates & formatters** (apply to the interface's address component — same set as `libnet.ip` / `endpoint` / `listener`):
+| Function | Signature | Notes |
+|---|---|---|
 | `isLoopback` | `Interface → Bool` | `false` on name-only. |
 | `isUnspecified` | `Interface → Bool` | `false` on name-only. |
 | `isLinkLocal` | `Interface → Bool` | `false` on name-only. |
@@ -877,7 +977,7 @@ in
 - Endpoint: IPv4 and IPv6 parse both succeed; unbracketed IPv6 rejected with a clear error; missing port rejected; canonical round-trip for each family.
 - Listener: `:8080`, `:5500-6000`, `*:80`, `any:80`, `0.0.0.0:80`, `[::]:80` all parse to the expected shape; `isAnyAddress` matches on all wildcard variants; `endpoints` respects size guard.
 - IpRange: parse of IPv4/IPv6, rejects `to < from` and mixed families; `contains`/`overlaps`/`merge` edge cases; `toCidrs`/`fromCidr` round-trip for aligned ranges and a few unaligned cases; `addresses` size guard at 2¹⁶.
-- Interface: parse preserves host address (does NOT zero host bits, unlike CIDR); `toCidr` extracts network; equality semantics distinguish `192.168.1.5/24` from `192.168.1.5/25` and from a bare CIDR value.
+- Interface: parse preserves host address (does NOT zero host bits); `toCidr` extracts network; equality semantics distinguish `192.168.1.5/24` from `192.168.1.5/25` and from a bare CIDR value.
 - Reverse DNS: `toArpa` for representative IPv4 and IPv6 addresses; round-trip through a DNS name parser not required (we only emit).
 - EUI-64: `mac.toEui64` output matches RFC 4291 § 2.5.1 for known vectors; `ipv6.fromEui64` composes correctly with a `/64` prefix and throws for prefixes > 64.
 - CIDR algebra: `summarize` collapses adjacent pairs and drops sub-ranges, preserves order, handles mixed families by partitioning; `exclude` produces minimal covering lists with hand-checked expected outputs; `intersect` returns `null` when no overlap.
@@ -980,7 +1080,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - `isAnyAddress` true for all four wildcard forms (null, `0.0.0.0`, `::`, `*`/`any` after parse).
 - `isRange` true iff portRange size > 1.
 - `endpoints` on non-wildcard listener with 10-port range yields 10 endpoints in ascending order; throws on null address; respects size guard.
-- `endpoint n listener`: valid `n`, boundary `n`, out-of-range throws, null address throws.
+- `endpointAt n listener`: valid `n`, boundary `n`, out-of-range throws, null address throws.
 
 **IpRange**
 - Parse: `1.2.3.4-1.2.3.10` (IPv4), `2001:db8::1-2001:db8::ff` (IPv6), singleton `1.2.3.4-1.2.3.4`.
@@ -1059,7 +1159,7 @@ The spec is ready to implement when:
 - [x] Test coverage matrix is exhaustive: every public function, every `throws` branch, every predicate (positive and negative), every parse dialect, every arithmetic carry/borrow case, every CIDR prefix boundary (`/0`, `/31`, `/32`, `/127`, `/128`, out-of-range rejects), every enumeration size guard, every cross-family behavior.
 - [x] Future Work roadmap is documented so contributors know what's deferred and what is an explicit non-goal.
 
-All boxes are checked. Implementation can begin as soon as the user approves this spec.
+All boxes are checked.
 
 ## Future Work (Post-v1 Roadmap)
 
@@ -1122,4 +1222,4 @@ All originally-open questions are resolved:
 6. **Module-type coercion:** option values stay strings, matching existing NixOS idioms. Types validate via the core `isValid` predicates but never transform the stored value. Downstream code calls `libnet.ipv4.parse` (or similar) explicitly when structure is needed.
 7. **Module-type test dependency:** `tests/types.nix` takes `lib` as a function argument; `tests/default.nix` accepts optional `lib` and routes `types.nix` tests to it only when provided. The flake exposes two checks: `core` (invokes with `lib = null`, proves the dep-free guarantee) and `full` (invokes with `pkgs.lib`, adds module-type coverage). Users run either via `nix build .#checks.<system>.{core,full}` or both via `nix flake check`.
 
-The spec has no remaining open questions. Implementation can begin immediately upon plan approval.
+The spec has no remaining open questions.
