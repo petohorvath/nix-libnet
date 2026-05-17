@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  # `pull_request` (NOT `pull_request_target`) is intentional. The
+  # plain trigger runs fork PRs with a read-only GITHUB_TOKEN and
+  # no access to secrets — safe given the workflow runs untrusted
+  # Nix evaluation. `pull_request_target` would check out the PR
+  # head while running with the *base* repo's token — the classic
+  # supply-chain footgun. Do not change without considering token
+  # scope and what the workflow runs.
+  pull_request:
+
+# Default to read-only for all jobs. CI runs untrusted code from
+# fork PRs (Nix evaluation); a least-privilege GITHUB_TOKEN limits
+# blast radius if a flake input or action is compromised. Override
+# per-job if a step ever needs to write.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Each job caches /nix/store via nix-community/cache-nix-action so
+# subsequent runs don't have to re-fetch the nixpkgs derivations
+# the harness wraps tests in. The cache key is
+# `(os, arch, job, flake.lock)` so a lockfile bump cleanly retires
+# stale stores; restore-prefix lets a near-miss warm-restore from
+# any earlier same-job cache. Purge keeps the GHA cache budget
+# (10 GB / repo) under control by dropping older same-prefix
+# entries.
+jobs:
+  format:
+    name: format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+          purge-created: 0
+          purge-primary-key: never
+      - name: Apply formatter
+        run: nix fmt
+      - name: Verify no formatting drift
+        run: git diff --exit-code
+
+  # Tests run across both Linux systems the flake exposes. The
+  # library is pure-Nix with no platform-specific behavior, so the
+  # evaluations are equivalent — the matrix exists to catch
+  # CI-infra and Nix-version-specific issues, and to verify both
+  # advertised systems actually build. Nix can't cross-build between
+  # architectures without a remote builder, so each `system` runs on
+  # a matching GitHub-hosted runner: x86_64-linux on `ubuntu-latest`,
+  # aarch64-linux on `ubuntu-24.04-arm` (free for public repos).
+  # Darwin is not built — the library is pure-Nix builtins, so the
+  # Linux evaluations cover the contract.
+  #
+  # `core` and `full` are built as separate steps rather than via
+  # `nix flake check` so the build log pinpoints which contract
+  # broke. The two checks encode different guarantees: `core` proves
+  # the library has zero `nixpkgs.lib` dependency (evaluates with
+  # `lib = null`); `full` supersets `core` and additionally exercises
+  # the opt-in module-type surface against real `nixpkgs.lib`.
+  tests:
+    name: tests (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+          purge-created: 0
+          purge-primary-key: never
+      - name: Build core check (zero-nixpkgs-dep contract)
+        run: nix build --print-build-logs .#checks.${{ matrix.system }}.core
+      - name: Build full check (module types against nixpkgs.lib)
+        run: nix build --print-build-logs .#checks.${{ matrix.system }}.full
+
+  # Compatibility matrix across nixpkgs channels. The `full` check
+  # exercises `libnet.types.*` against `nixpkgs.lib`, so downstream
+  # consumers on different channels effectively run a different
+  # version of that suite. This job catches upstream `lib`
+  # regressions (option-type internals, `mkOptionType` signature
+  # changes, default flips) before they hit users.
+  #
+  # `--override-input` swaps just the nixpkgs input without touching
+  # flake.lock. `core` is intentionally not matrixed here — it has
+  # no nixpkgs dependency by construction, so the channel axis adds
+  # no signal. Runs on x86_64-linux only; the per-system matrix in
+  # `tests` already covers the arch axis.
+  compat:
+    name: compat (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: pinned
+            override: ""
+          - label: nixos-25.11
+            override: --override-input nixpkgs github:NixOS/nixpkgs/nixos-25.11
+          - label: nixos-unstable
+            override: --override-input nixpkgs github:NixOS/nixpkgs/nixos-unstable
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ matrix.label }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ matrix.label }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ matrix.label }}-
+          purge-created: 0
+          purge-primary-key: never
+      - name: Build full check
+        run: nix build --print-build-logs ${{ matrix.override }} .#checks.x86_64-linux.full
