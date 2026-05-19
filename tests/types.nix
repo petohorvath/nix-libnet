@@ -280,6 +280,44 @@ in
     expected = false; # the address-on-subnet form is the `interface` type
   };
 
+  # ===== transport =====
+  transport-check-tcp = {
+    expr = types.transport.check "tcp";
+    expected = true;
+  };
+  transport-check-udp = {
+    expr = types.transport.check "udp";
+    expected = true;
+  };
+  transport-check-sctp = {
+    expr = types.transport.check "sctp";
+    expected = true;
+  };
+  transport-check-bad = {
+    expr = types.transport.check "icmp";
+    expected = false;
+  };
+  transport-check-upper = {
+    expr = types.transport.check "TCP";
+    expected = false;
+  };
+  transport-check-int = {
+    expr = types.transport.check 6;
+    expected = false;
+  };
+  transport-mk-ok = {
+    expr = types.transport.mk "tcp";
+    expected = "tcp";
+  };
+  transport-mk-bad = {
+    expr = throws (types.transport.mk "icmp");
+    expected = true;
+  };
+  transport-desc = {
+    expr = builtins.isString types.transport.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

@@ -55,6 +55,10 @@ let
     address = ipv4;
     prefix = 24;
   };
+  transport = {
+    _type = "transport";
+    value = "tcp";
+  };
 
   untagged = {
     value = 0;
@@ -101,6 +105,10 @@ in
   tags-interface = {
     expr = types.tags.interface;
     expected = "interface";
+  };
+  tags-transport = {
+    expr = types.tags.transport;
+    expected = "transport";
   };
 
   # ===== hasTag =====
@@ -168,6 +176,10 @@ in
   };
   isInterface-yes = {
     expr = types.isInterface interface;
+    expected = true;
+  };
+  isTransport-yes = {
+    expr = types.isTransport transport;
     expected = true;
   };
 

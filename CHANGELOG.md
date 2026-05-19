@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.transport` — tagged transport-layer-protocol enum (`tcp`,
+  `udp`, `sctp`). Parallels `libnet.port`: tagged value, parse /
+  tryParse / toString, `isTcp` / `isUdp` / `isSctp` predicates, `eq`,
+  and `tcp` / `udp` / `sctp` constants plus a `values` list of the raw
+  strings. Ordering (`lt` / `compare` / `min` / `max`) is intentionally
+  omitted — transport protocols have no canonical order. Opt-in module
+  type `libnet.types.transport` validates the same value set; merged
+  value stays a string. The namespace is `transport` rather than
+  `proto` to keep the layer explicit and leave room for separate
+  network-layer / application-layer enums in the future.
 - Initial specification (`SPEC.md`) covering IPv4, IPv6, MAC, CIDR, Port, PortRange, Endpoint, Listener, Range, Interface types with a pure-Nix, zero-nixpkgs-dependency API.
 - Pure-Nix test harness (`tests/harness.nix`) with no external dependencies.
 - Full v1 implementation of all 11 type namespaces:

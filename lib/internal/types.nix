@@ -10,6 +10,7 @@ let
     listener = "listener";
     ipRange = "ipRange";
     interface = "interface";
+    transport = "transport";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -24,6 +25,7 @@ let
   isListener = hasTag tags.listener;
   isIpRange = hasTag tags.ipRange;
   isInterface = hasTag tags.interface;
+  isTransport = hasTag tags.transport;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -59,6 +61,7 @@ in
     isListener
     isIpRange
     isInterface
+    isTransport
     isIp
     ;
   inherit tryOk tryErr ensureTag;

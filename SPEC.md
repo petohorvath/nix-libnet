@@ -122,6 +122,21 @@ Invariants:
 ```
 Invariant: `value` is in `[0, 65535]` (RFC 6335).
 
+### Transport value
+```nix
+{
+  _type = "transport";
+  value = <string>;   # "tcp" | "udp" | "sctp"
+}
+```
+Invariant: `value` is one of `"tcp"`, `"udp"`, `"sctp"` — the transport
+protocols recognised by Linux netfilter / nftables. Case-sensitive on
+parse (rejects `"TCP"`, `"Tcp"`, etc.) to match the conventions used by
+`nft`, `iptables`, and `/etc/protocols`. The name is `transport` rather
+than `proto` to make the layer explicit; network-layer protocols
+(ICMP / ICMPv6 / IP itself) and application-layer protocols are
+deliberately out of scope.
+
 ### PortRange value
 ```nix
 {
@@ -235,6 +250,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
+| `transport` | — | `value` (enum string) |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -556,6 +572,36 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 
 **Well-known service ports** live in [`libnet.registry.wellKnownPorts`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `rdp`, `memcached`) share the same port number under each key. Port `853` appears on both protocols under different names — `tcp.dnsTls` (DNS-over-TLS, RFC 7858) and `udp.dnsQuic` (DNS-over-QUIC, RFC 9250) — since IANA assigns the two distinct services to the same port.
 
+### `libnet.transport`
+
+Validated transport-layer-protocol enum. Values: `tcp`, `udp`, `sctp` — the transport protocols recognised by Linux netfilter / nftables. ICMP and ICMPv6 are network-layer message protocols and intentionally excluded; QUIC runs on UDP and is not a transport at the kernel level. The `unix` socket family lives under `listener` (v2 roadmap), not here.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Transport` | Case-sensitive (lowercase only). Throws on unknown. |
+| `tryParse` | `String → TryResult Transport` |
+| `toString` | `Transport → String` | Returns the lowercase name verbatim. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+| `isTcp` | `Transport → Bool` |
+| `isUdp` | `Transport → Bool` |
+| `isSctp` | `Transport → Bool` |
+
+**Comparison**: `eq` only. Transport protocols have no canonical order, so `lt` / `le` / `gt` / `ge` / `compare` / `min` / `max` are intentionally omitted — they would have to invent one. Users who need to sort a list of transports can sort on `.value` directly.
+
+**Constants**
+| Constant | Value |
+|---|---|
+| `tcp` | `Transport` value of `"tcp"` |
+| `udp` | `Transport` value of `"udp"` |
+| `sctp` | `Transport` value of `"sctp"` |
+| `values` | `[ "tcp" "udp" "sctp" ]` — raw strings for iteration / `lib.types.enum`. |
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -863,6 +909,7 @@ in {
 | `types.interface` | String (`<addr>/<prefix>`, host bits preserved). | String. |
 | `types.ipv4Interface` / `types.ipv6Interface` | As above, family-restricted. | String. |
 | `types.interfaceName` | String (Linux ifname). Validates kernel `dev_valid_name` parity (non-empty, length < IFNAMSIZ, not `.`/`..`, no `/`/`:`/whitespace). | String (input preserved). |
+| `types.transport` | String (`"tcp"`, `"udp"`, or `"sctp"`). Case-sensitive. | String. |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -915,6 +962,7 @@ nix-libnet/
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
+│   ├── transport.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -937,6 +985,7 @@ nix-libnet/
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
+│   ├── transport.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md
@@ -1176,7 +1225,7 @@ Items below are deliberately excluded from v1 but would be worth adding in subse
 | **IPv6 zone identifiers** | Support `fe80::1%eth0`, add `ipv6.zone` accessor. | Rare in static Nix configs. Adds a fifth field to the IPv6 data model or a wrapper type. |
 | **Port service name reverse lookup** | `port.serviceName :: Port → (String | null)` — `80 → "http"`. | Inverse of well-known constants. Small addition once the constants table is stable. |
 | **Solicited-node multicast derivation** | `ipv6.toSolicitedNode :: Ipv6 → Ipv6` per RFC 4291 § 2.7.1. | Genuinely useful for NDP configurations. Small. |
-| **5-tuple flow type** | `{ srcAddr; srcPort; dstAddr; dstPort; protocol }` for netfilter-style rules. | Protocol label is its own question (TCP/UDP/SCTP enum); cleaner as a separate submodule. |
+| **5-tuple flow type** | `{ srcAddr; srcPort; dstAddr; dstPort; transport }` for netfilter-style rules. | The `transport` enum already exists; the flow type would compose it with two `endpoint` values. Deferred because the composite type itself is more useful once paired with a rule-DSL consumer. |
 | **Route type** | `{ destination: Cidr; via: Ipv4 | Ipv6; metric: Int; }` with comparison and validation. | Parallels `networking.interfaces.*.ipv4.routes` in NixOS but pure-Nix. |
 | **Address block registry** | `ip.blockInfo :: Ipv4 → { name; rfc; description }` — identify which RFC-reserved block an address belongs to. | Readable output for diagnostic tools; modest data table. |
 | **Bigger-than-2⁶³ IPv6 range support** | Multi-word size computations, so `range.size (range.parse "::-::ffff:ffff:ffff:ffff")` returns without throwing. | Niche; the size guard is mostly about preventing accidental eval blow-ups. |

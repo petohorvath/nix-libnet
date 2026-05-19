@@ -27,6 +27,7 @@ let
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
   port = import ./port.nix;
+  transport = import ./transport.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -146,6 +147,12 @@ let
     validator = interface.isValidName;
   };
 
+  transportType = mkStrType {
+    typeName = "transport";
+    description = "a transport protocol (tcp, udp, sctp)";
+    validator = transport.isValid;
+  };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -187,5 +194,6 @@ in
     ipv4Interface = ipv4InterfaceType;
     ipv6Interface = ipv6InterfaceType;
     interfaceName = interfaceNameType;
+    transport = transportType;
   };
 }
