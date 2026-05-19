@@ -65,6 +65,11 @@ let
       (bits.bits 0 8 v)
     ];
 
+  # Aliases — "octet" is the IPv4-canonical term (RFC 791); "byte" matches
+  # mac/ipv6. Same function, two names for cross-family discoverability.
+  fromBytes = fromOctets;
+  toBytes = toOctets;
+
   # ===== Parsing & formatting =====
 
   tryParse =
@@ -241,6 +246,8 @@ in
     toInt
     fromOctets
     toOctets
+    fromBytes
+    toBytes
     ;
   inherit
     parse

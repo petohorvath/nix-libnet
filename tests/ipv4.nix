@@ -228,6 +228,28 @@ in
     expected = true;
   };
 
+  # ===== fromBytes / toBytes (aliases) =====
+  fromBytes-alias = {
+    expr = ipv4.toString (
+      ipv4.fromBytes [
+        10
+        0
+        0
+        1
+      ]
+    );
+    expected = "10.0.0.1";
+  };
+  toBytes-alias = {
+    expr = ipv4.toBytes (p "10.0.0.1");
+    expected = [
+      10
+      0
+      0
+      1
+    ];
+  };
+
   # ===== toArpa =====
   arpa-simple = {
     expr = ipv4.toArpa (p "1.2.3.4");
