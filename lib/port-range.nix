@@ -7,7 +7,7 @@
 
   Example:
     libnet.portRange.parse "8000-8100"
-    => { _type = "portRange"; from = <port 8000>; to = <port 8100>; }
+    => { _type = "portRange"; from = 8000; to = 8100; }
 
     libnet.portRange.size (libnet.portRange.parse "8000-8100")
     => 101
