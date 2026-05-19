@@ -318,6 +318,48 @@ in
     expected = true;
   };
 
+  # ===== hostname =====
+  hostname-check-ok = {
+    expr = types.hostname.check "nas";
+    expected = true;
+  };
+  hostname-check-hyphen = {
+    expr = types.hostname.check "my-server";
+    expected = true;
+  };
+  hostname-check-leading-digit = {
+    expr = types.hostname.check "3com";
+    expected = true;
+  };
+  hostname-check-underscore = {
+    expr = types.hostname.check "host_name";
+    expected = false;
+  };
+  hostname-check-dot = {
+    expr = types.hostname.check "host.example.com";
+    expected = false;
+  };
+  hostname-check-empty = {
+    expr = types.hostname.check "";
+    expected = false;
+  };
+  hostname-check-int = {
+    expr = types.hostname.check 42;
+    expected = false;
+  };
+  hostname-mk-ok = {
+    expr = types.hostname.mk "MyHost";
+    expected = "MyHost";
+  };
+  hostname-mk-bad = {
+    expr = throws (types.hostname.mk "host_name");
+    expected = true;
+  };
+  hostname-desc = {
+    expr = builtins.isString types.hostname.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

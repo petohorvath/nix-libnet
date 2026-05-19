@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.hostname` — tagged single-label hostname type. RFC 1123
+  syntax capped at Linux's `HOST_NAME_MAX - 1` (= 63 effective chars,
+  ASCII `[A-Za-z0-9-]`, no leading/trailing hyphen, no underscores,
+  no dots). Matches the shape Linux uses for kernel hostnames and
+  what `networking.hostName` accepts, minus the latter's undocumented
+  underscore allowance. API: parse / tryParse / toString / isValid /
+  is / normalize, plus the full comparison suite (eq / lt / le / gt /
+  ge / compare / min / max) which is **case-insensitive** per DNS
+  semantics — `toString` still preserves the verbatim input case.
+  Opt-in module type `libnet.types.hostname` validates the same
+  pattern. Multi-label / FQDN names are out of scope here; they
+  belong to `libnet.domain` (not yet implemented).
 - `libnet.transport` — tagged transport-layer-protocol enum (`tcp`,
   `udp`, `sctp`). Parallels `libnet.port`: tagged value, parse /
   tryParse / toString, `isTcp` / `isUdp` / `isSctp` predicates, `eq`,

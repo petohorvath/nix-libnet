@@ -28,6 +28,7 @@ let
   interface = import ./interface.nix;
   port = import ./port.nix;
   transport = import ./transport.nix;
+  hostname = import ./hostname.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -153,6 +154,12 @@ let
     validator = transport.isValid;
   };
 
+  hostnameType = mkStrType {
+    typeName = "hostname";
+    description = "an RFC 1123 hostname (single label, 1-63 chars)";
+    validator = hostname.isValid;
+  };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -195,5 +202,6 @@ in
     ipv6Interface = ipv6InterfaceType;
     interfaceName = interfaceNameType;
     transport = transportType;
+    hostname = hostnameType;
   };
 }

@@ -31,7 +31,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 ## Non-Goals (v1)
 
-- No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups.)
+- No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
 - No URL/URI parsing (but `toUri` formatter may emit bracketed IPv6 for URL consumers).
 - No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
@@ -136,6 +136,29 @@ parse (rejects `"TCP"`, `"Tcp"`, etc.) to match the conventions used by
 than `proto` to make the layer explicit; network-layer protocols
 (ICMP / ICMPv6 / IP itself) and application-layer protocols are
 deliberately out of scope.
+
+### Hostname value
+```nix
+{
+  _type = "hostname";
+  value = <string>;   # 1-63 ASCII chars from [A-Za-z0-9-]
+}
+```
+Invariants:
+- `value` is a single label (no dots), 1–63 characters long.
+- Characters are ASCII alphanumeric and hyphen (`[A-Za-z0-9-]`).
+- First and last character are alphanumeric (no leading or trailing
+  hyphen).
+- No underscores.
+
+The shape matches single-label RFC 1123 syntax capped at Linux's
+`HOST_NAME_MAX - 1` (= 63 effective characters; the 64th byte is the
+NUL terminator in the `sethostname(2)` ABI). Equivalent to what
+`networking.hostName` accepts in nixpkgs, minus the latter's
+undocumented underscore allowance.
+
+Multi-label / FQDN names (`example.com`) live in `libnet.domain`,
+not here.
 
 ### PortRange value
 ```nix
@@ -251,6 +274,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
 | `transport` | — | `value` (enum string) |
+| `hostname` | — | `value` (RFC 1123 single-label string) |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -602,6 +626,30 @@ Validated transport-layer-protocol enum. Values: `tcp`, `udp`, `sctp` — the tr
 | `sctp` | `Transport` value of `"sctp"` |
 | `values` | `[ "tcp" "udp" "sctp" ]` — raw strings for iteration / `lib.types.enum`. |
 
+### `libnet.hostname`
+
+Validated single-label hostname. RFC 1123 syntax capped at Linux's `HOST_NAME_MAX - 1` (= 63 effective characters). This is the shape Linux uses for kernel hostnames — what `gethostname(2)` returns, what `networking.hostName` accepts (modulo the latter's undocumented underscore allowance, which we drop). Multi-label / FQDN names belong in `libnet.domain`, not here.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Hostname` | Throws on invalid. |
+| `tryParse` | `String → TryResult Hostname` |
+| `toString` | `Hostname → String` | Preserves input case verbatim. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+
+**Normalization**
+| Function | Signature | Notes |
+|---|---|---|
+| `normalize` | `Hostname → Hostname` | Returns a `Hostname` with a lowercase `value`. ASCII-only (hostnames are ASCII by validation). Idempotent. |
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — all **case-insensitive** per DNS semantics. Two hostnames that differ only in case refer to the same host. `toString` still preserves the verbatim input; only the comparison helpers fold case.
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -910,6 +958,7 @@ in {
 | `types.ipv4Interface` / `types.ipv6Interface` | As above, family-restricted. | String. |
 | `types.interfaceName` | String (Linux ifname). Validates kernel `dev_valid_name` parity (non-empty, length < IFNAMSIZ, not `.`/`..`, no `/`/`:`/whitespace). | String (input preserved). |
 | `types.transport` | String (`"tcp"`, `"udp"`, or `"sctp"`). Case-sensitive. | String. |
+| `types.hostname` | String — single-label RFC 1123 hostname (1-63 chars, `[A-Za-z0-9-]`, no leading/trailing `-`). | String (input case preserved). |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -963,6 +1012,7 @@ nix-libnet/
 │   ├── ip-range.nix
 │   ├── interface.nix
 │   ├── transport.nix
+│   ├── hostname.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -986,6 +1036,7 @@ nix-libnet/
 │   ├── ip-range.nix
 │   ├── interface.nix
 │   ├── transport.nix
+│   ├── hostname.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md

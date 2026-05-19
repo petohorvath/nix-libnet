@@ -59,6 +59,10 @@ let
     _type = "transport";
     value = "tcp";
   };
+  hostname = {
+    _type = "hostname";
+    value = "nas";
+  };
 
   untagged = {
     value = 0;
@@ -109,6 +113,10 @@ in
   tags-transport = {
     expr = types.tags.transport;
     expected = "transport";
+  };
+  tags-hostname = {
+    expr = types.tags.hostname;
+    expected = "hostname";
   };
 
   # ===== hasTag =====
@@ -180,6 +188,10 @@ in
   };
   isTransport-yes = {
     expr = types.isTransport transport;
+    expected = true;
+  };
+  isHostname-yes = {
+    expr = types.isHostname hostname;
     expected = true;
   };
 

@@ -12,6 +12,7 @@ let
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;
     transport = import ./lib/transport.nix;
+    hostname = import ./lib/hostname.nix;
     registry = import ./lib/registry.nix;
   };
 in
