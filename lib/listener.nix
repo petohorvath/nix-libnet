@@ -271,7 +271,7 @@ let
         builtins.throw "libnet.listener.endpointAt: index out of range [0, ${builtins.toString sz})"
       else
         let
-          pt = port.fromInt (lst.portRange.from + idx);
+          pt = port.add idx lst.portRange.from;
         in
         endpoint.make lst.address pt;
 

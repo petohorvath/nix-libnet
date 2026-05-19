@@ -126,13 +126,13 @@ Invariant: `value` is in `[0, 65535]` (RFC 6335).
 ```nix
 {
   _type = "portRange";
-  from = <int>;   # 0 .. 65535
-  to   = <int>;   # from .. 65535
+  from = <Port>;   # tagged port value, 0 .. 65535
+  to   = <Port>;   # tagged port value, from..65535
 }
 ```
 Invariants:
-- Both `from` and `to` are in `[0, 65535]`.
-- `from <= to` (a single-port range is `from == to`).
+- Both `from` and `to` are tagged `Port` values in `[0, 65535]`.
+- `port.le from to` (a single-port range is `port.eq from to`).
 
 ### tryParse result
 ```nix
@@ -230,15 +230,15 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 |---|---|---|
 | `cidr` | `address` (Ipv4/Ipv6) | `prefix` (int) |
 | `ipv6` | — | `words` (list of int) |
-| `portRange` | — | `from`, `to` (int, int) |
+| `portRange` | `from`, `to` (Port, Port) | — |
 | `endpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
 
-Rationale for the asymmetry in PortRange vs Endpoint: a Port standing alone has semantic meaning and predicates (`isWellKnown`, etc.), so Endpoint carries it tagged. A port-range boundary only exists within a range and never travels alone, so from/to stay as ints (parallel to how `cidr.prefix` is an int).
+Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
-Users who want Port values from a range call `port.fromInt (portRange.from pr)`.
+Users who want a bare int from a range call `port.toInt (portRange.from pr)`.
 
 ## API Surface
 
@@ -578,8 +578,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 **Accessors**
 | Function | Signature | Notes |
 |---|---|---|
-| `from` / `to` | `PortRange → Int` |
-| `size` | `PortRange → Int` | `to - from + 1`. |
+| `from` / `to` | `PortRange → Port` | Tagged Port values; unwrap via `port.toInt` for a bare int. |
+| `size` | `PortRange → Int` | `port.toInt to - port.toInt from + 1`. |
 
 **Containment & relationships**
 | Function | Signature | Notes |

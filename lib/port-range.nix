@@ -7,7 +7,9 @@
 
   Example:
     libnet.portRange.parse "8000-8100"
-    => { _type = "portRange"; from = 8000; to = 8100; }
+    => { _type = "portRange";
+         from = { _type = "port"; value = 8000; };
+         to   = { _type = "port"; value = 8100; }; }
 
     libnet.portRange.size (libnet.portRange.parse "8000-8100")
     => 101
@@ -20,6 +22,8 @@ let
 
   portMax = 65535;
 
+  # `f` and `t` are tagged Port values, parallel to how cidr stores a
+  # tagged address and how ipRange stores tagged from/to ip values.
   mk = f: t: {
     _type = "portRange";
     from = f;
@@ -62,7 +66,7 @@ let
         else if f > t then
           types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
         else
-          types.tryOk (mk f t)
+          types.tryOk (mk (port.fromInt f) (port.fromInt t))
       else if hasColon then
         let
           f = parsePart (builtins.elemAt colonParts 0);
@@ -73,7 +77,7 @@ let
         else if f > t then
           types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
         else
-          types.tryOk (mk f t)
+          types.tryOk (mk (port.fromInt f) (port.fromInt t))
       else if isSingle then
         let
           p = parsePart s;
@@ -81,7 +85,10 @@ let
         if p == null then
           types.tryErr "libnet.portRange.parse: invalid port \"${s}\""
         else
-          types.tryOk (mk p p)
+          let
+            pt = port.fromInt p;
+          in
+          types.tryOk (mk pt pt)
       else
         types.tryErr "libnet.portRange.parse: malformed \"${s}\"";
 
@@ -94,17 +101,17 @@ let
 
   toString =
     pr:
-    if pr.from == pr.to then
-      builtins.toString pr.from
+    if port.eq pr.from pr.to then
+      port.toString pr.from
     else
-      "${builtins.toString pr.from}-${builtins.toString pr.to}";
+      "${port.toString pr.from}-${port.toString pr.to}";
 
   toStringColon =
     pr:
-    if pr.from == pr.to then
-      builtins.toString pr.from
+    if port.eq pr.from pr.to then
+      port.toString pr.from
     else
-      "${builtins.toString pr.from}:${builtins.toString pr.to}";
+      "${port.toString pr.from}:${port.toString pr.to}";
 
   make =
     f: t:
@@ -115,52 +122,61 @@ let
     else if f > t then
       builtins.throw "libnet.portRange.make: from > to"
     else
-      mk f t;
+      mk (port.fromInt f) (port.fromInt t);
 
   fromPort =
     pt:
     if !(types.isPort pt) then
       builtins.throw "libnet.portRange.fromPort: expected a port value"
     else
-      mk pt.value pt.value;
+      mk pt pt;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
   is = types.isPortRange;
-  isSingleton = pr: pr.from == pr.to;
+  isSingleton = pr: port.eq pr.from pr.to;
 
   # ===== Accessors =====
 
   from = pr: pr.from;
   to = pr: pr.to;
-  size = pr: pr.to - pr.from + 1;
+  size = pr: port.toInt pr.to - port.toInt pr.from + 1;
 
   # ===== Containment =====
 
-  contains = pr: pt: if !(types.isPort pt) then false else pt.value >= pr.from && pt.value <= pr.to;
+  contains =
+    pr: pt:
+    if !(types.isPort pt) then false else port.le pr.from pt && port.le pt pr.to;
 
-  overlaps = a: b: a.from <= b.to && b.from <= a.to;
+  overlaps = a: b: port.le a.from b.to && port.le b.from a.to;
 
-  isSubrangeOf = a: b: b.from <= a.from && a.to <= b.to;
+  isSubrangeOf = a: b: port.le b.from a.from && port.le a.to b.to;
 
   isSuperrangeOf = a: b: isSubrangeOf b a;
 
   # Adjacent: a.to + 1 == b.from OR b.to + 1 == a.from
   merge =
     a: b:
-    if overlaps a b || a.to + 1 == b.from || b.to + 1 == a.from then
-      let
-        newFrom = if a.from < b.from then a.from else b.from;
-        newTo = if a.to > b.to then a.to else b.to;
-      in
-      mk newFrom newTo
+    let
+      aToI = port.toInt a.to;
+      bToI = port.toInt b.to;
+      aFromI = port.toInt a.from;
+      bFromI = port.toInt b.from;
+    in
+    if overlaps a b || aToI + 1 == bFromI || bToI + 1 == aFromI then
+      mk (port.min a.from b.from) (port.max a.to b.to)
     else
       null;
 
   # ===== Enumeration =====
 
-  portsUnbounded = pr: builtins.genList (i: port.fromInt (pr.from + i)) (size pr);
+  portsUnbounded =
+    pr:
+    let
+      base = port.toInt pr.from;
+    in
+    builtins.genList (i: port.fromInt (base + i)) (size pr);
 
   ports =
     pr:
@@ -174,19 +190,13 @@ let
 
   # ===== Comparison =====
 
-  eq = a: b: a.from == b.from && a.to == b.to;
+  eq = a: b: port.eq a.from b.from && port.eq a.to b.to;
   compare =
     a: b:
-    if a.from < b.from then
-      -1
-    else if a.from > b.from then
-      1
-    else if a.to < b.to then
-      -1
-    else if a.to > b.to then
-      1
-    else
-      0;
+    let
+      c = port.compare a.from b.from;
+    in
+    if c != 0 then c else port.compare a.to b.to;
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
   gt = a: b: compare a b == 1;

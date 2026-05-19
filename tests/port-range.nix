@@ -98,11 +98,19 @@ in
   # ===== Accessors =====
   from-val = {
     expr = pr.from (p "80-90");
-    expected = 80;
+    expected = port.fromInt 80;
   };
   to-val = {
     expr = pr.to (p "80-90");
-    expected = 90;
+    expected = port.fromInt 90;
+  };
+  from-is-port = {
+    expr = port.is (pr.from (p "80-90"));
+    expected = true;
+  };
+  to-is-port = {
+    expr = port.is (pr.to (p "80-90"));
+    expected = true;
   };
   size-single = {
     expr = pr.size (p "80");

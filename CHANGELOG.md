@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT license.
 
 ### Changed
+- **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
+  `Port` values rather than raw ints. The accessors `portRange.from` /
+  `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
+  Aligns `portRange` with the library-wide tagging convention so any
+  first-class sub-value (Port, Ipv4, Ipv6) travels in the same shape
+  whether it stands alone or sits inside a composite. `portRange.make`
+  still accepts bare ints for ergonomics; `portRange.fromPort`,
+  `portRange.size`, `portRange.toString`, and friends are unchanged at
+  the call site.
 - `libnet.interface` now carries an optional Linux ifname alongside the existing
   address-on-subnet binding. A parsed interface is
   `{ _type; name; address; prefix }` where each of `name`, `address`, `prefix`
