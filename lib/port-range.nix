@@ -145,9 +145,7 @@ let
 
   # ===== Containment =====
 
-  contains =
-    pr: pt:
-    if !(types.isPort pt) then false else port.le pr.from pt && port.le pt pr.to;
+  contains = pr: pt: if !(types.isPort pt) then false else port.le pr.from pt && port.le pt pr.to;
 
   overlaps = a: b: port.le a.from b.to && port.le b.from a.to;
 
