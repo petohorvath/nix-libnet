@@ -134,8 +134,6 @@ let
     else
       mk null addr prefix;
 
-  makeName = parseName;
-
   makeNamed =
     addr: prefix: name:
     if !(types.isIp addr) then
@@ -148,6 +146,13 @@ let
       }\""
     else
       mk name addr prefix;
+
+  fromAddress =
+    addr:
+    if !(types.isIp addr) then
+      builtins.throw "libnet.interface.fromAddress: expected ipv4 or ipv6 value"
+    else
+      mk null addr (maxPrefix addr);
 
   fromAddressAndNetwork =
     addr: net:
@@ -270,12 +275,15 @@ let
 
   # ===== Conversions =====
 
+  # Preserves the interface's host bits — unlike `network`, which returns the
+  # canonical (host-zeroed) block. Mirrors Python's IPv4Interface where the
+  # interface's string form keeps the host but `.network` does not.
   toCidr =
     i:
     if i.address == null then
       builtins.throw "libnet.interface.toCidr: name-only interface has no CIDR"
     else
-      network i;
+      cidr.make i.address i.prefix;
 
   toRange =
     i:
@@ -361,8 +369,8 @@ in
     tryParseName
     toString
     make
-    makeName
     makeNamed
+    fromAddress
     fromAddressAndNetwork
     withName
     withAddress

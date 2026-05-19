@@ -119,13 +119,40 @@ in
   };
 
   # ===== Conversions =====
-  toCidr = {
+  # toCidr preserves host bits; network returns the canonical block.
+  toCidr-preserves-host = {
     expr = cidr.toString (iface.toCidr (p "192.168.1.5/24"));
+    expected = "192.168.1.5/24";
+  };
+  toCidr-v6-preserves-host = {
+    expr = cidr.toString (iface.toCidr (p "2001:db8::5/64"));
+    expected = "2001:db8::5/64";
+  };
+  network-vs-toCidr = {
+    expr = cidr.toString (iface.network (p "192.168.1.5/24"));
     expected = "192.168.1.0/24";
   };
   toRange = {
     expr = (iface.toRange (p "192.168.1.5/24")).to.value;
     expected = (ipv4.parse "192.168.1.255").value;
+  };
+
+  # ===== fromAddress =====
+  fromAddress-v4 = {
+    expr = iface.toString (iface.fromAddress (ipv4.parse "10.0.0.1"));
+    expected = "10.0.0.1/32";
+  };
+  fromAddress-v6 = {
+    expr = iface.toString (iface.fromAddress (ipv6.parse "2001:db8::1"));
+    expected = "2001:db8::1/128";
+  };
+  fromAddress-name-null = {
+    expr = (iface.fromAddress (ipv4.parse "10.0.0.1")).name;
+    expected = null;
+  };
+  fromAddress-non-ip-throws = {
+    expr = throws (iface.fromAddress "10.0.0.1");
+    expected = true;
   };
 
   # ===== fromAddressAndNetwork =====
@@ -332,15 +359,6 @@ in
     expr = throws (iface.makeNamed (ipv4.parse "10.0.0.1") 33 "eth0");
     expected = true;
   };
-  makeName-ok = {
-    expr = (iface.makeName "eth0").name;
-    expected = "eth0";
-  };
-  makeName-bad-throws = {
-    expr = throws (iface.makeName "");
-    expected = true;
-  };
-
   # ===== Combinators =====
   withName-attach-to-addr-only = {
     expr = (iface.withName "eth0" (p "10.0.0.1/24")).name;

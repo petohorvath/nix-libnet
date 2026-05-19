@@ -264,6 +264,7 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `toInt` | `Ipv4 → Int` | Total. |
 | `fromOctets` | `[Int] → Ipv4` | List of 4 ints, MSB first. Throws on length/range. |
 | `toOctets` | `Ipv4 → [Int]` | 4 ints, MSB first. |
+| `fromBytes` / `toBytes` | — | Aliases for `fromOctets` / `toOctets` — same name as `mac` / `ipv6` for cross-family discoverability. |
 | `toArpa` | `Ipv4 → String` | Reverse-DNS form: `1.2.3.4 → "4.3.2.1.in-addr.arpa"`. |
 
 **Predicates**
@@ -753,8 +754,8 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 | `tryParseName` | `String → TryResult Interface` |
 | `toString` | `Interface → String` | Addr-only → `<address>/<prefix>`. Name-only → `<name>`. Named+addr → `<address>/<prefix>` (name is metadata; access via `name iface`). Always total. |
 | `make` | `(Ipv4 | Ipv6) → Int → Interface` | Construct addr-only; validates prefix range for family. |
-| `makeName` | `String → Interface` | Construct name-only; validates per `dev_valid_name`. |
 | `makeNamed` | `(Ipv4 | Ipv6) → Int → String → Interface` | Construct named+addr; validates both the addr+prefix and the name. |
+| `fromAddress` | `(Ipv4 | Ipv6) → Interface` | Defaults prefix to `/32` (IPv4) or `/128` (IPv6); `name = null`. Parallels `cidr.fromAddress`. |
 | `fromAddressAndNetwork` | `(Ipv4 | Ipv6) → Cidr → Interface` | Validates `address ∈ network`. Output has `name = null`. |
 
 **Combinators**
@@ -786,7 +787,7 @@ Interface descriptor covering *address-on-a-subnet* (Python's `IPv4Interface` / 
 **Conversions**
 | Function | Signature | Notes |
 |---|---|---|
-| `toCidr` | `Interface → Cidr` | Drops the host address, returns the network. Throws on name-only. |
+| `toCidr` | `Interface → Cidr` | Preserves the interface's host bits (non-canonical CIDR). Use `network` for the canonical block. Throws on name-only. |
 | `toRange` | `Interface → IpRange` | Convert the network to a range. Throws on name-only. |
 
 **Forwarded predicates & formatters** (apply to the interface's address component — same set as `libnet.ip` / `endpoint` / `listener`):

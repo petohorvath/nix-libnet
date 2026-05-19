@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `{ _type; name; address; prefix }` where each of `name`, `address`, `prefix`
   may be null; at least one of `name`/`address` is non-null and `address`↔`prefix`
   are paired. Three valid shapes: addr-only (legacy), name-only, and named+addr.
-- New functions: `parseName`, `tryParseName`, `makeName`, `makeNamed`,
+- New functions: `parseName`, `tryParseName`, `makeNamed`,
   `withName`, `withAddress`, `isValidName`, `name`, `hasName`, `hasAddress`.
 - `isValidName` is byte-for-byte kernel `dev_valid_name` parity: non-empty,
   length < `IFNAMSIZ` (16), not `.` / `..`, no `/`, no `:`, no `isspace(3)`
