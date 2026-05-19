@@ -32,6 +32,7 @@ let
   domain = import ./domain.nix;
   host = import ./host.nix;
   vlanId = import ./vlan-id.nix;
+  mtu = import ./mtu.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -191,6 +192,22 @@ let
           v;
     };
 
+  mtuType =
+    let
+      t = lib.types.ints.between mtu.lowestValue mtu.highestValue;
+    in
+    t
+    // {
+      mk =
+        v:
+        if !(builtins.isInt v) then
+          builtins.throw "libnet.types.mtu.mk: expected int, got ${builtins.typeOf v}"
+        else if !(mtu.isValid v) then
+          builtins.throw "libnet.types.mtu.mk: out of range [${builtins.toString mtu.lowestValue}, ${builtins.toString mtu.highestValue}]: ${builtins.toString v}"
+        else
+          v;
+    };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -237,5 +254,6 @@ in
     domain = domainType;
     host = hostType;
     vlanId = vlanIdType;
+    mtu = mtuType;
   };
 }

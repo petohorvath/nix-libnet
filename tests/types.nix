@@ -506,6 +506,68 @@ in
     expected = true;
   };
 
+  # ===== mtu =====
+  mtu-check-ethernet = {
+    expr = types.mtu.check 1500;
+    expected = true;
+  };
+  mtu-check-jumbo = {
+    expr = types.mtu.check 9000;
+    expected = true;
+  };
+  mtu-check-min = {
+    expr = types.mtu.check 68;
+    expected = true;
+  };
+  mtu-check-max = {
+    expr = types.mtu.check 65535;
+    expected = true;
+  };
+  mtu-check-below-min = {
+    expr = types.mtu.check 67;
+    expected = false;
+  };
+  mtu-check-above-max = {
+    expr = types.mtu.check 65536;
+    expected = false;
+  };
+  mtu-check-zero = {
+    expr = types.mtu.check 0;
+    expected = false;
+  };
+  mtu-check-string = {
+    expr = types.mtu.check "1500";
+    expected = false;
+  };
+  mtu-mk-ok = {
+    expr = types.mtu.mk 1500;
+    expected = 1500;
+  };
+  mtu-mk-min = {
+    expr = types.mtu.mk 68;
+    expected = 68;
+  };
+  mtu-mk-max = {
+    expr = types.mtu.mk 65535;
+    expected = 65535;
+  };
+  mtu-mk-below-throws = {
+    expr = throws (types.mtu.mk 67);
+    expected = true;
+  };
+  mtu-mk-above-throws = {
+    expr = throws (types.mtu.mk 65536);
+    expected = true;
+  };
+  mtu-mk-string-throws = {
+    expr = throws (types.mtu.mk "1500");
+    expected = true;
+  };
+  mtu-desc = {
+    expr = builtins.isString types.mtu.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

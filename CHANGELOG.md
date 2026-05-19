@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.mtu` — bounded-int validator for IP MTU values. Accepts
+  ints in `[68, 65535]`: 68 is RFC 791's minimum forwarding MTU
+  (and the floor Linux's `ip link set mtu` accepts), 65535 is the
+  IPv4 / IPv6 wire-format maximum. Syntactic floor only, not a
+  semantic recommendation — real-world MTUs typically live in
+  `[1280, 9000]`. Same minimal shape as `libnet.vlanId`: `isValid`
+  predicate plus `lowestValue` / `highestValue` constants, no
+  tagged value, no parser, no arithmetic. Opt-in module type
+  `libnet.types.mtu` enforces the range at module-eval time with a
+  `.mk` smart-constructor.
 - `libnet.vlanId` — bounded-int validator for IEEE 802.1Q VLAN IDs.
   Accepts ints in `[1, 4094]`; rejects 0 (priority-tagged sentinel)
   and 4095 (reserved). Minimal surface: `isValid` predicate plus

@@ -754,6 +754,21 @@ Bounded-int validator for IEEE 802.1Q VLAN IDs. The 12-bit VLAN tag has 4096 pos
 | `lowestValue` | `1` |
 | `highestValue` | `4094` |
 
+### `libnet.mtu`
+
+Bounded-int validator for IP MTU values. Same shape as `vlanId`: minimal surface, no tagged value, no algebra. Range is `[68, 65535]` — the lower bound is RFC 791's minimum forwarding MTU (and the floor Linux's `ip link set mtu` accepts), the upper bound is the IPv4 / IPv6 wire-format maximum (the 16-bit Total Length field in the IPv4 header). This is a syntactic floor (kernel will accept it), not a semantic recommendation; real-world MTUs are typically in `[1280, 9000]`.
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `Int → Bool` | Returns `true` iff the input is an int in `[68, 65535]`. Rejects non-ints (returns `false` rather than throwing). |
+
+**Constants**
+| Constant | Value |
+|---|---|
+| `lowestValue` | `68` |
+| `highestValue` | `65535` |
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -1066,6 +1081,7 @@ in {
 | `types.domain` | String — multi-label DNS name (≥2 labels, RFC 1123 per label, total ≤253 chars). | String (input case preserved). |
 | `types.host` | String — an IP, hostname, or domain (union of `ipv4` / `ipv6` / `hostname` / `domain` validators). | String. |
 | `types.vlanId` | Int in `[1, 4094]` (IEEE 802.1Q usable range). | Int. |
+| `types.mtu` | Int in `[68, 65535]` (RFC 791 forwarding floor through IPv4 wire-format maximum). | Int. |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -1124,6 +1140,7 @@ nix-libnet/
 │   ├── domain.nix
 │   ├── host.nix             # Pass-through union over ip + hostname + domain
 │   ├── vlan-id.nix
+│   ├── mtu.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -1152,6 +1169,7 @@ nix-libnet/
 │   ├── domain.nix
 │   ├── host.nix
 │   ├── vlan-id.nix
+│   ├── mtu.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md

@@ -16,6 +16,7 @@ let
     domain = import ./lib/domain.nix;
     host = import ./lib/host.nix;
     vlanId = import ./lib/vlan-id.nix;
+    mtu = import ./lib/mtu.nix;
     registry = import ./lib/registry.nix;
   };
 in
