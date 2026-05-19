@@ -345,6 +345,7 @@ in
     toArpa
     ;
   inherit address version;
+  # `portRange` accessor declared inline below to avoid shadowing the imported `portRange` module.
   portRange = lst: lst.portRange;
   inherit endpoints endpointsUnbounded endpointAt;
   inherit

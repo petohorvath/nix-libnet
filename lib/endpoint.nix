@@ -186,6 +186,7 @@ in
     isIpv6
     ;
   inherit address version;
+  # `port` accessor declared inline below to avoid shadowing the imported `port` module.
   port = ep: ep.port;
   inherit
     isLoopback
