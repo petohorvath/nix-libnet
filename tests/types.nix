@@ -402,6 +402,52 @@ in
     expected = true;
   };
 
+  # ===== host =====
+  host-check-ip = {
+    expr = types.host.check "192.168.1.1";
+    expected = true;
+  };
+  host-check-ipv6 = {
+    expr = types.host.check "::1";
+    expected = true;
+  };
+  host-check-hostname = {
+    expr = types.host.check "nas";
+    expected = true;
+  };
+  host-check-domain = {
+    expr = types.host.check "example.com";
+    expected = true;
+  };
+  host-check-bad = {
+    expr = types.host.check "host_name";
+    expected = false;
+  };
+  host-check-empty = {
+    expr = types.host.check "";
+    expected = false;
+  };
+  host-check-int = {
+    expr = types.host.check 42;
+    expected = false;
+  };
+  host-mk-ip = {
+    expr = types.host.mk "192.168.1.1";
+    expected = "192.168.1.1";
+  };
+  host-mk-hostname = {
+    expr = types.host.mk "nas";
+    expected = "nas";
+  };
+  host-mk-bad = {
+    expr = throws (types.host.mk "host_name");
+    expected = true;
+  };
+  host-desc = {
+    expr = builtins.isString types.host.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

@@ -709,6 +709,36 @@ Validated multi-label DNS name (≥ 2 labels). Each label uses the same RFC 1123
 
 **Notably absent**: there is no `tld` accessor. RFC 1034 defines TLD as the rightmost label (`com`, `org`, `uk`), but consumers usually expect the PSL-defined "registered TLD" (`co.uk`, `github.io`) which we cannot compute without shipping the Public Suffix List. To avoid the ambiguity, the operation is omitted — consumers who genuinely want the rightmost label can take the last element of `labels`.
 
+### `libnet.host` (pass-through union)
+
+Pass-through union over `Ipv4`, `Ipv6`, `Hostname`, and `Domain` — the shapes a service consumer might address. There is **no new `_type` tag**: `parse` returns the underlying typed value, and consumers branch on its `_type` to access family-specific operations. Same pattern as `libnet.ip` already uses for its v4/v6 split.
+
+**Dispatch order** (`tryParse` returns the first that succeeds):
+1. `ip.tryParse` — succeeds for IPv4 / IPv6.
+2. `hostname.tryParse` — succeeds for single-label names.
+3. `domain.tryParse` — succeeds for multi-label names.
+
+The orderings are non-overlapping except for IP-shaped strings (dotted-quad), which would also parse as 4-label domains; the IP-first order classifies them as IPs (almost always what the consumer means).
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → (Ipv4 \| Ipv6 \| Hostname \| Domain)` | Throws if none of the three families match. |
+| `tryParse` | `String → TryResult (...)` |
+| `toString` | `Host → String` | Dispatches to the underlying family's `toString`. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` | True for an `Ipv4`, `Ipv6`, `Hostname`, or `Domain` value. |
+| `isIp` | `Any → Bool` | Convenience for `types.isIp`. |
+| `isHostname` | `Any → Bool` |
+| `isDomain` | `Any → Bool` |
+| `isName` | `Any → Bool` | Hostname **or** domain — i.e. "not an IP". Common branch in firewall/config code. |
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-family order: `Ipv4 < Ipv6 < Hostname < Domain`. Within a family, dispatches to that family's own comparison (case-insensitive for hostname/domain; numeric for IP). `eq` returns `false` across family boundaries — mirrors `libnet.ip.eq`'s cross-v4/v6 behavior.
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -1019,6 +1049,7 @@ in {
 | `types.transport` | String (`"tcp"`, `"udp"`, or `"sctp"`). Case-sensitive. | String. |
 | `types.hostname` | String — single-label RFC 1123 hostname (1-63 chars, `[A-Za-z0-9-]`, no leading/trailing `-`). | String (input case preserved). |
 | `types.domain` | String — multi-label DNS name (≥2 labels, RFC 1123 per label, total ≤253 chars). | String (input case preserved). |
+| `types.host` | String — an IP, hostname, or domain (union of `ipv4` / `ipv6` / `hostname` / `domain` validators). | String. |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -1075,6 +1106,7 @@ nix-libnet/
 │   ├── transport.nix
 │   ├── hostname.nix
 │   ├── domain.nix
+│   ├── host.nix             # Pass-through union over ip + hostname + domain
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -1101,6 +1133,7 @@ nix-libnet/
 │   ├── transport.nix
 │   ├── hostname.nix
 │   ├── domain.nix
+│   ├── host.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md

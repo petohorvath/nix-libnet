@@ -29,6 +29,7 @@ let
     // prefix "transport" (tryImport "transport.nix")
     // prefix "hostname" (tryImport "hostname.nix")
     // prefix "domain" (tryImport "domain.nix")
+    // prefix "host" (tryImport "host.nix")
     // prefix "registry" (tryImport "registry.nix")
     // prefix "iparse" (tryImport "internal/parse.nix")
     // prefix "ifmt" (tryImport "internal/format.nix")

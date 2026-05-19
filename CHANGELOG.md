@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.host` — pass-through union over `Ipv4`, `Ipv6`, `Hostname`,
+  and `Domain`. No new `_type` tag: `parse` returns the underlying
+  typed value and consumers branch on `._type`. Dispatch order is
+  IP → Hostname → Domain (dotted-quad strings classify as IPs).
+  API: parse / tryParse / toString / isValid / is / isIp /
+  isHostname / isDomain / isName plus the full cross-family
+  comparison suite (`Ipv4 < Ipv6 < Hostname < Domain`; within a
+  family, dispatches to that family's own comparator). Opt-in
+  module type `libnet.types.host` validates any of the four shapes.
+  Same pattern as `libnet.ip` already uses for its v4/v6 split.
 - `libnet.domain` — tagged multi-label DNS-name type. Requires ≥ 2
   labels; each label follows the same RFC 1123 syntax as
   `libnet.hostname`; total length capped at 253 chars per RFC 1035

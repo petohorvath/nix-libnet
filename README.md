@@ -96,6 +96,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.transport`](./lib/transport.nix) | tcp/udp/sctp transport-layer enum, parse, isTcp/isUdp/isSctp, eq |
 | [`libnet.hostname`](./lib/hostname.nix) | single-label RFC 1123 hostname (1-63 chars), parse, normalize, case-insensitive eq/compare |
 | [`libnet.domain`](./lib/domain.nix) | multi-label DNS name (>=2 labels), parent, isSubdomainOf, toHostname, normalize, case-insensitive eq/compare |
+| [`libnet.host`](./lib/host.nix) | pass-through union over ip + hostname + domain; dispatches on input shape (no new tag) |
 | [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 

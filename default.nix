@@ -14,6 +14,7 @@ let
     transport = import ./lib/transport.nix;
     hostname = import ./lib/hostname.nix;
     domain = import ./lib/domain.nix;
+    host = import ./lib/host.nix;
     registry = import ./lib/registry.nix;
   };
 in
