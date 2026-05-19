@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.vlanId` — bounded-int validator for IEEE 802.1Q VLAN IDs.
+  Accepts ints in `[1, 4094]`; rejects 0 (priority-tagged sentinel)
+  and 4095 (reserved). Minimal surface: `isValid` predicate plus
+  `lowestValue` / `highestValue` constants. No tagged value, no
+  parser, no arithmetic — it's an int with a range. Opt-in module
+  type `libnet.types.vlanId` enforces the same range at module-eval
+  time and provides a `.mk` smart-constructor that throws on
+  out-of-range input.
 - `libnet.host` — pass-through union over `Ipv4`, `Ipv6`, `Hostname`,
   and `Domain`. No new `_type` tag: `parse` returns the underlying
   typed value and consumers branch on `._type`. Dispatch order is

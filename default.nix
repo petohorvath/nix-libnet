@@ -15,6 +15,7 @@ let
     hostname = import ./lib/hostname.nix;
     domain = import ./lib/domain.nix;
     host = import ./lib/host.nix;
+    vlanId = import ./lib/vlan-id.nix;
     registry = import ./lib/registry.nix;
   };
 in

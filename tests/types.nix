@@ -448,6 +448,64 @@ in
     expected = true;
   };
 
+  # ===== vlanId =====
+  vlanId-check-typical = {
+    expr = types.vlanId.check 100;
+    expected = true;
+  };
+  vlanId-check-min = {
+    expr = types.vlanId.check 1;
+    expected = true;
+  };
+  vlanId-check-max = {
+    expr = types.vlanId.check 4094;
+    expected = true;
+  };
+  vlanId-check-zero = {
+    expr = types.vlanId.check 0;
+    expected = false;
+  };
+  vlanId-check-4095 = {
+    expr = types.vlanId.check 4095;
+    expected = false;
+  };
+  vlanId-check-negative = {
+    expr = types.vlanId.check (-1);
+    expected = false;
+  };
+  vlanId-check-string = {
+    expr = types.vlanId.check "100";
+    expected = false;
+  };
+  vlanId-mk-ok = {
+    expr = types.vlanId.mk 100;
+    expected = 100;
+  };
+  vlanId-mk-min = {
+    expr = types.vlanId.mk 1;
+    expected = 1;
+  };
+  vlanId-mk-max = {
+    expr = types.vlanId.mk 4094;
+    expected = 4094;
+  };
+  vlanId-mk-zero-throws = {
+    expr = throws (types.vlanId.mk 0);
+    expected = true;
+  };
+  vlanId-mk-4095-throws = {
+    expr = throws (types.vlanId.mk 4095);
+    expected = true;
+  };
+  vlanId-mk-string-throws = {
+    expr = throws (types.vlanId.mk "100");
+    expected = true;
+  };
+  vlanId-desc = {
+    expr = builtins.isString types.vlanId.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

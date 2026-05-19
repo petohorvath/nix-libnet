@@ -739,6 +739,21 @@ The orderings are non-overlapping except for IP-shaped strings (dotted-quad), wh
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-family order: `Ipv4 < Ipv6 < Hostname < Domain`. Within a family, dispatches to that family's own comparison (case-insensitive for hostname/domain; numeric for IP). `eq` returns `false` across family boundaries — mirrors `libnet.ip.eq`'s cross-v4/v6 behavior.
 
+### `libnet.vlanId`
+
+Bounded-int validator for IEEE 802.1Q VLAN IDs. The 12-bit VLAN tag has 4096 possible values, of which 1..4094 are usable: 0 is the priority-tagged / untagged sentinel and 4095 is reserved for implementation use. This module is intentionally minimal — a VLAN ID is just an int with a range. No tagged value, no parser, no arithmetic.
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `Int → Bool` | Returns `true` iff the input is an int in `[1, 4094]`. Rejects non-ints (returns `false` rather than throwing). |
+
+**Constants**
+| Constant | Value |
+|---|---|
+| `lowestValue` | `1` |
+| `highestValue` | `4094` |
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -1050,6 +1065,7 @@ in {
 | `types.hostname` | String — single-label RFC 1123 hostname (1-63 chars, `[A-Za-z0-9-]`, no leading/trailing `-`). | String (input case preserved). |
 | `types.domain` | String — multi-label DNS name (≥2 labels, RFC 1123 per label, total ≤253 chars). | String (input case preserved). |
 | `types.host` | String — an IP, hostname, or domain (union of `ipv4` / `ipv6` / `hostname` / `domain` validators). | String. |
+| `types.vlanId` | Int in `[1, 4094]` (IEEE 802.1Q usable range). | Int. |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -1107,6 +1123,7 @@ nix-libnet/
 │   ├── hostname.nix
 │   ├── domain.nix
 │   ├── host.nix             # Pass-through union over ip + hostname + domain
+│   ├── vlan-id.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -1134,6 +1151,7 @@ nix-libnet/
 │   ├── hostname.nix
 │   ├── domain.nix
 │   ├── host.nix
+│   ├── vlan-id.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md

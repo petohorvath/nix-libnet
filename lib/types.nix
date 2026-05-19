@@ -31,6 +31,7 @@ let
   hostname = import ./hostname.nix;
   domain = import ./domain.nix;
   host = import ./host.nix;
+  vlanId = import ./vlan-id.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -174,6 +175,22 @@ let
     validator = host.isValid;
   };
 
+  vlanIdType =
+    let
+      t = lib.types.ints.between vlanId.lowestValue vlanId.highestValue;
+    in
+    t
+    // {
+      mk =
+        v:
+        if !(builtins.isInt v) then
+          builtins.throw "libnet.types.vlanId.mk: expected int, got ${builtins.typeOf v}"
+        else if !(vlanId.isValid v) then
+          builtins.throw "libnet.types.vlanId.mk: out of range [${builtins.toString vlanId.lowestValue}, ${builtins.toString vlanId.highestValue}]: ${builtins.toString v}"
+        else
+          v;
+    };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -219,5 +236,6 @@ in
     hostname = hostnameType;
     domain = domainType;
     host = hostType;
+    vlanId = vlanIdType;
   };
 }
