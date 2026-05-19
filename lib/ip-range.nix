@@ -284,7 +284,15 @@ let
       in
       if fc != 0 then fc else cmpAddrs a.to b.to;
 
-  eq = a: b: a == b;
+  eq =
+    a: b:
+    a.from._type == b.from._type
+    && (
+      if isV4 a.from then
+        ipv4.eq a.from b.from && ipv4.eq a.to b.to
+      else
+        ipv6.eq a.from b.from && ipv6.eq a.to b.to
+    );
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
   gt = a: b: compare a b == 1;
