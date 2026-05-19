@@ -25,10 +25,7 @@
 */
 let
   types = import ./internal/types.nix;
-
-  # Single-label RFC 1123 syntax, capped at Linux's HOST_NAME_MAX - 1
-  # (= 63 effective chars). `builtins.match` anchors the whole string.
-  pattern = "[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?";
+  dnsLabel = import ./internal/dns-label.nix;
 
   # ASCII-only lowercase. Hostnames are ASCII by validation, so this is
   # exhaustive within the domain. Hand-rolled to keep the core
@@ -103,7 +100,7 @@ let
     s:
     if !(builtins.isString s) then
       types.tryErr "libnet.hostname.parse: input must be a string"
-    else if builtins.match pattern s == null then
+    else if !(dnsLabel.isValidLabel s) then
       types.tryErr "libnet.hostname.parse: invalid hostname \"${s}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
     else
       types.tryOk (mk s);

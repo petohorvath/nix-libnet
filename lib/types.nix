@@ -29,6 +29,7 @@ let
   port = import ./port.nix;
   transport = import ./transport.nix;
   hostname = import ./hostname.nix;
+  domain = import ./domain.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -160,6 +161,12 @@ let
     validator = hostname.isValid;
   };
 
+  domainType = mkStrType {
+    typeName = "domain";
+    description = "a DNS domain name (>=2 labels, RFC 1123 syntax, total <=253 chars)";
+    validator = domain.isValid;
+  };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -203,5 +210,6 @@ in
     interfaceName = interfaceNameType;
     transport = transportType;
     hostname = hostnameType;
+    domain = domainType;
   };
 }

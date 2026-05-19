@@ -160,6 +160,24 @@ undocumented underscore allowance.
 Multi-label / FQDN names (`example.com`) live in `libnet.domain`,
 not here.
 
+### Domain value
+```nix
+{
+  _type = "domain";
+  value = <string>;   # ≥2 labels joined by ".", total ≤253 chars
+}
+```
+Invariants:
+- `value` parses as ≥ 2 dot-separated labels.
+- Each label satisfies the same RFC 1123 syntax as a `Hostname` (1–63
+  ASCII alphanumerics or hyphens, no leading/trailing hyphen).
+- Total length is ≤ 253 characters (RFC 1035 §3.1).
+- No leading dot, no trailing dot, no consecutive dots.
+
+Per-label rules are shared with `Hostname` via the internal helper
+`lib/internal/dns-label.nix` — one source of truth for "is this a
+valid DNS label?".
+
 ### PortRange value
 ```nix
 {
@@ -275,6 +293,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
 | `transport` | — | `value` (enum string) |
 | `hostname` | — | `value` (RFC 1123 single-label string) |
+| `domain` | — | `value` (RFC 1123 multi-label dotted string) |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -650,6 +669,46 @@ Validated single-label hostname. RFC 1123 syntax capped at Linux's `HOST_NAME_MA
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — all **case-insensitive** per DNS semantics. Two hostnames that differ only in case refer to the same host. `toString` still preserves the verbatim input; only the comparison helpers fold case.
 
+### `libnet.domain`
+
+Validated multi-label DNS name (≥ 2 labels). Each label uses the same RFC 1123 syntax as `hostname` (delegated to the shared internal helper `lib/internal/dns-label.nix`); the domain itself adds zone-arithmetic operations.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Domain` | Throws on invalid. |
+| `tryParse` | `String → TryResult Domain` |
+| `toString` | `Domain → String` | Preserves input case verbatim. |
+| `fromLabels` | `[String] → Domain` | Joins with `"."` and validates the result. Throws if any label is invalid, fewer than 2 labels, or total length exceeds 253. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+
+**Accessors**
+| Function | Signature | Notes |
+|---|---|---|
+| `labels` | `Domain → [String]` | List of labels in order (leftmost first). E.g. `["foo" "example" "com"]`. |
+| `labelCount` | `Domain → Int` | Always ≥ 2 by invariant. |
+
+**Zone arithmetic**
+| Function | Signature | Notes |
+|---|---|---|
+| `parent` | `Domain → Domain \| null` | Drops the leftmost label. Returns `null` when the parent would have fewer than 2 labels (i.e. for two-label domains like `example.com`). |
+| `isSubdomainOf` | `Domain → Domain → Bool` | Reflexive: `isSubdomainOf a a` is `true`. Case-insensitive. Suffix-matching on the label list. |
+| `toHostname` | `Domain → Hostname` | Leftmost label as a `Hostname` value. Total — every domain label is by construction a valid hostname. |
+
+**Normalization**
+| Function | Signature | Notes |
+|---|---|---|
+| `normalize` | `Domain → Domain` | Lowercase the `value`. ASCII-only. Idempotent. |
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — all **case-insensitive** per DNS semantics. `toString` still preserves the verbatim input; only the comparison helpers fold case.
+
+**Notably absent**: there is no `tld` accessor. RFC 1034 defines TLD as the rightmost label (`com`, `org`, `uk`), but consumers usually expect the PSL-defined "registered TLD" (`co.uk`, `github.io`) which we cannot compute without shipping the Public Suffix List. To avoid the ambiguity, the operation is omitted — consumers who genuinely want the rightmost label can take the last element of `labels`.
+
 ### `libnet.portRange`
 
 **Parsing & formatting**
@@ -959,6 +1018,7 @@ in {
 | `types.interfaceName` | String (Linux ifname). Validates kernel `dev_valid_name` parity (non-empty, length < IFNAMSIZ, not `.`/`..`, no `/`/`:`/whitespace). | String (input preserved). |
 | `types.transport` | String (`"tcp"`, `"udp"`, or `"sctp"`). Case-sensitive. | String. |
 | `types.hostname` | String — single-label RFC 1123 hostname (1-63 chars, `[A-Za-z0-9-]`, no leading/trailing `-`). | String (input case preserved). |
+| `types.domain` | String — multi-label DNS name (≥2 labels, RFC 1123 per label, total ≤253 chars). | String (input case preserved). |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -979,6 +1039,7 @@ Modules in scope:
 - `internal/format.nix` — `hex2`, `hex4`, zero-run compression for IPv6.
 - `internal/bits.nix` — `shl`, `shr`, `mask`, `pow2` (shift emulation using `* 2^n` and `div`).
 - `internal/carry.nix` — `add32`, `sub32` add-with-carry primitives used by IPv6 arithmetic.
+- `internal/dns-label.nix` — RFC 1123 single-label syntax shared by `hostname` and `domain`.
 - `internal/types.nix` — `_type` tag constants, structural predicates, `tryResult` constructor.
 
 External users who genuinely need these primitives can import by path; they are aware it's off-contract.
@@ -1013,6 +1074,7 @@ nix-libnet/
 │   ├── interface.nix
 │   ├── transport.nix
 │   ├── hostname.nix
+│   ├── domain.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -1020,6 +1082,7 @@ nix-libnet/
 │       ├── carry.nix        # u32 add/sub with carry propagation
 │       ├── parse.nix        # Shared parse primitives (octet, hex group, etc.)
 │       ├── format.nix       # Shared format primitives (hex padding, zero-run compression)
+│       ├── dns-label.nix    # RFC 1123 single-label syntax shared by hostname/domain
 │       └── types.nix        # _type tags, predicates, tryResult constructor
 ├── tests/
 │   ├── default.nix          # Imports every test file, runs the harness
@@ -1037,6 +1100,7 @@ nix-libnet/
 │   ├── interface.nix
 │   ├── transport.nix
 │   ├── hostname.nix
+│   ├── domain.nix
 │   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md

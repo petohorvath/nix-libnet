@@ -28,10 +28,12 @@ let
     // prefix "ln" (tryImport "listener.nix")
     // prefix "transport" (tryImport "transport.nix")
     // prefix "hostname" (tryImport "hostname.nix")
+    // prefix "domain" (tryImport "domain.nix")
     // prefix "registry" (tryImport "registry.nix")
     // prefix "iparse" (tryImport "internal/parse.nix")
     // prefix "ifmt" (tryImport "internal/format.nix")
-    // prefix "itype" (tryImport "internal/types.nix");
+    // prefix "itype" (tryImport "internal/types.nix")
+    // prefix "idns" (tryImport "internal/dns-label.nix");
 
   typeTests =
     if lib != null && builtins.pathExists (./. + "/types.nix") then

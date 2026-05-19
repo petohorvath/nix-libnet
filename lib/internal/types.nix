@@ -12,6 +12,7 @@ let
     interface = "interface";
     transport = "transport";
     hostname = "hostname";
+    domain = "domain";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -28,6 +29,7 @@ let
   isInterface = hasTag tags.interface;
   isTransport = hasTag tags.transport;
   isHostname = hasTag tags.hostname;
+  isDomain = hasTag tags.domain;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -65,6 +67,7 @@ in
     isInterface
     isTransport
     isHostname
+    isDomain
     isIp
     ;
   inherit tryOk tryErr ensureTag;

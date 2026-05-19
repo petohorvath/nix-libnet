@@ -63,6 +63,10 @@ let
     _type = "hostname";
     value = "nas";
   };
+  domain = {
+    _type = "domain";
+    value = "example.com";
+  };
 
   untagged = {
     value = 0;
@@ -117,6 +121,10 @@ in
   tags-hostname = {
     expr = types.tags.hostname;
     expected = "hostname";
+  };
+  tags-domain = {
+    expr = types.tags.domain;
+    expected = "domain";
   };
 
   # ===== hasTag =====
@@ -192,6 +200,10 @@ in
   };
   isHostname-yes = {
     expr = types.isHostname hostname;
+    expected = true;
+  };
+  isDomain-yes = {
+    expr = types.isDomain domain;
     expected = true;
   };
 

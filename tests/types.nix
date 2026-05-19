@@ -360,6 +360,48 @@ in
     expected = true;
   };
 
+  # ===== domain =====
+  domain-check-ok = {
+    expr = types.domain.check "example.com";
+    expected = true;
+  };
+  domain-check-three-labels = {
+    expr = types.domain.check "foo.example.com";
+    expected = true;
+  };
+  domain-check-mixed-case = {
+    expr = types.domain.check "Example.COM";
+    expected = true;
+  };
+  domain-check-single-label = {
+    expr = types.domain.check "example";
+    expected = false;
+  };
+  domain-check-trailing-dot = {
+    expr = types.domain.check "example.com.";
+    expected = false;
+  };
+  domain-check-underscore = {
+    expr = types.domain.check "host_name.com";
+    expected = false;
+  };
+  domain-check-int = {
+    expr = types.domain.check 42;
+    expected = false;
+  };
+  domain-mk-ok = {
+    expr = types.domain.mk "example.com";
+    expected = "example.com";
+  };
+  domain-mk-bad = {
+    expr = throws (types.domain.mk "example");
+    expected = true;
+  };
+  domain-desc = {
+    expr = builtins.isString types.domain.description;
+    expected = true;
+  };
+
   # ===== .mk smart constructors =====
   mk-preserves-case = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";

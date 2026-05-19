@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.domain` — tagged multi-label DNS-name type. Requires ≥ 2
+  labels; each label follows the same RFC 1123 syntax as
+  `libnet.hostname`; total length capped at 253 chars per RFC 1035
+  §3.1. API: parse / tryParse / toString / fromLabels / isValid / is,
+  accessors (`labels`, `labelCount`), zone arithmetic (`parent`
+  returns `Domain | null`, `isSubdomainOf` is reflexive and
+  case-insensitive, `toHostname` extracts the leftmost label),
+  `normalize` (lowercase), and the full case-insensitive comparison
+  suite (`eq` / `lt` / `le` / `gt` / `ge` / `compare` / `min` /
+  `max`). No `tld` accessor — RFC 1034's rightmost-label definition
+  is misleading without a Public Suffix List. Opt-in module type
+  `libnet.types.domain` validates the same shape.
+- `lib/internal/dns-label.nix` — internal helper shared by
+  `hostname` and `domain` exposing the RFC 1123 single-label
+  pattern + `isValidLabel` predicate. Single source of truth for the
+  per-label syntax; `hostname` was refactored to consume it.
 - `libnet.hostname` — tagged single-label hostname type. RFC 1123
   syntax capped at Linux's `HOST_NAME_MAX - 1` (= 63 effective chars,
   ASCII `[A-Za-z0-9-]`, no leading/trailing hyphen, no underscores,
