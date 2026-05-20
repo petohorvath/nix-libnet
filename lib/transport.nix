@@ -2,8 +2,9 @@
   libnet.transport
 
   Validated transport-protocol enum. Tagged value parallel to
-  libnet.port, restricted to TCP, UDP, and SCTP (the three transport
-  protocols recognised by Linux netfilter / nftables). No ordering or
+  libnet.port, restricted to TCP, UDP, and SCTP — the three most
+  common port-bearing L4 transports. DCCP and UDP-Lite are also
+  netfilter-matchable but intentionally omitted. No ordering or
   arithmetic — transport protocols have no canonical order.
 
   Example:

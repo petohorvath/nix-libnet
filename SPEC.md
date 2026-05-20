@@ -129,8 +129,9 @@ Invariant: `value` is in `[0, 65535]` (RFC 6335).
   value = <string>;   # "tcp" | "udp" | "sctp"
 }
 ```
-Invariant: `value` is one of `"tcp"`, `"udp"`, `"sctp"` — the transport
-protocols recognised by Linux netfilter / nftables. Case-sensitive on
+Invariant: `value` is one of `"tcp"`, `"udp"`, `"sctp"` — the three most
+common port-bearing L4 transports (DCCP and UDP-Lite are also
+netfilter-matchable but omitted). Case-sensitive on
 parse (rejects `"TCP"`, `"Tcp"`, etc.) to match the conventions used by
 `nft`, `iptables`, and `/etc/protocols`. The name is `transport` rather
 than `proto` to make the layer explicit; network-layer protocols
@@ -713,7 +714,7 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 
 ### `libnet.transport`
 
-Validated transport-layer-protocol enum. Values: `tcp`, `udp`, `sctp` — the transport protocols recognised by Linux netfilter / nftables. ICMP and ICMPv6 are network-layer message protocols and intentionally excluded; QUIC runs on UDP and is not a transport at the kernel level. The `unix` socket family lives under `listener` (v2 roadmap), not here.
+Validated transport-layer-protocol enum. Values: `tcp`, `udp`, `sctp` — the three most common port-bearing L4 transports. DCCP and UDP-Lite are also netfilter-matchable but intentionally omitted; ICMP and ICMPv6 are network-layer message protocols (see `registry.icmpTypes`); QUIC runs on UDP and is not a transport at the kernel level. A `unix` scheme is not a transport — Unix sockets are modelled by `unixSocket` (and the `unix://` form of `socketUrl`), not here.
 
 **Parsing & formatting**
 | Function | Signature | Notes |
