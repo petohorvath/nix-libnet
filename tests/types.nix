@@ -480,6 +480,44 @@ in
     expected = true;
   };
 
+  # ===== proxyUrl =====
+  proxyUrl-socks5 = {
+    expr = types.proxyUrl.check "socks5://127.0.0.1:1080";
+    expected = true;
+  };
+  proxyUrl-http-userinfo = {
+    expr = types.proxyUrl.check "http://user:pass@proxy:8080";
+    expected = true;
+  };
+  proxyUrl-no-port-rejected = {
+    expr = types.proxyUrl.check "socks5://127.0.0.1";
+    expected = false;
+  };
+  proxyUrl-unknown-scheme-rejected = {
+    expr = types.proxyUrl.check "ftp://h:1080";
+    expected = false;
+  };
+  proxyUrl-bare-socks-rejected = {
+    expr = types.proxyUrl.check "socks://h:1080";
+    expected = false;
+  };
+  proxyUrl-int = {
+    expr = types.proxyUrl.check 42;
+    expected = false;
+  };
+  proxyUrl-mk-ok = {
+    expr = types.proxyUrl.mk "socks5://h:1080";
+    expected = "socks5://h:1080";
+  };
+  proxyUrl-mk-bad = {
+    expr = throws (types.proxyUrl.mk "socks5://h");
+    expected = true;
+  };
+  proxyUrl-desc = {
+    expr = builtins.isString types.proxyUrl.description;
+    expected = true;
+  };
+
   # ===== ipListener =====
   ipListener-null = {
     expr = types.ipListener.check ":80";

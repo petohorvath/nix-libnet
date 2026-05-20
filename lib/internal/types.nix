@@ -22,6 +22,7 @@ let
     url = "url";
     urlHost = "urlHost";
     authority = "authority";
+    proxyUrl = "proxyUrl";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -48,6 +49,7 @@ let
   isUrl = hasTag tags.url;
   isUrlHost = hasTag tags.urlHost;
   isAuthority = hasTag tags.authority;
+  isProxyUrl = hasTag tags.proxyUrl;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -95,6 +97,7 @@ in
     isUrl
     isUrlHost
     isAuthority
+    isProxyUrl
     isIp
     ;
   inherit tryOk tryErr ensureTag;

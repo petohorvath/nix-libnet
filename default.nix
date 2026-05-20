@@ -16,6 +16,7 @@ let
     url = import ./lib/url.nix;
     urlHost = import ./lib/url-host.nix;
     authority = import ./lib/authority.nix;
+    proxyUrl = import ./lib/proxy-url.nix;
     ipListener = import ./lib/ip-listener.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;

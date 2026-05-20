@@ -33,6 +33,7 @@ let
     // prefix "url" (tryImport "url.nix")
     // prefix "urlHost" (tryImport "url-host.nix")
     // prefix "authority" (tryImport "authority.nix")
+    // prefix "proxyUrl" (tryImport "proxy-url.nix")
     // prefix "ipListener" (tryImport "ip-listener.nix")
     // prefix "listener" (tryImport "listener.nix")
     // prefix "transport" (tryImport "transport.nix")

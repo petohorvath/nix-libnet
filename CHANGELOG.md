@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.proxyUrl` — the address of a proxy server in URL form,
+  `<scheme>://[userinfo@]host:port` (`socks5://127.0.0.1:1080`,
+  `http://user:pass@proxy.corp:8080`). A bounded composition of a proxy
+  scheme and a `libnet.authority`. Stored as `{ _type = "proxyUrl";
+  scheme = <scheme>; authority = <authority value>; }`. Closed scheme
+  set: `http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`
+  (case-insensitive in, lowercase out; the `a`/`h` variants resolve DNS
+  at the proxy). The port is required — proxy default ports are not
+  standardized. API: parse / tryParse / toString / make / isValid / is
+  / scheme / authority + comparison (fixed scheme rank, then authority)
+  + `schemes` constant. Opt-in module type `libnet.types.proxyUrl`.
 - `libnet.authority` — the URL authority component (RFC 3986 §3.2),
   `[userinfo@]host[:port]`, extracted from `libnet.url` as a first-class
   public type. Stored as `{ _type = "authority"; userinfo = <string |

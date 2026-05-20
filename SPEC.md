@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`, `"proxyUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -32,7 +32,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 ## Non-Goals (v1)
 
 - No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
-- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse three **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`), `libnet.secureSocketUrl` (its TLS-secured peer = a secured-transport scheme `tls`/`ssl`/`dtls`/`quic` + `endpoint`), and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). All store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes.
+- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse four **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`), `libnet.secureSocketUrl` (its TLS-secured peer = a secured-transport scheme `tls`/`ssl`/`dtls`/`quic` + `endpoint`), `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry), and `libnet.proxyUrl` (a proxy address = a proxy scheme + an `authority`). All store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes.
 - No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
 - No performance benchmarking commitments. Correctness first.
@@ -389,13 +389,36 @@ the URL-authority host, deliberately looser than `libnet.host`:
 | Grammar | `ip \| hostname \| domain` (RFC 1123) | `IP-literal \| IPv4 \| reg-name` (RFC 3986) |
 | IPv6 text | `::1` | `[::1]` (bracketed) |
 | Name charset | `[A-Za-z0-9-]` labels | adds `_` `~`, sub-delims, `%`-encoding; no label structure |
-| Composes into | endpoint family, interface | `url` only |
+| Composes into | endpoint family, interface | `url`, `authority` |
 
 Invariants:
 - `scheme` is a key of `url.schemes` (closed registry).
 - `port == null` ⇒ the scheme's default port applies (`effectivePort`).
 - A `regName` host that is not a valid DNS name is parse-only:
   `toEndpoint` throws (no endpoint exists for it).
+
+### ProxyUrl value
+```nix
+{
+  _type     = "proxyUrl";
+  scheme    = <"http" | "https" | "socks4" | "socks4a" | "socks5" | "socks5h">;
+  authority = <authority value>;   # host + required port (+ optional userinfo)
+}
+```
+The address of a proxy server in URL form, `<scheme>://<authority>` — a
+bounded composition of a proxy scheme and a `libnet.authority`, not a
+general URL parser (no path/query/fragment).
+
+Invariants:
+- `scheme` is a key of `proxyUrl.schemes` (the six above), matched
+  case-insensitively and stored lowercase.
+- `authority` carries an explicit port — proxy default ports are not
+  standardized, so the port is required.
+- Proxy credentials (`userinfo`) and IPv6 hosts ride along via the
+  `authority`.
+
+Canonical text: `socks5://127.0.0.1:1080`,
+`http://user:pass@proxy.corp:8080`, `socks5h://[::1]:1080`.
 
 ### IpListener value
 ```nix
@@ -1276,6 +1299,26 @@ An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?qu
 
 **Constant**: `schemes`.
 
+### `libnet.proxyUrl`
+
+The address of a proxy server, `<scheme>://[userinfo@]host:port` — a bounded composition of a proxy scheme and a `libnet.authority` (e.g. `socks5://user:pass@10.0.0.1:1080`, `http://proxy:8080`). `proxyUrl.schemes` is a **closed** list: `http`, `https` (an HTTP proxy, plain or over TLS), `socks4`, `socks4a`, `socks5`, `socks5h` (the `a`/`h` variants resolve DNS at the proxy). Schemes match case-insensitively and are emitted lowercase. The port is **required** (proxy default ports are not standardized).
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → ProxyUrl` | Splits `<scheme>://<authority>`. Rejects unknown schemes, a missing port, and anything past the authority (path/query). |
+| `tryParse` | `String → TryResult ProxyUrl` | |
+| `toString` | `ProxyUrl → String` | `<scheme>://<authority>`. |
+| `make` | `String → Authority → ProxyUrl` | Validates the scheme (lowercased); requires the authority to carry a port. |
+
+**Predicates**: `isValid` (`String → Bool`), `is`.
+
+**Accessors**: `scheme` (→ String), `authority` (→ authority; reach host/userinfo/port through it).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is structural (scheme + authority — so `socks5` ≠ `socks5h`, and authority equality includes userinfo). `compare` sorts by a fixed scheme rank (`http < https < socks4 < socks4a < socks5 < socks5h`), then by authority.
+
+**Constant**: `schemes` = `[ "http" "https" "socks4" "socks4a" "socks5" "socks5h" ]`.
+
 ### `libnet.ipListener`
 
 **Parsing & formatting**
@@ -1591,6 +1634,7 @@ nix-libnet/
 │   ├── url.nix
 │   ├── url-host.nix
 │   ├── authority.nix
+│   ├── proxy-url.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
@@ -1633,6 +1677,7 @@ nix-libnet/
 │   ├── url.nix
 │   ├── url-host.nix
 │   ├── authority.nix
+│   ├── proxy-url.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix

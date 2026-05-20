@@ -99,6 +99,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.url`](./lib/url.nix) | absolute URL `<scheme>://[user@]host[:port][/path][?query][#frag]` over a closed scheme registry; parse, toEndpoint, accessors; components stored verbatim |
 | [`libnet.urlHost`](./lib/url-host.nix) | URL-authority host (RFC 3986 IP-literal/reg-name); looser than `host`; parse, toHost, isIp/isRegName |
 | [`libnet.authority`](./lib/authority.nix) | URL authority `[user@]host[:port]` (RFC 3986 §3.2); shared core of `url`, usable standalone; parse, make, accessors, comparison |
+| [`libnet.proxyUrl`](./lib/proxy-url.nix) | proxy server URL `<scheme>://[user@]host:port` (http/https/socks4/4a/5/5h); proxy scheme + authority; port required |
 | [`libnet.ipListener`](./lib/ip-listener.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.listener`](./lib/listener.nix) | pass-through union over ipListener + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |

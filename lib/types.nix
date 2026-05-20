@@ -31,6 +31,7 @@ let
   url = import ./url.nix;
   urlHost = import ./url-host.nix;
   authority = import ./authority.nix;
+  proxyUrl = import ./proxy-url.nix;
   ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
@@ -172,6 +173,12 @@ let
     typeName = "authority";
     description = "a URL authority ([userinfo@]host[:port])";
     validator = authority.isValid;
+  };
+
+  proxyUrlType = mkStrType {
+    typeName = "proxyUrl";
+    description = "a proxy URL (<scheme>://[user@]host:port; http/https/socks4/4a/5/5h)";
+    validator = proxyUrl.isValid;
   };
 
   ipListenerType = mkStrType {
@@ -321,6 +328,7 @@ in
     url = urlType;
     urlHost = urlHostType;
     authority = authorityType;
+    proxyUrl = proxyUrlType;
     ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;
