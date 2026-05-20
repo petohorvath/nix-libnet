@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.socketUrl` — a socket address in URL form,
+  `<scheme>://<endpoint>` (`tcp://1.2.3.4:80`, `udp://[::1]:53`,
+  `unix:///run/foo.sock`). Stored as the underlying `transport` +
+  `endpoint` pair (`{ _type = "socketUrl"; transport = <transport |
+  null>; endpoint = <endpoint>; }`); `transport` is null iff the
+  endpoint is a `unixSocket`. API: parse / tryParse / toString / make
+  / isValid / is / isUnix / transport / endpoint + comparison +
+  `schemes` constant. Opt-in module type `libnet.types.socketUrl`.
+  This is the **only** URL form libnet parses — a bounded composition
+  over a fixed scheme set (`tcp`/`udp`/`sctp`/`unix`), explicitly not
+  a general URL parser. The "no URL/URI parsing" non-goal was reworded
+  to "no *general* URL parsing" to carve out this bounded form; a full
+  `url` type remains out of scope.
 - `libnet.listener` is now a pass-through union `ipListener |
   unixSocket`, so a service can bind an IP socket **or** a Unix socket
   path. Today's IP listener was renamed to `libnet.ipListener` (tag

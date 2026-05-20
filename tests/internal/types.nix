@@ -87,6 +87,11 @@ let
     _type = "unixSocket";
     path = "/run/foo.sock";
   };
+  socketUrl = {
+    _type = "socketUrl";
+    transport = null;
+    endpoint = unixSocket;
+  };
 
   untagged = {
     value = 0;
@@ -161,6 +166,10 @@ in
   tags-unixSocket = {
     expr = types.tags.unixSocket;
     expected = "unixSocket";
+  };
+  tags-socketUrl = {
+    expr = types.tags.socketUrl;
+    expected = "socketUrl";
   };
 
   # ===== hasTag =====
@@ -256,6 +265,10 @@ in
   };
   isUnixSocket-yes = {
     expr = types.isUnixSocket unixSocket;
+    expected = true;
+  };
+  isSocketUrl-yes = {
+    expr = types.isSocketUrl socketUrl;
     expected = true;
   };
 

@@ -286,6 +286,44 @@ in
     expected = true;
   };
 
+  # ===== socketUrl =====
+  socketUrl-tcp = {
+    expr = types.socketUrl.check "tcp://1.2.3.4:80";
+    expected = true;
+  };
+  socketUrl-udp-v6 = {
+    expr = types.socketUrl.check "udp://[::1]:53";
+    expected = true;
+  };
+  socketUrl-unix = {
+    expr = types.socketUrl.check "unix:///run/foo.sock";
+    expected = true;
+  };
+  socketUrl-no-scheme = {
+    expr = types.socketUrl.check "1.2.3.4:80";
+    expected = false;
+  };
+  socketUrl-unknown-scheme = {
+    expr = types.socketUrl.check "http://1.2.3.4:80";
+    expected = false;
+  };
+  socketUrl-tcp-path-rejected = {
+    expr = types.socketUrl.check "tcp:///run/foo.sock";
+    expected = false;
+  };
+  socketUrl-mk-ok = {
+    expr = types.socketUrl.mk "tcp://1.2.3.4:80";
+    expected = "tcp://1.2.3.4:80";
+  };
+  socketUrl-mk-bad = {
+    expr = throws (types.socketUrl.mk "ftp://x:1");
+    expected = true;
+  };
+  socketUrl-desc = {
+    expr = builtins.isString types.socketUrl.description;
+    expected = true;
+  };
+
   # ===== ipListener =====
   ipListener-null = {
     expr = types.ipListener.check ":80";

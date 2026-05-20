@@ -11,6 +11,7 @@ let
     dnsEndpoint = import ./lib/dns-endpoint.nix;
     endpoint = import ./lib/endpoint.nix;
     unixSocket = import ./lib/unix-socket.nix;
+    socketUrl = import ./lib/socket-url.nix;
     ipListener = import ./lib/ip-listener.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;

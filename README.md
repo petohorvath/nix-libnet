@@ -94,6 +94,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, toUri, address/port |
 | [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint + unixSocket; dispatches on shape (no new tag) |
 | [`libnet.unixSocket`](./lib/unix-socket.nix) | Unix domain socket (pathname or @abstract); complete target, no port |
+| [`libnet.socketUrl`](./lib/socket-url.nix) | socket address in URL form `<scheme>://<endpoint>` (tcp/udp/sctp/unix); bounded, not a general URL parser |
 | [`libnet.ipListener`](./lib/ip-listener.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.listener`](./lib/listener.nix) | pass-through union over ipListener + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |

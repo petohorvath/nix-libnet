@@ -28,6 +28,7 @@ let
     // prefix "dnsEndpoint" (tryImport "dns-endpoint.nix")
     // prefix "endpoint" (tryImport "endpoint.nix")
     // prefix "unixSocket" (tryImport "unix-socket.nix")
+    // prefix "socketUrl" (tryImport "socket-url.nix")
     // prefix "ipListener" (tryImport "ip-listener.nix")
     // prefix "listener" (tryImport "listener.nix")
     // prefix "transport" (tryImport "transport.nix")

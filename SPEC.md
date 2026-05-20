@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -32,7 +32,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 ## Non-Goals (v1)
 
 - No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
-- No URL/URI parsing (but `toUri` formatter may emit bracketed IPv6 for URL consumers).
+- No *general* URL/URI parsing — no userinfo, query, fragment, percent-encoding, relative-reference resolution, or arbitrary schemes. The one exception is `libnet.socketUrl`, a bounded `<scheme>://<endpoint>` socket-address form over a fixed scheme set (`tcp`/`udp`/`sctp`/`unix`) that is just a serialization of `transport` + `endpoint`. A full URL type (`url`) remains out of scope. (`toUri` formatters may also emit bracketed IPv6 for URL consumers.)
 - No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
 - No performance benchmarking commitments. Correctness first.
@@ -288,6 +288,27 @@ Invariants:
   name (starts with `@`, displayed form ≤ 108 bytes).
 - Comparison is byte-wise on `path`, case-sensitive (paths are).
 
+### SocketUrl value
+```nix
+{
+  _type     = "socketUrl";
+  transport = <transport value | null>;   # null for unix sockets
+  endpoint  = <endpoint value>;            # ipEndpoint | dnsEndpoint | unixSocket
+}
+```
+A socket address in URL form, `<scheme>://<endpoint>`. Stored as the
+underlying `transport` + `endpoint` pair.
+
+Invariants:
+- `transport == null` **iff** `endpoint` is a `unixSocket` (the scheme
+  is the literal `unix`; a Unix socket has no L4 transport).
+- Otherwise `transport` is `tcp`/`udp`/`sctp` and `endpoint` is an
+  `ipEndpoint` or `dnsEndpoint`.
+
+This is the **only** URL form libnet parses — a bounded composition,
+not a general URL parser (see Non-Goals). Canonical text:
+`tcp://1.2.3.4:80`, `udp://[::1]:53`, `unix:///run/foo.sock`.
+
 ### IpListener value
 ```nix
 {
@@ -361,6 +382,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `vlanId` | — | `value` (int 1..4094) |
 | `mtu` | — | `value` (int 68..65535) |
 | `unixSocket` | — | `path` (string) |
+| `socketUrl` | `transport` (Transport/null), `endpoint` (Endpoint) | — |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -1036,6 +1058,31 @@ A Unix domain socket address — a complete connection target with no port (the 
 
 **Constant**: `sunPathMax` = `108` (Linux `sun_path` buffer size).
 
+### `libnet.socketUrl`
+
+A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libnet parses (a bounded composition of `transport` + `endpoint`, **not** a general URL parser; see Non-Goals). Schemes: `tcp` / `udp` / `sctp` carry an IP or DNS endpoint; `unix` carries a socket path (no port). Stored as `{ transport; endpoint }` with `transport == null` iff the endpoint is a `unixSocket`.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → SocketUrl` | Splits `<scheme>://<rest>`. Rejects unknown schemes, `tcp://`-with-a-path, `unix://`-with-host:port, and bad endpoints. |
+| `tryParse` | `String → TryResult SocketUrl` |
+| `toString` | `SocketUrl → String` | `<scheme>://<endpoint>`; `unix://` for unix sockets. |
+| `make` | `(Transport \| null) → Endpoint → SocketUrl` | Validates the transport/endpoint coupling (null transport ⟺ unix endpoint). |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+| `isUnix` | `SocketUrl → Bool` | `true` iff the endpoint is a unix socket (transport is null). |
+
+**Accessors**: `transport` (→ Transport/null), `endpoint` (→ Endpoint).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is structural (transport + endpoint, so the dns part is case-insensitive). `compare` sorts by a fixed scheme rank (`tcp < udp < sctp < unix` — `transport` itself has no canonical order), then by endpoint.
+
+**Constant**: `schemes` = `[ "tcp" "udp" "sctp" "unix" ]`.
+
 ### `libnet.ipListener`
 
 **Parsing & formatting**
@@ -1279,6 +1326,7 @@ in {
 | `types.dnsEndpoint` | String (`name:port`, DNS name only — rejects IP literals). | String. |
 | `types.endpoint` | String (`addr:port`, `name:port`, or socket path; union of ipEndpoint / dnsEndpoint / unixSocket). | String. |
 | `types.unixSocket` | String (absolute path `/...` or abstract `@...`). | String. |
+| `types.socketUrl` | String (`<scheme>://<endpoint>`; scheme `tcp`/`udp`/`sctp`/`unix`). | String. |
 | `types.ipListener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.listener` | String (IP listener form or a unix socket path; union of ipListener / unixSocket). | String. |
 | `types.ipRange` | String (`from-to`). | String. |
@@ -1345,6 +1393,7 @@ nix-libnet/
 │   ├── dns-endpoint.nix
 │   ├── endpoint.nix
 │   ├── unix-socket.nix
+│   ├── socket-url.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
@@ -1379,6 +1428,7 @@ nix-libnet/
 │   ├── dns-endpoint.nix
 │   ├── endpoint.nix
 │   ├── unix-socket.nix
+│   ├── socket-url.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
@@ -1647,7 +1697,7 @@ Items below are deliberately excluded from v1 but would be worth adding in subse
 ### Hard non-goals — will NOT land (matching Non-Goals section)
 
 - DNS resolution, hostname ↔ IP lookups, live queries of any kind
-- URL / URI parsing (beyond the `[addr]:port` authority fragment already covered by IpEndpoint)
+- General URL / URI parsing — full RFC 3986 (userinfo, query, fragment, percent-encoding, relative resolution, arbitrary schemes). The bounded `<scheme>://<endpoint>` socket-address form IS covered by `libnet.socketUrl`; a general `url` type is not.
 - Full network interface configuration (user builds on top)
 - GeoIP, WHOIS, ASN, or any feature requiring external data files
 - TLS certificate handling, crypto keys, anything in the security domain

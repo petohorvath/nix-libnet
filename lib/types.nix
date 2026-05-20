@@ -26,6 +26,7 @@ let
   dnsEndpoint = import ./dns-endpoint.nix;
   endpoint = import ./endpoint.nix;
   unixSocket = import ./unix-socket.nix;
+  socketUrl = import ./socket-url.nix;
   ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
@@ -137,6 +138,12 @@ let
     typeName = "unixSocket";
     description = "a Unix domain socket (absolute path or @abstract name)";
     validator = unixSocket.isValid;
+  };
+
+  socketUrlType = mkStrType {
+    typeName = "socketUrl";
+    description = "a socket URL (<scheme>://<endpoint>; scheme tcp/udp/sctp/unix)";
+    validator = socketUrl.isValid;
   };
 
   ipListenerType = mkStrType {
@@ -281,6 +288,7 @@ in
     dnsEndpoint = dnsEndpointType;
     endpoint = endpointType;
     unixSocket = unixSocketType;
+    socketUrl = socketUrlType;
     ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;
