@@ -234,6 +234,11 @@ let
 
   # ===== Construction =====
 
+  # `make` takes primitives (strings + an int port), not tagged values:
+  # a URL is built from its textual parts, and 5 of its 7 fields
+  # (scheme/userinfo/path/query/fragment) are plain strings with no
+  # tagged type — so a string `host` + int `port` keep the attrset
+  # internally consistent. Pass a string URL to `parse` if you have one.
   make =
     {
       scheme,
