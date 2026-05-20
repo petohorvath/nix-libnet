@@ -1,140 +1,40 @@
 /*
   libnet.listener
 
-  A listening socket: an optional IP address paired with a port range.
-  Parses bare-port (":8080"), address+port ("192.0.2.1:80"), bracketed
-  v6 ("[::1]:80"), and range ("192.0.2.1:8000-8100") forms.
+  Pass-through union over the two bind targets: `ipListener` (an
+  optional IP address + port range) and `unixSocket` (a socket path).
+  Composed as `ipListener | unixSocket`; **no new `_type` tag**. `parse`
+  dispatches by shape: a leading `/` or `@` → `unixSocket`, otherwise
+  the IP listener form.
+
+  Returns the underlying typed value; consumers branch on `value._type`.
+  The members are heterogeneous (`ipListener` has address/portRange and
+  the `endpoints` materialization; `unixSocket` has a path), so this
+  union exposes predicates + `toString` + comparison. Branch with
+  `isIpListener` / `isUnixSocket` and use the member module's API.
+
+    listener = ipListener | unixSocket
 
   Example:
-    libnet.listener.parse "192.0.2.1:8000-8100"
-    => { _type = "listener"; address = <ipv4>; portRange = <8000-8100>; }
-
-    builtins.length (libnet.listener.endpoints (libnet.listener.parse ":80-82"))
-    => 3
+    libnet.listener.parse ":8080"           # tagged ipListener
+    libnet.listener.parse "/run/foo.sock"   # tagged unixSocket
 */
 let
-  parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;
-  ipv4 = import ./ipv4.nix;
-  ipv6 = import ./ipv6.nix;
-  port = import ./port.nix;
-  portRange = import ./port-range.nix;
-  ipEndpoint = import ./ip-endpoint.nix;
-
-  mk = addr: pr: {
-    _type = "listener";
-    address = addr;
-    portRange = pr;
-  };
-
-  isV4 = addr: addr._type == "ipv4";
-  isV6 = addr: addr._type == "ipv6";
-
-  # ===== Port-field parser (hyphen form only; iptables colon form would
-  #       collide with addr:port separator) =====
-
-  parsePortField =
-    s:
-    let
-      parts = parse'.splitOn "-" s;
-    in
-    if builtins.length parts == 1 then
-      let
-        n = parse'.decimal s;
-      in
-      if n == null || n < 0 || n > 65535 then null else portRange.make n n
-    else if builtins.length parts == 2 then
-      let
-        f = parse'.decimal (builtins.elemAt parts 0);
-        t = parse'.decimal (builtins.elemAt parts 1);
-      in
-      if f == null || t == null then
-        null
-      else if f < 0 || t > 65535 || f > t then
-        null
-      else
-        portRange.make f t
-    else
-      null;
+  parse' = import ./internal/parse.nix;
+  ipListener = import ./ip-listener.nix;
+  unixSocket = import ./unix-socket.nix;
 
   # ===== Parsing =====
 
-  tryParseNullAddr =
-    portStr:
-    let
-      prOpt = parsePortField portStr;
-    in
-    if prOpt == null then
-      types.tryErr "libnet.listener.parse: invalid port field \"${portStr}\""
-    else
-      types.tryOk (mk null prOpt);
-
-  tryParseBracketed =
-    s:
-    let
-      parts = parse'.splitOn "]:" s;
-    in
-    if builtins.length parts != 2 then
-      types.tryErr "libnet.listener.parse: malformed bracketed form \"${s}\""
-    else
-      let
-        left = builtins.elemAt parts 0;
-        portStr = builtins.elemAt parts 1;
-        hasOpenBracket = builtins.stringLength left >= 1 && builtins.substring 0 1 left == "[";
-        addrStr =
-          if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
-      in
-      if addrStr == null then
-        types.tryErr "libnet.listener.parse: missing '[' in \"${s}\""
-      else
-        let
-          addrRes = ipv6.tryParse addrStr;
-          prOpt = parsePortField portStr;
-        in
-        if !addrRes.success then
-          types.tryErr "libnet.listener.parse: invalid IPv6 in \"${s}\""
-        else if prOpt == null then
-          types.tryErr "libnet.listener.parse: invalid port field in \"${s}\""
-        else
-          types.tryOk (mk addrRes.value prOpt);
-
-  tryParseV4Form =
-    s:
-    if parse'.countOccurrences ":" s != 1 then
-      types.tryErr "libnet.listener.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
-    else
-      let
-        parts = parse'.splitOn ":" s;
-        addrStr = builtins.elemAt parts 0;
-        portStr = builtins.elemAt parts 1;
-        addrRes = ipv4.tryParse addrStr;
-        prOpt = parsePortField portStr;
-      in
-      if !addrRes.success then
-        types.tryErr "libnet.listener.parse: invalid IPv4 in \"${s}\""
-      else if prOpt == null then
-        types.tryErr "libnet.listener.parse: invalid port field in \"${s}\""
-      else
-        types.tryOk (mk addrRes.value prOpt);
-
-  # "*:PORT", "any:PORT", and ":PORT" all mean "listen on any interface"
-  # and collapse to the same `{address = null; ...}` value. toString
-  # emits the canonical `:PORT` form — so parse → toString is not
-  # round-trip-stable for these three spellings (by design).
   tryParse =
     s:
     if !(builtins.isString s) then
       types.tryErr "libnet.listener.parse: input must be a string"
-    else if parse'.startsWith "*:" s then
-      tryParseNullAddr (parse'.stripPrefix "*:" s)
-    else if parse'.startsWith "any:" s then
-      tryParseNullAddr (parse'.stripPrefix "any:" s)
-    else if parse'.startsWith ":" s then
-      tryParseNullAddr (parse'.stripPrefix ":" s)
-    else if parse'.startsWith "[" s then
-      tryParseBracketed s
+    else if parse'.startsWith "/" s || parse'.startsWith "@" s then
+      unixSocket.tryParse s
     else
-      tryParseV4Form s;
+      ipListener.tryParse s;
 
   parse =
     s:
@@ -145,171 +45,56 @@ let
 
   toString =
     lst:
-    let
-      prStr = portRange.toString lst.portRange;
-    in
-    if lst.address == null then
-      ":${prStr}"
-    else if isV4 lst.address then
-      "${ipv4.toString lst.address}:${prStr}"
+    if types.isIpListener lst then
+      ipListener.toString lst
+    else if types.isUnixSocket lst then
+      unixSocket.toString lst
     else
-      "[${ipv6.toString lst.address}]:${prStr}";
-
-  make =
-    addr: pr:
-    if addr != null && !(types.isIp addr) then
-      builtins.throw "libnet.listener.make: address must be ipv4, ipv6, or null"
-    else if !(types.isPortRange pr) then
-      builtins.throw "libnet.listener.make: expected portRange value"
-    else
-      mk addr pr;
+      builtins.throw "libnet.listener.toString: expected ipListener or unixSocket value";
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = types.isListener;
-
-  isAnyAddress =
-    lst:
-    lst.address == null
-    || (isV4 lst.address && lst.address.value == 0)
-    || (
-      isV6 lst.address
-      &&
-        lst.address.words == [
-          0
-          0
-          0
-          0
-        ]
-    );
-
-  isWildcard = isAnyAddress;
-
-  isRange = lst: !(portRange.isSingleton lst.portRange);
-
-  isIpv4 = lst: lst.address != null && isV4 lst.address;
-  isIpv6 = lst: lst.address != null && isV6 lst.address;
-
-  # ===== Forwarded predicates (apply to address) =====
-  #
-  # Null-address listeners (wildcard binds) don't denote a specific
-  # address, so boolean predicates return false rather than throwing —
-  # consistent with isIpv4/isIpv6. toArpa has no sensible value without
-  # an address and throws, matching endpoints/network/netmask.
-
-  fwd =
-    v4Fn: v6Fn: lst:
-    if lst.address == null then
-      false
-    else if isV4 lst.address then
-      v4Fn lst.address
-    else
-      v6Fn lst.address;
-
-  isLoopback = fwd ipv4.isLoopback ipv6.isLoopback;
-  isUnspecified = fwd ipv4.isUnspecified ipv6.isUnspecified;
-  isLinkLocal = fwd ipv4.isLinkLocal ipv6.isLinkLocal;
-  isMulticast = fwd ipv4.isMulticast ipv6.isMulticast;
-  isDocumentation = fwd ipv4.isDocumentation ipv6.isDocumentation;
-  isGlobal = fwd ipv4.isGlobal ipv6.isGlobal;
-  isBogon = fwd ipv4.isBogon ipv6.isBogon;
-
-  toArpa =
-    lst:
-    if lst.address == null then
-      builtins.throw "libnet.listener.toArpa: null address has no reverse-DNS form"
-    else if isV4 lst.address then
-      ipv4.toArpa lst.address
-    else
-      ipv6.toArpa lst.address;
-
-  # ===== Accessors =====
-
-  address = lst: lst.address;
-  version =
-    lst:
-    if lst.address == null then
-      null
-    else if isV4 lst.address then
-      4
-    else
-      6;
-
-  # ===== Expansion =====
-
-  endpointsUnbounded =
-    lst:
-    if lst.address == null then
-      builtins.throw "libnet.listener.endpoints: null address cannot be materialized into endpoints"
-    else
-      let
-        ports = portRange.portsUnbounded lst.portRange;
-      in
-      map (pt: ipEndpoint.make lst.address pt) ports;
-
-  endpoints =
-    lst:
-    let
-      sz = portRange.size lst.portRange;
-    in
-    if sz > 4096 then
-      builtins.throw "libnet.listener.endpoints: range too large (${builtins.toString sz} > 4096); use endpointsUnbounded"
-    else
-      endpointsUnbounded lst;
-
-  endpointAt =
-    n: lst:
-    if lst.address == null then
-      builtins.throw "libnet.listener.endpointAt: null address cannot be materialized"
-    else
-      let
-        sz = portRange.size lst.portRange;
-        idx = if n < 0 then sz + n else n;
-      in
-      if idx < 0 || idx >= sz then
-        builtins.throw "libnet.listener.endpointAt: index out of range [0, ${builtins.toString sz})"
-      else
-        let
-          pt = port.add idx lst.portRange.from;
-        in
-        ipEndpoint.make lst.address pt;
+  is = v: types.isIpListener v || types.isUnixSocket v;
+  isIpListener = types.isIpListener;
+  isUnixSocket = types.isUnixSocket;
 
   # ===== Comparison =====
+  #
+  # Cross-kind order: ipListener < unixSocket. Within a kind, delegates.
+
+  rank =
+    v:
+    if types.isIpListener v then
+      0
+    else if types.isUnixSocket v then
+      1
+    else
+      builtins.throw "libnet.listener.compare: expected ipListener or unixSocket value";
 
   eq =
     a: b:
-    (
-      a.address == null && b.address == null
-      || (
-        a.address != null
-        && b.address != null
-        && a.address._type == b.address._type
-        && (if isV4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address)
-      )
-    )
-    && portRange.eq a.portRange b.portRange;
+    if types.isIpListener a && types.isIpListener b then
+      ipListener.eq a b
+    else if types.isUnixSocket a && types.isUnixSocket b then
+      unixSocket.eq a b
+    else
+      false;
 
   compare =
     a: b:
-    if a.address == null && b.address != null then
+    let
+      ra = rank a;
+      rb = rank b;
+    in
+    if ra < rb then
       -1
-    else if a.address != null && b.address == null then
+    else if ra > rb then
       1
-    else if
-      a.address == null # both null
-    then
-      portRange.compare a.portRange b.portRange
-    else if isV4 a.address && isV6 b.address then
-      -1
-    else if isV6 a.address && isV4 b.address then
-      1
+    else if ra == 0 then
+      ipListener.compare a b
     else
-      let
-        addrCmp =
-          if isV4 a.address then ipv4.compare a.address b.address else ipv6.compare a.address b.address;
-      in
-      if addrCmp != 0 then addrCmp else portRange.compare a.portRange b.portRange;
+      unixSocket.compare a b;
 
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
@@ -323,31 +108,13 @@ in
     parse
     tryParse
     toString
-    make
     ;
   inherit
     isValid
     is
-    isAnyAddress
-    isWildcard
-    isRange
-    isIpv4
-    isIpv6
+    isIpListener
+    isUnixSocket
     ;
-  inherit
-    isLoopback
-    isUnspecified
-    isLinkLocal
-    isMulticast
-    isDocumentation
-    isGlobal
-    isBogon
-    toArpa
-    ;
-  inherit address version;
-  # `portRange` accessor declared inline below to avoid shadowing the imported `portRange` module.
-  portRange = lst: lst.portRange;
-  inherit endpoints endpointsUnbounded endpointAt;
   inherit
     eq
     lt

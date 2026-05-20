@@ -8,7 +8,7 @@ let
     portRange = "portRange";
     ipEndpoint = "ipEndpoint";
     dnsEndpoint = "dnsEndpoint";
-    listener = "listener";
+    ipListener = "ipListener";
     ipRange = "ipRange";
     interface = "interface";
     transport = "transport";
@@ -29,7 +29,7 @@ let
   isPortRange = hasTag tags.portRange;
   isIpEndpoint = hasTag tags.ipEndpoint;
   isDnsEndpoint = hasTag tags.dnsEndpoint;
-  isListener = hasTag tags.listener;
+  isIpListener = hasTag tags.ipListener;
   isIpRange = hasTag tags.ipRange;
   isInterface = hasTag tags.interface;
   isTransport = hasTag tags.transport;
@@ -71,7 +71,7 @@ in
     isPortRange
     isIpEndpoint
     isDnsEndpoint
-    isListener
+    isIpListener
     isIpRange
     isInterface
     isTransport

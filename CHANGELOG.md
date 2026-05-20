@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.listener` is now a pass-through union `ipListener |
+  unixSocket`, so a service can bind an IP socket **or** a Unix socket
+  path. Today's IP listener was renamed to `libnet.ipListener` (tag
+  `ipListener`); it keeps the full bind API (wildcards, forwarded
+  predicates, `endpoints` materialization). The new `listener` union
+  carries no `_type` of its own and exposes parse / toString /
+  predicates (`isIpListener` / `isUnixSocket`) / comparison — branch
+  to reach a member's API. `types.ipListener` is the strict IP form;
+  `types.listener` accepts either. This completes the Unix socket as a
+  genuine third address family (it now appears in both the `endpoint`
+  and `listener` unions).
 - `libnet.endpoint` now also accepts `unixSocket` — the union is
   `ipEndpoint | dnsEndpoint | unixSocket`, dispatching on shape (a
   leading `/` or `@` → unix socket). Because the members are now
@@ -24,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   case-sensitive comparison + `sunPathMax` constant. Symmetric (binds
   or dials). Opt-in module type `libnet.types.unixSocket`. (First of
   three steps making the Unix socket a genuine address family; the
-  `listener` union gains it next.)
+  `endpoint` and `listener` unions both gained it.)
 - `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
   trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
   named destination like `pool.ntp.org:123`); it rejects IP literals

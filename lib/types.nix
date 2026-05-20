@@ -26,6 +26,7 @@ let
   dnsEndpoint = import ./dns-endpoint.nix;
   endpoint = import ./endpoint.nix;
   unixSocket = import ./unix-socket.nix;
+  ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
@@ -138,9 +139,15 @@ let
     validator = unixSocket.isValid;
   };
 
+  ipListenerType = mkStrType {
+    typeName = "ipListener";
+    description = "an IP listener spec ([addr]:port[-end])";
+    validator = ipListener.isValid;
+  };
+
   listenerType = mkStrType {
     typeName = "listener";
-    description = "a listener spec ([addr]:port[-end])";
+    description = "a listener (IP [addr]:port[-end] or unix socket path)";
     validator = listener.isValid;
   };
 
@@ -274,6 +281,7 @@ in
     dnsEndpoint = dnsEndpointType;
     endpoint = endpointType;
     unixSocket = unixSocketType;
+    ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;
     interface = interfaceType;

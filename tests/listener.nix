@@ -1,304 +1,144 @@
 { harness }:
 let
-  lst = import ../lib/listener.nix;
-  ipv4 = import ../lib/ipv4.nix;
-  ipv6 = import ../lib/ipv6.nix;
-  port = import ../lib/port.nix;
-  pr = import ../lib/port-range.nix;
-  ipEndpoint = import ../lib/ip-endpoint.nix;
+  listener = import ../lib/listener.nix;
+  ipListener = import ../lib/ip-listener.nix;
+  unixSocket = import ../lib/unix-socket.nix;
   inherit (harness) throws;
-  p = lst.parse;
+  p = listener.parse;
 in
 {
-  # ===== Parse =====
-  parse-null-single = {
-    expr = lst.toString (p ":8080");
-    expected = ":8080";
+  # ===== Dispatch =====
+  parse-ip-tagged = {
+    expr = (p "0.0.0.0:8080")._type;
+    expected = "ipListener";
   };
-  parse-null-range = {
-    expr = lst.toString (p ":8080-8090");
-    expected = ":8080-8090";
+  parse-wildcard-tagged = {
+    expr = (p ":8080")._type;
+    expected = "ipListener";
   };
-  parse-wild-star = {
-    expr = lst.toString (p "*:8080");
-    expected = ":8080";
+  parse-range-tagged = {
+    expr = (p "1.2.3.4:8000-8100")._type;
+    expected = "ipListener";
   };
-  parse-wild-any = {
-    expr = lst.toString (p "any:8080");
-    expected = ":8080";
+  parse-unix-tagged = {
+    expr = (p "/run/foo.sock")._type;
+    expected = "unixSocket";
   };
-  parse-v4-single = {
-    expr = lst.toString (p "1.2.3.4:8080");
-    expected = "1.2.3.4:8080";
+  parse-unix-abstract = {
+    expr = (p "@foo")._type;
+    expected = "unixSocket";
   };
-  parse-v4-range = {
-    expr = lst.toString (p "1.2.3.4:5000-6000");
-    expected = "1.2.3.4:5000-6000";
+  parse-ip-roundtrip = {
+    expr = listener.toString (p "1.2.3.4:8000-8100");
+    expected = "1.2.3.4:8000-8100";
   };
-  parse-v4-explicit = {
-    expr = lst.toString (p "0.0.0.0:80");
-    expected = "0.0.0.0:80";
-  };
-  parse-v6-range = {
-    expr = lst.toString (p "[::1]:5000-6000");
-    expected = "[::1]:5000-6000";
-  };
-  parse-v6-explicit = {
-    expr = lst.toString (p "[::]:80");
-    expected = "[::]:80";
-  };
-  parse-v6-single = {
-    expr = lst.toString (p "[::1]:80");
-    expected = "[::1]:80";
+  parse-unix-roundtrip = {
+    expr = listener.toString (p "/run/foo.sock");
+    expected = "/run/foo.sock";
   };
 
   # ===== Reject =====
-  reject-v6-unbrak = {
-    expr = throws (p "::1:80");
+  reject-empty = {
+    expr = throws (p "");
     expected = true;
   };
   reject-bad-port = {
-    expr = throws (p ":70000");
-    expected = true;
-  };
-  reject-open-range = {
-    expr = throws (p "1.2.3.4:5500-");
-    expected = true;
-  };
-  reject-reverse = {
-    expr = throws (p "1.2.3.4:6000-5500");
+    expr = throws (p ":99999");
     expected = true;
   };
   reject-not-string = {
-    expr = throws (lst.parse 123);
+    expr = throws (listener.parse 42);
     expected = true;
   };
 
-  # ===== tryParse =====
-  tryParse-ok = {
-    expr = (lst.tryParse ":80").success;
+  tryParse-ok-ip = {
+    expr = (listener.tryParse ":80").success;
+    expected = true;
+  };
+  tryParse-ok-unix = {
+    expr = (listener.tryParse "/run/foo.sock").success;
     expected = true;
   };
   tryParse-bad = {
-    expr = (lst.tryParse "bad").success;
+    expr = (listener.tryParse "host_name:1").success;
     expected = false;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = lst.is (p ":80");
+  is-ip = {
+    expr = listener.is (p ":8080");
+    expected = true;
+  };
+  is-unix = {
+    expr = listener.is (p "/run/foo.sock");
     expected = true;
   };
   is-string = {
-    expr = lst.is ":80";
+    expr = listener.is ":8080";
     expected = false;
   };
-  isValid-ok = {
-    expr = lst.isValid ":80";
+  isIpListener-yes = {
+    expr = listener.isIpListener (p ":8080");
     expected = true;
   };
-
-  # ===== isAnyAddress variants =====
-  anyAddr-null = {
-    expr = lst.isAnyAddress (p ":80");
-    expected = true;
-  };
-  anyAddr-star = {
-    expr = lst.isAnyAddress (p "*:80");
-    expected = true;
-  };
-  anyAddr-any = {
-    expr = lst.isAnyAddress (p "any:80");
-    expected = true;
-  };
-  anyAddr-0000 = {
-    expr = lst.isAnyAddress (p "0.0.0.0:80");
-    expected = true;
-  };
-  anyAddr-v6-any = {
-    expr = lst.isAnyAddress (p "[::]:80");
-    expected = true;
-  };
-  anyAddr-no = {
-    expr = lst.isAnyAddress (p "1.2.3.4:80");
+  isIpListener-no = {
+    expr = listener.isIpListener (p "/run/foo.sock");
     expected = false;
   };
-  anyAddr-v6-loop = {
-    expr = lst.isAnyAddress (p "[::1]:80");
+  isUnixSocket-yes = {
+    expr = listener.isUnixSocket (p "/run/foo.sock");
+    expected = true;
+  };
+  isUnixSocket-no = {
+    expr = listener.isUnixSocket (p ":8080");
     expected = false;
   };
-  isWildcard-alias = {
-    expr = lst.isWildcard (p ":80");
+  isValid-ip = {
+    expr = listener.isValid ":8080";
     expected = true;
   };
-
-  # ===== isRange =====
-  isRange-single = {
-    expr = lst.isRange (p ":80");
+  isValid-unix = {
+    expr = listener.isValid "/run/foo.sock";
+    expected = true;
+  };
+  isValid-bad = {
+    expr = listener.isValid "host_name:1";
     expected = false;
-  };
-  isRange-range = {
-    expr = lst.isRange (p ":80-90");
-    expected = true;
-  };
-
-  # ===== Family =====
-  isIpv4-v4 = {
-    expr = lst.isIpv4 (p "1.2.3.4:80");
-    expected = true;
-  };
-  isIpv4-null = {
-    expr = lst.isIpv4 (p ":80");
-    expected = false;
-  };
-  isIpv6-v6 = {
-    expr = lst.isIpv6 (p "[::1]:80");
-    expected = true;
-  };
-  version-v4 = {
-    expr = lst.version (p "1.2.3.4:80");
-    expected = 4;
-  };
-  version-null = {
-    expr = lst.version (p ":80");
-    expected = null;
-  };
-
-  # ===== Expansion =====
-  endpoints = {
-    expr = map ipEndpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
-    expected = [
-      "1.2.3.4:80"
-      "1.2.3.4:81"
-      "1.2.3.4:82"
-    ];
-  };
-  endpoints-v6 = {
-    expr = map ipEndpoint.toString (lst.endpoints (p "[::1]:80-81"));
-    expected = [
-      "[::1]:80"
-      "[::1]:81"
-    ];
-  };
-  endpoints-null = {
-    expr = throws (lst.endpoints (p ":80-82"));
-    expected = true;
-  };
-  endpoints-big = {
-    expr = throws (lst.endpoints (p "1.2.3.4:0-5000"));
-    expected = true;
-  };
-
-  endpointAt-0 = {
-    expr = ipEndpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
-    expected = "1.2.3.4:80";
-  };
-  endpointAt-2 = {
-    expr = ipEndpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
-    expected = "1.2.3.4:82";
-  };
-  endpointAt-neg = {
-    expr = ipEndpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
-    expected = "1.2.3.4:82";
-  };
-  endpointAt-oob = {
-    expr = throws (lst.endpointAt 3 (p "1.2.3.4:80-82"));
-    expected = true;
-  };
-  endpointAt-null = {
-    expr = throws (lst.endpointAt 0 (p ":80-82"));
-    expected = true;
-  };
-
-  # ===== Forwarded predicates =====
-  fwd-loopback-v4 = {
-    expr = lst.isLoopback (p "127.0.0.1:80");
-    expected = true;
-  };
-  fwd-loopback-v6 = {
-    expr = lst.isLoopback (p "[::1]:80");
-    expected = true;
-  };
-  fwd-loopback-no = {
-    expr = lst.isLoopback (p "8.8.8.8:80");
-    expected = false;
-  };
-  fwd-loopback-null = {
-    expr = lst.isLoopback (p ":80");
-    expected = false;
-  };
-  fwd-unspecified-null = {
-    expr = lst.isUnspecified (p ":80");
-    expected = false;
-  };
-  fwd-linkLocal-v6 = {
-    expr = lst.isLinkLocal (p "[fe80::1]:80");
-    expected = true;
-  };
-  fwd-multicast-v4 = {
-    expr = lst.isMulticast (p "224.0.0.1:80");
-    expected = true;
-  };
-  fwd-documentation-v4 = {
-    expr = lst.isDocumentation (p "192.0.2.1:80");
-    expected = true;
-  };
-  fwd-global-v4 = {
-    expr = lst.isGlobal (p "8.8.8.8:80");
-    expected = true;
-  };
-  fwd-global-null = {
-    expr = lst.isGlobal (p ":80");
-    expected = false;
-  };
-  fwd-bogon-v4 = {
-    expr = lst.isBogon (p "10.0.0.1:80");
-    expected = true;
-  };
-  fwd-bogon-v6 = {
-    expr = lst.isBogon (p "[fc00::1]:80");
-    expected = true;
-  };
-  fwd-bogon-null = {
-    expr = lst.isBogon (p ":80");
-    expected = false;
-  };
-  fwd-toArpa-v4 = {
-    expr = lst.toArpa (p "1.2.3.4:80");
-    expected = "4.3.2.1.in-addr.arpa";
-  };
-  fwd-toArpa-v6 = {
-    expr = lst.toArpa (p "[::1]:80");
-    expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
-  };
-  fwd-toArpa-null = {
-    expr = throws (lst.toArpa (p ":80"));
-    expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = lst.eq (p ":80") (p ":80");
+  eq-same-ip = {
+    expr = listener.eq (p ":8080") (p ":8080");
     expected = true;
   };
-  eq-null-vs-expl = {
-    expr = lst.eq (p ":80") (p "0.0.0.0:80");
+  eq-same-unix = {
+    expr = listener.eq (p "/run/foo.sock") (p "/run/foo.sock");
+    expected = true;
+  };
+  eq-cross-kind = {
+    expr = listener.eq (p ":8080") (p "/run/foo.sock");
     expected = false;
   };
-  compare-null-v4 = {
-    expr = lst.compare (p ":80") (p "0.0.0.0:80");
+  compare-ip-before-unix = {
+    expr = listener.compare (p ":8080") (p "/run/foo.sock");
     expected = -1;
   };
-  compare-v4-v6 = {
-    expr = lst.compare (p "1.2.3.4:80") (p "[::1]:80");
-    expected = -1;
+  compare-unix-after-ip = {
+    expr = listener.compare (p "/run/foo.sock") (p ":8080");
+    expected = 1;
   };
-  compare-same = {
-    expr = lst.compare (p ":80") (p ":80");
-    expected = 0;
+  min-picks-ip = {
+    expr = (listener.min (p "/run/foo.sock") (p ":8080"))._type;
+    expected = "ipListener";
   };
-  lt-null-first = {
-    expr = lst.lt (p ":80") (p "0.0.0.0:80");
+
+  # Sanity: union recognises values from each member module
+  is-from-ip-module = {
+    expr = listener.is (ipListener.parse ":8080");
+    expected = true;
+  };
+  is-from-unix-module = {
+    expr = listener.is (unixSocket.parse "/run/foo.sock");
     expected = true;
   };
 }

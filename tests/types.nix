@@ -286,8 +286,30 @@ in
     expected = true;
   };
 
-  # ===== listener =====
-  listener-null = {
+  # ===== ipListener =====
+  ipListener-null = {
+    expr = types.ipListener.check ":80";
+    expected = true;
+  };
+  ipListener-wild = {
+    expr = types.ipListener.check "*:80";
+    expected = true;
+  };
+  ipListener-range = {
+    expr = types.ipListener.check "1.2.3.4:80-90";
+    expected = true;
+  };
+  ipListener-unix-rejected = {
+    expr = types.ipListener.check "/run/foo.sock";
+    expected = false;
+  };
+  ipListener-desc = {
+    expr = builtins.isString types.ipListener.description;
+    expected = true;
+  };
+
+  # ===== listener (union) =====
+  listener-ip = {
     expr = types.listener.check ":80";
     expected = true;
   };
@@ -297,6 +319,26 @@ in
   };
   listener-range = {
     expr = types.listener.check "1.2.3.4:80-90";
+    expected = true;
+  };
+  listener-unix = {
+    expr = types.listener.check "/run/foo.sock";
+    expected = true;
+  };
+  listener-unix-abstract = {
+    expr = types.listener.check "@foo";
+    expected = true;
+  };
+  listener-bad = {
+    expr = types.listener.check "host_name:1";
+    expected = false;
+  };
+  listener-mk-unix = {
+    expr = types.listener.mk "/run/foo.sock";
+    expected = "/run/foo.sock";
+  };
+  listener-desc = {
+    expr = builtins.isString types.listener.description;
     expected = true;
   };
 

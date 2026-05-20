@@ -7,7 +7,8 @@ interface values. Zero nixpkgs dependency in the core.
 - **CIDR** — network math, containment, iteration, subnet/supernet, set algebra
   (summarize/exclude/intersect)
 - **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.wellKnownPorts`](./lib/registry.nix)
-- **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `endpoint` (union) + **Listener** (`[ADDR]:PORT[-END]`)
+- **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `unixSocket` (path), `endpoint` (union)
+- **Listener** — `ipListener` (`[ADDR]:PORT[-END]`), `unixSocket`, `listener` (union)
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
 - **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
 - **Reverse DNS** (`toArpa`) for both families
@@ -36,8 +37,8 @@ let
   addr      = libnet.ipEndpoint.address ep;          # ::1
   p         = libnet.ipEndpoint.port ep;             # 443
 
-  listener  = libnet.listener.parse ":8080-8082";
-  isWild    = libnet.listener.isAnyAddress listener; # true
+  listener  = libnet.ipListener.parse ":8080-8082";
+  isWild    = libnet.ipListener.isAnyAddress listener; # true
 
   summary   = libnet.cidr.summarize [
                 (libnet.cidr.parse "10.0.0.0/25")
@@ -93,7 +94,8 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, toUri, address/port |
 | [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint + unixSocket; dispatches on shape (no new tag) |
 | [`libnet.unixSocket`](./lib/unix-socket.nix) | Unix domain socket (pathname or @abstract); complete target, no port |
-| [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
+| [`libnet.ipListener`](./lib/ip-listener.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
+| [`libnet.listener`](./lib/listener.nix) | pass-through union over ipListener + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
 | [`libnet.transport`](./lib/transport.nix) | tcp/udp/sctp transport-layer enum, parse, isTcp/isUdp/isSctp, eq |
@@ -166,7 +168,7 @@ module-type tests.
 
 See the [Future Work section of SPEC.md](./SPEC.md#future-work-post-v1-roadmap)
 for the v2 roadmap. Highlights include deterministic address assignment
-(hash-based), Unix domain socket paths in `listener`, IPv6 zone identifiers,
+(hash-based), IPv6 zone identifiers,
 well-known port reverse lookup, solicited-node multicast derivation, and a
 route type.
 

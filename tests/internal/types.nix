@@ -48,8 +48,8 @@ let
     };
     port = port;
   };
-  listener = {
-    _type = "listener";
+  ipListener = {
+    _type = "ipListener";
     address = ipv4;
     portRange = portRange;
   };
@@ -126,9 +126,9 @@ in
     expr = types.tags.dnsEndpoint;
     expected = "dnsEndpoint";
   };
-  tags-listener = {
-    expr = types.tags.listener;
-    expected = "listener";
+  tags-ipListener = {
+    expr = types.tags.ipListener;
+    expected = "ipListener";
   };
   tags-ipRange = {
     expr = types.tags.ipRange;
@@ -222,8 +222,8 @@ in
     expr = types.isDnsEndpoint dnsEndpoint;
     expected = true;
   };
-  isListener-yes = {
-    expr = types.isListener listener;
+  isIpListener-yes = {
+    expr = types.isIpListener ipListener;
     expected = true;
   };
   isIpRange-yes = {

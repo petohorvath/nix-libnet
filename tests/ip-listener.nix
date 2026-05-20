@@ -1,0 +1,304 @@
+{ harness }:
+let
+  lst = import ../lib/ip-listener.nix;
+  ipv4 = import ../lib/ipv4.nix;
+  ipv6 = import ../lib/ipv6.nix;
+  port = import ../lib/port.nix;
+  pr = import ../lib/port-range.nix;
+  ipEndpoint = import ../lib/ip-endpoint.nix;
+  inherit (harness) throws;
+  p = lst.parse;
+in
+{
+  # ===== Parse =====
+  parse-null-single = {
+    expr = lst.toString (p ":8080");
+    expected = ":8080";
+  };
+  parse-null-range = {
+    expr = lst.toString (p ":8080-8090");
+    expected = ":8080-8090";
+  };
+  parse-wild-star = {
+    expr = lst.toString (p "*:8080");
+    expected = ":8080";
+  };
+  parse-wild-any = {
+    expr = lst.toString (p "any:8080");
+    expected = ":8080";
+  };
+  parse-v4-single = {
+    expr = lst.toString (p "1.2.3.4:8080");
+    expected = "1.2.3.4:8080";
+  };
+  parse-v4-range = {
+    expr = lst.toString (p "1.2.3.4:5000-6000");
+    expected = "1.2.3.4:5000-6000";
+  };
+  parse-v4-explicit = {
+    expr = lst.toString (p "0.0.0.0:80");
+    expected = "0.0.0.0:80";
+  };
+  parse-v6-range = {
+    expr = lst.toString (p "[::1]:5000-6000");
+    expected = "[::1]:5000-6000";
+  };
+  parse-v6-explicit = {
+    expr = lst.toString (p "[::]:80");
+    expected = "[::]:80";
+  };
+  parse-v6-single = {
+    expr = lst.toString (p "[::1]:80");
+    expected = "[::1]:80";
+  };
+
+  # ===== Reject =====
+  reject-v6-unbrak = {
+    expr = throws (p "::1:80");
+    expected = true;
+  };
+  reject-bad-port = {
+    expr = throws (p ":70000");
+    expected = true;
+  };
+  reject-open-range = {
+    expr = throws (p "1.2.3.4:5500-");
+    expected = true;
+  };
+  reject-reverse = {
+    expr = throws (p "1.2.3.4:6000-5500");
+    expected = true;
+  };
+  reject-not-string = {
+    expr = throws (lst.parse 123);
+    expected = true;
+  };
+
+  # ===== tryParse =====
+  tryParse-ok = {
+    expr = (lst.tryParse ":80").success;
+    expected = true;
+  };
+  tryParse-bad = {
+    expr = (lst.tryParse "bad").success;
+    expected = false;
+  };
+
+  # ===== Predicates =====
+  is-parsed = {
+    expr = lst.is (p ":80");
+    expected = true;
+  };
+  is-string = {
+    expr = lst.is ":80";
+    expected = false;
+  };
+  isValid-ok = {
+    expr = lst.isValid ":80";
+    expected = true;
+  };
+
+  # ===== isAnyAddress variants =====
+  anyAddr-null = {
+    expr = lst.isAnyAddress (p ":80");
+    expected = true;
+  };
+  anyAddr-star = {
+    expr = lst.isAnyAddress (p "*:80");
+    expected = true;
+  };
+  anyAddr-any = {
+    expr = lst.isAnyAddress (p "any:80");
+    expected = true;
+  };
+  anyAddr-0000 = {
+    expr = lst.isAnyAddress (p "0.0.0.0:80");
+    expected = true;
+  };
+  anyAddr-v6-any = {
+    expr = lst.isAnyAddress (p "[::]:80");
+    expected = true;
+  };
+  anyAddr-no = {
+    expr = lst.isAnyAddress (p "1.2.3.4:80");
+    expected = false;
+  };
+  anyAddr-v6-loop = {
+    expr = lst.isAnyAddress (p "[::1]:80");
+    expected = false;
+  };
+  isWildcard-alias = {
+    expr = lst.isWildcard (p ":80");
+    expected = true;
+  };
+
+  # ===== isRange =====
+  isRange-single = {
+    expr = lst.isRange (p ":80");
+    expected = false;
+  };
+  isRange-range = {
+    expr = lst.isRange (p ":80-90");
+    expected = true;
+  };
+
+  # ===== Family =====
+  isIpv4-v4 = {
+    expr = lst.isIpv4 (p "1.2.3.4:80");
+    expected = true;
+  };
+  isIpv4-null = {
+    expr = lst.isIpv4 (p ":80");
+    expected = false;
+  };
+  isIpv6-v6 = {
+    expr = lst.isIpv6 (p "[::1]:80");
+    expected = true;
+  };
+  version-v4 = {
+    expr = lst.version (p "1.2.3.4:80");
+    expected = 4;
+  };
+  version-null = {
+    expr = lst.version (p ":80");
+    expected = null;
+  };
+
+  # ===== Expansion =====
+  endpoints = {
+    expr = map ipEndpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
+    expected = [
+      "1.2.3.4:80"
+      "1.2.3.4:81"
+      "1.2.3.4:82"
+    ];
+  };
+  endpoints-v6 = {
+    expr = map ipEndpoint.toString (lst.endpoints (p "[::1]:80-81"));
+    expected = [
+      "[::1]:80"
+      "[::1]:81"
+    ];
+  };
+  endpoints-null = {
+    expr = throws (lst.endpoints (p ":80-82"));
+    expected = true;
+  };
+  endpoints-big = {
+    expr = throws (lst.endpoints (p "1.2.3.4:0-5000"));
+    expected = true;
+  };
+
+  endpointAt-0 = {
+    expr = ipEndpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
+    expected = "1.2.3.4:80";
+  };
+  endpointAt-2 = {
+    expr = ipEndpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
+    expected = "1.2.3.4:82";
+  };
+  endpointAt-neg = {
+    expr = ipEndpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
+    expected = "1.2.3.4:82";
+  };
+  endpointAt-oob = {
+    expr = throws (lst.endpointAt 3 (p "1.2.3.4:80-82"));
+    expected = true;
+  };
+  endpointAt-null = {
+    expr = throws (lst.endpointAt 0 (p ":80-82"));
+    expected = true;
+  };
+
+  # ===== Forwarded predicates =====
+  fwd-loopback-v4 = {
+    expr = lst.isLoopback (p "127.0.0.1:80");
+    expected = true;
+  };
+  fwd-loopback-v6 = {
+    expr = lst.isLoopback (p "[::1]:80");
+    expected = true;
+  };
+  fwd-loopback-no = {
+    expr = lst.isLoopback (p "8.8.8.8:80");
+    expected = false;
+  };
+  fwd-loopback-null = {
+    expr = lst.isLoopback (p ":80");
+    expected = false;
+  };
+  fwd-unspecified-null = {
+    expr = lst.isUnspecified (p ":80");
+    expected = false;
+  };
+  fwd-linkLocal-v6 = {
+    expr = lst.isLinkLocal (p "[fe80::1]:80");
+    expected = true;
+  };
+  fwd-multicast-v4 = {
+    expr = lst.isMulticast (p "224.0.0.1:80");
+    expected = true;
+  };
+  fwd-documentation-v4 = {
+    expr = lst.isDocumentation (p "192.0.2.1:80");
+    expected = true;
+  };
+  fwd-global-v4 = {
+    expr = lst.isGlobal (p "8.8.8.8:80");
+    expected = true;
+  };
+  fwd-global-null = {
+    expr = lst.isGlobal (p ":80");
+    expected = false;
+  };
+  fwd-bogon-v4 = {
+    expr = lst.isBogon (p "10.0.0.1:80");
+    expected = true;
+  };
+  fwd-bogon-v6 = {
+    expr = lst.isBogon (p "[fc00::1]:80");
+    expected = true;
+  };
+  fwd-bogon-null = {
+    expr = lst.isBogon (p ":80");
+    expected = false;
+  };
+  fwd-toArpa-v4 = {
+    expr = lst.toArpa (p "1.2.3.4:80");
+    expected = "4.3.2.1.in-addr.arpa";
+  };
+  fwd-toArpa-v6 = {
+    expr = lst.toArpa (p "[::1]:80");
+    expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+  };
+  fwd-toArpa-null = {
+    expr = throws (lst.toArpa (p ":80"));
+    expected = true;
+  };
+
+  # ===== Comparison =====
+  eq-same = {
+    expr = lst.eq (p ":80") (p ":80");
+    expected = true;
+  };
+  eq-null-vs-expl = {
+    expr = lst.eq (p ":80") (p "0.0.0.0:80");
+    expected = false;
+  };
+  compare-null-v4 = {
+    expr = lst.compare (p ":80") (p "0.0.0.0:80");
+    expected = -1;
+  };
+  compare-v4-v6 = {
+    expr = lst.compare (p "1.2.3.4:80") (p "[::1]:80");
+    expected = -1;
+  };
+  compare-same = {
+    expr = lst.compare (p ":80") (p ":80");
+    expected = 0;
+  };
+  lt-null-first = {
+    expr = lst.lt (p ":80") (p "0.0.0.0:80");
+    expected = true;
+  };
+}
