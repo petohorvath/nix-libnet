@@ -7,7 +7,7 @@
   or libnet.port as needed.
 
   Example:
-    libnet.registry.wellKnownPorts.tcp.https
+    libnet.registry.ports.tcp.https
     => 443
 
     builtins.head libnet.registry.bogons.ipv4
@@ -49,7 +49,7 @@
   # Single source of truth for port numbers: libnet.url.schemes
   # references this table for its scheme default ports. `tcp` is `rec` so
   # aliases (rabbitmq = amqp) point at a port rather than duplicate it.
-  wellKnownPorts = {
+  ports = {
     tcp = rec {
       ftpData = 20;
       ftp = 21;

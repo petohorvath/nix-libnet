@@ -33,10 +33,10 @@ let
 
   lowerAscii = dnsLabel.toLowerAscii;
   mkPort = port.fromInt;
-  wkp = registry.wellKnownPorts;
+  wkp = registry.ports;
 
   # Closed registry of URL schemes. Default ports are sourced from
-  # registry.wellKnownPorts (the single source of truth for port
+  # registry.ports (the single source of truth for port
   # numbers); this table adds only the L4 transport and the TLS flag.
   # Schemes that ride another service's port reference it (ws → http,
   # wss → https, sftp → ssh).

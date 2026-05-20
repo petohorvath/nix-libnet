@@ -741,7 +741,7 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `wellKnownMax` | `1023` |
 | `registeredMax` | `49151` |
 
-**Well-known service ports** live in [`libnet.registry.wellKnownPorts`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `rdp`, `memcached`) share the same port number under each key. Port `853` appears on both protocols under different names — `tcp.dnsTls` (DNS-over-TLS, RFC 7858) and `udp.dnsQuic` (DNS-over-QUIC, RFC 9250) — since IANA assigns the two distinct services to the same port.
+**Well-known service ports** live in [`libnet.registry.ports`](./lib/registry.nix) as a protocol-grouped `{ tcp = { name = int; ... }; udp = { ... }; }` map (raw integers, not Port values — lift via `port.fromInt` on demand). Names appearing on both protocols (e.g. `dns`, `rdp`, `memcached`) share the same port number under each key. Port `853` appears on both protocols under different names — `tcp.dnsTls` (DNS-over-TLS, RFC 7858) and `udp.dnsQuic` (DNS-over-QUIC, RFC 9250) — since IANA assigns the two distinct services to the same port.
 
 ### `libnet.transport`
 
@@ -1161,7 +1161,7 @@ There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url
 
 An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials.
 
-`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject. Default ports are sourced from `registry.wellKnownPorts` — the single source of truth for port numbers.
+`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject. Default ports are sourced from `registry.ports` — the single source of truth for port numbers.
 
 **Parsing & formatting**
 | Function | Signature | Notes |
@@ -1375,8 +1375,8 @@ Static lookup tables shipped as plain Nix literals (no parsed values — lift in
 |---|---|---|
 | `bogons.ipv4` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv4 (this-network `0.0.0.0/8`, RFC 1918, shared/CGNAT, loopback, link-local, protocol assignments, documentation, benchmarking, multicast, reserved). |
 | `bogons.ipv6` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv6 (unspecified, loopback, discard, ORCHID, documentation, unique-local, link-local, site-local, multicast). |
-| `wellKnownPorts.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers; the source for `libnet.url` scheme default ports. |
-| `wellKnownPorts.udp` | `{ name = Int; ... }` | Common UDP service names → port numbers. |
+| `ports.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers; the source for `libnet.url` scheme default ports. |
+| `ports.udp` | `{ name = Int; ... }` | Common UDP service names → port numbers. |
 | `icmpTypes.ipv4` | `{ name = Int; ... }` | ICMP (IPv4) message-type numbers. |
 | `icmpTypes.ipv6` | `{ name = Int; ... }` | ICMPv6 message-type numbers. |
 
@@ -1583,7 +1583,7 @@ in
 - Reverse DNS: `toArpa` for representative IPv4 and IPv6 addresses; round-trip through a DNS name parser not required (we only emit).
 - EUI-64: `mac.toEui64` output matches RFC 4291 § 2.5.1 for known vectors; `ipv6.fromEui64` composes correctly with a `/64` prefix and throws for prefixes > 64.
 - CIDR algebra: `summarize` collapses adjacent pairs and drops sub-ranges, preserves order, handles mixed families by partitioning; `exclude` produces minimal covering lists with hand-checked expected outputs; `intersect` returns `null` when no overlap.
-- Registry well-known ports: every entry in `registry.wellKnownPorts.{tcp,udp}` lifts to a valid Port via `port.fromInt`; shared names across tcp/udp map to the same integer.
+- Registry well-known ports: every entry in `registry.ports.{tcp,udp}` lifts to a valid Port via `port.fromInt`; shared names across tcp/udp map to the same integer.
 - Bogon: `ip.isBogon (ipv4.parse "127.0.0.1") == true`, `ip.isBogon (ipv4.parse "8.8.8.8") == false`, parallel IPv6 cases.
 - Module types (via `withLib`): each `types.*` accepts valid strings unchanged, rejects malformed input with a useful error pointing at the offending option path, and merges last-wins. Mixed-family rejection for `types.ipv4Cidr`/`types.ipv6Cidr`. Smart constructor `types.*.mk` validates and fails loudly on bad input. These tests are exercised by the `full` flake check, which injects `nixpkgs.lib`; the `core` check runs with `lib = null` and skips them, proving the core stays dep-free.
 
@@ -1660,7 +1660,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Parse `0`, `65535`, `1`, `80`. Reject `65536`, `-1`, `+80`, `0x50`, empty, `" 80"`.
 - Predicates: `isWellKnown 22` true, `isWellKnown 1024` false, `isRegistered 1024` true, `isDynamic 49152` true, `isReserved 0` true.
 - Arithmetic: `65535 + 1` throws, `0 - 1` throws.
-- Registry well-known ports: spot checks for a handful of entries (e.g. `registry.wellKnownPorts.tcp.http == 80`) and fold-based validation that every integer is in range and `port.fromInt`-liftable.
+- Registry well-known ports: spot checks for a handful of entries (e.g. `registry.ports.tcp.http == 80`) and fold-based validation that every integer is in range and `port.fromInt`-liftable.
 
 **PortRange**
 - Parse: `8080` (singleton), `5500-6000`, `5500:6000` (iptables), equal from/to.

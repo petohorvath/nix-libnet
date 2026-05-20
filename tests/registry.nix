@@ -22,7 +22,7 @@ let
   inV4 = s: inAnyV4 (ipv4.parse s);
   inV6 = s: inAnyV6 (ipv6.parse s);
 
-  wkp = registry.wellKnownPorts;
+  wkp = registry.ports;
   sharedNames = builtins.attrNames (builtins.intersectAttrs wkp.tcp wkp.udp);
 
   isValidInt = v: builtins.isInt v && v >= 0 && v <= 65535;
@@ -151,7 +151,7 @@ in
     expected = false;
   };
 
-  # ===== wellKnownPorts — shape =====
+  # ===== ports — shape =====
   wkp-tcp-nonempty = {
     expr = wkp.tcp != { };
     expected = true;
@@ -161,7 +161,7 @@ in
     expected = true;
   };
 
-  # ===== wellKnownPorts — range =====
+  # ===== ports — range =====
   wkp-tcp-all-valid-ints = {
     expr = allValidInts wkp.tcp;
     expected = true;
@@ -171,7 +171,7 @@ in
     expected = true;
   };
 
-  # ===== wellKnownPorts — liftable to Port =====
+  # ===== ports — liftable to Port =====
   wkp-tcp-all-liftable = {
     expr = allLiftable wkp.tcp;
     expected = true;
@@ -181,14 +181,14 @@ in
     expected = true;
   };
 
-  # ===== wellKnownPorts — cross-protocol consistency =====
+  # ===== ports — cross-protocol consistency =====
   # Every name present in both tcp and udp must map to the same integer.
   wkp-shared-consistent = {
     expr = builtins.all (n: wkp.tcp.${n} == wkp.udp.${n}) sharedNames;
     expected = true;
   };
 
-  # ===== wellKnownPorts — spot checks =====
+  # ===== ports — spot checks =====
   wkp-tcp-http = {
     expr = wkp.tcp.http;
     expected = 80;

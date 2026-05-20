@@ -214,7 +214,7 @@ in
   schemes-sourced-from-wkp = {
     expr =
       let
-        w = registry.wellKnownPorts;
+        w = registry.ports;
         allPorts = builtins.attrValues w.tcp ++ builtins.attrValues w.udp;
       in
       builtins.all (s: builtins.elem s.defaultPort allPorts) (builtins.attrValues url.schemes);

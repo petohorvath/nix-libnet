@@ -6,7 +6,7 @@ interface values. Zero nixpkgs dependency in the core.
 - **IPv4**, **IPv6**, **MAC** addresses — parse, format, predicates, arithmetic, comparison
 - **CIDR** — network math, containment, iteration, subnet/supernet, set algebra
   (summarize/exclude/intersect)
-- **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.wellKnownPorts`](./lib/registry.nix)
+- **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.ports`](./lib/registry.nix)
 - **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `unixSocket` (path), `endpoint` (union)
 - **Listener** — `ipListener` (`[ADDR]:PORT[-END]`), `unixSocket`, `listener` (union)
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
@@ -108,7 +108,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.host`](./lib/host.nix) | pass-through union over ip + dnsName; dispatches on input shape (no new tag) |
 | [`libnet.vlanId`](./lib/vlan-id.nix) | IEEE 802.1Q VLAN ID (tagged int in [1, 4094]); fromInt/toInt, isValid, arithmetic, comparison |
 | [`libnet.mtu`](./lib/mtu.nix) | IP MTU (tagged int in [68, 65535]); fromInt/toInt, isValid, arithmetic, comparison |
-| [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
+| [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `ports.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 
 ## Design highlights
