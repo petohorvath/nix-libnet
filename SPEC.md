@@ -32,8 +32,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 ## Non-Goals (v1)
 
 - No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
-- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse two **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`) and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). Both store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes. (`toUri` formatters may also emit bracketed IPv6 for URL consumers.)
-- No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
+- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse two **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`) and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). Both store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes.- No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
 - No performance benchmarking commitments. Correctness first.
 - Core library never imports `nixpkgs.lib`. NixOS `lib.types.*`-compatible option types ARE provided, but only through the opt-in `libnet.withLib lib` entry point so the core stays dep-free.
@@ -1008,7 +1007,6 @@ IP MTU — a tagged int in `[68, 65535]`. Same shape as `vlanId`. The lower boun
 | `parse` | `String → IpEndpoint` | IPv4: `"1.2.3.4:80"`. IPv6: `"[::1]:80"` — brackets **required** to disambiguate. Throws on unbracketed IPv6, missing port, or invalid parts. |
 | `tryParse` | `String → TryResult IpEndpoint` |
 | `toString` | `IpEndpoint → String` | Canonical: IPv4 unbracketed, IPv6 bracketed. |
-| `toUri` | `IpEndpoint → String` | Alias — always emits URI-authority form. |
 | `make` | `(Ipv4 | Ipv6) → Port → IpEndpoint` | Combine pre-parsed address and port. |
 
 **Predicates**
@@ -1051,7 +1049,6 @@ A DNS name (hostname or domain) paired with a port — the name-only counterpart
 | `parse` | `String → DnsEndpoint` | `name:port`. Exactly one `:`; no bracket form. Throws on IP literals, bad port, invalid name. |
 | `tryParse` | `String → TryResult DnsEndpoint` |
 | `toString` | `DnsEndpoint → String` | `name:port`; preserves input case. |
-| `toUri` | `DnsEndpoint → String` | Alias. |
 | `make` | `(Hostname \| Domain) → Port → DnsEndpoint` | Combine a pre-parsed dnsName and port. |
 
 **Predicates**
@@ -1077,7 +1074,6 @@ The members are **heterogeneous** — `ipEndpoint`/`dnsEndpoint` carry `address`
 | `parse` | `String → (IpEndpoint \| DnsEndpoint \| UnixSocket)` | Throws if no member matches. |
 | `tryParse` | `String → TryResult (...)` |
 | `toString` | `Endpoint → String` | Dispatches to the member's `toString`. |
-| `toUri` | `Endpoint → String` | Alias. |
 
 **Predicates**
 | Function | Signature | Notes |
@@ -1125,7 +1121,6 @@ A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libn
 | `parse` | `String → SocketUrl` | Splits `<scheme>://<rest>`. Rejects unknown schemes, `tcp://`-with-a-path, `unix://`-with-host:port, and bad endpoints. |
 | `tryParse` | `String → TryResult SocketUrl` |
 | `toString` | `SocketUrl → String` | `<scheme>://<endpoint>`; `unix://` for unix sockets. |
-| `toUri` | `SocketUrl → String` | Alias of `toString` (a socketUrl is already a URI). |
 | `make` | `(Transport \| null) → Endpoint → SocketUrl` | Validates the transport/endpoint coupling (null transport ⟺ unix endpoint). |
 
 **Predicates**

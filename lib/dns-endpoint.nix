@@ -66,8 +66,6 @@ let
 
   toString = ep: "${dnsName.toString ep.address}:${port.toString ep.port}";
 
-  toUri = toString;
-
   make =
     addr: pt:
     if !(dnsName.is addr) then
@@ -113,7 +111,6 @@ in
     parse
     tryParse
     toString
-    toUri
     make
     ;
   inherit

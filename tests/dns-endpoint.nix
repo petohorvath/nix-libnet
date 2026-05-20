@@ -132,12 +132,6 @@ in
     expected = false;
   };
 
-  # ===== toUri (alias of toString) =====
-  toUri = {
-    expr = dnsEndpoint.toUri (p "pool.ntp.org:123");
-    expected = "pool.ntp.org:123";
-  };
-
   # ===== Comparison helpers =====
   cmp-lt = {
     expr = dnsEndpoint.lt (p "alpha:80") (p "beta:80");

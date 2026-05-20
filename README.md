@@ -90,8 +90,8 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, hostAt(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
-| [`libnet.ipEndpoint`](./lib/ip-endpoint.nix) | IP addr:port, parse (RFC 3986 bracketed), toUri, forwarded address predicates |
-| [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, toUri, address/port |
+| [`libnet.ipEndpoint`](./lib/ip-endpoint.nix) | IP addr:port, parse (RFC 3986 bracketed), forwarded address predicates |
+| [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, address/port |
 | [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint + unixSocket; dispatches on shape (no new tag) |
 | [`libnet.unixSocket`](./lib/unix-socket.nix) | Unix domain socket (pathname or @abstract); complete target, no port |
 | [`libnet.socketUrl`](./lib/socket-url.nix) | socket address in URL form `<scheme>://<endpoint>` (tcp/udp/sctp/unix); bounded, not a general URL parser |

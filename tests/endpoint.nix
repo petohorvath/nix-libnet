@@ -72,11 +72,7 @@ in
     expected = false;
   };
 
-  # ===== toString / toUri =====
-  toUri-ipv6 = {
-    expr = endpoint.toUri (p "[2001:db8::1]:80");
-    expected = "[2001:db8::1]:80";
-  };
+  # ===== toString =====
   toString-name-preserves-case = {
     expr = endpoint.toString (p "MyHost.example.com:443");
     expected = "MyHost.example.com:443";

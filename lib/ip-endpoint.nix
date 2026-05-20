@@ -102,8 +102,6 @@ let
     else
       "[${ipv6.toString ep.address}]:${portStr}";
 
-  toUri = toString;
-
   make =
     addr: pt:
     if !(types.isIp addr) then
@@ -176,7 +174,6 @@ in
     parse
     tryParse
     toString
-    toUri
     make
     ;
   inherit

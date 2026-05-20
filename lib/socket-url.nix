@@ -95,8 +95,6 @@ let
     in
     "${scheme}://${endpoint.toString su.endpoint}";
 
-  toUri = toString;
-
   # ===== Construction =====
 
   make =
@@ -180,7 +178,6 @@ in
     parse
     tryParse
     toString
-    toUri
     make
     ;
   inherit

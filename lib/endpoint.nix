@@ -77,8 +77,6 @@ let
     else
       builtins.throw "libnet.endpoint.toString: expected ipEndpoint, dnsEndpoint, or unixSocket value";
 
-  toUri = toString;
-
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
@@ -143,7 +141,6 @@ in
     parse
     tryParse
     toString
-    toUri
     ;
   inherit
     isValid
