@@ -11,7 +11,7 @@ let
     "\n  ${f.name}:"
     + (
       if f.threw then
-        "\n    <expression threw: ${f.throwMsg}>"
+        "\n    <threw during evaluation; real error surfaced below>"
       else
         "\n    actual:   ${formatValue f.actual}"
     )
@@ -39,13 +39,24 @@ let
             expected = t.expected;
             actual = if evaluated.success then evaluated.value else null;
             threw = !evaluated.success;
-            throwMsg = if evaluated.success then "" else "see eval trace";
           };
       results = builtins.mapAttrs runOne tests;
       failures = builtins.filter (v: v != null) (builtins.attrValues results);
+      threwFailures = builtins.filter (f: f.threw) failures;
     in
     if failures == [ ] then
       { passed = builtins.length (builtins.attrNames tests); }
+    else if threwFailures != [ ] then
+      # builtins.tryEval cannot recover a throw's message, so re-evaluate
+      # the first throwing test outside tryEval and let Nix surface the
+      # real error — tagged via addErrorContext with the failure summary
+      # (which names every failing test), so nothing is hidden.
+      let
+        first = builtins.head threwFailures;
+      in
+      builtins.addErrorContext (formatFailures failures) (
+        builtins.deepSeq tests.${first.name}.expr (builtins.throw (formatFailures failures))
+      )
     else
       builtins.throw (formatFailures failures);
 
