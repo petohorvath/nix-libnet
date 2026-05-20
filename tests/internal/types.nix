@@ -40,6 +40,14 @@ let
     address = ipv4;
     port = port;
   };
+  dnsEndpoint = {
+    _type = "dnsEndpoint";
+    address = {
+      _type = "domain";
+      value = "example.com";
+    };
+    port = port;
+  };
   listener = {
     _type = "listener";
     address = ipv4;
@@ -101,6 +109,10 @@ in
   tags-ipEndpoint = {
     expr = types.tags.ipEndpoint;
     expected = "ipEndpoint";
+  };
+  tags-dnsEndpoint = {
+    expr = types.tags.dnsEndpoint;
+    expected = "dnsEndpoint";
   };
   tags-listener = {
     expr = types.tags.listener;
@@ -180,6 +192,10 @@ in
   };
   isIpEndpoint-yes = {
     expr = types.isIpEndpoint ipEndpoint;
+    expected = true;
+  };
+  isDnsEndpoint-yes = {
+    expr = types.isDnsEndpoint dnsEndpoint;
     expected = true;
   };
   isListener-yes = {

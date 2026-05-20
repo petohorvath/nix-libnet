@@ -7,7 +7,7 @@ interface values. Zero nixpkgs dependency in the core.
 - **CIDR** — network math, containment, iteration, subnet/supernet, set algebra
   (summarize/exclude/intersect)
 - **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.wellKnownPorts`](./lib/registry.nix)
-- **IpEndpoint** (`ADDR:PORT`) + **Listener** (`[ADDR]:PORT[-END]`) — RFC 3986 bracketed IPv6
+- **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `endpoint` (union) + **Listener** (`[ADDR]:PORT[-END]`)
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
 - **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
 - **Reverse DNS** (`toArpa`) for both families
@@ -90,6 +90,8 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
 | [`libnet.ipEndpoint`](./lib/ip-endpoint.nix) | IP addr:port, parse (RFC 3986 bracketed), toUri, forwarded address predicates |
+| [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, toUri, address/port |
+| [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint; dispatches IP-first (no new tag) |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |

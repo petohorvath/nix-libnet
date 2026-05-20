@@ -8,6 +8,8 @@ let
     port = import ./lib/port.nix;
     portRange = import ./lib/port-range.nix;
     ipEndpoint = import ./lib/ip-endpoint.nix;
+    dnsEndpoint = import ./lib/dns-endpoint.nix;
+    endpoint = import ./lib/endpoint.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;

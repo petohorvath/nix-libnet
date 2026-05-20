@@ -179,6 +179,74 @@ in
     expr = types.ipEndpoint.check "::1:80";
     expected = false;
   };
+  ipEndpoint-name-rejected = {
+    expr = types.ipEndpoint.check "nas:22";
+    expected = false;
+  };
+
+  # ===== dnsEndpoint =====
+  dnsEndpoint-hostname-ok = {
+    expr = types.dnsEndpoint.check "nas:22";
+    expected = true;
+  };
+  dnsEndpoint-domain-ok = {
+    expr = types.dnsEndpoint.check "pool.ntp.org:123";
+    expected = true;
+  };
+  dnsEndpoint-ip-rejected = {
+    expr = types.dnsEndpoint.check "192.0.2.1:80";
+    expected = false;
+  };
+  dnsEndpoint-no-port = {
+    expr = types.dnsEndpoint.check "nas";
+    expected = false;
+  };
+  dnsEndpoint-mk-ok = {
+    expr = types.dnsEndpoint.mk "pool.ntp.org:123";
+    expected = "pool.ntp.org:123";
+  };
+  dnsEndpoint-desc = {
+    expr = builtins.isString types.dnsEndpoint.description;
+    expected = true;
+  };
+
+  # ===== endpoint (union) =====
+  endpoint-ipv4-ok = {
+    expr = types.endpoint.check "192.0.2.1:80";
+    expected = true;
+  };
+  endpoint-ipv6-ok = {
+    expr = types.endpoint.check "[::1]:443";
+    expected = true;
+  };
+  endpoint-hostname-ok = {
+    expr = types.endpoint.check "nas:22";
+    expected = true;
+  };
+  endpoint-domain-ok = {
+    expr = types.endpoint.check "pool.ntp.org:123";
+    expected = true;
+  };
+  endpoint-bad = {
+    expr = types.endpoint.check "host_name:1";
+    expected = false;
+  };
+  endpoint-no-port = {
+    expr = types.endpoint.check "nas";
+    expected = false;
+  };
+  endpoint-mk-ip = {
+    expr = types.endpoint.mk "192.0.2.1:80";
+    expected = "192.0.2.1:80";
+  };
+  endpoint-mk-name = {
+    expr = types.endpoint.mk "pool.ntp.org:123";
+    expected = "pool.ntp.org:123";
+  };
+  endpoint-desc = {
+    expr = builtins.isString types.endpoint.description;
+    expected = true;
+  };
 
   # ===== listener =====
   listener-null = {

@@ -23,6 +23,8 @@ let
   cidr = import ./cidr.nix;
   portRange = import ./port-range.nix;
   ipEndpoint = import ./ip-endpoint.nix;
+  dnsEndpoint = import ./dns-endpoint.nix;
+  endpoint = import ./endpoint.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
@@ -115,6 +117,18 @@ let
     typeName = "ipEndpoint";
     description = "an IP endpoint (addr:port or [ipv6]:port)";
     validator = ipEndpoint.isValid;
+  };
+
+  dnsEndpointType = mkStrType {
+    typeName = "dnsEndpoint";
+    description = "a DNS-name endpoint (name:port; not an IP literal)";
+    validator = dnsEndpoint.isValid;
+  };
+
+  endpointType = mkStrType {
+    typeName = "endpoint";
+    description = "an endpoint (IP or DNS name : port)";
+    validator = endpoint.isValid;
   };
 
   listenerType = mkStrType {
@@ -250,6 +264,8 @@ in
     port = portType;
     portRange = portRangeType;
     ipEndpoint = ipEndpointType;
+    dnsEndpoint = dnsEndpointType;
+    endpoint = endpointType;
     listener = listenerType;
     ipRange = ipRangeType;
     interface = interfaceType;

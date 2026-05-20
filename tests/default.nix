@@ -25,6 +25,8 @@ let
     // prefix "port" (tryImport "port.nix")
     // prefix "pr" (tryImport "port-range.nix")
     // prefix "ipEndpoint" (tryImport "ip-endpoint.nix")
+    // prefix "dnsEndpoint" (tryImport "dns-endpoint.nix")
+    // prefix "endpoint" (tryImport "endpoint.nix")
     // prefix "ln" (tryImport "listener.nix")
     // prefix "transport" (tryImport "transport.nix")
     // prefix "hostname" (tryImport "hostname.nix")

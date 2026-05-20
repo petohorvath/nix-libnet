@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -208,14 +208,17 @@ A single rule applies everywhere, so cross-type behavior is predictable:
 - **Containment (`contains`, `isSubnetOf`, `isSupernetOf`, `overlaps`, `isSubrangeOf`, `isSuperrangeOf`)**: always `false` when the two arguments are of different address family. Never throws.
 - **Arithmetic (`add`/`sub`/`diff`/`next`/`prev`)**: throws on overflow/underflow past the type's range; `diff` on cross-family Ipv4/Ipv6 via `libnet.ip.diff` throws.
 
-### IpEndpoint vs Listener — conceptual split
+### Endpoints vs Listener — conceptual split
 
-IpEndpoint and Listener solve different problems:
+The endpoint types and Listener solve different problems:
 
-- **IpEndpoint** = *"connect to where?"* A fully-resolved outbound destination. Both address and port are required. No wildcards. Directly dialable. Think: outbound HTTP target, upstream proxy, database URL.
+- **Endpoint** = *"connect to where?"* An outbound destination, address + port, no wildcards. Three flavours mirroring the address hierarchy:
+  - **`ipEndpoint`** — `ip:port`. Fully resolved and directly dialable; carries the IP-classification predicates (isLoopback, isGlobal, toArpa, …).
+  - **`dnsEndpoint`** — `dnsName:port`. A named destination (`pool.ntp.org:123`); no IP predicates, since the address is unresolved until DNS runs.
+  - **`endpoint`** — the pass-through union `ipEndpoint | dnsEndpoint`. `parse` returns whichever matched (IP tried first), so a literal address yields a full `ipEndpoint` and only genuine names yield a `dnsEndpoint`.
 - **Listener** = *"listen how?"* A server-side listen/accept configuration. Address may be `null` (wildcard — accept on any interface); port is always a range (may be size 1). Think: `systemd ListenStream=`, `nginx listen`, firewall allow-rule.
 
-Keeping them as distinct types gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete `ipEndpoint` values (throws if the address is null); wrapping an `ipEndpoint` as a listener is a one-liner and does not warrant a dedicated helper.
+The endpoint/listener split gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. The ip/dns split gives a type-level guarantee that an `ipEndpoint` is resolved (so its address predicates are meaningful), while `dnsEndpoint` is honest that it is not. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete `ipEndpoint` values (throws if the address is null); wrapping an `ipEndpoint` as a listener is a one-liner and does not warrant a dedicated helper.
 
 ### IpEndpoint value
 ```nix
@@ -226,6 +229,16 @@ Keeping them as distinct types gives outbound code a type-level guarantee that i
 }
 ```
 Fully-specified destination for "connect". Canonical text form follows RFC 3986: `1.2.3.4:80` for IPv4, `[2001:db8::1]:80` for IPv6.
+
+### DnsEndpoint value
+```nix
+{
+  _type = "dnsEndpoint";
+  address = <hostname value | domain value>;   # a dnsName, required
+  port    = <port value>;                       # required
+}
+```
+A named destination. The address is a `dnsName` (so IP literals are rejected — use `ipEndpoint`). Canonical text form: `name:port` (no brackets; brackets denote an IPv6 literal, which is an IP). `dnsName` and `endpoint` are pass-through unions and carry no `_type` of their own (like `ip` / `host`).
 
 ### Listener value
 ```nix
@@ -288,6 +301,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `ipv6` | — | `words` (list of int) |
 | `portRange` | `from`, `to` (Port, Port) | — |
 | `ipEndpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
+| `dnsEndpoint` | `address` (Hostname/Domain), `port` (Port) | — |
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
@@ -875,6 +889,54 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, port)`. Mixed family uses the same lenient v4-before-v6 rule as `libnet.ip.compare`.
 
+### `libnet.dnsEndpoint`
+
+A DNS name (hostname or domain) paired with a port — the name-only counterpart to `ipEndpoint`. The address is a `dnsName`, so IP literals are rejected. **No IP-classification predicates** (isLoopback, isGlobal, toArpa): a name has no resolved address.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → DnsEndpoint` | `name:port`. Exactly one `:`; no bracket form. Throws on IP literals, bad port, invalid name. |
+| `tryParse` | `String → TryResult DnsEndpoint` |
+| `toString` | `DnsEndpoint → String` | `name:port`; preserves input case. |
+| `toUri` | `DnsEndpoint → String` | Alias. |
+| `make` | `(Hostname \| Domain) → Port → DnsEndpoint` | Combine a pre-parsed dnsName and port. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+| `isHostname` / `isDomain` | `DnsEndpoint → Bool` | What kind of name the address holds. |
+
+**Accessors**: `address` (→ Hostname/Domain), `port` (→ Port).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — by `(address, port)`, case-insensitive on the name (per DNS).
+
+### `libnet.endpoint` (pass-through union)
+
+Pass-through union over `IpEndpoint` and `DnsEndpoint` — an `ADDR:PORT` where ADDR may be an IP literal or a DNS name. Composed as `ipEndpoint | dnsEndpoint`; **no new `_type` tag**. `parse` tries an IP endpoint first (including the bracketed `[ipv6]:port` form), so a literal address yields a full `ipEndpoint` (with IP predicates) and only a genuine name yields a `dnsEndpoint`. Same pattern as `libnet.host`.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → (IpEndpoint \| DnsEndpoint)` | Throws if neither member matches. |
+| `tryParse` | `String → TryResult (...)` |
+| `toString` | `Endpoint → String` | Dispatches to the member's `toString`. |
+| `toUri` | `Endpoint → String` | Alias. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` | True for an `ipEndpoint` or `dnsEndpoint` value. |
+| `isIpEndpoint` | `Any → Bool` |
+| `isDnsEndpoint` | `Any → Bool` |
+
+**Accessors**: `address` (→ Ipv4/Ipv6/Hostname/Domain), `port` (→ Port).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-kind order: `ipEndpoint < dnsEndpoint`. Within a kind, delegates to that kind's comparator. `eq` is `false` across kinds.
+
 ### `libnet.listener`
 
 **Parsing & formatting**
@@ -1094,6 +1156,8 @@ in {
 | `types.port` | Int (0..65535) or String (decimal digits). | Int — coerced from string if needed. Ports are the one case where int is the more natural representation. |
 | `types.portRange` | String (`from-to` or single `port`). | String. |
 | `types.ipEndpoint` | String (RFC 3986 `addr:port` or `[IPv6]:port`, IP only). | String. |
+| `types.dnsEndpoint` | String (`name:port`, DNS name only — rejects IP literals). | String. |
+| `types.endpoint` | String (`addr:port` or `name:port`; union of ipEndpoint / dnsEndpoint). | String. |
 | `types.listener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.ipRange` | String (`from-to`). | String. |
 | `types.interface` | String (`<addr>/<prefix>`, host bits preserved). | String. |
@@ -1156,6 +1220,8 @@ nix-libnet/
 │   ├── port.nix
 │   ├── port-range.nix
 │   ├── ip-endpoint.nix
+│   ├── dns-endpoint.nix
+│   ├── endpoint.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
@@ -1186,6 +1252,8 @@ nix-libnet/
 │   ├── port.nix
 │   ├── port-range.nix
 │   ├── ip-endpoint.nix
+│   ├── dns-endpoint.nix
+│   ├── endpoint.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix

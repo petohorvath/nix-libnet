@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
+  trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
+  named destination like `pool.ntp.org:123`); it rejects IP literals
+  and has no IP-classification predicates (a name is unresolved). New
+  `_type` tag `dnsEndpoint`. `endpoint` is the pass-through union
+  `ipEndpoint | dnsEndpoint` (no tag): `parse` tries an IP endpoint
+  first, so literal addresses come back as full `ipEndpoint` values
+  (with predicates) and only genuine names become `dnsEndpoint`.
+  Mirrors the `ip`/`dnsName`/`host` address hierarchy:
+  `endpoint = ipEndpoint | dnsEndpoint`. Opt-in module types
+  `libnet.types.dnsEndpoint` and `libnet.types.endpoint`.
 - `libnet.dnsName` — pass-through union over `Hostname` and `Domain`:
   a DNS name that is not an IP literal. Dispatches by label count
   (single → hostname, multiple → domain) and rejects IP literals
