@@ -221,7 +221,11 @@ in
     expected = "1:0:2:0:3:0:4:5";
   }; # no run of >=2, no compression
 
-  # ===== toStringExpanded / toStringBracketed =====
+  # ===== toStringCompressed / Expanded / Bracketed =====
+  fmt-compressed = {
+    expr = ipv6.toStringCompressed (p "2001:db8:0:0:0:0:0:1");
+    expected = "2001:db8::1";
+  };
   fmt-expanded = {
     expr = ipv6.toStringExpanded (p "::1");
     expected = "0000:0000:0000:0000:0000:0000:0000:0001";

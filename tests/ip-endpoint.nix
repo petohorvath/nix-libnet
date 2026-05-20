@@ -192,6 +192,19 @@ in
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
 
+  fwd-unspecified-v4 = {
+    expr = ep.isUnspecified (p "0.0.0.0:80");
+    expected = true;
+  };
+  fwd-multicast-v4 = {
+    expr = ep.isMulticast (p "224.0.0.1:80");
+    expected = true;
+  };
+  fwd-documentation-v4 = {
+    expr = ep.isDocumentation (p "192.0.2.1:80");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = ep.eq (p "1.2.3.4:80") (p "1.2.3.4:80");

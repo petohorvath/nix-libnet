@@ -276,6 +276,40 @@ in
     expected = true;
   };
 
+  # ===== make / accessors / unbounded expansion =====
+  make-ok = {
+    expr = lst.toString (lst.make (ipv4.parse "1.2.3.4") (pr.make 80 82));
+    expected = "1.2.3.4:80-82";
+  };
+  make-null-addr = {
+    expr = lst.toString (lst.make null (pr.make 80 80));
+    expected = ":80";
+  };
+  make-bad-addr = {
+    expr = throws (lst.make "1.2.3.4" (pr.make 80 80));
+    expected = true;
+  };
+  make-bad-pr = {
+    expr = throws (lst.make (ipv4.parse "1.2.3.4") 80);
+    expected = true;
+  };
+  endpointsUnbounded-len = {
+    expr = builtins.length (lst.endpointsUnbounded (p "1.2.3.4:0-5000"));
+    expected = 5001;
+  };
+  address-accessor = {
+    expr = ipv4.toString (lst.address (p "1.2.3.4:80"));
+    expected = "1.2.3.4";
+  };
+  address-null = {
+    expr = lst.address (p ":80");
+    expected = null;
+  };
+  portRange-accessor = {
+    expr = pr.toString (lst.portRange (p "1.2.3.4:80-90"));
+    expected = "80-90";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = lst.eq (p ":80") (p ":80");

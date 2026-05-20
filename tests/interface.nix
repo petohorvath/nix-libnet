@@ -54,6 +54,16 @@ in
     expected = false;
   };
 
+  # ===== tryParse (address form) =====
+  tryParse-ok = {
+    expr = (iface.tryParse "10.0.0.1/24").success;
+    expected = true;
+  };
+  tryParse-bad = {
+    expr = (iface.tryParse "nope").success;
+    expected = false;
+  };
+
   # ===== Preserves host bits (distinguishes from cidr) =====
   preserves-host = {
     expr = (p "192.168.1.5/24").address.value;

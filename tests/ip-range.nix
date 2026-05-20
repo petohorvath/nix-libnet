@@ -212,6 +212,80 @@ in
     expected = "2001:db8::-2001:db8::ff";
   };
 
+  # ===== isValid / make / fromAddress / version / accessors =====
+  isValid-ok = {
+    expr = ipRange.isValid "1.2.3.4-1.2.3.10";
+    expected = true;
+  };
+  isValid-bad = {
+    expr = ipRange.isValid "nope";
+    expected = false;
+  };
+  make-ok = {
+    expr = ipRange.toString (ipRange.make (ipv4.parse "1.2.3.4") (ipv4.parse "1.2.3.10"));
+    expected = "1.2.3.4-1.2.3.10";
+  };
+  make-reversed = {
+    expr = throws (ipRange.make (ipv4.parse "1.2.3.10") (ipv4.parse "1.2.3.4"));
+    expected = true;
+  };
+  make-mixed = {
+    expr = throws (ipRange.make (ipv4.parse "1.2.3.4") (ipv6.parse "::1"));
+    expected = true;
+  };
+  fromAddress-ok = {
+    expr = ipRange.toString (ipRange.fromAddress (ipv4.parse "1.2.3.4"));
+    expected = "1.2.3.4-1.2.3.4";
+  };
+  fromAddress-bad = {
+    expr = throws (ipRange.fromAddress "1.2.3.4");
+    expected = true;
+  };
+  version-v4 = {
+    expr = ipRange.version (p "1.2.3.4-1.2.3.10");
+    expected = 4;
+  };
+  version-v6 = {
+    expr = ipRange.version (p "::1-::ff");
+    expected = 6;
+  };
+  from-accessor = {
+    expr = ipv4.toString (ipRange.from (p "1.2.3.4-1.2.3.10"));
+    expected = "1.2.3.4";
+  };
+  to-accessor = {
+    expr = ipv4.toString (ipRange.to (p "1.2.3.4-1.2.3.10"));
+    expected = "1.2.3.10";
+  };
+  isAdjacent-yes = {
+    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.11-1.2.3.15");
+    expected = true;
+  };
+  isAdjacent-reversed = {
+    expr = ipRange.isAdjacent (p "1.2.3.11-1.2.3.15") (p "1.2.3.4-1.2.3.10");
+    expected = true;
+  };
+  isAdjacent-gap = {
+    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.12-1.2.3.15");
+    expected = false;
+  };
+  isAdjacent-overlap = {
+    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.8-1.2.3.15");
+    expected = false;
+  };
+  isAdjacent-cross-fam = {
+    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "::1-::ff");
+    expected = false;
+  };
+  isAdjacent-at-max = {
+    expr = ipRange.isAdjacent (p "255.255.255.254-255.255.255.255") (p "1.0.0.0-2.0.0.0");
+    expected = false;
+  };
+  addressesUnbounded-len = {
+    expr = builtins.length (ipRange.addressesUnbounded (p "1.0.0.0-1.0.255.255"));
+    expected = 65536;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = ipRange.eq (p "1.2.3.4-1.2.3.10") (p "1.2.3.4-1.2.3.10");

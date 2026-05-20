@@ -41,6 +41,16 @@ in
     expected = true;
   };
 
+  # ===== tryParse =====
+  tryParse-ok = {
+    expr = (pr.tryParse "80-90").success;
+    expected = true;
+  };
+  tryParse-bad = {
+    expr = (pr.tryParse "nope").success;
+    expected = false;
+  };
+
   # ===== Formatting =====
   fmt-colon = {
     expr = pr.toStringColon (p "5500-6000");

@@ -54,6 +54,18 @@ in
     expr = ip.is (p "1.2.3.4");
     expected = true;
   };
+  isValid-v4 = {
+    expr = ip.isValid "192.0.2.1";
+    expected = true;
+  };
+  isValid-v6 = {
+    expr = ip.isValid "::1";
+    expected = true;
+  };
+  isValid-bad = {
+    expr = ip.isValid "nope";
+    expected = false;
+  };
 
   toString-v4 = {
     expr = ip.toString (p "1.2.3.4");

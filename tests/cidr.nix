@@ -621,6 +621,60 @@ in
     expected = null;
   };
 
+  # ===== make / fromAddress / accessors / direct containment =====
+  make-ok = {
+    expr = cidr.toString (cidr.make (ipv4.parse "10.0.0.0") 24);
+    expected = "10.0.0.0/24";
+  };
+  make-bad-prefix = {
+    expr = throws (cidr.make (ipv4.parse "10.0.0.0") 33);
+    expected = true;
+  };
+  make-bad-addr = {
+    expr = throws (cidr.make "10.0.0.0" 24);
+    expected = true;
+  };
+  fromAddress-v4 = {
+    expr = cidr.toString (cidr.fromAddress (ipv4.parse "10.0.0.5"));
+    expected = "10.0.0.5/32";
+  };
+  fromAddress-v6 = {
+    expr = cidr.toString (cidr.fromAddress (ipv6.parse "2001:db8::1"));
+    expected = "2001:db8::1/128";
+  };
+  fromAddress-bad = {
+    expr = throws (cidr.fromAddress "10.0.0.5");
+    expected = true;
+  };
+  address-accessor = {
+    expr = ipv4.toString (cidr.address (p "10.0.0.5/24"));
+    expected = "10.0.0.5";
+  };
+  topAddress-v4 = {
+    expr = ipv4.toString (cidr.topAddress (p "10.0.0.0/24"));
+    expected = "10.0.0.255";
+  };
+  topAddress-v6 = {
+    expr = ipv6.toString (cidr.topAddress (p "2001:db8::/120"));
+    expected = "2001:db8::ff";
+  };
+  containsAddress-direct = {
+    expr = cidr.containsAddress (p "10.0.0.0/24") (ipv4.parse "10.0.0.5");
+    expected = true;
+  };
+  containsAddress-out = {
+    expr = cidr.containsAddress (p "10.0.0.0/24") (ipv4.parse "10.0.1.0");
+    expected = false;
+  };
+  containsCidr-direct = {
+    expr = cidr.containsCidr (p "10.0.0.0/8") (p "10.1.0.0/16");
+    expected = true;
+  };
+  containsCidr-out = {
+    expr = cidr.containsCidr (p "10.0.0.0/24") (p "11.0.0.0/24");
+    expected = false;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = cidr.eq (p "10.0.0.0/24") (p "10.0.0.0/24");

@@ -132,6 +132,12 @@ in
     expected = false;
   };
 
+  # ===== toUri (alias of toString) =====
+  toUri = {
+    expr = dnsEndpoint.toUri (p "pool.ntp.org:123");
+    expected = "pool.ntp.org:123";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = dnsEndpoint.eq (p "nas:22") (p "nas:22");
