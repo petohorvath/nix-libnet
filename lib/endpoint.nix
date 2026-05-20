@@ -1,37 +1,49 @@
 /*
   libnet.endpoint
 
-  Pass-through union over IpEndpoint and DnsEndpoint — an ADDR:PORT
-  where ADDR may be an IP literal or a DNS name. Composed as
-  `ipEndpoint | dnsEndpoint`: an IP endpoint (including the bracketed
-  `[ipv6]:port` form) is tried first, then a name endpoint.
+  Pass-through union over the three complete connection targets:
+  `ipEndpoint` (ip:port), `dnsEndpoint` (name:port), and `unixSocket`
+  (a socket path). `parse` dispatches by shape:
+  - leading `/` or `@` → unixSocket
+  - bracketed `[ipv6]:port` or `addr:port` parsing as an IP → ipEndpoint
+  - otherwise `name:port` → dnsEndpoint
 
   Returns the underlying typed value (no new `_type` tag); consumers
-  branch on `value._type`. When the address is an IP, the result is a
-  full `ipEndpoint` with all its IP-classification predicates
-  available — only genuinely named endpoints come back as the
-  predicate-free `dnsEndpoint`.
+  branch on `value._type`. When the target is an IP, the result is a
+  full `ipEndpoint` with all its IP-classification predicates available.
 
-    endpoint = ipEndpoint | dnsEndpoint
+    endpoint = ipEndpoint | dnsEndpoint | unixSocket
+
+  The three members are heterogeneous — `ipEndpoint`/`dnsEndpoint` have
+  `address` + `port`, `unixSocket` has `path` — so this union exposes
+  predicates + `toString` + comparison rather than uniform accessors.
+  Branch with `isIpEndpoint` / `isDnsEndpoint` / `isUnixSocket` and use
+  the member module's accessors.
 
   Example:
     libnet.endpoint.parse "192.0.2.1:80"      # tagged ipEndpoint
-    libnet.endpoint.parse "[::1]:443"          # tagged ipEndpoint
     libnet.endpoint.parse "pool.ntp.org:123"   # tagged dnsEndpoint
+    libnet.endpoint.parse "/run/foo.sock"      # tagged unixSocket
 */
 let
   types = import ./internal/types.nix;
+  parse' = import ./internal/parse.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
+  unixSocket = import ./unix-socket.nix;
 
   # ===== Parsing =====
 
-  # Dispatch order: ipEndpoint first, so an IP literal (or bracketed
-  # IPv6) classifies as a concrete ipEndpoint rather than a domain.
+  # A leading `/` or `@` unambiguously marks a unix socket (no addr:port
+  # form starts that way). Otherwise ipEndpoint is tried before
+  # dnsEndpoint so an IP literal (or bracketed IPv6) classifies as a
+  # concrete ipEndpoint rather than a domain.
   tryParse =
     s:
     if !(builtins.isString s) then
       types.tryErr "libnet.endpoint.parse: input must be a string"
+    else if parse'.startsWith "/" s || parse'.startsWith "@" s then
+      unixSocket.tryParse s
     else
       let
         ipR = ipEndpoint.tryParse s;
@@ -45,7 +57,7 @@ let
         if dR.success then
           dR
         else
-          types.tryErr "libnet.endpoint.parse: \"${s}\" is not a valid IP or name endpoint";
+          types.tryErr "libnet.endpoint.parse: \"${s}\" is not a valid IP, name, or unix-socket endpoint";
 
   parse =
     s:
@@ -60,28 +72,25 @@ let
       ipEndpoint.toString ep
     else if types.isDnsEndpoint ep then
       dnsEndpoint.toString ep
+    else if types.isUnixSocket ep then
+      unixSocket.toString ep
     else
-      builtins.throw "libnet.endpoint.toString: expected ipEndpoint or dnsEndpoint value";
+      builtins.throw "libnet.endpoint.toString: expected ipEndpoint, dnsEndpoint, or unixSocket value";
 
   toUri = toString;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = v: types.isIpEndpoint v || types.isDnsEndpoint v;
+  is = v: types.isIpEndpoint v || types.isDnsEndpoint v || types.isUnixSocket v;
   isIpEndpoint = types.isIpEndpoint;
   isDnsEndpoint = types.isDnsEndpoint;
-
-  # ===== Accessors =====
-  #
-  # Both members store `{ address; port }`, so these work uniformly.
-
-  address = ep: ep.address;
+  isUnixSocket = types.isUnixSocket;
 
   # ===== Comparison =====
   #
-  # Cross-kind order: ipEndpoint < dnsEndpoint. Within a kind,
-  # delegates to that kind's comparator.
+  # Cross-kind order: ipEndpoint < dnsEndpoint < unixSocket. Within a
+  # kind, delegates to that kind's comparator.
 
   rank =
     v:
@@ -89,8 +98,10 @@ let
       0
     else if types.isDnsEndpoint v then
       1
+    else if types.isUnixSocket v then
+      2
     else
-      builtins.throw "libnet.endpoint.compare: expected ipEndpoint or dnsEndpoint value";
+      builtins.throw "libnet.endpoint.compare: expected ipEndpoint, dnsEndpoint, or unixSocket value";
 
   eq =
     a: b:
@@ -98,6 +109,8 @@ let
       ipEndpoint.eq a b
     else if types.isDnsEndpoint a && types.isDnsEndpoint b then
       dnsEndpoint.eq a b
+    else if types.isUnixSocket a && types.isUnixSocket b then
+      unixSocket.eq a b
     else
       false;
 
@@ -113,8 +126,10 @@ let
       1
     else if ra == 0 then
       ipEndpoint.compare a b
+    else if ra == 1 then
+      dnsEndpoint.compare a b
     else
-      dnsEndpoint.compare a b;
+      unixSocket.compare a b;
 
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
@@ -135,10 +150,8 @@ in
     is
     isIpEndpoint
     isDnsEndpoint
+    isUnixSocket
     ;
-  inherit address;
-  # `port` accessor declared inline to mirror the member modules.
-  port = ep: ep.port;
   inherit
     eq
     lt

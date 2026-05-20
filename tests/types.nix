@@ -227,6 +227,10 @@ in
     expr = types.endpoint.check "pool.ntp.org:123";
     expected = true;
   };
+  endpoint-unix-ok = {
+    expr = types.endpoint.check "/run/foo.sock";
+    expected = true;
+  };
   endpoint-bad = {
     expr = types.endpoint.check "host_name:1";
     expected = false;

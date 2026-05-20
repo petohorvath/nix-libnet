@@ -236,10 +236,11 @@ A single rule applies everywhere, so cross-type behavior is predictable:
 
 The endpoint types and Listener solve different problems:
 
-- **Endpoint** = *"connect to where?"* An outbound destination, address + port, no wildcards. Three flavours mirroring the address hierarchy:
+- **Endpoint** = *"connect to where?"* An outbound destination, no wildcards. Flavours:
   - **`ipEndpoint`** — `ip:port`. Fully resolved and directly dialable; carries the IP-classification predicates (isLoopback, isGlobal, toArpa, …).
   - **`dnsEndpoint`** — `dnsName:port`. A named destination (`pool.ntp.org:123`); no IP predicates, since the address is unresolved until DNS runs.
-  - **`endpoint`** — the pass-through union `ipEndpoint | dnsEndpoint`. `parse` returns whichever matched (IP tried first), so a literal address yields a full `ipEndpoint` and only genuine names yield a `dnsEndpoint`.
+  - **`unixSocket`** — a socket path (`/run/foo.sock` or `@abstract`). A complete target with no port; symmetric (also a `listener` member).
+  - **`endpoint`** — the pass-through union `ipEndpoint | dnsEndpoint | unixSocket`. `parse` dispatches by shape (leading `/`/`@` → unix; else IP tried before name), so a literal address yields a full `ipEndpoint` and only genuine names yield a `dnsEndpoint`.
 - **Listener** = *"listen how?"* A server-side listen/accept configuration. Address may be `null` (wildcard — accept on any interface); port is always a range (may be size 1). Think: `systemd ListenStream=`, `nginx listen`, firewall allow-rule.
 
 The endpoint/listener split gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. The ip/dns split gives a type-level guarantee that an `ipEndpoint` is resolved (so its address predicates are meaningful), while `dnsEndpoint` is honest that it is not. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete `ipEndpoint` values (throws if the address is null); wrapping an `ipEndpoint` as a listener is a one-liner and does not warrant a dedicated helper.
@@ -982,12 +983,14 @@ A DNS name (hostname or domain) paired with a port — the name-only counterpart
 
 ### `libnet.endpoint` (pass-through union)
 
-Pass-through union over `IpEndpoint` and `DnsEndpoint` — an `ADDR:PORT` where ADDR may be an IP literal or a DNS name. Composed as `ipEndpoint | dnsEndpoint`; **no new `_type` tag**. `parse` tries an IP endpoint first (including the bracketed `[ipv6]:port` form), so a literal address yields a full `ipEndpoint` (with IP predicates) and only a genuine name yields a `dnsEndpoint`. Same pattern as `libnet.host`.
+Pass-through union over the three complete connection targets — `IpEndpoint`, `DnsEndpoint`, and `UnixSocket`. Composed as `ipEndpoint | dnsEndpoint | unixSocket`; **no new `_type` tag**. `parse` dispatches by shape: a leading `/` or `@` → `unixSocket`; otherwise an IP endpoint is tried first (including the bracketed `[ipv6]:port` form), so a literal address yields a full `ipEndpoint` (with IP predicates) and only a genuine name yields a `dnsEndpoint`. Same pattern as `libnet.host`.
+
+The members are **heterogeneous** — `ipEndpoint`/`dnsEndpoint` carry `address` + `port`, `unixSocket` carries `path` — so this union exposes predicates + `toString` + comparison rather than uniform accessors. Branch with `isIpEndpoint` / `isDnsEndpoint` / `isUnixSocket` and use the member module's accessors.
 
 **Parsing & formatting**
 | Function | Signature | Notes |
 |---|---|---|
-| `parse` | `String → (IpEndpoint \| DnsEndpoint)` | Throws if neither member matches. |
+| `parse` | `String → (IpEndpoint \| DnsEndpoint \| UnixSocket)` | Throws if no member matches. |
 | `tryParse` | `String → TryResult (...)` |
 | `toString` | `Endpoint → String` | Dispatches to the member's `toString`. |
 | `toUri` | `Endpoint → String` | Alias. |
@@ -996,13 +999,12 @@ Pass-through union over `IpEndpoint` and `DnsEndpoint` — an `ADDR:PORT` where 
 | Function | Signature | Notes |
 |---|---|---|
 | `isValid` | `String → Bool` |
-| `is` | `Any → Bool` | True for an `ipEndpoint` or `dnsEndpoint` value. |
+| `is` | `Any → Bool` | True for an `ipEndpoint`, `dnsEndpoint`, or `unixSocket` value. |
 | `isIpEndpoint` | `Any → Bool` |
 | `isDnsEndpoint` | `Any → Bool` |
+| `isUnixSocket` | `Any → Bool` |
 
-**Accessors**: `address` (→ Ipv4/Ipv6/Hostname/Domain), `port` (→ Port).
-
-**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-kind order: `ipEndpoint < dnsEndpoint`. Within a kind, delegates to that kind's comparator. `eq` is `false` across kinds.
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-kind order: `ipEndpoint < dnsEndpoint < unixSocket`. Within a kind, delegates to that kind's comparator. `eq` is `false` across kinds.
 
 ### `libnet.unixSocket`
 
@@ -1249,7 +1251,7 @@ in {
 | `types.portRange` | String (`from-to` or single `port`). | String. |
 | `types.ipEndpoint` | String (RFC 3986 `addr:port` or `[IPv6]:port`, IP only). | String. |
 | `types.dnsEndpoint` | String (`name:port`, DNS name only — rejects IP literals). | String. |
-| `types.endpoint` | String (`addr:port` or `name:port`; union of ipEndpoint / dnsEndpoint). | String. |
+| `types.endpoint` | String (`addr:port`, `name:port`, or socket path; union of ipEndpoint / dnsEndpoint / unixSocket). | String. |
 | `types.unixSocket` | String (absolute path `/...` or abstract `@...`). | String. |
 | `types.listener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.ipRange` | String (`from-to`). | String. |

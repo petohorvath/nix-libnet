@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.endpoint` now also accepts `unixSocket` — the union is
+  `ipEndpoint | dnsEndpoint | unixSocket`, dispatching on shape (a
+  leading `/` or `@` → unix socket). Because the members are now
+  heterogeneous (`unixSocket` has `path`, not `address`/`port`), the
+  union dropped its uniform `address`/`port` accessors — branch on
+  `isIpEndpoint` / `isDnsEndpoint` / `isUnixSocket` and use the member
+  module's accessors. `types.endpoint` accepts socket paths too.
 - `libnet.unixSocket` — Unix domain socket address as a tagged value
   (`{ _type = "unixSocket"; path = <string>; }`): a complete connection
   target with no port. Accepts pathname sockets (`/run/foo.sock`, ≤ 107
@@ -17,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   case-sensitive comparison + `sunPathMax` constant. Symmetric (binds
   or dials). Opt-in module type `libnet.types.unixSocket`. (First of
   three steps making the Unix socket a genuine address family; the
-  `endpoint` and `listener` unions gain it next.)
+  `listener` union gains it next.)
 - `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
   trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
   named destination like `pool.ntp.org:123`); it rejects IP literals

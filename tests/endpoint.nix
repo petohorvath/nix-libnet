@@ -124,13 +124,15 @@ in
     expected = false;
   };
 
-  # ===== Accessors =====
-  port-ip = {
-    expr = (import ../lib/port.nix).toInt (endpoint.port (p "192.0.2.1:80"));
+  # ===== Member access via predicates =====
+  # The union is heterogeneous (no uniform address/port), so branch on
+  # the kind and use the member module's accessors.
+  port-via-member = {
+    expr = (import ../lib/port.nix).toInt (ipEndpoint.port (p "192.0.2.1:80"));
     expected = 80;
   };
-  address-name = {
-    expr = (endpoint.address (p "nas:22")).value;
+  address-via-member = {
+    expr = (dnsEndpoint.address (p "nas:22")).value;
     expected = "nas";
   };
 
@@ -169,9 +171,51 @@ in
     expr = endpoint.compare (p "alpha:80") (p "beta:80");
     expected = -1;
   };
+  compare-name-before-unix = {
+    expr = endpoint.compare (p "nas:22") (p "/run/foo.sock");
+    expected = -1;
+  };
+  compare-unix-after-ip = {
+    expr = endpoint.compare (p "/run/foo.sock") (p "10.0.0.1:80");
+    expected = 1;
+  };
   min-picks-ip = {
     expr = (endpoint.min (p "nas:22") (p "10.0.0.1:80"))._type;
     expected = "ipEndpoint";
+  };
+
+  # ===== unixSocket member =====
+  parse-unix-tagged = {
+    expr = (p "/run/foo.sock")._type;
+    expected = "unixSocket";
+  };
+  parse-unix-abstract = {
+    expr = (p "@foo")._type;
+    expected = "unixSocket";
+  };
+  parse-unix-roundtrip = {
+    expr = endpoint.toString (p "/run/postgresql/.s.PGSQL.5432");
+    expected = "/run/postgresql/.s.PGSQL.5432";
+  };
+  isUnixSocket-yes = {
+    expr = endpoint.isUnixSocket (p "/run/foo.sock");
+    expected = true;
+  };
+  isUnixSocket-no = {
+    expr = endpoint.isUnixSocket (p "192.0.2.1:80");
+    expected = false;
+  };
+  isValid-unix = {
+    expr = endpoint.isValid "/run/foo.sock";
+    expected = true;
+  };
+  eq-same-unix = {
+    expr = endpoint.eq (p "/run/foo.sock") (p "/run/foo.sock");
+    expected = true;
+  };
+  eq-unix-cross-kind = {
+    expr = endpoint.eq (p "/run/foo.sock") (p "nas:22");
+    expected = false;
   };
 
   # Sanity: union recognises values from each member module
@@ -181,6 +225,10 @@ in
   };
   is-from-dns-module = {
     expr = endpoint.is (dnsEndpoint.parse "nas:22");
+    expected = true;
+  };
+  is-from-unix-module = {
+    expr = endpoint.is ((import ../lib/unix-socket.nix).parse "/run/foo.sock");
     expected = true;
   };
 }
