@@ -103,6 +103,16 @@ in
     expected = true;
   };
 
+  # ===== toUri (alias of toString) =====
+  toUri = {
+    expr = socketUrl.toUri (p "tcp://1.2.3.4:80");
+    expected = "tcp://1.2.3.4:80";
+  };
+  toUri-unix = {
+    expr = socketUrl.toUri (p "unix:///run/foo.sock");
+    expected = "unix:///run/foo.sock";
+  };
+
   # ===== make =====
   make-ip = {
     expr = socketUrl.toString (socketUrl.make (transport.parse "tcp") (endpoint.parse "1.2.3.4:80"));

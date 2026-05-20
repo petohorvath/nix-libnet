@@ -1093,6 +1093,7 @@ A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libn
 | `parse` | `String → SocketUrl` | Splits `<scheme>://<rest>`. Rejects unknown schemes, `tcp://`-with-a-path, `unix://`-with-host:port, and bad endpoints. |
 | `tryParse` | `String → TryResult SocketUrl` |
 | `toString` | `SocketUrl → String` | `<scheme>://<endpoint>`; `unix://` for unix sockets. |
+| `toUri` | `SocketUrl → String` | Alias of `toString` (a socketUrl is already a URI). |
 | `make` | `(Transport \| null) → Endpoint → SocketUrl` | Validates the transport/endpoint coupling (null transport ⟺ unix endpoint). |
 
 **Predicates**
