@@ -92,6 +92,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.ipEndpoint`](./lib/ip-endpoint.nix) | IP addr:port, parse (RFC 3986 bracketed), toUri, forwarded address predicates |
 | [`libnet.dnsEndpoint`](./lib/dns-endpoint.nix) | DNS name:port (rejects IP literals), parse, toUri, address/port |
 | [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint; dispatches IP-first (no new tag) |
+| [`libnet.unixSocket`](./lib/unix-socket.nix) | Unix domain socket (pathname or @abstract); complete target, no port |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |

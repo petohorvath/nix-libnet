@@ -83,6 +83,10 @@ let
     _type = "mtu";
     value = 1500;
   };
+  unixSocket = {
+    _type = "unixSocket";
+    path = "/run/foo.sock";
+  };
 
   untagged = {
     value = 0;
@@ -153,6 +157,10 @@ in
   tags-mtu = {
     expr = types.tags.mtu;
     expected = "mtu";
+  };
+  tags-unixSocket = {
+    expr = types.tags.unixSocket;
+    expected = "unixSocket";
   };
 
   # ===== hasTag =====
@@ -244,6 +252,10 @@ in
   };
   isMtu-yes = {
     expr = types.isMtu mtu;
+    expected = true;
+  };
+  isUnixSocket-yes = {
+    expr = types.isUnixSocket unixSocket;
     expected = true;
   };
 

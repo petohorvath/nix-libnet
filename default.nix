@@ -10,6 +10,7 @@ let
     ipEndpoint = import ./lib/ip-endpoint.nix;
     dnsEndpoint = import ./lib/dns-endpoint.nix;
     endpoint = import ./lib/endpoint.nix;
+    unixSocket = import ./lib/unix-socket.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;

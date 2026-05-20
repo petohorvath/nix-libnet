@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.unixSocket` — Unix domain socket address as a tagged value
+  (`{ _type = "unixSocket"; path = <string>; }`): a complete connection
+  target with no port. Accepts pathname sockets (`/run/foo.sock`, ≤ 107
+  bytes — Linux `sun_path` is 108 incl. NUL) and abstract-namespace
+  sockets (`@foo`, ≤ 108 bytes displayed). API: parse / tryParse /
+  toString / isValid / is / isPathname / isAbstract / path + byte-wise
+  case-sensitive comparison + `sunPathMax` constant. Symmetric (binds
+  or dials). Opt-in module type `libnet.types.unixSocket`. (First of
+  three steps making the Unix socket a genuine address family; the
+  `endpoint` and `listener` unions gain it next.)
 - `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
   trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
   named destination like `pool.ntp.org:123`); it rejects IP literals

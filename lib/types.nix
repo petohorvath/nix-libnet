@@ -25,6 +25,7 @@ let
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
   endpoint = import ./endpoint.nix;
+  unixSocket = import ./unix-socket.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
@@ -129,6 +130,12 @@ let
     typeName = "endpoint";
     description = "an endpoint (IP or DNS name : port)";
     validator = endpoint.isValid;
+  };
+
+  unixSocketType = mkStrType {
+    typeName = "unixSocket";
+    description = "a Unix domain socket (absolute path or @abstract name)";
+    validator = unixSocket.isValid;
   };
 
   listenerType = mkStrType {
@@ -266,6 +273,7 @@ in
     ipEndpoint = ipEndpointType;
     dnsEndpoint = dnsEndpointType;
     endpoint = endpointType;
+    unixSocket = unixSocketType;
     listener = listenerType;
     ipRange = ipRangeType;
     interface = interfaceType;

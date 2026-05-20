@@ -248,6 +248,40 @@ in
     expected = true;
   };
 
+  # ===== unixSocket =====
+  unixSocket-pathname-ok = {
+    expr = types.unixSocket.check "/run/foo.sock";
+    expected = true;
+  };
+  unixSocket-abstract-ok = {
+    expr = types.unixSocket.check "@foo";
+    expected = true;
+  };
+  unixSocket-relative-rejected = {
+    expr = types.unixSocket.check "run/foo.sock";
+    expected = false;
+  };
+  unixSocket-host-port-rejected = {
+    expr = types.unixSocket.check "1.2.3.4:80";
+    expected = false;
+  };
+  unixSocket-int = {
+    expr = types.unixSocket.check 42;
+    expected = false;
+  };
+  unixSocket-mk-ok = {
+    expr = types.unixSocket.mk "/run/foo.sock";
+    expected = "/run/foo.sock";
+  };
+  unixSocket-mk-bad = {
+    expr = throws (types.unixSocket.mk "foo.sock");
+    expected = true;
+  };
+  unixSocket-desc = {
+    expr = builtins.isString types.unixSocket.description;
+    expected = true;
+  };
+
   # ===== listener =====
   listener-null = {
     expr = types.listener.check ":80";

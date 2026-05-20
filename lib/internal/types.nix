@@ -16,6 +16,7 @@ let
     domain = "domain";
     vlanId = "vlanId";
     mtu = "mtu";
+    unixSocket = "unixSocket";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -36,6 +37,7 @@ let
   isDomain = hasTag tags.domain;
   isVlanId = hasTag tags.vlanId;
   isMtu = hasTag tags.mtu;
+  isUnixSocket = hasTag tags.unixSocket;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -77,6 +79,7 @@ in
     isDomain
     isVlanId
     isMtu
+    isUnixSocket
     isIp
     ;
   inherit tryOk tryErr ensureTag;

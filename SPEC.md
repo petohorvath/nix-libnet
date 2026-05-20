@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -264,6 +264,26 @@ Fully-specified destination for "connect". Canonical text form follows RFC 3986:
 ```
 A named destination. The address is a `dnsName` (so IP literals are rejected — use `ipEndpoint`). Canonical text form: `name:port` (no brackets; brackets denote an IPv6 literal, which is an IP). `dnsName` and `endpoint` are pass-through unions and carry no `_type` of their own (like `ip` / `host`).
 
+### UnixSocket value
+```nix
+{
+  _type = "unixSocket";
+  path = <string>;   # "/run/foo.sock" (pathname) or "@foo" (abstract)
+}
+```
+A Unix domain socket address — a complete connection target with **no
+port** (the path is the whole address). Symmetric: the same value is
+used to bind (listen) and to dial (connect). A peer of `ipEndpoint` /
+`dnsEndpoint` at the complete-target level (not of `ip` / `dnsName` —
+those need a port), and a member of both the `endpoint` and `listener`
+unions.
+
+Invariants:
+- `path` is either a pathname (starts with `/`, ≤ 107 bytes — Linux
+  `sun_path` is 108 bytes including the NUL terminator) or an abstract
+  name (starts with `@`, displayed form ≤ 108 bytes).
+- Comparison is byte-wise on `path`, case-sensitive (paths are).
+
 ### Listener value
 ```nix
 {
@@ -334,6 +354,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `domain` | — | `value` (RFC 1123 multi-label dotted string) |
 | `vlanId` | — | `value` (int 1..4094) |
 | `mtu` | — | `value` (int 68..65535) |
+| `unixSocket` | — | `path` (string) |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -983,6 +1004,31 @@ Pass-through union over `IpEndpoint` and `DnsEndpoint` — an `ADDR:PORT` where 
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Cross-kind order: `ipEndpoint < dnsEndpoint`. Within a kind, delegates to that kind's comparator. `eq` is `false` across kinds.
 
+### `libnet.unixSocket`
+
+A Unix domain socket address — a complete connection target with no port (the path is the whole address). Symmetric: the same value binds (listen) or dials (connect). A peer of `ipEndpoint` / `dnsEndpoint` at the complete-target level, and a member of both the `endpoint` and `listener` unions.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → UnixSocket` | Pathname (`/...`, ≤ 107 bytes) or abstract (`@...`, ≤ 108 bytes). Throws otherwise. |
+| `tryParse` | `String → TryResult UnixSocket` |
+| `toString` | `UnixSocket → String` | The path verbatim. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` |
+| `isPathname` | `UnixSocket → Bool` | Path starts with `/`. |
+| `isAbstract` | `UnixSocket → Bool` | Path starts with `@` (Linux abstract namespace). |
+
+**Accessor**: `path` (→ String).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — byte-wise on `path`, case-sensitive.
+
+**Constant**: `sunPathMax` = `108` (Linux `sun_path` buffer size).
+
 ### `libnet.listener`
 
 **Parsing & formatting**
@@ -1204,6 +1250,7 @@ in {
 | `types.ipEndpoint` | String (RFC 3986 `addr:port` or `[IPv6]:port`, IP only). | String. |
 | `types.dnsEndpoint` | String (`name:port`, DNS name only — rejects IP literals). | String. |
 | `types.endpoint` | String (`addr:port` or `name:port`; union of ipEndpoint / dnsEndpoint). | String. |
+| `types.unixSocket` | String (absolute path `/...` or abstract `@...`). | String. |
 | `types.listener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.ipRange` | String (`from-to`). | String. |
 | `types.interface` | String (`<addr>/<prefix>`, host bits preserved). | String. |
@@ -1268,6 +1315,7 @@ nix-libnet/
 │   ├── ip-endpoint.nix
 │   ├── dns-endpoint.nix
 │   ├── endpoint.nix
+│   ├── unix-socket.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
@@ -1300,6 +1348,7 @@ nix-libnet/
 │   ├── ip-endpoint.nix
 │   ├── dns-endpoint.nix
 │   ├── endpoint.nix
+│   ├── unix-socket.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
