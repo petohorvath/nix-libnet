@@ -172,10 +172,7 @@ let
 
   merge =
     a: b:
-    if overlaps a b || isAdjacent a b then
-      mk (port.min a.from b.from) (port.max a.to b.to)
-    else
-      null;
+    if overlaps a b || isAdjacent a b then mk (port.min a.from b.from) (port.max a.to b.to) else null;
 
   # ===== Enumeration =====
 

@@ -184,12 +184,10 @@ let
   isThisNetwork = ip: ip.value < bits.pow2_24;
 
   # 100.64.0.0/10 — shared address space / CGNAT (RFC 6598).
-  isSharedAddressSpace =
-    ip: ip.value >= shared100Start && ip.value <= shared100End;
+  isSharedAddressSpace = ip: ip.value >= shared100Start && ip.value <= shared100End;
 
   # 192.0.0.0/24 — IETF protocol assignments (RFC 6890).
-  isProtocolAssignment =
-    ip: ip.value >= proto192Start && ip.value <= proto192End;
+  isProtocolAssignment = ip: ip.value >= proto192Start && ip.value <= proto192End;
 
   # 198.18.0.0/15 — benchmarking (RFC 2544).
   isBenchmarking = ip: ip.value >= bench198Start && ip.value <= bench198End;
