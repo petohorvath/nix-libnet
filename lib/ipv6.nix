@@ -346,6 +346,15 @@ let
   # 2002::/16 — upper 16 bits of w0 = 0x2002 = 8194
   is6to4 = ip: bits.shr 16 (w 0 ip) == 8194;
 
+  # 100::/64 — discard-only address block (RFC 6666). w0 = 0x01000000.
+  isDiscard = ip: w 0 ip == 16777216 && w 1 ip == 0;
+
+  # 2001:10::/28 — ORCHID, deprecated (RFC 4843). Top 28 bits = 0x2001001.
+  isOrchid = ip: bits.shr 4 (w 0 ip) == 33558529;
+
+  # fec0::/10 — site-local, deprecated (RFC 3879). First 10 bits = 1019.
+  isSiteLocal = ip: bits.shr 22 (w 0 ip) == 1019;
+
   isBogon =
     ip:
     isUnspecified ip
@@ -353,7 +362,10 @@ let
     || isLinkLocal ip
     || isUniqueLocal ip
     || isMulticast ip
-    || isDocumentation ip;
+    || isDocumentation ip
+    || isDiscard ip
+    || isOrchid ip
+    || isSiteLocal ip;
 
   # Stricter than !isBogon: also excludes the IPv4 transition/interop
   # forms (IPv4-mapped, IPv4-compatible, 6to4). Those addresses are
@@ -641,6 +653,9 @@ in
     isIpv4Mapped
     isIpv4Compatible
     is6to4
+    isDiscard
+    isOrchid
+    isSiteLocal
     isGlobal
     isBogon
     ;

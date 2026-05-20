@@ -490,6 +490,49 @@ in
     expr = ipv6.is6to4 (p "2001::1");
     expected = false;
   };
+
+  # ===== Predicates: special-use (discard / deprecated) =====
+  discard-pos = {
+    expr = ipv6.isDiscard (p "100::1");
+    expected = true;
+  };
+  discard-neg = {
+    expr = ipv6.isDiscard (p "100:0:0:1::");
+    expected = false;
+  };
+  orchid-pos = {
+    expr = ipv6.isOrchid (p "2001:10::1");
+    expected = true;
+  };
+  orchid-neg = {
+    expr = ipv6.isOrchid (p "2001:20::1");
+    expected = false;
+  };
+  site-local-pos = {
+    expr = ipv6.isSiteLocal (p "fec0::1");
+    expected = true;
+  };
+  site-local-pos-hi = {
+    expr = ipv6.isSiteLocal (p "feff:ffff::1");
+    expected = true;
+  };
+  site-local-neg = {
+    expr = ipv6.isSiteLocal (p "fe80::1");
+    expected = false;
+  };
+  bogon-discard = {
+    expr = ipv6.isBogon (p "100::1");
+    expected = true;
+  };
+  bogon-orchid = {
+    expr = ipv6.isBogon (p "2001:10::1");
+    expected = true;
+  };
+  bogon-site-local = {
+    expr = ipv6.isBogon (p "fec0::1");
+    expected = true;
+  };
+
   global-pos = {
     expr = ipv6.isGlobal (p "2606:4700:4700::1111");
     expected = true;

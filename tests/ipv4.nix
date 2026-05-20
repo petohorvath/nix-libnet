@@ -444,6 +444,72 @@ in
     expected = false;
   };
 
+  # ===== Predicates: special-use (RFC 6890) =====
+  this-network-pos = {
+    expr = ipv4.isThisNetwork (p "0.1.2.3");
+    expected = true;
+  };
+  this-network-pos-zero = {
+    expr = ipv4.isThisNetwork (p "0.0.0.0");
+    expected = true;
+  };
+  this-network-neg = {
+    expr = ipv4.isThisNetwork (p "1.0.0.0");
+    expected = false;
+  };
+  shared-pos = {
+    expr = ipv4.isSharedAddressSpace (p "100.64.0.1");
+    expected = true;
+  };
+  shared-pos-hi = {
+    expr = ipv4.isSharedAddressSpace (p "100.127.255.255");
+    expected = true;
+  };
+  shared-neg-below = {
+    expr = ipv4.isSharedAddressSpace (p "100.63.255.255");
+    expected = false;
+  };
+  shared-neg-above = {
+    expr = ipv4.isSharedAddressSpace (p "100.128.0.0");
+    expected = false;
+  };
+  protocol-pos = {
+    expr = ipv4.isProtocolAssignment (p "192.0.0.8");
+    expected = true;
+  };
+  protocol-neg-above = {
+    expr = ipv4.isProtocolAssignment (p "192.0.1.0");
+    expected = false;
+  };
+  protocol-neg-doc = {
+    expr = ipv4.isProtocolAssignment (p "192.0.2.1");
+    expected = false;
+  };
+  benchmarking-pos = {
+    expr = ipv4.isBenchmarking (p "198.18.0.1");
+    expected = true;
+  };
+  benchmarking-pos-hi = {
+    expr = ipv4.isBenchmarking (p "198.19.255.255");
+    expected = true;
+  };
+  benchmarking-neg = {
+    expr = ipv4.isBenchmarking (p "198.20.0.0");
+    expected = false;
+  };
+  bogon-shared = {
+    expr = ipv4.isBogon (p "100.64.0.1");
+    expected = true;
+  };
+  bogon-benchmarking = {
+    expr = ipv4.isBogon (p "198.18.0.1");
+    expected = true;
+  };
+  global-neg-shared = {
+    expr = ipv4.isGlobal (p "100.64.0.1");
+    expected = false;
+  };
+
   # ===== Predicates: global / bogon =====
   global-pos = {
     expr = ipv4.isGlobal (p "8.8.8.8");

@@ -69,6 +69,12 @@ in
     expr = builtins.all (c: ipv6.isBogon (cidr.network c)) v6Cidrs;
     expected = true;
   };
+  # v6 has no broadcast; topAddress is the block's last address. Pairs
+  # with v4-isBogon-broadcast so both endpoints are checked per family.
+  v6-isBogon-top = {
+    expr = builtins.all (c: ipv6.isBogon (cidr.topAddress c)) v6Cidrs;
+    expected = true;
+  };
 
   # ===== Dispatch parity =====
   ip-isBogon-v4 = {

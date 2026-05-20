@@ -133,6 +133,12 @@ let
   class172End = 172 * bits.pow2_24 + 32 * bits.pow2_16 - 1;
   class192Start = 192 * bits.pow2_24 + 168 * bits.pow2_16;
   class192End = 192 * bits.pow2_24 + 169 * bits.pow2_16 - 1;
+  shared100Start = 100 * bits.pow2_24 + 64 * bits.pow2_16;
+  shared100End = 100 * bits.pow2_24 + 128 * bits.pow2_16 - 1;
+  proto192Start = 192 * bits.pow2_24;
+  proto192End = 192 * bits.pow2_24 + bits.pow2_8 - 1;
+  bench198Start = 198 * bits.pow2_24 + 18 * bits.pow2_16;
+  bench198End = 198 * bits.pow2_24 + 20 * bits.pow2_16 - 1;
 
   isLoopback = ip: ip.value >= 127 * bits.pow2_24 && ip.value <= 128 * bits.pow2_24 - 1;
 
@@ -174,6 +180,20 @@ let
       && v <= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 114 * bits.pow2_8 - 1
     );
 
+  # 0.0.0.0/8 — "this host on this network" (RFC 1122 §3.2.1.3).
+  isThisNetwork = ip: ip.value < bits.pow2_24;
+
+  # 100.64.0.0/10 — shared address space / CGNAT (RFC 6598).
+  isSharedAddressSpace =
+    ip: ip.value >= shared100Start && ip.value <= shared100End;
+
+  # 192.0.0.0/24 — IETF protocol assignments (RFC 6890).
+  isProtocolAssignment =
+    ip: ip.value >= proto192Start && ip.value <= proto192End;
+
+  # 198.18.0.0/15 — benchmarking (RFC 2544).
+  isBenchmarking = ip: ip.value >= bench198Start && ip.value <= bench198End;
+
   isBogon =
     ip:
     isLoopback ip
@@ -183,7 +203,11 @@ let
     || isReserved ip
     || isDocumentation ip
     || isUnspecified ip
-    || isBroadcast ip;
+    || isBroadcast ip
+    || isThisNetwork ip
+    || isSharedAddressSpace ip
+    || isProtocolAssignment ip
+    || isBenchmarking ip;
 
   # IPv4 has no transition/interop forms analogous to v6's IPv4-mapped,
   # IPv4-compatible, or 6to4, so isGlobal collapses to !isBogon. The v6
@@ -265,6 +289,10 @@ in
     isUnspecified
     isReserved
     isDocumentation
+    isThisNetwork
+    isSharedAddressSpace
+    isProtocolAssignment
+    isBenchmarking
     isGlobal
     isBogon
     ;
