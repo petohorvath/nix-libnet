@@ -1,6 +1,7 @@
 { harness }:
 let
-  urlHost = import ../../lib/internal/url-host.nix;
+  urlHost = import ../lib/url-host.nix;
+  inherit (harness) throws;
   tp = urlHost.tryParse;
   v = s: (urlHost.tryParse s).value;
 in
@@ -16,6 +17,14 @@ in
   };
   tryParse-error-string = {
     expr = builtins.isString (tp "bad host").error;
+    expected = true;
+  };
+  parse-ok = {
+    expr = (urlHost.parse "example.com").kind;
+    expected = "regName";
+  };
+  parse-throws = {
+    expr = throws (urlHost.parse "bad host");
     expected = true;
   };
 
@@ -147,5 +156,29 @@ in
   compare-eq = {
     expr = urlHost.compare (v "Example.COM") (v "example.com");
     expected = 0;
+  };
+  cmp-lt = {
+    expr = urlHost.lt (v "alpha.com") (v "beta.com");
+    expected = true;
+  };
+  cmp-le = {
+    expr = urlHost.le (v "alpha.com") (v "beta.com");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = urlHost.gt (v "beta.com") (v "alpha.com");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = urlHost.ge (v "beta.com") (v "alpha.com");
+    expected = true;
+  };
+  cmp-min = {
+    expr = urlHost.toString (urlHost.min (v "alpha.com") (v "beta.com"));
+    expected = "alpha.com";
+  };
+  cmp-max = {
+    expr = urlHost.toString (urlHost.max (v "alpha.com") (v "beta.com"));
+    expected = "beta.com";
   };
 }

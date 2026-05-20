@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"url"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form. (`"urlHost"` is an internal type used only inside `url`.)
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"url"`, `"urlHost"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -316,7 +316,7 @@ not a general URL parser (see Non-Goals). Canonical text:
   _type    = "url";
   scheme   = <string>;            # lowercased; a key of url.schemes
   userinfo = <string | null>;     # raw, opaque (may carry credentials)
-  host     = <urlHost value>;     # internal: IP-literal | reg-name
+  host     = <urlHost value>;     # libnet.urlHost: IP-literal | reg-name
   port     = <port value | null>; # explicit only; null ⇒ scheme default
   path     = <string>;            # "" or "/…"; raw
   query    = <string | null>;     # raw
@@ -325,11 +325,10 @@ not a general URL parser (see Non-Goals). Canonical text:
 ```
 An absolute hierarchical URL — the application-layer superset of
 `socketUrl`. Components are stored verbatim (no percent-decoding,
-normalization, or relative resolution). `host` is the URL-authority host
-(`urlHost`, an **internal** type), which is deliberately looser than
-`libnet.host`:
+normalization, or relative resolution). `host` is a `libnet.urlHost` —
+the URL-authority host, deliberately looser than `libnet.host`:
 
-| | `libnet.host` | `urlHost` (internal) |
+| | `libnet.host` | `libnet.urlHost` |
 |---|---|---|
 | Grammar | `ip \| hostname \| domain` (RFC 1123) | `IP-literal \| IPv4 \| reg-name` (RFC 3986) |
 | IPv6 text | `::1` | `[::1]` (bracketed) |
@@ -1142,9 +1141,25 @@ A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libn
 
 **Constant**: `schemes` = `[ "tcp" "udp" "sctp" "unix" ]`.
 
+### `libnet.urlHost`
+
+The host component of a URL authority (RFC 3986 §3.2.2) — the `host` field of `libnet.url`, and usable standalone. Deliberately **not** `libnet.host`: a URL host is `IP-literal | IPv4 | reg-name`, where reg-name is a loose ASCII set (`unreserved` incl. `_`/`~`, sub-delims, `%`-encoding) with no DNS label structure — looser and less composable than `libnet.host` (see the table in *Url value*).
+
+Value: `{ _type = "urlHost"; kind = "ip" | "regName"; ip = <ip | null>; name = <string | null>; }`.
+
+| Group | Members |
+|---|---|
+| Parsing/formatting | `parse`, `tryParse`, `toString` (re-brackets IPv6) |
+| Predicates | `isValid`, `is`, `isIp`, `isRegName` |
+| Conversion | `toHost` → `libnet.host` when it's an IP or a reg-name that's a valid `dnsName`; `null` otherwise |
+| Comparison | `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` (IP-literals before reg-names; case-folded names) |
+| Constant | `regNamePattern` |
+
+There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url` or `urlHost.isValid`.
+
 ### `libnet.url`
 
-An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is the internal `urlHost` (URL-authority host, looser than `libnet.host` — see the *Url value* section). `userinfo` is kept raw and opaque and may carry credentials.
+An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials.
 
 `url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `h3` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject.
 

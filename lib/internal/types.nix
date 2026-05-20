@@ -19,6 +19,7 @@ let
     unixSocket = "unixSocket";
     socketUrl = "socketUrl";
     url = "url";
+    urlHost = "urlHost";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -42,6 +43,7 @@ let
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
   isUrl = hasTag tags.url;
+  isUrlHost = hasTag tags.urlHost;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -86,6 +88,7 @@ in
     isUnixSocket
     isSocketUrl
     isUrl
+    isUrlHost
     isIp
     ;
   inherit tryOk tryErr ensureTag;

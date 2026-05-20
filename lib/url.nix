@@ -11,8 +11,8 @@
   percent-decoding, normalization, or relative resolution; `lib.escapeURL`
   exists for the encode direction). The host is the URL-authority host
   (RFC 3986 reg-name / IP-literal), looser than `libnet.host` — see
-  `lib/internal/url-host.nix`. `userinfo` is kept raw and opaque; note it
-  may carry credentials.
+  `libnet.urlHost`. `userinfo` is kept raw and opaque; note it may carry
+  credentials.
 
   Example:
     libnet.url.parse "https://user@example.com/p?q=1#f"
@@ -24,7 +24,7 @@ let
   types = import ./internal/types.nix;
   parse' = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
-  urlHost = import ./internal/url-host.nix;
+  urlHost = import ./url-host.nix;
   port = import ./port.nix;
   transport = import ./transport.nix;
   ipEndpoint = import ./ip-endpoint.nix;
@@ -273,7 +273,7 @@ let
           portRes = if hp.portStr == null then null else port.tryParse hp.portStr;
         in
         if !hostRes.success then
-          types.tryErr "libnet.url.parse: ${hostRes.error}"
+          types.tryErr "libnet.url.parse: invalid host \"${hp.host}\""
         else if portRes != null && !portRes.success then
           types.tryErr "libnet.url.parse: invalid port \"${hp.portStr}\""
         else
@@ -367,7 +367,7 @@ let
     if !(builtins.hasAttr sch schemes) then
       builtins.throw "libnet.url.make: unknown scheme \"${scheme}\""
     else if !h.success then
-      builtins.throw "libnet.url.make: ${h.error}"
+      builtins.throw "libnet.url.make: invalid host \"${host}\""
     else if port != null && !(builtins.isInt port) then
       builtins.throw "libnet.url.make: port must be an int or null"
     else

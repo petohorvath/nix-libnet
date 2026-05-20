@@ -30,6 +30,7 @@ let
     // prefix "unixSocket" (tryImport "unix-socket.nix")
     // prefix "socketUrl" (tryImport "socket-url.nix")
     // prefix "url" (tryImport "url.nix")
+    // prefix "urlHost" (tryImport "url-host.nix")
     // prefix "ipListener" (tryImport "ip-listener.nix")
     // prefix "listener" (tryImport "listener.nix")
     // prefix "transport" (tryImport "transport.nix")
@@ -43,8 +44,7 @@ let
     // prefix "iparse" (tryImport "internal/parse.nix")
     // prefix "ifmt" (tryImport "internal/format.nix")
     // prefix "itype" (tryImport "internal/types.nix")
-    // prefix "idns" (tryImport "internal/dns-label.nix")
-    // prefix "iurlHost" (tryImport "internal/url-host.nix");
+    // prefix "idns" (tryImport "internal/dns-label.nix");
 
   typeTests =
     if lib != null && builtins.pathExists (./. + "/types.nix") then
