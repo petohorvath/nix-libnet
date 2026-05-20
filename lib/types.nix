@@ -28,6 +28,7 @@ let
   unixSocket = import ./unix-socket.nix;
   socketUrl = import ./socket-url.nix;
   url = import ./url.nix;
+  urlHost = import ./url-host.nix;
   ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
@@ -151,6 +152,12 @@ let
     typeName = "url";
     description = "a URL (<scheme>://<host>[:port][/path][?query][#fragment])";
     validator = url.isValid;
+  };
+
+  urlHostType = mkStrType {
+    typeName = "urlHost";
+    description = "a URL-authority host (RFC 3986 IP-literal or reg-name; looser than host)";
+    validator = urlHost.isValid;
   };
 
   ipListenerType = mkStrType {
@@ -297,6 +304,7 @@ in
     unixSocket = unixSocketType;
     socketUrl = socketUrlType;
     url = urlType;
+    urlHost = urlHostType;
     ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;

@@ -366,6 +366,48 @@ in
     expected = true;
   };
 
+  # ===== urlHost =====
+  urlHost-ip = {
+    expr = types.urlHost.check "1.2.3.4";
+    expected = true;
+  };
+  urlHost-bracketed-v6 = {
+    expr = types.urlHost.check "[::1]";
+    expected = true;
+  };
+  urlHost-regname = {
+    expr = types.urlHost.check "example.com";
+    expected = true;
+  };
+  urlHost-underscore-ok = {
+    expr = types.urlHost.check "my_host";
+    expected = true;
+  }; # looser than host, which rejects underscores
+  urlHost-vs-host = {
+    expr = types.host.check "my_host";
+    expected = false;
+  };
+  urlHost-bad = {
+    expr = types.urlHost.check "bad host";
+    expected = false;
+  };
+  urlHost-int = {
+    expr = types.urlHost.check 42;
+    expected = false;
+  };
+  urlHost-mk-ok = {
+    expr = types.urlHost.mk "example.com";
+    expected = "example.com";
+  };
+  urlHost-mk-bad = {
+    expr = throws (types.urlHost.mk "bad host");
+    expected = true;
+  };
+  urlHost-desc = {
+    expr = builtins.isString types.urlHost.description;
+    expected = true;
+  };
+
   # ===== ipListener =====
   ipListener-null = {
     expr = types.ipListener.check ":80";
