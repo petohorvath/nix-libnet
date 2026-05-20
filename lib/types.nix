@@ -30,6 +30,7 @@ let
   transport = import ./transport.nix;
   hostname = import ./hostname.nix;
   domain = import ./domain.nix;
+  dnsName = import ./dns-name.nix;
   host = import ./host.nix;
   vlanId = import ./vlan-id.nix;
   mtu = import ./mtu.nix;
@@ -170,6 +171,12 @@ let
     validator = domain.isValid;
   };
 
+  dnsNameType = mkStrType {
+    typeName = "dnsName";
+    description = "a DNS name (hostname or domain; not an IP literal)";
+    validator = dnsName.isValid;
+  };
+
   hostType = mkStrType {
     typeName = "host";
     description = "an IP address, hostname, or domain";
@@ -252,6 +259,7 @@ in
     transport = transportType;
     hostname = hostnameType;
     domain = domainType;
+    dnsName = dnsNameType;
     host = hostType;
     vlanId = vlanIdType;
     mtu = mtuType;

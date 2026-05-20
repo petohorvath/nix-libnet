@@ -402,6 +402,40 @@ in
     expected = true;
   };
 
+  # ===== dnsName =====
+  dnsName-check-hostname = {
+    expr = types.dnsName.check "nas";
+    expected = true;
+  };
+  dnsName-check-domain = {
+    expr = types.dnsName.check "example.com";
+    expected = true;
+  };
+  dnsName-check-ip-rejected = {
+    expr = types.dnsName.check "192.0.2.1";
+    expected = false;
+  };
+  dnsName-check-bad = {
+    expr = types.dnsName.check "host_name";
+    expected = false;
+  };
+  dnsName-check-int = {
+    expr = types.dnsName.check 42;
+    expected = false;
+  };
+  dnsName-mk-ok = {
+    expr = types.dnsName.mk "pool.ntp.org";
+    expected = "pool.ntp.org";
+  };
+  dnsName-mk-ip-throws = {
+    expr = throws (types.dnsName.mk "192.0.2.1");
+    expected = true;
+  };
+  dnsName-desc = {
+    expr = builtins.isString types.dnsName.description;
+    expected = true;
+  };
+
   # ===== host =====
   host-check-ip = {
     expr = types.host.check "192.168.1.1";

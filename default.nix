@@ -14,6 +14,7 @@ let
     transport = import ./lib/transport.nix;
     hostname = import ./lib/hostname.nix;
     domain = import ./lib/domain.nix;
+    dnsName = import ./lib/dns-name.nix;
     host = import ./lib/host.nix;
     vlanId = import ./lib/vlan-id.nix;
     mtu = import ./lib/mtu.nix;

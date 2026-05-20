@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.dnsName` — pass-through union over `Hostname` and `Domain`:
+  a DNS name that is not an IP literal. Dispatches by label count
+  (single → hostname, multiple → domain) and rejects IP literals
+  (the one behavioural difference from a bare `domain`, which accepts
+  all-numeric dotted forms). No new `_type` tag; returns the
+  underlying hostname/domain value. This is the "name" half of
+  `host`, which is now composed internally as `ip | dnsName`. Opt-in
+  module type `libnet.types.dnsName`.
 - `libnet.mtu` — bounded-int validator for IP MTU values. Accepts
   ints in `[68, 65535]`: 68 is RFC 791's minimum forwarding MTU
   (and the floor Linux's `ip link set mtu` accepts), 65535 is the

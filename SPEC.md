@@ -709,9 +709,32 @@ Validated multi-label DNS name (≥ 2 labels). Each label uses the same RFC 1123
 
 **Notably absent**: there is no `tld` accessor. RFC 1034 defines TLD as the rightmost label (`com`, `org`, `uk`), but consumers usually expect the PSL-defined "registered TLD" (`co.uk`, `github.io`) which we cannot compute without shipping the Public Suffix List. To avoid the ambiguity, the operation is omitted — consumers who genuinely want the rightmost label can take the last element of `labels`.
 
+### `libnet.dnsName` (pass-through union)
+
+Pass-through union over `Hostname` and `Domain` — a DNS name that is **not** an IP literal. This is the "name" half of `host` (`host = ip | dnsName`). `parse` dispatches by label count: a single label → hostname, multiple labels → domain. **IP literals are rejected** — that is the one behavioural difference from a bare `domain`, which accepts all-numeric dotted forms like `192.0.2.1`. No new `_type` tag; the result is the underlying hostname or domain value.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → (Hostname \| Domain)` | Throws on IP literals, invalid syntax. |
+| `tryParse` | `String → TryResult (...)` |
+| `toString` | `(Hostname \| Domain) → String` | Dispatches to the underlying `toString`; preserves input case. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` |
+| `is` | `Any → Bool` | True for a `Hostname` or `Domain` value. |
+| `isHostname` | `Any → Bool` |
+| `isDomain` | `Any → Bool` |
+
+**Normalization**: `normalize` lowercases the value (dispatches to hostname/domain).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — case-insensitive. Cross-family order: `Hostname < Domain`. Within a family, the family's own comparator.
+
 ### `libnet.host` (pass-through union)
 
-Pass-through union over `Ipv4`, `Ipv6`, `Hostname`, and `Domain` — the shapes a service consumer might address. There is **no new `_type` tag**: `parse` returns the underlying typed value, and consumers branch on its `_type` to access family-specific operations. Same pattern as `libnet.ip` already uses for its v4/v6 split.
+Pass-through union over `Ipv4`, `Ipv6`, `Hostname`, and `Domain` — the shapes a service consumer might address. Composed as `ip | dnsName`: an IP is tried first, then a DNS name. There is **no new `_type` tag**: `parse` returns the underlying typed value, and consumers branch on its `_type` to access family-specific operations. Same pattern as `libnet.ip` already uses for its v4/v6 split.
 
 **Dispatch order** (`tryParse` returns the first that succeeds):
 1. `ip.tryParse` — succeeds for IPv4 / IPv6.
@@ -1079,6 +1102,7 @@ in {
 | `types.transport` | String (`"tcp"`, `"udp"`, or `"sctp"`). Case-sensitive. | String. |
 | `types.hostname` | String — single-label RFC 1123 hostname (1-63 chars, `[A-Za-z0-9-]`, no leading/trailing `-`). | String (input case preserved). |
 | `types.domain` | String — multi-label DNS name (≥2 labels, RFC 1123 per label, total ≤253 chars). | String (input case preserved). |
+| `types.dnsName` | String — a DNS name (hostname or domain), rejecting IP literals. | String (input case preserved). |
 | `types.host` | String — an IP, hostname, or domain (union of `ipv4` / `ipv6` / `hostname` / `domain` validators). | String. |
 | `types.vlanId` | Int in `[1, 4094]` (IEEE 802.1Q usable range). | Int. |
 | `types.mtu` | Int in `[68, 65535]` (RFC 791 forwarding floor through IPv4 wire-format maximum). | Int. |
@@ -1138,7 +1162,8 @@ nix-libnet/
 │   ├── transport.nix
 │   ├── hostname.nix
 │   ├── domain.nix
-│   ├── host.nix             # Pass-through union over ip + hostname + domain
+│   ├── dns-name.nix         # Pass-through union over hostname + domain (no IP)
+│   ├── host.nix             # Pass-through union over ip + dnsName
 │   ├── vlan-id.nix
 │   ├── mtu.nix
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
@@ -1167,6 +1192,7 @@ nix-libnet/
 │   ├── transport.nix
 │   ├── hostname.nix
 │   ├── domain.nix
+│   ├── dns-name.nix
 │   ├── host.nix
 │   ├── vlan-id.nix
 │   ├── mtu.nix

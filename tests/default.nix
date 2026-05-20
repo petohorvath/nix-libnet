@@ -29,6 +29,7 @@ let
     // prefix "transport" (tryImport "transport.nix")
     // prefix "hostname" (tryImport "hostname.nix")
     // prefix "domain" (tryImport "domain.nix")
+    // prefix "dnsName" (tryImport "dns-name.nix")
     // prefix "host" (tryImport "host.nix")
     // prefix "vlanId" (tryImport "vlan-id.nix")
     // prefix "mtu" (tryImport "mtu.nix")
