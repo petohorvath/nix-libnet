@@ -167,6 +167,32 @@ in
     expected = true;
   };
 
+  # ===== isAdjacent =====
+  adjacent-yes = {
+    expr = pr.isAdjacent (p "80-90") (p "91-100");
+    expected = true;
+  };
+  adjacent-reversed = {
+    expr = pr.isAdjacent (p "91-100") (p "80-90");
+    expected = true;
+  };
+  adjacent-gap = {
+    expr = pr.isAdjacent (p "80-90") (p "92-100");
+    expected = false;
+  };
+  adjacent-overlap = {
+    expr = pr.isAdjacent (p "80-90") (p "85-95");
+    expected = false;
+  };
+  adjacent-singletons = {
+    expr = pr.isAdjacent (p "80") (p "81");
+    expected = true;
+  };
+  adjacent-at-max = {
+    expr = pr.isAdjacent (p "0-65534") (p "65535");
+    expected = true;
+  };
+
   # ===== Merge =====
   merge-adjacent = {
     expr = pr.toString (pr.merge (p "80-90") (p "91-100"));

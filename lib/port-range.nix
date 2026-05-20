@@ -153,8 +153,10 @@ let
 
   isSuperrangeOf = a: b: isSubrangeOf b a;
 
-  # Adjacent: a.to + 1 == b.from OR b.to + 1 == a.from
-  merge =
+  # Touching with no gap and no overlap: a.to + 1 == b.from OR
+  # b.to + 1 == a.from. Plain-int comparison, so a range ending at 65535
+  # simply isn't adjacent upward (no overflow).
+  isAdjacent =
     a: b:
     let
       aToI = port.toInt a.to;
@@ -162,7 +164,11 @@ let
       aFromI = port.toInt a.from;
       bFromI = port.toInt b.from;
     in
-    if overlaps a b || aToI + 1 == bFromI || bToI + 1 == aFromI then
+    aToI + 1 == bFromI || bToI + 1 == aFromI;
+
+  merge =
+    a: b:
+    if overlaps a b || isAdjacent a b then
       mk (port.min a.from b.from) (port.max a.to b.to)
     else
       null;
@@ -218,6 +224,7 @@ in
     overlaps
     isSubrangeOf
     isSuperrangeOf
+    isAdjacent
     merge
     ;
   inherit ports portsUnbounded;
