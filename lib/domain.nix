@@ -32,68 +32,6 @@ let
   maxLength = 253;
   minLabels = 2;
 
-  # ASCII-only lowercase. Domains are ASCII by validation. Duplicated
-  # from hostname.nix to keep the case-folding utility local to each
-  # consumer; lift to a shared helper if a third user appears.
-  toLowerAscii =
-    builtins.replaceStrings
-      [
-        "A"
-        "B"
-        "C"
-        "D"
-        "E"
-        "F"
-        "G"
-        "H"
-        "I"
-        "J"
-        "K"
-        "L"
-        "M"
-        "N"
-        "O"
-        "P"
-        "Q"
-        "R"
-        "S"
-        "T"
-        "U"
-        "V"
-        "W"
-        "X"
-        "Y"
-        "Z"
-      ]
-      [
-        "a"
-        "b"
-        "c"
-        "d"
-        "e"
-        "f"
-        "g"
-        "h"
-        "i"
-        "j"
-        "k"
-        "l"
-        "m"
-        "n"
-        "o"
-        "p"
-        "q"
-        "r"
-        "s"
-        "t"
-        "u"
-        "v"
-        "w"
-        "x"
-        "y"
-        "z"
-      ];
-
   mk = v: {
     _type = "domain";
     value = v;
@@ -164,8 +102,8 @@ let
   isSubdomainOf =
     a: b:
     let
-      la = map toLowerAscii (labels a);
-      lb = map toLowerAscii (labels b);
+      la = map dnsLabel.toLowerAscii (labels a);
+      lb = map dnsLabel.toLowerAscii (labels b);
       lenA = builtins.length la;
       lenB = builtins.length lb;
       suffix = builtins.genList (i: builtins.elemAt la (lenA - lenB + i)) lenB;
@@ -178,20 +116,20 @@ let
 
   # ===== Normalization =====
 
-  normalize = d: mk (toLowerAscii d.value);
+  normalize = d: mk (dnsLabel.toLowerAscii d.value);
 
   # ===== Comparison =====
   #
   # Case-insensitive per DNS semantics. `toString` still preserves the
   # verbatim input case; only `eq` / `compare` and friends fold case.
 
-  eq = a: b: toLowerAscii a.value == toLowerAscii b.value;
+  eq = a: b: dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
 
   compare =
     a: b:
     let
-      la = toLowerAscii a.value;
-      lb = toLowerAscii b.value;
+      la = dnsLabel.toLowerAscii a.value;
+      lb = dnsLabel.toLowerAscii b.value;
     in
     if la < lb then
       -1

@@ -1,5 +1,5 @@
 /*
-  Internal: shared RFC 1123 DNS label syntax.
+  Internal: shared RFC 1123 DNS label syntax and case folding.
 
   A DNS label is a single component between dots: in `foo.example.com`
   the labels are `foo`, `example`, `com`. Both `libnet.hostname` (a
@@ -21,7 +21,70 @@ let
   labelPattern = "[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?";
 
   isValidLabel = s: builtins.isString s && builtins.match labelPattern s != null;
+
+  # ASCII-only lowercase for case-insensitive equality and ordering (DNS
+  # labels are case-insensitive). Names are ASCII by validation, so this
+  # is exhaustive within the domain. Hand-rolled to keep the core
+  # dependency-free of nixpkgs.lib.
+  toLowerAscii =
+    builtins.replaceStrings
+      [
+        "A"
+        "B"
+        "C"
+        "D"
+        "E"
+        "F"
+        "G"
+        "H"
+        "I"
+        "J"
+        "K"
+        "L"
+        "M"
+        "N"
+        "O"
+        "P"
+        "Q"
+        "R"
+        "S"
+        "T"
+        "U"
+        "V"
+        "W"
+        "X"
+        "Y"
+        "Z"
+      ]
+      [
+        "a"
+        "b"
+        "c"
+        "d"
+        "e"
+        "f"
+        "g"
+        "h"
+        "i"
+        "j"
+        "k"
+        "l"
+        "m"
+        "n"
+        "o"
+        "p"
+        "q"
+        "r"
+        "s"
+        "t"
+        "u"
+        "v"
+        "w"
+        "x"
+        "y"
+        "z"
+      ];
 in
 {
-  inherit labelPattern isValidLabel;
+  inherit labelPattern isValidLabel toLowerAscii;
 }

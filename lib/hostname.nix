@@ -27,68 +27,6 @@ let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
 
-  # ASCII-only lowercase. Hostnames are ASCII by validation, so this is
-  # exhaustive within the domain. Hand-rolled to keep the core
-  # dependency-free of nixpkgs.lib.
-  toLowerAscii =
-    builtins.replaceStrings
-      [
-        "A"
-        "B"
-        "C"
-        "D"
-        "E"
-        "F"
-        "G"
-        "H"
-        "I"
-        "J"
-        "K"
-        "L"
-        "M"
-        "N"
-        "O"
-        "P"
-        "Q"
-        "R"
-        "S"
-        "T"
-        "U"
-        "V"
-        "W"
-        "X"
-        "Y"
-        "Z"
-      ]
-      [
-        "a"
-        "b"
-        "c"
-        "d"
-        "e"
-        "f"
-        "g"
-        "h"
-        "i"
-        "j"
-        "k"
-        "l"
-        "m"
-        "n"
-        "o"
-        "p"
-        "q"
-        "r"
-        "s"
-        "t"
-        "u"
-        "v"
-        "w"
-        "x"
-        "y"
-        "z"
-      ];
-
   mk = v: {
     _type = "hostname";
     value = v;
@@ -121,20 +59,20 @@ let
 
   # ===== Normalization =====
 
-  normalize = h: mk (toLowerAscii h.value);
+  normalize = h: mk (dnsLabel.toLowerAscii h.value);
 
   # ===== Comparison =====
   #
   # Case-insensitive per DNS semantics. `toString` still preserves the
   # verbatim input case; only `eq` / `compare` and friends fold case.
 
-  eq = a: b: toLowerAscii a.value == toLowerAscii b.value;
+  eq = a: b: dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
 
   compare =
     a: b:
     let
-      la = toLowerAscii a.value;
-      lb = toLowerAscii b.value;
+      la = dnsLabel.toLowerAscii a.value;
+      lb = dnsLabel.toLowerAscii b.value;
     in
     if la < lb then
       -1
