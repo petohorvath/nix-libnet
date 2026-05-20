@@ -428,8 +428,12 @@ Curry order throughout: **operators come first, operand last**, so `add 1` is a 
 | `isUnspecified` | `Ipv4 → Bool` | `0.0.0.0`. |
 | `isReserved` | `Ipv4 → Bool` | `240.0.0.0/4` (excluding broadcast). |
 | `isDocumentation` | `Ipv4 → Bool` | `192.0.2/24`, `198.51.100/24`, `203.0.113/24`. |
+| `isThisNetwork` | `Ipv4 → Bool` | `0.0.0.0/8` — "this host on this network" (RFC 1122 §3.2.1.3). |
+| `isSharedAddressSpace` | `Ipv4 → Bool` | `100.64.0.0/10` — shared address space / CGNAT (RFC 6598). |
+| `isProtocolAssignment` | `Ipv4 → Bool` | `192.0.0.0/24` — IETF protocol assignments (RFC 6890). |
+| `isBenchmarking` | `Ipv4 → Bool` | `198.18.0.0/15` — benchmarking (RFC 2544). |
 | `isGlobal` | `Ipv4 → Bool` | Exactly `!isBogon`. IPv4 has no transition/interop forms to exclude, so this is strictly the complement of `isBogon` (unlike the IPv6 counterpart — see below). |
-| `isBogon` | `Ipv4 → Bool` | Not globally routable: any of `isLoopback`, `isPrivate`, `isLinkLocal`, `isMulticast`, `isReserved`, `isDocumentation`, `isUnspecified`, `isBroadcast`. |
+| `isBogon` | `Ipv4 → Bool` | Not globally routable: any of `isLoopback`, `isPrivate`, `isLinkLocal`, `isMulticast`, `isReserved`, `isDocumentation`, `isUnspecified`, `isBroadcast`, `isThisNetwork`, `isSharedAddressSpace`, `isProtocolAssignment`, `isBenchmarking`. |
 
 **Arithmetic**
 | Function | Signature | Notes |
@@ -491,8 +495,11 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `isIpv4Mapped` | `::ffff:0:0/96` |
 | `isIpv4Compatible` | `::0.0.0.0/96` — deprecated form, still testable |
 | `is6to4` | `2002::/16` |
+| `isDiscard` | `100::/64` — discard-only address block (RFC 6666). |
+| `isOrchid` | `2001:10::/28` — ORCHID, deprecated (RFC 4843). |
+| `isSiteLocal` | `fec0::/10` — site-local, deprecated (RFC 3879). |
 | `isGlobal` | Stricter than `!isBogon`: additionally excludes `isIpv4Mapped`, `isIpv4Compatible`, and `is6to4`. Those transition/interop forms are technically routable but do not represent native IPv6 global unicast, so `isGlobal` rules them out. Intentionally asymmetric with `ipv4.isGlobal`, which has no such transition forms to consider. |
-| `isBogon` | `Ipv6 → Bool` — not globally routable: any of `isLoopback`, `isUnspecified`, `isLinkLocal`, `isUniqueLocal`, `isMulticast`, `isDocumentation`. Does **not** include the IPv4 transition/interop forms (`isIpv4Mapped`, `isIpv4Compatible`, `is6to4`) — those are excluded by `isGlobal` but are not classified as bogons. |
+| `isBogon` | `Ipv6 → Bool` — not globally routable: any of `isLoopback`, `isUnspecified`, `isLinkLocal`, `isUniqueLocal`, `isMulticast`, `isDocumentation`, `isDiscard`, `isOrchid`, `isSiteLocal`. Does **not** include the IPv4 transition/interop forms (`isIpv4Mapped`, `isIpv4Compatible`, `is6to4`) — those are excluded by `isGlobal` but are not classified as bogons. |
 
 **IPv4 interop**:
 | Function | Signature | Notes |
@@ -1275,8 +1282,8 @@ Static lookup tables shipped as plain Nix literals (no parsed values — lift in
 
 | Attribute | Shape | Contents |
 |---|---|---|
-| `bogons.ipv4` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv4 (loopback, RFC 1918, link-local, multicast, reserved, documentation, 0.0.0.0/32). |
-| `bogons.ipv6` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv6 (unspecified, loopback, unique-local, link-local, multicast, documentation). |
+| `bogons.ipv4` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv4 (this-network `0.0.0.0/8`, RFC 1918, shared/CGNAT, loopback, link-local, protocol assignments, documentation, benchmarking, multicast, reserved). |
+| `bogons.ipv6` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv6 (unspecified, loopback, discard, ORCHID, documentation, unique-local, link-local, site-local, multicast). |
 | `wellKnownPorts.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers. |
 | `wellKnownPorts.udp` | `{ name = Int; ... }` | Common UDP service names → port numbers. |
 | `icmpTypes.ipv4` | `{ name = Int; ... }` | ICMP (IPv4) message-type numbers. |
@@ -1285,9 +1292,9 @@ Static lookup tables shipped as plain Nix literals (no parsed values — lift in
 **Bogon sources — registry vs. predicate**: `registry.bogons.{ipv4,ipv6}` and `{ipv4,ipv6}.isBogon` cover the same address space but decompose it differently. The registry is a list of CIDR literals convenient for iteration, filtering, and display; the predicate is a union of named classifications (`isLoopback`, `isPrivate`, `isLinkLocal`, ...) convenient for branching. Examples:
 
 - IPv4 `255.255.255.255` is covered by the registry entry `240.0.0.0/4`; the predicate matches it via `isBroadcast` (with `isReserved` covering `240.0.0.0/4 \ broadcast` separately).
-- IPv4 `0.0.0.0` appears in the registry as the explicit `/32`; the predicate matches it via `isUnspecified`.
+- IPv4 `0.0.0.0` falls in the registry entry `0.0.0.0/8`; the predicate matches it via `isUnspecified` (and `isThisNetwork`).
 
-Both lists are kept in lock-step by `tests/registry.nix` (`v4-isBogon-network`, `v6-isBogon-network` and related): every registry entry's network address must satisfy the corresponding `isBogon` predicate. Adding a new bogon requires touching both places.
+Both lists are kept in lock-step by `tests/registry.nix` (`v4-isBogon-network`/`v4-isBogon-broadcast`, `v6-isBogon-network`/`v6-isBogon-top`): every registry entry's first and last address must satisfy the corresponding `isBogon` predicate. Adding a new bogon requires touching both the registry and the predicate.
 
 ### `libnet.withLib` (opt-in NixOS module types)
 
@@ -1510,7 +1517,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Parse: `0.0.0.0`, `255.255.255.255`, `1.2.3.4`, `127.0.0.1`.
 - Reject: empty, `"1.2.3"`, `"1.2.3.4.5"`, `"1.2.3.256"`, `"01.2.3.4"` (leading zero), `"1.2.3.-1"`, `" 1.2.3.4"` (whitespace), `"a.b.c.d"`.
 - Arithmetic: `255.255.255.255 + 1` throws, `0.0.0.0 - 1` throws, `1.2.3.4 + 0 == 1.2.3.4`.
-- Predicates positive+negative for each: `isLoopback`, `isPrivate` (one from each RFC 1918 block), `isLinkLocal`, `isMulticast`, `isBroadcast`, `isUnspecified`, `isReserved`, `isDocumentation` (one from each block), `isGlobal`, `isBogon`.
+- Predicates positive+negative for each: `isLoopback`, `isPrivate` (one from each RFC 1918 block), `isLinkLocal`, `isMulticast`, `isBroadcast`, `isUnspecified`, `isReserved`, `isDocumentation` (one from each block), `isThisNetwork`, `isSharedAddressSpace`, `isProtocolAssignment`, `isBenchmarking`, `isGlobal`, `isBogon`.
 - `toArpa`: known vector `1.2.3.4 → "4.3.2.1.in-addr.arpa"`.
 - Round-trip: `toOctets ∘ fromOctets`, `toInt ∘ fromInt`, `toString ∘ parse`.
 
@@ -1518,7 +1525,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Parse: `::`, `::1`, `1::`, `1::2`, `1:2::3:4`, `::ffff:1.2.3.4` (mapped), `::1.2.3.4` (compatible), uppercase, lowercase, mixed case, all 8 groups explicit, compression at each position.
 - Reject: `:::` (triple colon), `::1::` (two compressions), `1:2:3:4:5:6:7:8:9` (9 groups), `12345::` (oversize group), empty, trailing colon (except compressions).
 - Carry: `::ffffffff + 1 == ::1:0:0` (word-boundary carry), `::1:0:0:0 - 1 == ::ffff:ffff:ffff` (borrow), all-ones + 1 throws.
-- Each predicate positive+negative including `isIpv4Mapped`, `is6to4`, `isUniqueLocal`, `isBogon`.
+- Each predicate positive+negative including `isIpv4Mapped`, `is6to4`, `isUniqueLocal`, `isDiscard`, `isOrchid`, `isSiteLocal`, `isBogon`.
 - `toArpa`: known vector `2001:db8::1 → "1.0.0...0.8.b.d.0.1.0.0.2.ip6.arpa"` (verify 32 nibbles, reversed).
 - `fromEui64`: MAC `aa:bb:cc:dd:ee:ff` with prefix `2001:db8::/64` yields `2001:db8::a8bb:ccff:fedd:eeff` (u/l bit flipped).
 - `toStringExpanded` / `toStringCompressed` / `toStringBracketed` — each has a distinct expected output for the same parsed value.
