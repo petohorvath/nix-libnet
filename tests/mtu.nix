@@ -128,6 +128,36 @@ in
     expected = false;
   };
 
+  # ===== Arithmetic =====
+  add-ok = {
+    expr = mtu.toInt (mtu.add 100 (mtu.fromInt 1400));
+    expected = 1500;
+  };
+  sub-overhead = {
+    expr = mtu.toInt (mtu.sub 80 (mtu.fromInt 1500));
+    expected = 1420;
+  };
+  next-ok = {
+    expr = mtu.toInt (mtu.next (mtu.fromInt 1500));
+    expected = 1501;
+  };
+  prev-ok = {
+    expr = mtu.toInt (mtu.prev (mtu.fromInt 1500));
+    expected = 1499;
+  };
+  diff-ok = {
+    expr = mtu.diff (mtu.fromInt 1500) (mtu.fromInt 9000);
+    expected = 7500;
+  };
+  sub-below-floor-throws = {
+    expr = throws (mtu.sub 1 (mtu.fromInt 68));
+    expected = true;
+  };
+  add-over-max-throws = {
+    expr = throws (mtu.add 1 (mtu.fromInt 65535));
+    expected = true;
+  };
+
   # ===== Comparison helpers =====
   cmp-lt = {
     expr = mtu.lt (mtu.fromInt 1280) (mtu.fromInt 1500);

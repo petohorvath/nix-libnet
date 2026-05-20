@@ -53,6 +53,23 @@ let
 
   is = types.isMtu;
 
+  # ===== Arithmetic =====
+
+  add =
+    n: v:
+    let
+      r = v.value + n;
+    in
+    if !(isValid r) then
+      builtins.throw "libnet.mtu.add: result out of range [${builtins.toString lowestValue}, ${builtins.toString highestValue}]: ${builtins.toString r}"
+    else
+      mk r;
+
+  sub = n: v: add (0 - n) v;
+  diff = a: b: b.value - a.value;
+  next = add 1;
+  prev = sub 1;
+
   # ===== Comparison =====
 
   eq = a: b: a.value == b.value;
@@ -82,6 +99,13 @@ in
   inherit
     isValid
     is
+    ;
+  inherit
+    add
+    sub
+    diff
+    next
+    prev
     ;
   inherit
     eq

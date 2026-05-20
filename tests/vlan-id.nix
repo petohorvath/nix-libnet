@@ -116,6 +116,40 @@ in
     expected = false;
   };
 
+  # ===== Arithmetic =====
+  add-ok = {
+    expr = vlanId.toInt (vlanId.add 5 (vlanId.fromInt 100));
+    expected = 105;
+  };
+  sub-ok = {
+    expr = vlanId.toInt (vlanId.sub 5 (vlanId.fromInt 100));
+    expected = 95;
+  };
+  next-ok = {
+    expr = vlanId.toInt (vlanId.next (vlanId.fromInt 100));
+    expected = 101;
+  };
+  prev-ok = {
+    expr = vlanId.toInt (vlanId.prev (vlanId.fromInt 100));
+    expected = 99;
+  };
+  diff-ok = {
+    expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 150);
+    expected = 50;
+  };
+  next-at-max-throws = {
+    expr = throws (vlanId.next (vlanId.fromInt 4094));
+    expected = true;
+  };
+  prev-at-min-throws = {
+    expr = throws (vlanId.prev (vlanId.fromInt 1));
+    expected = true;
+  };
+  add-over-throws = {
+    expr = throws (vlanId.add 1 (vlanId.fromInt 4094));
+    expected = true;
+  };
+
   # ===== Comparison helpers =====
   cmp-lt = {
     expr = vlanId.lt (vlanId.fromInt 100) (vlanId.fromInt 200);

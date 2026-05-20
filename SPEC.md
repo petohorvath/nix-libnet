@@ -875,6 +875,15 @@ IEEE 802.1Q VLAN ID — a tagged int in `[1, 4094]`. The 12-bit VLAN tag has 409
 | `isValid` | `Int → Bool` | Int (not String) predicate: `true` iff the int is in `[1, 4094]`. Rejects non-ints. |
 | `is` | `Any → Bool` | Structural: value is a `{_type="vlanId";…}`. |
 
+**Arithmetic**
+| Function | Signature | Notes |
+|---|---|---|
+| `add` | `Int → VlanId → VlanId` | Throws if the result leaves `[1, 4094]`. |
+| `sub` | `Int → VlanId → VlanId` | `add (-n)`. |
+| `diff` | `VlanId → VlanId → Int` | `toInt b - toInt a`. |
+| `next` | `VlanId → VlanId` | `add 1`; throws at `4094`. |
+| `prev` | `VlanId → VlanId` | `sub 1`; throws at `1`. |
+
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — numeric on `value`.
 
 **Constants**
@@ -899,6 +908,15 @@ IP MTU — a tagged int in `[68, 65535]`. Same shape as `vlanId`. The lower boun
 |---|---|---|
 | `isValid` | `Int → Bool` | Int (not String) predicate: `true` iff the int is in `[68, 65535]`. Rejects non-ints. |
 | `is` | `Any → Bool` | Structural: value is a `{_type="mtu";…}`. |
+
+**Arithmetic**
+| Function | Signature | Notes |
+|---|---|---|
+| `add` | `Int → Mtu → Mtu` | Throws if the result leaves `[68, 65535]`. |
+| `sub` | `Int → Mtu → Mtu` | `add (-n)` — e.g. `sub 80` for tunnel overhead. |
+| `diff` | `Mtu → Mtu → Int` | `toInt b - toInt a`. |
+| `next` | `Mtu → Mtu` | `add 1`; throws at `65535`. |
+| `prev` | `Mtu → Mtu` | `sub 1`; throws at `68`. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — numeric on `value`.
 
