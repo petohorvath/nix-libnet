@@ -113,6 +113,10 @@ let
     else
       "${port.toString pr.from}:${port.toString pr.to}";
 
+  # `make` takes raw ints, not tagged `port` values: a port is just an
+  # int, so `make 80 100` is the ergonomic primitive — parallel to
+  # `port.fromInt` / `mtu.fromInt`, not to `ipRange.make` (IPs aren't
+  # primitives). Build from a tagged port with `fromPort` (singleton).
   make =
     f: t:
     if !(builtins.isInt f) || !(builtins.isInt t) then
