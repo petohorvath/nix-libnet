@@ -4,6 +4,7 @@ let
   port = import ../lib/port.nix;
   ipEndpoint = import ../lib/ip-endpoint.nix;
   dnsEndpoint = import ../lib/dns-endpoint.nix;
+  registry = import ../lib/registry.nix;
   inherit (harness) throws;
   p = url.parse;
 in
@@ -209,6 +210,15 @@ in
   schemes-count = {
     expr = builtins.length (builtins.attrNames url.schemes);
     expected = 30;
+  };
+  schemes-sourced-from-wkp = {
+    expr =
+      let
+        w = registry.wellKnownPorts;
+        allPorts = builtins.attrValues w.tcp ++ builtins.attrValues w.udp;
+      in
+      builtins.all (s: builtins.elem s.defaultPort allPorts) (builtins.attrValues url.schemes);
+    expected = true;
   };
 
   # ===== toEndpoint =====

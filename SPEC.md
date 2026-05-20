@@ -1161,7 +1161,7 @@ There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url
 
 An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials.
 
-`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject.
+`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject. Default ports are sourced from `registry.wellKnownPorts` — the single source of truth for port numbers.
 
 **Parsing & formatting**
 | Function | Signature | Notes |
@@ -1375,7 +1375,7 @@ Static lookup tables shipped as plain Nix literals (no parsed values — lift in
 |---|---|---|
 | `bogons.ipv4` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv4 (this-network `0.0.0.0/8`, RFC 1918, shared/CGNAT, loopback, link-local, protocol assignments, documentation, benchmarking, multicast, reserved). |
 | `bogons.ipv6` | `[String]` — CIDR literals | RFC 6890 bogon blocks for IPv6 (unspecified, loopback, discard, ORCHID, documentation, unique-local, link-local, site-local, multicast). |
-| `wellKnownPorts.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers. |
+| `wellKnownPorts.tcp` | `{ name = Int; ... }` | Common TCP service names → port numbers; the source for `libnet.url` scheme default ports. |
 | `wellKnownPorts.udp` | `{ name = Int; ... }` | Common UDP service names → port numbers. |
 | `icmpTypes.ipv4` | `{ name = Int; ... }` | ICMP (IPv4) message-type numbers. |
 | `icmpTypes.ipv6` | `{ name = Int; ... }` | ICMPv6 message-type numbers. |

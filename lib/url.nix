@@ -29,162 +29,51 @@ let
   transport = import ./transport.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
+  registry = import ./registry.nix;
 
   lowerAscii = dnsLabel.toLowerAscii;
   mkPort = port.fromInt;
+  wkp = registry.wellKnownPorts;
 
-  # Closed registry: scheme → { defaultPort; transport; secure }.
+  # Closed registry of URL schemes. Default ports are sourced from
+  # registry.wellKnownPorts (the single source of truth for port
+  # numbers); this table adds only the L4 transport and the TLS flag.
+  # Schemes that ride another service's port reference it (ws → http,
+  # wss → https, sftp → ssh).
+  mkScheme = defaultPort: transport: secure: {
+    inherit defaultPort transport secure;
+  };
   schemes = {
-    http = {
-      defaultPort = 80;
-      transport = "tcp";
-      secure = false;
-    };
-    https = {
-      defaultPort = 443;
-      transport = "tcp";
-      secure = true;
-    };
-    ws = {
-      defaultPort = 80;
-      transport = "tcp";
-      secure = false;
-    };
-    wss = {
-      defaultPort = 443;
-      transport = "tcp";
-      secure = true;
-    };
-    ftp = {
-      defaultPort = 21;
-      transport = "tcp";
-      secure = false;
-    };
-    ftps = {
-      defaultPort = 990;
-      transport = "tcp";
-      secure = true;
-    };
-    sftp = {
-      defaultPort = 22;
-      transport = "tcp";
-      secure = true;
-    };
-    tftp = {
-      defaultPort = 69;
-      transport = "udp";
-      secure = false;
-    };
-    ssh = {
-      defaultPort = 22;
-      transport = "tcp";
-      secure = true;
-    };
-    telnet = {
-      defaultPort = 23;
-      transport = "tcp";
-      secure = false;
-    };
-    rdp = {
-      defaultPort = 3389;
-      transport = "tcp";
-      secure = false;
-    };
-    vnc = {
-      defaultPort = 5900;
-      transport = "tcp";
-      secure = false;
-    };
-    ldap = {
-      defaultPort = 389;
-      transport = "tcp";
-      secure = false;
-    };
-    ldaps = {
-      defaultPort = 636;
-      transport = "tcp";
-      secure = true;
-    };
-    postgres = {
-      defaultPort = 5432;
-      transport = "tcp";
-      secure = false;
-    };
-    mysql = {
-      defaultPort = 3306;
-      transport = "tcp";
-      secure = false;
-    };
-    mongodb = {
-      defaultPort = 27017;
-      transport = "tcp";
-      secure = false;
-    };
-    redis = {
-      defaultPort = 6379;
-      transport = "tcp";
-      secure = false;
-    };
-    amqp = {
-      defaultPort = 5672;
-      transport = "tcp";
-      secure = false;
-    };
-    amqps = {
-      defaultPort = 5671;
-      transport = "tcp";
-      secure = true;
-    };
-    mqtt = {
-      defaultPort = 1883;
-      transport = "tcp";
-      secure = false;
-    };
-    mqtts = {
-      defaultPort = 8883;
-      transport = "tcp";
-      secure = true;
-    };
-    git = {
-      defaultPort = 9418;
-      transport = "tcp";
-      secure = false;
-    };
-    svn = {
-      defaultPort = 3690;
-      transport = "tcp";
-      secure = false;
-    };
-    rsync = {
-      defaultPort = 873;
-      transport = "tcp";
-      secure = false;
-    };
-    coap = {
-      defaultPort = 5683;
-      transport = "udp";
-      secure = false;
-    };
-    coaps = {
-      defaultPort = 5684;
-      transport = "udp";
-      secure = true;
-    };
-    irc = {
-      defaultPort = 6667;
-      transport = "tcp";
-      secure = false;
-    };
-    ircs = {
-      defaultPort = 6697;
-      transport = "tcp";
-      secure = true;
-    };
-    xmpp = {
-      defaultPort = 5222;
-      transport = "tcp";
-      secure = false;
-    };
+    http = mkScheme wkp.tcp.http "tcp" false;
+    https = mkScheme wkp.tcp.https "tcp" true;
+    ws = mkScheme wkp.tcp.http "tcp" false;
+    wss = mkScheme wkp.tcp.https "tcp" true;
+    ftp = mkScheme wkp.tcp.ftp "tcp" false;
+    ftps = mkScheme wkp.tcp.ftps "tcp" true;
+    sftp = mkScheme wkp.tcp.ssh "tcp" true;
+    tftp = mkScheme wkp.udp.tftp "udp" false;
+    ssh = mkScheme wkp.tcp.ssh "tcp" true;
+    telnet = mkScheme wkp.tcp.telnet "tcp" false;
+    rdp = mkScheme wkp.tcp.rdp "tcp" false;
+    vnc = mkScheme wkp.tcp.vnc "tcp" false;
+    ldap = mkScheme wkp.tcp.ldap "tcp" false;
+    ldaps = mkScheme wkp.tcp.ldaps "tcp" true;
+    postgres = mkScheme wkp.tcp.postgres "tcp" false;
+    mysql = mkScheme wkp.tcp.mysql "tcp" false;
+    mongodb = mkScheme wkp.tcp.mongodb "tcp" false;
+    redis = mkScheme wkp.tcp.redis "tcp" false;
+    amqp = mkScheme wkp.tcp.amqp "tcp" false;
+    amqps = mkScheme wkp.tcp.amqps "tcp" true;
+    mqtt = mkScheme wkp.tcp.mqtt "tcp" false;
+    mqtts = mkScheme wkp.tcp.mqtts "tcp" true;
+    git = mkScheme wkp.tcp.git "tcp" false;
+    svn = mkScheme wkp.tcp.svn "tcp" false;
+    rsync = mkScheme wkp.tcp.rsync "tcp" false;
+    coap = mkScheme wkp.udp.coap "udp" false;
+    coaps = mkScheme wkp.udp.coaps "udp" true;
+    irc = mkScheme wkp.tcp.irc "tcp" false;
+    ircs = mkScheme wkp.tcp.ircs "tcp" true;
+    xmpp = mkScheme wkp.tcp.xmpp "tcp" false;
   };
 
   mk = scheme: userinfo: host: portVal: path: query: fragment: {

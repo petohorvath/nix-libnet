@@ -46,8 +46,11 @@
     ];
   };
 
+  # Single source of truth for port numbers: libnet.url.schemes
+  # references this table for its scheme default ports. `tcp` is `rec` so
+  # aliases (rabbitmq = amqp) point at a port rather than duplicate it.
   wellKnownPorts = {
-    tcp = {
+    tcp = rec {
       ftpData = 20;
       ftp = 21;
       ssh = 22;
@@ -64,27 +67,40 @@
       submission = 587;
       ldaps = 636;
       dnsTls = 853;
+      rsync = 873;
+      ftps = 990;
       imaps = 993;
       pop3s = 995;
+      mqtt = 1883;
       mysql = 3306;
       rdp = 3389;
+      svn = 3690;
+      xmpp = 5222;
       postgres = 5432;
-      rabbitmq = 5672;
+      amqps = 5671;
+      amqp = 5672;
+      rabbitmq = amqp;
       vnc = 5900;
       redis = 6379;
       irc = 6667;
+      ircs = 6697;
+      mqtts = 8883;
       elasticsearch = 9200;
+      git = 9418;
       memcached = 11211;
       mongodb = 27017;
     };
 
     udp = {
       dns = 53;
+      tftp = 69;
       ntp = 123;
       snmp = 161;
       snmpTrap = 162;
       dnsQuic = 853;
       rdp = 3389;
+      coap = 5683;
+      coaps = 5684;
       memcached = 11211;
     };
   };
