@@ -338,6 +338,10 @@ in
   };
 
   # ===== Comparison (case-insensitive) =====
+  cmp-gt = {
+    expr = domain.gt (p "beta.com") (p "alpha.com");
+    expected = true;
+  };
   lt-yes = {
     expr = domain.lt (p "alpha.com") (p "beta.com");
     expected = true;

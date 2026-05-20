@@ -678,6 +678,20 @@ in
     expected = (-15);
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = ipv6.le (p "::1") (p "::2");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = ipv6.gt (p "::2") (p "::1");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = ipv6.ge (p "::2") (p "::1");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = ipv6.eq (p "::1") (p "::1");

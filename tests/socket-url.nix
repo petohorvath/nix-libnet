@@ -151,6 +151,32 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = socketUrl.lt (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+    expected = true;
+  };
+  cmp-le = {
+    expr = socketUrl.le (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = socketUrl.gt (p "tcp://1.2.3.4:81") (p "tcp://1.2.3.4:80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = socketUrl.ge (p "tcp://1.2.3.4:81") (p "tcp://1.2.3.4:80");
+    expected = true;
+  };
+  cmp-min = {
+    expr = socketUrl.toString (socketUrl.min (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81"));
+    expected = "tcp://1.2.3.4:80";
+  };
+  cmp-max = {
+    expr = socketUrl.toString (socketUrl.max (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81"));
+    expected = "tcp://1.2.3.4:81";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = socketUrl.eq (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:80");

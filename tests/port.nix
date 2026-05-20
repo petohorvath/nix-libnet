@@ -169,6 +169,20 @@ in
     expected = true;
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = port.le (p "80") (p "81");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = port.gt (p "81") (p "80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = port.ge (p "81") (p "80");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = port.eq (p "80") (p "80");

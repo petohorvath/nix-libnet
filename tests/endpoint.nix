@@ -142,6 +142,28 @@ in
     expected = true;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = endpoint.lt (p "192.0.2.1:80") (p "192.0.2.2:80");
+    expected = true;
+  };
+  cmp-le = {
+    expr = endpoint.le (p "192.0.2.1:80") (p "192.0.2.2:80");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = endpoint.gt (p "192.0.2.2:80") (p "192.0.2.1:80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = endpoint.ge (p "192.0.2.2:80") (p "192.0.2.1:80");
+    expected = true;
+  };
+  cmp-max = {
+    expr = endpoint.toString (endpoint.max (p "192.0.2.1:80") (p "192.0.2.2:80"));
+    expected = "192.0.2.2:80";
+  };
+
   # ===== Comparison =====
   eq-same-ip = {
     expr = endpoint.eq (p "192.0.2.1:80") (p "192.0.2.1:80");

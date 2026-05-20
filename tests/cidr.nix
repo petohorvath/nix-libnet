@@ -675,6 +675,32 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = cidr.lt (p "10.0.0.0/24") (p "10.0.0.0/25");
+    expected = true;
+  };
+  cmp-le = {
+    expr = cidr.le (p "10.0.0.0/24") (p "10.0.0.0/25");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = cidr.gt (p "10.0.0.0/25") (p "10.0.0.0/24");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = cidr.ge (p "10.0.0.0/25") (p "10.0.0.0/24");
+    expected = true;
+  };
+  cmp-min = {
+    expr = cidr.toString (cidr.min (p "10.0.0.0/24") (p "10.0.0.0/25"));
+    expected = "10.0.0.0/24";
+  };
+  cmp-max = {
+    expr = cidr.toString (cidr.max (p "10.0.0.0/24") (p "10.0.0.0/25"));
+    expected = "10.0.0.0/25";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = cidr.eq (p "10.0.0.0/24") (p "10.0.0.0/24");

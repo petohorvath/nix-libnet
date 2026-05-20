@@ -161,6 +161,20 @@ in
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = ip.le (p "1.2.3.4") (p "1.2.3.5");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = ip.gt (p "1.2.3.5") (p "1.2.3.4");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = ip.ge (p "1.2.3.5") (p "1.2.3.4");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-v4-v4 = {
     expr = ip.eq (p "1.2.3.4") (p "1.2.3.4");

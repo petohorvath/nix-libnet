@@ -286,6 +286,32 @@ in
     expected = 65536;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = ipRange.lt (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10");
+    expected = true;
+  };
+  cmp-le = {
+    expr = ipRange.le (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = ipRange.gt (p "2.0.0.0-2.0.0.10") (p "1.0.0.0-1.0.0.10");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = ipRange.ge (p "2.0.0.0-2.0.0.10") (p "1.0.0.0-1.0.0.10");
+    expected = true;
+  };
+  cmp-min = {
+    expr = ipRange.toString (ipRange.min (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10"));
+    expected = "1.0.0.0-1.0.0.10";
+  };
+  cmp-max = {
+    expr = ipRange.toString (ipRange.max (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10"));
+    expected = "2.0.0.0-2.0.0.10";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = ipRange.eq (p "1.2.3.4-1.2.3.10") (p "1.2.3.4-1.2.3.10");

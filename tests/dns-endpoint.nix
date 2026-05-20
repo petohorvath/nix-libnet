@@ -138,6 +138,32 @@ in
     expected = "pool.ntp.org:123";
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = dnsEndpoint.lt (p "alpha:80") (p "beta:80");
+    expected = true;
+  };
+  cmp-le = {
+    expr = dnsEndpoint.le (p "alpha:80") (p "beta:80");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = dnsEndpoint.gt (p "beta:80") (p "alpha:80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = dnsEndpoint.ge (p "beta:80") (p "alpha:80");
+    expected = true;
+  };
+  cmp-min = {
+    expr = dnsEndpoint.toString (dnsEndpoint.min (p "alpha:80") (p "beta:80"));
+    expected = "alpha:80";
+  };
+  cmp-max = {
+    expr = dnsEndpoint.toString (dnsEndpoint.max (p "alpha:80") (p "beta:80"));
+    expected = "beta:80";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = dnsEndpoint.eq (p "nas:22") (p "nas:22");

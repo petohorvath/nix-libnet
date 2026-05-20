@@ -145,6 +145,24 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = unixSocket.lt (p "/a") (p "/b");
+    expected = true;
+  };
+  cmp-le = {
+    expr = unixSocket.le (p "/a") (p "/b");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = unixSocket.gt (p "/b") (p "/a");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = unixSocket.ge (p "/b") (p "/a");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = unixSocket.eq (p "/run/foo.sock") (p "/run/foo.sock");

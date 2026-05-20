@@ -366,6 +366,20 @@ in
     expected = 4;
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = mac.le (p "00:00:00:00:00:01") (p "00:00:00:00:00:02");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = mac.gt (p "00:00:00:00:00:02") (p "00:00:00:00:00:01");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = mac.ge (p "00:00:00:00:00:02") (p "00:00:00:00:00:01");
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = mac.eq (p "aa:bb:cc:dd:ee:ff") (p "aa:bb:cc:dd:ee:ff");

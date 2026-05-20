@@ -248,6 +248,32 @@ in
     expected = 4097;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = pr.lt (p "80-90") (p "80-100");
+    expected = true;
+  };
+  cmp-le = {
+    expr = pr.le (p "80-90") (p "80-100");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = pr.gt (p "80-100") (p "80-90");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = pr.ge (p "80-100") (p "80-90");
+    expected = true;
+  };
+  cmp-min = {
+    expr = pr.toString (pr.min (p "80-90") (p "80-100"));
+    expected = "80-90";
+  };
+  cmp-max = {
+    expr = pr.toString (pr.max (p "80-90") (p "80-100"));
+    expected = "80-100";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = pr.eq (p "80-90") (p "80-90");

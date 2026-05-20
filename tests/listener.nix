@@ -106,6 +106,28 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = listener.lt (p ":8080") (p ":8081");
+    expected = true;
+  };
+  cmp-le = {
+    expr = listener.le (p ":8080") (p ":8081");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = listener.gt (p ":8081") (p ":8080");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = listener.ge (p ":8081") (p ":8080");
+    expected = true;
+  };
+  cmp-max = {
+    expr = listener.toString (listener.max (p ":8080") (p ":8081"));
+    expected = ":8081";
+  };
+
   # ===== Comparison =====
   eq-same-ip = {
     expr = listener.eq (p ":8080") (p ":8080");

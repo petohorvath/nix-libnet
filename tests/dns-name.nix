@@ -150,6 +150,32 @@ in
   };
 
   # ===== eq =====
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = dnsName.lt (dnsName.parse "alpha") (dnsName.parse "beta");
+    expected = true;
+  };
+  cmp-le = {
+    expr = dnsName.le (dnsName.parse "alpha") (dnsName.parse "beta");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = dnsName.gt (dnsName.parse "beta") (dnsName.parse "alpha");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = dnsName.ge (dnsName.parse "beta") (dnsName.parse "alpha");
+    expected = true;
+  };
+  cmp-min = {
+    expr = dnsName.toString (dnsName.min (dnsName.parse "alpha") (dnsName.parse "beta"));
+    expected = "alpha";
+  };
+  cmp-max = {
+    expr = dnsName.toString (dnsName.max (dnsName.parse "alpha") (dnsName.parse "beta"));
+    expected = "beta";
+  };
+
   eq-same-hostname = {
     expr = dnsName.eq (p "nas") (p "nas");
     expected = true;

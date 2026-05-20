@@ -205,6 +205,24 @@ in
     expected = true;
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = ep.le (p "1.2.3.4:80") (p "1.2.3.4:81");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = ep.gt (p "1.2.3.4:81") (p "1.2.3.4:80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = ep.ge (p "1.2.3.4:81") (p "1.2.3.4:80");
+    expected = true;
+  };
+  cmp-max = {
+    expr = ep.toString (ep.max (p "1.2.3.4:80") (p "1.2.3.4:81"));
+    expected = "1.2.3.4:81";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = ep.eq (p "1.2.3.4:80") (p "1.2.3.4:80");

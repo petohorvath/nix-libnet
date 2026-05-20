@@ -128,6 +128,24 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = mtu.lt (mtu.fromInt 1280) (mtu.fromInt 1500);
+    expected = true;
+  };
+  cmp-le = {
+    expr = mtu.le (mtu.fromInt 1280) (mtu.fromInt 1500);
+    expected = true;
+  };
+  cmp-gt = {
+    expr = mtu.gt (mtu.fromInt 1500) (mtu.fromInt 1280);
+    expected = true;
+  };
+  cmp-ge = {
+    expr = mtu.ge (mtu.fromInt 1500) (mtu.fromInt 1280);
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = mtu.eq (mtu.fromInt 1500) (mtu.fromInt 1500);

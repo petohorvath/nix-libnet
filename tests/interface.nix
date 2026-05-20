@@ -192,6 +192,32 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = iface.lt (p "10.0.0.1/24") (p "10.0.0.2/24");
+    expected = true;
+  };
+  cmp-le = {
+    expr = iface.le (p "10.0.0.1/24") (p "10.0.0.2/24");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = iface.gt (p "10.0.0.2/24") (p "10.0.0.1/24");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = iface.ge (p "10.0.0.2/24") (p "10.0.0.1/24");
+    expected = true;
+  };
+  cmp-min = {
+    expr = iface.toString (iface.min (p "10.0.0.1/24") (p "10.0.0.2/24"));
+    expected = "10.0.0.1/24";
+  };
+  cmp-max = {
+    expr = iface.toString (iface.max (p "10.0.0.1/24") (p "10.0.0.2/24"));
+    expected = "10.0.0.2/24";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = iface.eq (p "10.0.0.1/24") (p "10.0.0.1/24");

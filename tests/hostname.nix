@@ -191,6 +191,10 @@ in
   };
 
   # ===== Comparison (case-insensitive) =====
+  cmp-gt = {
+    expr = hostname.gt (p "beta") (p "alpha");
+    expected = true;
+  };
   lt-yes = {
     expr = hostname.lt (p "alpha") (p "beta");
     expected = true;

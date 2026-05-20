@@ -116,6 +116,24 @@ in
     expected = false;
   };
 
+  # ===== Comparison helpers =====
+  cmp-lt = {
+    expr = vlanId.lt (vlanId.fromInt 100) (vlanId.fromInt 200);
+    expected = true;
+  };
+  cmp-le = {
+    expr = vlanId.le (vlanId.fromInt 100) (vlanId.fromInt 200);
+    expected = true;
+  };
+  cmp-gt = {
+    expr = vlanId.gt (vlanId.fromInt 200) (vlanId.fromInt 100);
+    expected = true;
+  };
+  cmp-ge = {
+    expr = vlanId.ge (vlanId.fromInt 200) (vlanId.fromInt 100);
+    expected = true;
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = vlanId.eq (vlanId.fromInt 100) (vlanId.fromInt 100);

@@ -310,6 +310,28 @@ in
     expected = "80-90";
   };
 
+  # ===== Comparison helpers =====
+  cmp-le = {
+    expr = lst.le (p ":80") (p ":81");
+    expected = true;
+  };
+  cmp-gt = {
+    expr = lst.gt (p ":81") (p ":80");
+    expected = true;
+  };
+  cmp-ge = {
+    expr = lst.ge (p ":81") (p ":80");
+    expected = true;
+  };
+  cmp-min = {
+    expr = lst.toString (lst.min (p ":80") (p ":81"));
+    expected = ":80";
+  };
+  cmp-max = {
+    expr = lst.toString (lst.max (p ":80") (p ":81"));
+    expected = ":81";
+  };
+
   # ===== Comparison =====
   eq-same = {
     expr = lst.eq (p ":80") (p ":80");
