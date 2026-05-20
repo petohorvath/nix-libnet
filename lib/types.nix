@@ -27,6 +27,7 @@ let
   endpoint = import ./endpoint.nix;
   unixSocket = import ./unix-socket.nix;
   socketUrl = import ./socket-url.nix;
+  url = import ./url.nix;
   ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
@@ -144,6 +145,12 @@ let
     typeName = "socketUrl";
     description = "a socket URL (<scheme>://<endpoint>; scheme tcp/udp/sctp/unix)";
     validator = socketUrl.isValid;
+  };
+
+  urlType = mkStrType {
+    typeName = "url";
+    description = "a URL (<scheme>://<host>[:port][/path][?query][#fragment])";
+    validator = url.isValid;
   };
 
   ipListenerType = mkStrType {
@@ -289,6 +296,7 @@ in
     endpoint = endpointType;
     unixSocket = unixSocketType;
     socketUrl = socketUrlType;
+    url = urlType;
     ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;

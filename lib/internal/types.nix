@@ -18,6 +18,7 @@ let
     mtu = "mtu";
     unixSocket = "unixSocket";
     socketUrl = "socketUrl";
+    url = "url";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -40,6 +41,7 @@ let
   isMtu = hasTag tags.mtu;
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
+  isUrl = hasTag tags.url;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -83,6 +85,7 @@ in
     isMtu
     isUnixSocket
     isSocketUrl
+    isUrl
     isIp
     ;
   inherit tryOk tryErr ensureTag;

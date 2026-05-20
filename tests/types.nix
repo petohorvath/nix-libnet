@@ -324,6 +324,48 @@ in
     expected = true;
   };
 
+  # ===== url =====
+  url-https-ok = {
+    expr = types.url.check "https://example.com/p?q=1#f";
+    expected = true;
+  };
+  url-scheme-ok = {
+    expr = types.url.check "redis://[::1]:6379";
+    expected = true;
+  };
+  url-underscore-host = {
+    expr = types.url.check "http://my_host:8080/x";
+    expected = true;
+  };
+  url-unknown-scheme = {
+    expr = types.url.check "gopher://h";
+    expected = false;
+  };
+  url-no-scheme = {
+    expr = types.url.check "example.com/x";
+    expected = false;
+  };
+  url-empty-host = {
+    expr = types.url.check "https:///path";
+    expected = false;
+  };
+  url-int = {
+    expr = types.url.check 42;
+    expected = false;
+  };
+  url-mk-ok = {
+    expr = types.url.mk "https://example.com/p";
+    expected = "https://example.com/p";
+  };
+  url-mk-bad = {
+    expr = throws (types.url.mk "gopher://h");
+    expected = true;
+  };
+  url-desc = {
+    expr = builtins.isString types.url.description;
+    expected = true;
+  };
+
   # ===== ipListener =====
   ipListener-null = {
     expr = types.ipListener.check ":80";

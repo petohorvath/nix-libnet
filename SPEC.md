@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"url"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form. (`"urlHost"` is an internal type used only inside `url`.)
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -32,7 +32,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 ## Non-Goals (v1)
 
 - No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
-- No *general* URL/URI parsing — no userinfo, query, fragment, percent-encoding, relative-reference resolution, or arbitrary schemes. The one exception is `libnet.socketUrl`, a bounded `<scheme>://<endpoint>` socket-address form over a fixed scheme set (`tcp`/`udp`/`sctp`/`unix`) that is just a serialization of `transport` + `endpoint`. A full URL type (`url`) remains out of scope. (`toUri` formatters may also emit bracketed IPv6 for URL consumers.)
+- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse two **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`) and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). Both store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes. (`toUri` formatters may also emit bracketed IPv6 for URL consumers.)
 - No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
 - No performance benchmarking commitments. Correctness first.
@@ -309,6 +309,38 @@ Invariants:
 This is the **only** URL form libnet parses — a bounded composition,
 not a general URL parser (see Non-Goals). Canonical text:
 `tcp://1.2.3.4:80`, `udp://[::1]:53`, `unix:///run/foo.sock`.
+
+### Url value
+```nix
+{
+  _type    = "url";
+  scheme   = <string>;            # lowercased; a key of url.schemes
+  userinfo = <string | null>;     # raw, opaque (may carry credentials)
+  host     = <urlHost value>;     # internal: IP-literal | reg-name
+  port     = <port value | null>; # explicit only; null ⇒ scheme default
+  path     = <string>;            # "" or "/…"; raw
+  query    = <string | null>;     # raw
+  fragment = <string | null>;     # raw
+}
+```
+An absolute hierarchical URL — the application-layer superset of
+`socketUrl`. Components are stored verbatim (no percent-decoding,
+normalization, or relative resolution). `host` is the URL-authority host
+(`urlHost`, an **internal** type), which is deliberately looser than
+`libnet.host`:
+
+| | `libnet.host` | `urlHost` (internal) |
+|---|---|---|
+| Grammar | `ip \| hostname \| domain` (RFC 1123) | `IP-literal \| IPv4 \| reg-name` (RFC 3986) |
+| IPv6 text | `::1` | `[::1]` (bracketed) |
+| Name charset | `[A-Za-z0-9-]` labels | adds `_` `~`, sub-delims, `%`-encoding; no label structure |
+| Composes into | endpoint family, interface | `url` only |
+
+Invariants:
+- `scheme` is a key of `url.schemes` (closed registry).
+- `port == null` ⇒ the scheme's default port applies (`effectivePort`).
+- A `regName` host that is not a valid DNS name is parse-only:
+  `toEndpoint` throws (no endpoint exists for it).
 
 ### IpListener value
 ```nix
@@ -1109,6 +1141,30 @@ A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libn
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is structural (transport + endpoint, so the dns part is case-insensitive). `compare` sorts by a fixed scheme rank (`tcp < udp < sctp < unix` — `transport` itself has no canonical order), then by endpoint.
 
 **Constant**: `schemes` = `[ "tcp" "udp" "sctp" "unix" ]`.
+
+### `libnet.url`
+
+An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is the internal `urlHost` (URL-authority host, looser than `libnet.host` — see the *Url value* section). `userinfo` is kept raw and opaque and may carry credentials.
+
+`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `h3` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Url` | Requires `scheme://authority`. Throws on unknown scheme, missing host, relative/opaque input. |
+| `tryParse` | `String → TryResult Url` | |
+| `toString` | `Url → String` | Round-trips; omits the port iff it was omitted on input. |
+| `make` | `{ scheme; host; port ? null; userinfo ? null; path ? ""; query ? null; fragment ? null } → Url` | `host` is a string (parsed); `port` an int or null. |
+
+**Predicates**: `isValid` (`String → Bool`), `is`, `isSecure` (from the scheme registry).
+
+**Accessors**: `scheme`, `userinfo`, `host` (→ urlHost), `port` (explicit, → Port/null), `effectivePort` (default-filled, → Port), `defaultPort` (Int), `path`, `query`, `fragment`, `transport` (→ Transport, from the scheme).
+
+**Conversions**: `toEndpoint` → `ipEndpoint`/`dnsEndpoint` from `host` + `effectivePort`; throws for reg-name hosts that aren't valid DNS names.
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Order: scheme, host, effectivePort, path, query, fragment. `eq` compares effective ports (so `https://h` equals `https://h:443`) and folds host case.
+
+**Constant**: `schemes`.
 
 ### `libnet.ipListener`
 
