@@ -324,6 +324,40 @@ in
     expected = true;
   };
 
+  # ===== secureSocketUrl =====
+  secureSocketUrl-tls = {
+    expr = types.secureSocketUrl.check "tls://1.2.3.4:443";
+    expected = true;
+  };
+  secureSocketUrl-ssl-alias = {
+    expr = types.secureSocketUrl.check "ssl://1.2.3.4:443";
+    expected = true;
+  };
+  secureSocketUrl-quic-v6 = {
+    expr = types.secureSocketUrl.check "quic://[::1]:443";
+    expected = true;
+  };
+  secureSocketUrl-plaintext-rejected = {
+    expr = types.secureSocketUrl.check "tcp://1.2.3.4:443";
+    expected = false;
+  };
+  secureSocketUrl-unix-rejected = {
+    expr = types.secureSocketUrl.check "unix:///run/foo.sock";
+    expected = false;
+  };
+  secureSocketUrl-mk-ok = {
+    expr = types.secureSocketUrl.mk "tls://1.2.3.4:443";
+    expected = "tls://1.2.3.4:443";
+  };
+  secureSocketUrl-mk-bad = {
+    expr = throws (types.secureSocketUrl.mk "tcp://x:1");
+    expected = true;
+  };
+  secureSocketUrl-desc = {
+    expr = builtins.isString types.secureSocketUrl.description;
+    expected = true;
+  };
+
   # ===== url =====
   url-https-ok = {
     expr = types.url.check "https://example.com/p?q=1#f";

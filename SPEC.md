@@ -32,7 +32,8 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 ## Non-Goals (v1)
 
 - No DNS resolution, hostname-to-IP lookups, or live DNS queries of any kind. (Reverse-DNS *name formatting* via `toArpa` IS provided — it's pure string construction with no lookups. *Hostname syntactic validation* — single-label RFC 1123 — is also in scope via `libnet.hostname`; what's prohibited is anything that resolves a name to an address.)
-- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse two **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`) and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). Both store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes.- No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
+- No *general* URL/URI processing — no percent-decoding, normalization, relative-reference resolution, or arbitrary/unknown schemes. libnet does parse three **bounded** URL forms: `libnet.socketUrl` (a `<scheme>://<endpoint>` socket address = `transport` + `endpoint`), `libnet.secureSocketUrl` (its TLS-secured peer = a secured-transport scheme `tls`/`ssl`/`dtls`/`quic` + `endpoint`), and `libnet.url` (absolute hierarchical `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]` over a closed scheme registry). All store components **verbatim** — userinfo/path/query/fragment are carried, not decoded or interpreted — and reject opaque URIs (`mailto:`, `urn:`) and unknown schemes.
+- No zone identifiers (`fe80::1%eth0`). Rare in Nix configs; defer to v2 if demanded.
 - No IPX, AppleTalk, or historical address families.
 - No performance benchmarking commitments. Correctness first.
 - Core library never imports `nixpkgs.lib`. NixOS `lib.types.*`-compatible option types ARE provided, but only through the opt-in `libnet.withLib lib` entry point so the core stays dep-free.
@@ -305,9 +306,39 @@ Invariants:
 - Otherwise `transport` is `tcp`/`udp`/`sctp` and `endpoint` is an
   `ipEndpoint` or `dnsEndpoint`.
 
-This is the **only** URL form libnet parses — a bounded composition,
-not a general URL parser (see Non-Goals). Canonical text:
-`tcp://1.2.3.4:80`, `udp://[::1]:53`, `unix:///run/foo.sock`.
+A **bounded** composition (`transport` + `endpoint`), not a general URL
+parser (see Non-Goals). The plaintext L4 peer of `secureSocketUrl`.
+Canonical text: `tcp://1.2.3.4:80`, `udp://[::1]:53`,
+`unix:///run/foo.sock`.
+
+### SecureSocketUrl value
+```nix
+{
+  _type    = "secureSocketUrl";
+  scheme   = <"tls" | "dtls" | "quic">;   # canonical; `ssl` ⇒ `tls`
+  endpoint = <ipEndpoint | dnsEndpoint>;   # never a unixSocket
+}
+```
+A TLS-secured socket address in URL form, `<scheme>://<endpoint>` — the
+secured peer of `socketUrl`. Every scheme implies TLS, so `secure` is a
+constant of the type (always true) rather than a stored field, and the
+`transport` is derived from the scheme.
+
+The scheme is the stored identity because `dtls` and `quic` are both
+"UDP + TLS" — a `transport` + `secure` flag could not tell them apart.
+It borrows `url`'s closed-registry mechanism but none of url's
+application-layer parts (no userinfo, path, query, fragment, or
+scheme-default port).
+
+Invariants:
+- `scheme` is a key of `secureSocketUrl.schemes` (`tls`/`dtls`/`quic`);
+  `ssl` is accepted on parse as an alias of `tls` and canonicalized.
+- `transport` is `tcp` for `tls`, `udp` for `dtls`/`quic`.
+- `endpoint` is an `ipEndpoint` or `dnsEndpoint` (there is no `unix`
+  scheme); the port is always explicit (no scheme defaults).
+
+Canonical text: `tls://1.2.3.4:443`, `dtls://[::1]:5684`,
+`quic://example.com:443`.
 
 ### Url value
 ```nix
@@ -1113,7 +1144,7 @@ A Unix domain socket address — a complete connection target with no port (the 
 
 ### `libnet.socketUrl`
 
-A socket address in URL form, `<scheme>://<endpoint>` — the one URL shape libnet parses (a bounded composition of `transport` + `endpoint`, **not** a general URL parser; see Non-Goals). Schemes: `tcp` / `udp` / `sctp` carry an IP or DNS endpoint; `unix` carries a socket path (no port). Stored as `{ transport; endpoint }` with `transport == null` iff the endpoint is a `unixSocket`.
+A socket address in URL form, `<scheme>://<endpoint>` — a bounded composition of `transport` + `endpoint` (**not** a general URL parser; see Non-Goals). Schemes: `tcp` / `udp` / `sctp` carry an IP or DNS endpoint; `unix` carries a socket path (no port). Stored as `{ transport; endpoint }` with `transport == null` iff the endpoint is a `unixSocket`. For the TLS-secured peer (`tls`/`ssl`/`dtls`/`quic`), see `libnet.secureSocketUrl`.
 
 **Parsing & formatting**
 | Function | Signature | Notes |
@@ -1162,6 +1193,31 @@ An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?qu
 | Function | Signature | Notes |
 |---|---|---|
 | `parse` | `String → Url` | Requires `scheme://authority`. Throws on unknown scheme, missing host, relative/opaque input. |
+### `libnet.secureSocketUrl`
+
+A TLS-secured socket address in URL form, `<scheme>://<endpoint>` — the secured peer of `socketUrl` (same shape, but every scheme implies TLS). A bounded composition, **not** a general URL parser. `secureSocketUrl.schemes` is a **closed** registry, `scheme → { transport }`: `tls` (TLS over TCP), `dtls` (DTLS over UDP), `quic` (QUIC over UDP — TLS 1.3 mandatory). `ssl` is accepted on parse as an alias of `tls`. There is no `unix` scheme and no scheme-default port. The scheme is the stored identity (with `transport` derived) so that `dtls` and `quic` — both UDP+TLS — stay distinct.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → SecureSocketUrl` | Splits `<scheme>://<endpoint>`. Lowercases the scheme; `ssl` ⇒ `tls`. Rejects unknown/plaintext schemes, `unix`, paths, and bad endpoints. |
+| `tryParse` | `String → TryResult SecureSocketUrl` | |
+| `toString` | `SecureSocketUrl → String` | `<scheme>://<endpoint>`; emits canonical `tls://` even from `ssl://`. |
+| `make` | `String → Endpoint → SecureSocketUrl` | Validates the scheme (alias-resolved); rejects a unix-socket endpoint. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `String → Bool` | |
+| `is` | `Any → Bool` | |
+| `isSecure` | `SecureSocketUrl → Bool` | Always `true` — every scheme is TLS-secured. |
+
+**Accessors**: `scheme` (→ String), `endpoint` (→ Endpoint), `transport` (→ Transport, derived from the scheme).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. `eq` is structural (scheme + endpoint — so `dtls` ≠ `quic`, and the dns part is case-insensitive). `compare` sorts by a fixed scheme rank (`tls < dtls < quic`), then by endpoint.
+
+**Constants**: `schemes` (the registry attrset), `aliases` = `{ ssl = "tls"; }`.
+
 | `tryParse` | `String → TryResult Url` | |
 | `toString` | `Url → String` | Round-trips; omits the port iff it was omitted on input. |
 | `make` | `{ scheme; host; port ? null; userinfo ? null; path ? ""; query ? null; fragment ? null } → Url` | `host` is a string (parsed); `port` an int or null. |

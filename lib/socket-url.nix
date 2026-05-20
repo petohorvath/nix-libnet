@@ -1,10 +1,11 @@
 /*
   libnet.socketUrl
 
-  A socket address in URL form: `<scheme>://<endpoint>`. The one URL
-  shape libnet parses — a bounded composition of `transport` and
-  `endpoint`, *not* a general URL parser (no userinfo, query, fragment,
-  percent-encoding, or relative resolution; see `url` in SPEC Non-Goals).
+  A socket address in URL form: `<scheme>://<endpoint>`. A bounded
+  composition of `transport` and `endpoint`, *not* a general URL parser
+  (no userinfo, query, fragment, percent-encoding, or relative
+  resolution; see `url` in SPEC Non-Goals). For the TLS-secured peer
+  (`tls`/`ssl`/`dtls`/`quic`), see `secureSocketUrl`.
 
   Schemes:
   - `tcp` / `udp` / `sctp` → an IP or DNS endpoint follows

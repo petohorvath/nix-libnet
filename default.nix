@@ -12,6 +12,7 @@ let
     endpoint = import ./lib/endpoint.nix;
     unixSocket = import ./lib/unix-socket.nix;
     socketUrl = import ./lib/socket-url.nix;
+    secureSocketUrl = import ./lib/secure-socket-url.nix;
     url = import ./lib/url.nix;
     urlHost = import ./lib/url-host.nix;
     ipListener = import ./lib/ip-listener.nix;

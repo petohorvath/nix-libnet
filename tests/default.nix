@@ -29,6 +29,7 @@ let
     // prefix "endpoint" (tryImport "endpoint.nix")
     // prefix "unixSocket" (tryImport "unix-socket.nix")
     // prefix "socketUrl" (tryImport "socket-url.nix")
+    // prefix "secureSocketUrl" (tryImport "secure-socket-url.nix")
     // prefix "url" (tryImport "url.nix")
     // prefix "urlHost" (tryImport "url-host.nix")
     // prefix "ipListener" (tryImport "ip-listener.nix")

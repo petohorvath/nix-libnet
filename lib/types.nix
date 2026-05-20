@@ -27,6 +27,7 @@ let
   endpoint = import ./endpoint.nix;
   unixSocket = import ./unix-socket.nix;
   socketUrl = import ./socket-url.nix;
+  secureSocketUrl = import ./secure-socket-url.nix;
   url = import ./url.nix;
   urlHost = import ./url-host.nix;
   ipListener = import ./ip-listener.nix;
@@ -149,6 +150,12 @@ let
   };
 
   urlType = mkStrType {
+  secureSocketUrlType = mkStrType {
+    typeName = "secureSocketUrl";
+    description = "a TLS-secured socket URL (<scheme>://<endpoint>; scheme tls/ssl/dtls/quic)";
+    validator = secureSocketUrl.isValid;
+  };
+
     typeName = "url";
     description = "a URL (<scheme>://<host>[:port][/path][?query][#fragment])";
     validator = url.isValid;
@@ -310,6 +317,7 @@ in
     ipRange = ipRangeType;
     interface = interfaceType;
     ipv4Interface = ipv4InterfaceType;
+    secureSocketUrl = secureSocketUrlType;
     ipv6Interface = ipv6InterfaceType;
     interfaceName = interfaceNameType;
     transport = transportType;

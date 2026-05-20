@@ -18,6 +18,7 @@ let
     mtu = "mtu";
     unixSocket = "unixSocket";
     socketUrl = "socketUrl";
+    secureSocketUrl = "secureSocketUrl";
     url = "url";
     urlHost = "urlHost";
   };
@@ -43,6 +44,7 @@ let
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
   isUrl = hasTag tags.url;
+  isSecureSocketUrl = hasTag tags.secureSocketUrl;
   isUrlHost = hasTag tags.urlHost;
   isIp = v: isIpv4 v || isIpv6 v;
 
@@ -89,6 +91,7 @@ in
     isSocketUrl
     isUrl
     isUrlHost
+    isSecureSocketUrl
     isIp
     ;
   inherit tryOk tryErr ensureTag;

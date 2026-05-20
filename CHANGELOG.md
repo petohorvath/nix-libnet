@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.secureSocketUrl` — a TLS-secured socket address in URL form,
+  `<scheme>://<endpoint>` (`tls://1.2.3.4:443`, `dtls://[::1]:5684`,
+  `quic://example.com:443`). The secured peer of `socketUrl`: same
+  `scheme://host:port` shape, but every scheme implies TLS. Stored as
+  `{ _type = "secureSocketUrl"; scheme = <"tls" | "dtls" | "quic">;
+  endpoint = <ipEndpoint | dnsEndpoint>; }` — the scheme is the stored
+  identity (with `transport` derived) because `dtls` and `quic` are both
+  UDP+TLS and a transport-plus-flag form could not tell them apart.
+  Closed scheme registry `tls`/`dtls`/`quic`; `ssl` is accepted on parse
+  as an alias of `tls` and canonicalized; there is no `unix` scheme and
+  no scheme-default port (the endpoint carries an explicit port). API:
+  parse / tryParse / toString / make / isValid / is / isSecure (always
+  true) / scheme / endpoint / transport + comparison (`tls < dtls <
+  quic`, then endpoint) + `schemes` / `aliases` constants. Opt-in module
+  type `libnet.types.secureSocketUrl`. The "no general URL parsing"
+  non-goal now carves out three bounded forms (`socketUrl`,
+  `secureSocketUrl`, `url`).
 - `libnet.socketUrl` — a socket address in URL form,
   `<scheme>://<endpoint>` (`tcp://1.2.3.4:80`, `udp://[::1]:53`,
   `unix:///run/foo.sock`). Stored as the underlying `transport` +
