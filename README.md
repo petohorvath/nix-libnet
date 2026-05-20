@@ -128,9 +128,9 @@ Port is the one exception: `types.port` coerces to int.
 **No nixpkgs in the core.** All logic is pure Nix builtins. Module-type support
 is opt-in via `libnet.withLib lib` to keep the core usable in dep-free contexts.
 
-**100% test coverage target.** 828 core tests + 53 module-type tests, covering
-every public function, every `throws` branch, every predicate (positive and
-negative), every CIDR prefix boundary, every arithmetic carry/borrow case.
+**Comprehensive test coverage.** Every public function, every `throws` branch,
+every predicate (positive and negative), every CIDR prefix boundary, and every
+arithmetic carry/borrow case is exercised.
 
 ## Running the tests
 

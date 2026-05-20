@@ -1,10 +1,10 @@
 /*
   libnet.types
 
-  NixOS option-type integration. Produces string-backed option types
-  (ipv4, ipv6, ip, mac, cidr, port, portRange, ipEndpoint, listener,
-  ipRange, interface, interfaceName) plus `.mk` coercers that validate
-  and return the string.
+  NixOS option-type integration. Exposes a `libnet.types.<name>`
+  option type for each libnet value — backed by that value's
+  validator and paired with a `.mk` coercer that validates its input.
+  The `types` attrset below is the authoritative list.
 
   Requires `nixpkgs.lib`. This and `lib/with-lib.nix` are the only
   files allowed to consume injected lib; reach this module only
