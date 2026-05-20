@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.authority` — the URL authority component (RFC 3986 §3.2),
+  `[userinfo@]host[:port]`, extracted from `libnet.url` as a first-class
+  public type. Stored as `{ _type = "authority"; userinfo = <string |
+  null>; host = <urlHost value>; port = <port value | null>; }`. `url`
+  now parses its authority through this module (no behaviour change — the
+  authority parser and `splitHostPort` moved out of `url.nix`), and the
+  type is usable standalone. API: parse / tryParse / toString / make /
+  isValid / is / userinfo / host / port + comparison. Comparison is
+  structural and **includes** userinfo (an authority is exactly its
+  text), with ports compared as-stored — unlike `url`, which ignores
+  userinfo and folds scheme-default ports. Opt-in module type
+  `libnet.types.authority`.
 - `libnet.secureSocketUrl` — a TLS-secured socket address in URL form,
   `<scheme>://<endpoint>` (`tls://1.2.3.4:443`, `dtls://[::1]:5684`,
   `quic://example.com:443`). The secured peer of `socketUrl`: same

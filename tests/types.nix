@@ -442,6 +442,44 @@ in
     expected = true;
   };
 
+  # ===== authority =====
+  authority-host-only = {
+    expr = types.authority.check "example.com";
+    expected = true;
+  };
+  authority-userinfo-port = {
+    expr = types.authority.check "user@example.com:8443";
+    expected = true;
+  };
+  authority-ipv6 = {
+    expr = types.authority.check "[::1]:80";
+    expected = true;
+  };
+  authority-empty-rejected = {
+    expr = types.authority.check "";
+    expected = false;
+  };
+  authority-multi-at-rejected = {
+    expr = types.authority.check "a@b@h";
+    expected = false;
+  };
+  authority-int = {
+    expr = types.authority.check 42;
+    expected = false;
+  };
+  authority-mk-ok = {
+    expr = types.authority.mk "user@h:80";
+    expected = "user@h:80";
+  };
+  authority-mk-bad = {
+    expr = throws (types.authority.mk "a@b@c");
+    expected = true;
+  };
+  authority-desc = {
+    expr = builtins.isString types.authority.description;
+    expected = true;
+  };
+
   # ===== ipListener =====
   ipListener-null = {
     expr = types.ipListener.check ":80";

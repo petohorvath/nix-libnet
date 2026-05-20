@@ -21,6 +21,7 @@ let
     secureSocketUrl = "secureSocketUrl";
     url = "url";
     urlHost = "urlHost";
+    authority = "authority";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -43,9 +44,10 @@ let
   isMtu = hasTag tags.mtu;
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
-  isUrl = hasTag tags.url;
   isSecureSocketUrl = hasTag tags.secureSocketUrl;
+  isUrl = hasTag tags.url;
   isUrlHost = hasTag tags.urlHost;
+  isAuthority = hasTag tags.authority;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -89,9 +91,10 @@ in
     isMtu
     isUnixSocket
     isSocketUrl
+    isSecureSocketUrl
     isUrl
     isUrlHost
-    isSecureSocketUrl
+    isAuthority
     isIp
     ;
   inherit tryOk tryErr ensureTag;

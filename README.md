@@ -98,6 +98,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.secureSocketUrl`](./lib/secure-socket-url.nix) | TLS-secured socket URL `<scheme>://<endpoint>` (tls/ssl/dtls/quic); secured peer of `socketUrl`; scheme-derived transport, `ssl`⇒`tls` |
 | [`libnet.url`](./lib/url.nix) | absolute URL `<scheme>://[user@]host[:port][/path][?query][#frag]` over a closed scheme registry; parse, toEndpoint, accessors; components stored verbatim |
 | [`libnet.urlHost`](./lib/url-host.nix) | URL-authority host (RFC 3986 IP-literal/reg-name); looser than `host`; parse, toHost, isIp/isRegName |
+| [`libnet.authority`](./lib/authority.nix) | URL authority `[user@]host[:port]` (RFC 3986 §3.2); shared core of `url`, usable standalone; parse, make, accessors, comparison |
 | [`libnet.ipListener`](./lib/ip-listener.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.listener`](./lib/listener.nix) | pass-through union over ipListener + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |

@@ -340,6 +340,32 @@ Invariants:
 Canonical text: `tls://1.2.3.4:443`, `dtls://[::1]:5684`,
 `quic://example.com:443`.
 
+### Authority value
+```nix
+{
+  _type    = "authority";
+  userinfo = <string | null>;     # raw, opaque (may carry credentials)
+  host     = <urlHost value>;     # libnet.urlHost: IP-literal | reg-name
+  port     = <port value | null>; # explicit only; no scheme default
+}
+```
+The authority component of a URL (RFC 3986 §3.2),
+`[userinfo@]host[:port]` — the shared core of `libnet.url`, extracted as
+a first-class type. `url` parses its authority through this module, and
+the type is also usable standalone (a proxy or registry authority, a
+server address, etc.). Components are stored verbatim; the `host` is a
+`libnet.urlHost` (looser than `libnet.host` — see the table below).
+
+Invariants:
+- `host` is a valid `urlHost` (never empty).
+- `port == null` when omitted — an authority has no scheme, so there is
+  no default-port notion (contrast `url.effectivePort`).
+- `eq` / `compare` are structural and **include** `userinfo` (an
+  authority is exactly its text); `url`, by contrast, ignores userinfo
+  and folds scheme-default ports.
+
+Canonical text: `example.com`, `host:8443`, `user@[::1]:443`.
+
 ### Url value
 ```nix
 {
@@ -1167,32 +1193,6 @@ A socket address in URL form, `<scheme>://<endpoint>` — a bounded composition 
 
 **Constant**: `schemes` = `[ "tcp" "udp" "sctp" "unix" ]`.
 
-### `libnet.urlHost`
-
-The host component of a URL authority (RFC 3986 §3.2.2) — the `host` field of `libnet.url`, and usable standalone. Deliberately **not** `libnet.host`: a URL host is `IP-literal | IPv4 | reg-name`, where reg-name is a loose ASCII set (`unreserved` incl. `_`/`~`, sub-delims, `%`-encoding) with no DNS label structure — looser and less composable than `libnet.host` (see the table in *Url value*).
-
-Value: `{ _type = "urlHost"; kind = "ip" | "regName"; ip = <ip | null>; name = <string | null>; }`.
-
-| Group | Members |
-|---|---|
-| Parsing/formatting | `parse`, `tryParse`, `toString` (re-brackets IPv6) |
-| Predicates | `isValid`, `is`, `isIp`, `isRegName` |
-| Conversion | `toHost` → `libnet.host` when it's an IP or a reg-name that's a valid `dnsName`; `null` otherwise |
-| Comparison | `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` (IP-literals before reg-names; case-folded names) |
-| Constant | `regNamePattern` |
-
-There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url` or `urlHost.isValid`.
-
-### `libnet.url`
-
-An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials.
-
-`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject. Default ports are sourced from `registry.ports` — the single source of truth for port numbers.
-
-**Parsing & formatting**
-| Function | Signature | Notes |
-|---|---|---|
-| `parse` | `String → Url` | Requires `scheme://authority`. Throws on unknown scheme, missing host, relative/opaque input. |
 ### `libnet.secureSocketUrl`
 
 A TLS-secured socket address in URL form, `<scheme>://<endpoint>` — the secured peer of `socketUrl` (same shape, but every scheme implies TLS). A bounded composition, **not** a general URL parser. `secureSocketUrl.schemes` is a **closed** registry, `scheme → { transport }`: `tls` (TLS over TCP), `dtls` (DTLS over UDP), `quic` (QUIC over UDP — TLS 1.3 mandatory). `ssl` is accepted on parse as an alias of `tls`. There is no `unix` scheme and no scheme-default port. The scheme is the stored identity (with `transport` derived) so that `dtls` and `quic` — both UDP+TLS — stay distinct.
@@ -1218,6 +1218,50 @@ A TLS-secured socket address in URL form, `<scheme>://<endpoint>` — the secure
 
 **Constants**: `schemes` (the registry attrset), `aliases` = `{ ssl = "tls"; }`.
 
+### `libnet.urlHost`
+
+The host component of a URL authority (RFC 3986 §3.2.2) — the `host` field of `libnet.url`, and usable standalone. Deliberately **not** `libnet.host`: a URL host is `IP-literal | IPv4 | reg-name`, where reg-name is a loose ASCII set (`unreserved` incl. `_`/`~`, sub-delims, `%`-encoding) with no DNS label structure — looser and less composable than `libnet.host` (see the table in *Url value*).
+
+Value: `{ _type = "urlHost"; kind = "ip" | "regName"; ip = <ip | null>; name = <string | null>; }`.
+
+| Group | Members |
+|---|---|
+| Parsing/formatting | `parse`, `tryParse`, `toString` (re-brackets IPv6) |
+| Predicates | `isValid`, `is`, `isIp`, `isRegName` |
+| Conversion | `toHost` → `libnet.host` when it's an IP or a reg-name that's a valid `dnsName`; `null` otherwise |
+| Comparison | `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` (IP-literals before reg-names; case-folded names) |
+| Constant | `regNamePattern` |
+
+There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url` or `urlHost.isValid`.
+
+### `libnet.authority`
+
+The authority component of a URL (RFC 3986 §3.2), `[userinfo@]host[:port]` — the shared core of `libnet.url`, extracted so it can be parsed and compared on its own (e.g. a proxy or registry authority). `host` is a `libnet.urlHost`; `userinfo` is raw/opaque (may carry credentials); `port` is explicit or null (an authority has no scheme, hence no default port). Components are stored verbatim. `url` parses its own authority through this module.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Authority` | Splits `[userinfo@]host[:port]` (bracketed-IPv6 aware). Rejects empty/missing host, multiple `@`, and bad ports. |
+| `tryParse` | `String → TryResult Authority` | |
+| `toString` | `Authority → String` | `[userinfo@]host[:port]`. |
+| `make` | `{ host; userinfo ? null; port ? null } → Authority` | `host` is a string (parsed); `port` an int or null. |
+
+**Predicates**: `isValid` (`String → Bool`), `is`.
+
+**Accessors**: `userinfo` (→ String/null), `host` (→ urlHost), `port` (→ Port/null).
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max`. Structural: `compare` orders by host, then port (null first), then userinfo; `eq` includes userinfo and folds host case. Unlike `url`, userinfo is part of identity and ports are compared as-stored (no scheme default).
+
+### `libnet.url`
+
+An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials. The `[userinfo@]host[:port]` authority is parsed by `libnet.authority`; `url` stores its `userinfo`/`host`/`port` fields flat.
+
+`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject. Default ports are sourced from `registry.ports` — the single source of truth for port numbers.
+
+**Parsing & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `parse` | `String → Url` | Requires `scheme://authority`. Throws on unknown scheme, missing host, relative/opaque input. |
 | `tryParse` | `String → TryResult Url` | |
 | `toString` | `Url → String` | Round-trips; omits the port iff it was omitted on input. |
 | `make` | `{ scheme; host; port ? null; userinfo ? null; path ? ""; query ? null; fragment ? null } → Url` | `host` is a string (parsed); `port` an int or null. |

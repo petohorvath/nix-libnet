@@ -25,6 +25,7 @@ let
   parse' = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
   urlHost = import ./url-host.nix;
+  authority = import ./authority.nix;
   port = import ./port.nix;
   transport = import ./transport.nix;
   ipEndpoint = import ./ip-endpoint.nix;
@@ -91,82 +92,6 @@ let
 
   # ===== Parsing =====
 
-  # Split "[userinfo@]host[:port]" into { host; portStr }, or null.
-  splitHostPort =
-    hp:
-    if parse'.startsWith "[" hp then
-      let
-        parts = parse'.splitOn "]" hp;
-      in
-      if builtins.length parts < 2 then
-        null
-      else
-        let
-          host = (builtins.elemAt parts 0) + "]";
-          after = builtins.concatStringsSep "]" (builtins.tail parts);
-        in
-        if after == "" then
-          {
-            inherit host;
-            portStr = null;
-          }
-        else if parse'.startsWith ":" after then
-          {
-            inherit host;
-            portStr = parse'.stripPrefix ":" after;
-          }
-        else
-          null
-    else
-      let
-        parts = parse'.splitOn ":" hp;
-        n = builtins.length parts;
-      in
-      if n == 1 then
-        {
-          host = hp;
-          portStr = null;
-        }
-      else if n == 2 then
-        {
-          host = builtins.elemAt parts 0;
-          portStr = builtins.elemAt parts 1;
-        }
-      else
-        null;
-
-  parseAuthority =
-    a:
-    let
-      atParts = parse'.splitOn "@" a;
-      nAt = builtins.length atParts;
-    in
-    if nAt > 2 then
-      types.tryErr "libnet.url.parse: malformed userinfo (multiple '@')"
-    else
-      let
-        userinfo = if nAt == 2 then builtins.elemAt atParts 0 else null;
-        hostport = builtins.elemAt atParts (nAt - 1);
-        hp = splitHostPort hostport;
-      in
-      if hp == null then
-        types.tryErr "libnet.url.parse: malformed authority \"${a}\""
-      else
-        let
-          hostRes = urlHost.tryParse hp.host;
-          portRes = if hp.portStr == null then null else port.tryParse hp.portStr;
-        in
-        if !hostRes.success then
-          types.tryErr "libnet.url.parse: invalid host \"${hp.host}\""
-        else if portRes != null && !portRes.success then
-          types.tryErr "libnet.url.parse: invalid port \"${hp.portStr}\""
-        else
-          types.tryOk {
-            inherit userinfo;
-            host = hostRes.value;
-            port = if portRes == null then null else portRes.value;
-          };
-
   tryParse =
     s:
     if !(builtins.isString s) then
@@ -202,13 +127,13 @@ let
               else
                 null;
             slashParts = parse'.splitOn "/" beforeQuery;
-            authority = builtins.elemAt slashParts 0;
+            authorityStr = builtins.elemAt slashParts 0;
             path =
               if builtins.length slashParts > 1 then
                 "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
               else
                 "";
-            authR = parseAuthority authority;
+            authR = authority.tryParse authorityStr;
           in
           if !authR.success then
             authR

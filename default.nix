@@ -15,6 +15,7 @@ let
     secureSocketUrl = import ./lib/secure-socket-url.nix;
     url = import ./lib/url.nix;
     urlHost = import ./lib/url-host.nix;
+    authority = import ./lib/authority.nix;
     ipListener = import ./lib/ip-listener.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;

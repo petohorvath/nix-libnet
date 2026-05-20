@@ -30,6 +30,7 @@ let
   secureSocketUrl = import ./secure-socket-url.nix;
   url = import ./url.nix;
   urlHost = import ./url-host.nix;
+  authority = import ./authority.nix;
   ipListener = import ./ip-listener.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
@@ -149,13 +150,13 @@ let
     validator = socketUrl.isValid;
   };
 
-  urlType = mkStrType {
   secureSocketUrlType = mkStrType {
     typeName = "secureSocketUrl";
     description = "a TLS-secured socket URL (<scheme>://<endpoint>; scheme tls/ssl/dtls/quic)";
     validator = secureSocketUrl.isValid;
   };
 
+  urlType = mkStrType {
     typeName = "url";
     description = "a URL (<scheme>://<host>[:port][/path][?query][#fragment])";
     validator = url.isValid;
@@ -165,6 +166,12 @@ let
     typeName = "urlHost";
     description = "a URL-authority host (RFC 3986 IP-literal or reg-name; looser than host)";
     validator = urlHost.isValid;
+  };
+
+  authorityType = mkStrType {
+    typeName = "authority";
+    description = "a URL authority ([userinfo@]host[:port])";
+    validator = authority.isValid;
   };
 
   ipListenerType = mkStrType {
@@ -310,14 +317,15 @@ in
     endpoint = endpointType;
     unixSocket = unixSocketType;
     socketUrl = socketUrlType;
+    secureSocketUrl = secureSocketUrlType;
     url = urlType;
     urlHost = urlHostType;
+    authority = authorityType;
     ipListener = ipListenerType;
     listener = listenerType;
     ipRange = ipRangeType;
     interface = interfaceType;
     ipv4Interface = ipv4InterfaceType;
-    secureSocketUrl = secureSocketUrlType;
     ipv6Interface = ipv6InterfaceType;
     interfaceName = interfaceNameType;
     transport = transportType;
