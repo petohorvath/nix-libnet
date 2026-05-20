@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"url"`, `"urlHost"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipListener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -1232,7 +1232,7 @@ Value: `{ _type = "urlHost"; kind = "ip" | "regName"; ip = <ip | null>; name = <
 | Comparison | `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` (IP-literals before reg-names; case-folded names) |
 | Constant | `regNamePattern` |
 
-There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url` or `urlHost.isValid`.
+The opt-in module type `libnet.types.urlHost` validates a URL-authority host (backed by `urlHost.isValid`).
 
 ### `libnet.authority`
 
@@ -1587,6 +1587,10 @@ nix-libnet/
 │   ├── endpoint.nix
 │   ├── unix-socket.nix
 │   ├── socket-url.nix
+│   ├── secure-socket-url.nix
+│   ├── url.nix
+│   ├── url-host.nix
+│   ├── authority.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
@@ -1598,6 +1602,7 @@ nix-libnet/
 │   ├── host.nix             # Pass-through union over ip + dnsName
 │   ├── vlan-id.nix
 │   ├── mtu.nix
+│   ├── registry.nix         # Well-known ports & protocol-number constants
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
 │   └── internal/
@@ -1610,6 +1615,8 @@ nix-libnet/
 ├── tests/
 │   ├── default.nix          # Imports every test file, runs the harness
 │   ├── harness.nix          # Hand-rolled test runner (no nixpkgs dep)
+│   ├── bits.nix
+│   ├── carry.nix
 │   ├── ipv4.nix
 │   ├── ipv6.nix
 │   ├── mac.nix
@@ -1622,6 +1629,10 @@ nix-libnet/
 │   ├── endpoint.nix
 │   ├── unix-socket.nix
 │   ├── socket-url.nix
+│   ├── secure-socket-url.nix
+│   ├── url.nix
+│   ├── url-host.nix
+│   ├── authority.nix
 │   ├── ip-listener.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
@@ -1633,7 +1644,13 @@ nix-libnet/
 │   ├── host.nix
 │   ├── vlan-id.nix
 │   ├── mtu.nix
-│   └── types.nix            # Module-type tests; opt-in, require `lib` as arg
+│   ├── registry.nix
+│   ├── types.nix            # Module-type tests; opt-in, require `lib` as arg
+│   └── internal/
+│       ├── dns-label.nix
+│       ├── format.nix
+│       ├── parse.nix
+│       └── types.nix
 ├── README.md                # Overview, quick start, API index (links to lib/ files)
 ├── CHANGELOG.md
 └── LICENSE                  # Suggest MIT or 0BSD (user confirms at impl time)
