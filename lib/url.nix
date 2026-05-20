@@ -55,11 +55,6 @@ let
       transport = "tcp";
       secure = true;
     };
-    h3 = {
-      defaultPort = 443;
-      transport = "udp";
-      secure = true;
-    };
     ftp = {
       defaultPort = 21;
       transport = "tcp";

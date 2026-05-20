@@ -1161,7 +1161,7 @@ There is no `libnet.types.urlHost`; validate URL-authority hosts via `libnet.url
 
 An absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path][?query][#fragment]`. The application-layer superset of `socketUrl`: it adds scheme-default ports, the path/query/fragment, and userinfo. Bounded: absolute hierarchical URLs only (no relative references, no opaque URIs); components are stored verbatim. The `host` is a `libnet.urlHost` (URL-authority host, looser than `libnet.host` — see its section). `userinfo` is kept raw and opaque and may carry credentials.
 
-`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `h3` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject.
+`url.schemes` is a **closed** registry, `scheme → { defaultPort; transport; secure }`: `http` `https` `ws` `wss` `ftp` `ftps` `sftp` `tftp` `ssh` `telnet` `rdp` `vnc` `ldap` `ldaps` `postgres` `mysql` `mongodb` `redis` `amqp` `amqps` `mqtt` `mqtts` `git` `svn` `rsync` `coap` `coaps` `irc` `ircs` `xmpp`. Unknown scheme ⇒ reject.
 
 **Parsing & formatting**
 | Function | Signature | Notes |

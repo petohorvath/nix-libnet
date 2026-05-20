@@ -150,10 +150,6 @@ in
     expr = url.isSecure (p "http://h");
     expected = false;
   };
-  isSecure-h3 = {
-    expr = url.isSecure (p "h3://h");
-    expected = true;
-  };
 
   # ===== Accessors =====
   acc-scheme = {
@@ -189,7 +185,7 @@ in
     expected = "tcp";
   };
   acc-transport-udp = {
-    expr = (url.transport (p "h3://h")).value;
+    expr = (url.transport (p "coap://h")).value;
     expected = "udp";
   };
 
@@ -212,7 +208,7 @@ in
   };
   schemes-count = {
     expr = builtins.length (builtins.attrNames url.schemes);
-    expected = 31;
+    expected = 30;
   };
 
   # ===== toEndpoint =====
