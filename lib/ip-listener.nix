@@ -103,7 +103,12 @@ let
 
   tryParseV4Form =
     s:
-    if parse'.countOccurrences ":" s != 1 then
+    let
+      colons = parse'.countOccurrences ":" s;
+    in
+    if colons == 0 then
+      types.tryErr "libnet.ipListener.parse: missing ':port' in \"${s}\""
+    else if colons > 1 then
       types.tryErr "libnet.ipListener.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
     else
       let
