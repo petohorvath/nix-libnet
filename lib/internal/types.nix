@@ -6,7 +6,7 @@ let
     cidr = "cidr";
     port = "port";
     portRange = "portRange";
-    endpoint = "endpoint";
+    ipEndpoint = "ipEndpoint";
     listener = "listener";
     ipRange = "ipRange";
     interface = "interface";
@@ -23,7 +23,7 @@ let
   isCidr = hasTag tags.cidr;
   isPort = hasTag tags.port;
   isPortRange = hasTag tags.portRange;
-  isEndpoint = hasTag tags.endpoint;
+  isIpEndpoint = hasTag tags.ipEndpoint;
   isListener = hasTag tags.listener;
   isIpRange = hasTag tags.ipRange;
   isInterface = hasTag tags.interface;
@@ -61,7 +61,7 @@ in
     isCidr
     isPort
     isPortRange
-    isEndpoint
+    isIpEndpoint
     isListener
     isIpRange
     isInterface

@@ -2,7 +2,7 @@
   libnet.types
 
   NixOS option-type integration. Produces string-backed option types
-  (ipv4, ipv6, ip, mac, cidr, port, portRange, endpoint, listener,
+  (ipv4, ipv6, ip, mac, cidr, port, portRange, ipEndpoint, listener,
   ipRange, interface, interfaceName) plus `.mk` coercers that validate
   and return the string.
 
@@ -22,7 +22,7 @@ let
   mac = import ./mac.nix;
   cidr = import ./cidr.nix;
   portRange = import ./port-range.nix;
-  endpoint = import ./endpoint.nix;
+  ipEndpoint = import ./ip-endpoint.nix;
   listener = import ./listener.nix;
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
@@ -110,10 +110,10 @@ let
     validator = portRange.isValid;
   };
 
-  endpointType = mkStrType {
-    typeName = "endpoint";
-    description = "an endpoint (host:port or [ipv6]:port)";
-    validator = endpoint.isValid;
+  ipEndpointType = mkStrType {
+    typeName = "ipEndpoint";
+    description = "an IP endpoint (addr:port or [ipv6]:port)";
+    validator = ipEndpoint.isValid;
   };
 
   listenerType = mkStrType {
@@ -242,7 +242,7 @@ in
     ipv6Cidr = ipv6CidrType;
     port = portType;
     portRange = portRangeType;
-    endpoint = endpointType;
+    ipEndpoint = ipEndpointType;
     listener = listenerType;
     ipRange = ipRangeType;
     interface = interfaceType;

@@ -35,8 +35,8 @@ let
     from = port;
     to = port;
   };
-  endpoint = {
-    _type = "endpoint";
+  ipEndpoint = {
+    _type = "ipEndpoint";
     address = ipv4;
     port = port;
   };
@@ -98,9 +98,9 @@ in
     expr = types.tags.portRange;
     expected = "portRange";
   };
-  tags-endpoint = {
-    expr = types.tags.endpoint;
-    expected = "endpoint";
+  tags-ipEndpoint = {
+    expr = types.tags.ipEndpoint;
+    expected = "ipEndpoint";
   };
   tags-listener = {
     expr = types.tags.listener;
@@ -178,8 +178,8 @@ in
     expr = types.isPortRange portRange;
     expected = true;
   };
-  isEndpoint-yes = {
-    expr = types.isEndpoint endpoint;
+  isIpEndpoint-yes = {
+    expr = types.isIpEndpoint ipEndpoint;
     expected = true;
   };
   isListener-yes = {
@@ -234,8 +234,8 @@ in
     expr = types.isPort null;
     expected = false;
   };
-  isEndpoint-untagged = {
-    expr = types.isEndpoint untagged;
+  isIpEndpoint-untagged = {
+    expr = types.isIpEndpoint untagged;
     expected = false;
   };
 

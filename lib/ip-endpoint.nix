@@ -1,14 +1,14 @@
 /*
-  libnet.endpoint
+  libnet.ipEndpoint
 
   An IP address paired with a port. Parses the v4 dotted form
   ("host:port") and the v6 bracketed form ("[host]:port").
 
   Example:
-    libnet.endpoint.parse "192.0.2.1:8080"
-    => { _type = "endpoint"; address = <ipv4>; port = <port 8080>; }
+    libnet.ipEndpoint.parse "192.0.2.1:8080"
+    => { _type = "ipEndpoint"; address = <ipv4>; port = <port 8080>; }
 
-    libnet.endpoint.toString (libnet.endpoint.parse "[2001:db8::1]:80")
+    libnet.ipEndpoint.toString (libnet.ipEndpoint.parse "[2001:db8::1]:80")
     => "[2001:db8::1]:80"
 */
 let
@@ -19,7 +19,7 @@ let
   port = import ./port.nix;
 
   mk = addr: pt: {
-    _type = "endpoint";
+    _type = "ipEndpoint";
     address = addr;
     port = pt;
   };
@@ -33,7 +33,7 @@ let
       parts = parse'.splitOn "]:" s;
     in
     if builtins.length parts != 2 then
-      types.tryErr "libnet.endpoint.parse: malformed bracketed form \"${s}\""
+      types.tryErr "libnet.ipEndpoint.parse: malformed bracketed form \"${s}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -43,16 +43,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addrStr == null then
-        types.tryErr "libnet.endpoint.parse: missing '[' in \"${s}\""
+        types.tryErr "libnet.ipEndpoint.parse: missing '[' in \"${s}\""
       else
         let
           addrRes = ipv6.tryParse addrStr;
           portRes = port.tryParse portStr;
         in
         if !addrRes.success then
-          types.tryErr "libnet.endpoint.parse: invalid IPv6 in \"${s}\""
+          types.tryErr "libnet.ipEndpoint.parse: invalid IPv6 in \"${s}\""
         else if !portRes.success then
-          types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
+          types.tryErr "libnet.ipEndpoint.parse: invalid port in \"${s}\""
         else
           types.tryOk (mk addrRes.value portRes.value);
 
@@ -60,7 +60,7 @@ let
   tryParseV4Form =
     s:
     if parse'.countOccurrences ":" s != 1 then
-      types.tryErr "libnet.endpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
+      types.tryErr "libnet.ipEndpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
     else
       let
         parts = parse'.splitOn ":" s;
@@ -70,16 +70,16 @@ let
         portRes = port.tryParse portStr;
       in
       if !addrRes.success then
-        types.tryErr "libnet.endpoint.parse: invalid IPv4 in \"${s}\""
+        types.tryErr "libnet.ipEndpoint.parse: invalid IPv4 in \"${s}\""
       else if !portRes.success then
-        types.tryErr "libnet.endpoint.parse: invalid port in \"${s}\""
+        types.tryErr "libnet.ipEndpoint.parse: invalid port in \"${s}\""
       else
         types.tryOk (mk addrRes.value portRes.value);
 
   tryParse =
     s:
     if !(builtins.isString s) then
-      types.tryErr "libnet.endpoint.parse: input must be a string"
+      types.tryErr "libnet.ipEndpoint.parse: input must be a string"
     else if parse'.startsWith "[" s then
       tryParseBracketed s
     else
@@ -107,16 +107,16 @@ let
   make =
     addr: pt:
     if !(types.isIp addr) then
-      builtins.throw "libnet.endpoint.make: address must be ipv4 or ipv6"
+      builtins.throw "libnet.ipEndpoint.make: address must be ipv4 or ipv6"
     else if !(types.isPort pt) then
-      builtins.throw "libnet.endpoint.make: expected port value"
+      builtins.throw "libnet.ipEndpoint.make: expected port value"
     else
       mk addr pt;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = types.isEndpoint;
+  is = types.isIpEndpoint;
   isIpv4 = ep: types.isIpv4 ep.address;
   isIpv6 = ep: types.isIpv6 ep.address;
 

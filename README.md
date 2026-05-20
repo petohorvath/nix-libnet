@@ -1,13 +1,13 @@
 # libnet
 
-Pure-Nix library for IP, MAC, CIDR, port, endpoint, listener, range, and
+Pure-Nix library for IP, MAC, CIDR, port, ipEndpoint, listener, range, and
 interface values. Zero nixpkgs dependency in the core.
 
 - **IPv4**, **IPv6**, **MAC** addresses — parse, format, predicates, arithmetic, comparison
 - **CIDR** — network math, containment, iteration, subnet/supernet, set algebra
   (summarize/exclude/intersect)
 - **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.wellKnownPorts`](./lib/registry.nix)
-- **Endpoint** (`ADDR:PORT`) + **Listener** (`[ADDR]:PORT[-END]`) — RFC 3986 bracketed IPv6
+- **IpEndpoint** (`ADDR:PORT`) + **Listener** (`[ADDR]:PORT[-END]`) — RFC 3986 bracketed IPv6
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
 - **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
 - **Reverse DNS** (`toArpa`) for both families
@@ -32,9 +32,9 @@ let
                 (libnet.cidr.parse "2001:db8::/64")
                 macAddr;                             # 2001:db8::a8bb:ccff:fedd:eeff
 
-  ep        = libnet.endpoint.parse "[::1]:443";
-  host      = libnet.endpoint.address ep;            # ::1
-  p         = libnet.endpoint.port ep;               # 443
+  ep        = libnet.ipEndpoint.parse "[::1]:443";
+  addr      = libnet.ipEndpoint.address ep;          # ::1
+  p         = libnet.ipEndpoint.port ep;             # 443
 
   listener  = libnet.listener.parse ":8080-8082";
   isWild    = libnet.listener.isAnyAddress listener; # true
@@ -89,7 +89,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.cidr`](./lib/cidr.nix) | parse, network, broadcast, netmask, hostAt(n), hosts, contains, subnet, supernet, summarize, exclude, intersect |
 | [`libnet.port`](./lib/port.nix) | parse, predicates (isWellKnown/…), arithmetic, comparison |
 | [`libnet.portRange`](./lib/port-range.nix) | parse (hyphen/colon), merge, contains, ports, toStringColon |
-| [`libnet.endpoint`](./lib/endpoint.nix) | parse (RFC 3986 bracketed), toUri, forwarded address predicates |
+| [`libnet.ipEndpoint`](./lib/ip-endpoint.nix) | IP addr:port, parse (RFC 3986 bracketed), toUri, forwarded address predicates |
 | [`libnet.listener`](./lib/listener.nix) | parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |

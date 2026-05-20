@@ -10,7 +10,7 @@ Community libraries have filled the gap with different tradeoffs:
 - **oddlama/nixos-extra-modules** — string-based, unified dispatch, production-grade but no structured types.
 - **nixpkgs GSoC 2024 PRs #318712, #322004** — IPv6 parser + basic operations using 8 × u16 groups; **not merged**, no IPv4 work, no MAC.
 
-This specification defines **libnet**, a pure-Nix library with zero nixpkgs dependency, covering IPv4, IPv6, MAC, CIDR, port numbers, port ranges, endpoints (`ADDR:PORT`), listeners (`[ADDR]:PORT[-END]`), non-CIDR address ranges (`1.2.3.4-1.2.3.10`), interface descriptors (address + network), reverse-DNS formatting (`*.in-addr.arpa`, IPv6 nibble), CIDR set algebra (summarize / exclude / intersect), EUI-64 derivation (RFC 4291), well-known port constants, and a bogon predicate. This document is the specification only — no code is written in this phase.
+This specification defines **libnet**, a pure-Nix library with zero nixpkgs dependency, covering IPv4, IPv6, MAC, CIDR, port numbers, port ranges, IP endpoints (`ADDR:PORT`), listeners (`[ADDR]:PORT[-END]`), non-CIDR address ranges (`1.2.3.4-1.2.3.10`), interface descriptors (address + network), reverse-DNS formatting (`*.in-addr.arpa`, IPv6 nibble), CIDR set algebra (summarize / exclude / intersect), EUI-64 derivation (RFC 4291), well-known port constants, and a bogon predicate. This document is the specification only — no code is written in this phase.
 
 **Standards referenced**:
 - RFC 791 (IPv4), RFC 4291 (IPv6 addressing architecture), RFC 5952 (IPv6 canonical text form)
@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"endpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -42,7 +42,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Spec scope | Comprehensive: IPv4, IPv6, MAC, CIDR, Port, PortRange, Endpoint, Listener, IpRange, Interface — plus reverse-DNS (`toArpa`), EUI-64 derivation, CIDR set algebra (`summarize`/`exclude`/`intersect`), well-known port constants, bogon predicate | User answers across multiple iterations. One coherent API rather than iterative expansion. |
+| Spec scope | Comprehensive: IPv4, IPv6, MAC, CIDR, Port, PortRange, IpEndpoint, Listener, IpRange, Interface — plus reverse-DNS (`toArpa`), EUI-64 derivation, CIDR set algebra (`summarize`/`exclude`/`intersect`), well-known port constants, bogon predicate | User answers across multiple iterations. One coherent API rather than iterative expansion. |
 | IPv6 internal representation | 4 × u32 words | User answer 2. Simpler carry math than 8 × u16; u32 comfortably fits Nix's signed 64-bit ints (max 2⁶³−1 ≈ 9.2 × 10¹⁸). |
 | Namespace | Flat per-family + unified `ip.*` | User answer 3. `libnet.ipv4.*`, `libnet.ipv6.*`, `libnet.mac.*`, `libnet.cidr.*`, `libnet.ip.*`. |
 | IPv4 internal representation | single u32 int | 32 bits fits natively. Simplest possible arithmetic. |
@@ -56,7 +56,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 | Type exposure | Pure-Nix structural predicates (`*.is`) always available; NixOS `lib.types.*`-compatible module types opt-in via `libnet.withLib lib` | User answer 4. Core stays dep-free; module integration unlocked only when caller injects `nixpkgs.lib`. |
 | Port internal representation | single int in `[0, 65535]` | 16 bits fits natively; simplest math. |
 | PortRange internal representation | `{ _type; from; to; }` with `from <= to` | Contiguous range is the only shape we support (no disjoint sets in v1). |
-| Endpoint internal representation | `{ _type; address; port; }` with both required | Fully-specified destination; mirrors RFC 3986 authority. |
+| IpEndpoint internal representation | `{ _type; address; port; }` with both required | Fully-specified destination; mirrors RFC 3986 authority. |
 | Listener internal representation | `{ _type; address; portRange; }` with `address` nullable | Relaxed form for listen/bind; port is always a range (possibly size 1). |
 | IpRange internal representation | `{ _type; from; to; }` — both same-family tagged addresses, `to >= from` | Non-CIDR contiguous range. Parallels portRange for addresses. |
 | Interface internal representation | `{ _type; name; address; prefix; }` where `name`, `address`, `prefix` are each nullable (at least one of `name`/`address` is non-null; `address` and `prefix` are paired). | Combines Python's `IPv4Interface` / `IPv6Interface` (address-on-a-subnet) with a Linux ifname carrier. A value may be addr-only (classic CIDR-style), name-only (bare ifname), or both. Distinct from cidr by type tag: cidr is "here is network Y"; interface is "host X / device N is on network Y". `interface.network` derives the canonical cidr from an addr-carrying value. |
@@ -208,19 +208,19 @@ A single rule applies everywhere, so cross-type behavior is predictable:
 - **Containment (`contains`, `isSubnetOf`, `isSupernetOf`, `overlaps`, `isSubrangeOf`, `isSuperrangeOf`)**: always `false` when the two arguments are of different address family. Never throws.
 - **Arithmetic (`add`/`sub`/`diff`/`next`/`prev`)**: throws on overflow/underflow past the type's range; `diff` on cross-family Ipv4/Ipv6 via `libnet.ip.diff` throws.
 
-### Endpoint vs Listener — conceptual split
+### IpEndpoint vs Listener — conceptual split
 
-Endpoint and Listener solve different problems:
+IpEndpoint and Listener solve different problems:
 
-- **Endpoint** = *"connect to where?"* A fully-resolved outbound destination. Both address and port are required. No wildcards. Directly dialable. Think: outbound HTTP target, upstream proxy, database URL.
+- **IpEndpoint** = *"connect to where?"* A fully-resolved outbound destination. Both address and port are required. No wildcards. Directly dialable. Think: outbound HTTP target, upstream proxy, database URL.
 - **Listener** = *"listen how?"* A server-side listen/accept configuration. Address may be `null` (wildcard — accept on any interface); port is always a range (may be size 1). Think: `systemd ListenStream=`, `nginx listen`, firewall allow-rule.
 
-Keeping them as distinct types gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete endpoints (throws if the address is null); wrapping an endpoint as a listener is a one-liner and does not warrant a dedicated helper.
+Keeping them as distinct types gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. Conversion is asymmetric: `listener.endpoints` materializes a listener into concrete `ipEndpoint` values (throws if the address is null); wrapping an `ipEndpoint` as a listener is a one-liner and does not warrant a dedicated helper.
 
-### Endpoint value
+### IpEndpoint value
 ```nix
 {
-  _type = "endpoint";
+  _type = "ipEndpoint";
   address = <ipv4 value | ipv6 value>;   # required, never null
   port    = <port value>;                 # required
 }
@@ -235,7 +235,7 @@ Fully-specified destination for "connect". Canonical text form follows RFC 3986:
   portRange = <portRange value>;                  # always a range, may be size 1
 }
 ```
-Listen/bind target with relaxed semantics: address may be absent (means "any interface"), and the port portion may be a range. Canonical text form: `[address]:from[-to]` where the address bracket rule matches endpoint, and `-to` is omitted when `from == to`. Empty address renders as `:8080`. Input accepts `*`, `any`, `0.0.0.0`, `[::]`, or missing address as equivalent wildcards.
+Listen/bind target with relaxed semantics: address may be absent (means "any interface"), and the port portion may be a range. Canonical text form: `[address]:from[-to]` where the address bracket rule matches ipEndpoint, and `-to` is omitted when `from == to`. Empty address renders as `:8080`. Input accepts `*`, `any`, `0.0.0.0`, `[::]`, or missing address as equivalent wildcards.
 
 ### IpRange value
 ```nix
@@ -287,7 +287,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `cidr` | `address` (Ipv4/Ipv6) | `prefix` (int) |
 | `ipv6` | — | `words` (list of int) |
 | `portRange` | `from`, `to` (Port, Port) | — |
-| `endpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
+| `ipEndpoint` | `address` (Ipv4/Ipv6), `port` (Port) | — |
 | `listener` | `address` (Ipv4/Ipv6/null), `portRange` (PortRange) | — |
 | `ipRange` | `from`, `to` (Ipv4/Ipv6) | — |
 | `interface` | `address` (Ipv4/Ipv6/null) | `prefix` (int/null), `name` (string/null) |
@@ -811,44 +811,44 @@ Bounded-int validator for IP MTU values. Same shape as `vlanId`: minimal surface
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on `(from, to)`. Same pattern as ipv4/ipv6/mac.
 
-### `libnet.endpoint`
+### `libnet.ipEndpoint`
 
 **Parsing & formatting** (RFC 3986 § 3.2)
 | Function | Signature | Notes |
 |---|---|---|
-| `parse` | `String → Endpoint` | IPv4: `"1.2.3.4:80"`. IPv6: `"[::1]:80"` — brackets **required** to disambiguate. Throws on unbracketed IPv6, missing port, or invalid parts. |
-| `tryParse` | `String → TryResult Endpoint` |
-| `toString` | `Endpoint → String` | Canonical: IPv4 unbracketed, IPv6 bracketed. |
-| `toUri` | `Endpoint → String` | Alias — always emits URI-authority form. |
-| `make` | `(Ipv4 | Ipv6) → Port → Endpoint` | Combine pre-parsed address and port. |
+| `parse` | `String → IpEndpoint` | IPv4: `"1.2.3.4:80"`. IPv6: `"[::1]:80"` — brackets **required** to disambiguate. Throws on unbracketed IPv6, missing port, or invalid parts. |
+| `tryParse` | `String → TryResult IpEndpoint` |
+| `toString` | `IpEndpoint → String` | Canonical: IPv4 unbracketed, IPv6 bracketed. |
+| `toUri` | `IpEndpoint → String` | Alias — always emits URI-authority form. |
+| `make` | `(Ipv4 | Ipv6) → Port → IpEndpoint` | Combine pre-parsed address and port. |
 
 **Predicates**
 | Function | Signature | Notes |
 |---|---|---|
 | `isValid` | `String → Bool` |
 | `is` | `Any → Bool` |
-| `isIpv4` / `isIpv6` | `Endpoint → Bool` |
+| `isIpv4` / `isIpv6` | `IpEndpoint → Bool` |
 
 **Accessors**
 | Function | Signature | Notes |
 |---|---|---|
-| `address` | `Endpoint → Ipv4 | Ipv6` |
-| `port` | `Endpoint → Port` |
-| `version` | `Endpoint → Int` | `4` or `6` (family of the address). |
+| `address` | `IpEndpoint → Ipv4 | Ipv6` |
+| `port` | `IpEndpoint → Port` |
+| `version` | `IpEndpoint → Int` | `4` or `6` (family of the address). |
 
-**Forwarded predicates & formatters** (apply to the endpoint's address component — same set as `libnet.ip`):
+**Forwarded predicates & formatters** (apply to the ipEndpoint's address component — same set as `libnet.ip`):
 | Function | Signature | Notes |
 |---|---|---|
-| `isLoopback` | `Endpoint → Bool` |
-| `isUnspecified` | `Endpoint → Bool` |
-| `isLinkLocal` | `Endpoint → Bool` |
-| `isMulticast` | `Endpoint → Bool` |
-| `isDocumentation` | `Endpoint → Bool` |
-| `isGlobal` | `Endpoint → Bool` |
-| `isBogon` | `Endpoint → Bool` |
-| `toArpa` | `Endpoint → String` |
+| `isLoopback` | `IpEndpoint → Bool` |
+| `isUnspecified` | `IpEndpoint → Bool` |
+| `isLinkLocal` | `IpEndpoint → Bool` |
+| `isMulticast` | `IpEndpoint → Bool` |
+| `isDocumentation` | `IpEndpoint → Bool` |
+| `isGlobal` | `IpEndpoint → Bool` |
+| `isBogon` | `IpEndpoint → Bool` |
+| `toArpa` | `IpEndpoint → String` |
 
-Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT forwarded; call them via `ipv4.isPrivate (endpoint.address e)` to stay explicit about family.
+Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT forwarded; call them via `ipv4.isPrivate (ipEndpoint.address e)` to stay explicit about family.
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, port)`. Mixed family uses the same lenient v4-before-v6 rule as `libnet.ip.compare`.
 
@@ -897,9 +897,9 @@ Family-specific predicates (e.g. ipv4 `isPrivate`, ipv6 `isUniqueLocal`) are NOT
 **Expansion & interop**
 | Function | Signature | Notes |
 |---|---|---|
-| `endpoints` | `Listener → [Endpoint]` | Materialize each port into a concrete endpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
-| `endpointsUnbounded` | `Listener → [Endpoint]` | No size guard. Caller's responsibility. |
-| `endpointAt` | `Int → Listener → Endpoint` | Pick the n-th port from the range as a concrete endpoint. Operator-first curry order, parallels `cidr.hostAt`. Throws on null address or out-of-range n. |
+| `endpoints` | `Listener → [IpEndpoint]` | Materialize each port into a concrete ipEndpoint. Requires a non-null address; throws otherwise. Respects the `ports` size guard (4096); use `endpointsUnbounded` to bypass. Parallels `cidr.hosts` / `portRange.ports` / `ipRange.addresses`. |
+| `endpointsUnbounded` | `Listener → [IpEndpoint]` | No size guard. Caller's responsibility. |
+| `endpointAt` | `Int → Listener → IpEndpoint` | Pick the n-th port from the range as a concrete ipEndpoint. Operator-first curry order, parallels `cidr.hostAt`. Throws on null address or out-of-range n. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — compare by `(version, address, portRange)`. Null address sorts before any non-null address. Mixed family follows the lenient v4-before-v6 rule.
 
@@ -1070,7 +1070,7 @@ in {
 | `types.ipv6Cidr` | String. Validates parseable AND family is IPv6. | String. |
 | `types.port` | Int (0..65535) or String (decimal digits). | Int — coerced from string if needed. Ports are the one case where int is the more natural representation. |
 | `types.portRange` | String (`from-to` or single `port`). | String. |
-| `types.endpoint` | String (RFC 3986 `host:port` or `[IPv6]:port`). | String. |
+| `types.ipEndpoint` | String (RFC 3986 `addr:port` or `[IPv6]:port`, IP only). | String. |
 | `types.listener` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.ipRange` | String (`from-to`). | String. |
 | `types.interface` | String (`<addr>/<prefix>`, host bits preserved). | String. |
@@ -1131,7 +1131,7 @@ nix-libnet/
 │   ├── ip.nix               # Unified dispatch namespace
 │   ├── port.nix
 │   ├── port-range.nix
-│   ├── endpoint.nix
+│   ├── ip-endpoint.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
@@ -1160,7 +1160,7 @@ nix-libnet/
 │   ├── ip.nix
 │   ├── port.nix
 │   ├── port-range.nix
-│   ├── endpoint.nix
+│   ├── ip-endpoint.nix
 │   ├── listener.nix
 │   ├── ip-range.nix
 │   ├── interface.nix
@@ -1366,7 +1366,7 @@ Once the spec is approved, implementation proceeds in dependency order:
 11. **`lib/interface.nix`** + tests — depends on ipv4/ipv6/cidr.
 12. **`lib/port.nix`** + tests — trivial type plus well-known-port constants; unblocks endpoint/listener.
 13. **`lib/port-range.nix`** + tests — depends on `port`.
-14. **`lib/endpoint.nix`** + tests — depends on `ipv4`, `ipv6`, `port`.
+14. **`lib/ip-endpoint.nix`** + tests — depends on `ipv4`, `ipv6`, `port`.
 15. **`lib/listener.nix`** + tests — depends on `ipv4`, `ipv6`, `portRange`.
 16. **`lib/types.nix` + `lib/with-lib.nix`** + tests — NixOS module type wrappers; tests require `lib` as arg and are skipped from the default suite.
 17. **`default.nix`** — compose everything into a single attrset exposing core API + `withLib`.
@@ -1428,7 +1428,7 @@ Items below are deliberately excluded from v1 but would be worth adding in subse
 ### Hard non-goals — will NOT land (matching Non-Goals section)
 
 - DNS resolution, hostname ↔ IP lookups, live queries of any kind
-- URL / URI parsing (beyond the `[addr]:port` authority fragment already covered by Endpoint)
+- URL / URI parsing (beyond the `[addr]:port` authority fragment already covered by IpEndpoint)
 - Full network interface configuration (user builds on top)
 - GeoIP, WHOIS, ASN, or any feature requiring external data files
 - TLS certificate handling, crypto keys, anything in the security domain

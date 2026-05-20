@@ -7,7 +7,7 @@ let
     cidr = import ./lib/cidr.nix;
     port = import ./lib/port.nix;
     portRange = import ./lib/port-range.nix;
-    endpoint = import ./lib/endpoint.nix;
+    ipEndpoint = import ./lib/ip-endpoint.nix;
     listener = import ./lib/listener.nix;
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;

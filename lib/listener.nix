@@ -19,7 +19,7 @@ let
   ipv6 = import ./ipv6.nix;
   port = import ./port.nix;
   portRange = import ./port-range.nix;
-  endpoint = import ./endpoint.nix;
+  ipEndpoint = import ./ip-endpoint.nix;
 
   mk = addr: pr: {
     _type = "listener";
@@ -246,7 +246,7 @@ let
       let
         ports = portRange.portsUnbounded lst.portRange;
       in
-      map (pt: endpoint.make lst.address pt) ports;
+      map (pt: ipEndpoint.make lst.address pt) ports;
 
   endpoints =
     lst:
@@ -273,7 +273,7 @@ let
         let
           pt = port.add idx lst.portRange.from;
         in
-        endpoint.make lst.address pt;
+        ipEndpoint.make lst.address pt;
 
   # ===== Comparison =====
 

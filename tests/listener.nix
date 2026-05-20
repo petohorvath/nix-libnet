@@ -5,7 +5,7 @@ let
   ipv6 = import ../lib/ipv6.nix;
   port = import ../lib/port.nix;
   pr = import ../lib/port-range.nix;
-  endpoint = import ../lib/endpoint.nix;
+  ipEndpoint = import ../lib/ip-endpoint.nix;
   inherit (harness) throws;
   p = lst.parse;
 in
@@ -166,7 +166,7 @@ in
 
   # ===== Expansion =====
   endpoints = {
-    expr = map endpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
+    expr = map ipEndpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
     expected = [
       "1.2.3.4:80"
       "1.2.3.4:81"
@@ -174,7 +174,7 @@ in
     ];
   };
   endpoints-v6 = {
-    expr = map endpoint.toString (lst.endpoints (p "[::1]:80-81"));
+    expr = map ipEndpoint.toString (lst.endpoints (p "[::1]:80-81"));
     expected = [
       "[::1]:80"
       "[::1]:81"
@@ -190,15 +190,15 @@ in
   };
 
   endpointAt-0 = {
-    expr = endpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
+    expr = ipEndpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:80";
   };
   endpointAt-2 = {
-    expr = endpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
+    expr = ipEndpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
   endpointAt-neg = {
-    expr = endpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
+    expr = ipEndpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
   endpointAt-oob = {

@@ -74,12 +74,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value stays a string. The namespace is `transport` rather than
   `proto` to keep the layer explicit and leave room for separate
   network-layer / application-layer enums in the future.
-- Initial specification (`SPEC.md`) covering IPv4, IPv6, MAC, CIDR, Port, PortRange, Endpoint, Listener, Range, Interface types with a pure-Nix, zero-nixpkgs-dependency API.
+- Initial specification (`SPEC.md`) covering IPv4, IPv6, MAC, CIDR, Port, PortRange, IpEndpoint, Listener, Range, Interface types with a pure-Nix, zero-nixpkgs-dependency API.
 - Pure-Nix test harness (`tests/harness.nix`) with no external dependencies.
 - Full v1 implementation of all 11 type namespaces:
   - `lib/ipv4.nix`, `lib/ipv6.nix`, `lib/ip.nix`, `lib/mac.nix`, `lib/cidr.nix`
   - `lib/port.nix` (with 31 well-known service constants), `lib/port-range.nix`
-  - `lib/endpoint.nix`, `lib/listener.nix`, `lib/ip-range.nix`, `lib/interface.nix`
+  - `lib/ip-endpoint.nix`, `lib/listener.nix`, `lib/ip-range.nix`, `lib/interface.nix`
 - Internal primitives: `lib/internal/{bits,carry,parse,format,types}.nix`
 - Opt-in NixOS module types via `libnet.withLib pkgs.lib` (see `lib/types.nix`).
 - `default.nix` + `flake.nix` entry points.

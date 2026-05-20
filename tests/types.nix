@@ -166,17 +166,17 @@ in
     expected = false;
   };
 
-  # ===== endpoint =====
-  endpoint-v4-ok = {
-    expr = types.endpoint.check "1.2.3.4:80";
+  # ===== ipEndpoint =====
+  ipEndpoint-v4-ok = {
+    expr = types.ipEndpoint.check "1.2.3.4:80";
     expected = true;
   };
-  endpoint-v6-ok = {
-    expr = types.endpoint.check "[::1]:80";
+  ipEndpoint-v6-ok = {
+    expr = types.ipEndpoint.check "[::1]:80";
     expected = true;
   };
-  endpoint-bad = {
-    expr = types.endpoint.check "::1:80";
+  ipEndpoint-bad = {
+    expr = types.ipEndpoint.check "::1:80";
     expected = false;
   };
 
