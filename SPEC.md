@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"listener"`, `"ipRange"`, `"interface"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -178,6 +178,30 @@ Per-label rules are shared with `Hostname` via the internal helper
 `lib/internal/dns-label.nix` — one source of truth for "is this a
 valid DNS label?".
 
+### VlanId value
+```nix
+{
+  _type = "vlanId";
+  value = <int>;   # 1 .. 4094
+}
+```
+Invariant: `value` is in `[1, 4094]` (IEEE 802.1Q usable range; 0 and
+4095 excluded). Tagged like `Port`; constructed via `fromInt` (no
+string form). The `libnet.types.vlanId` option type coerces to a bare
+int, like `types.port`.
+
+### Mtu value
+```nix
+{
+  _type = "mtu";
+  value = <int>;   # 68 .. 65535
+}
+```
+Invariant: `value` is in `[68, 65535]` (RFC 791 forwarding floor
+through the IPv4 wire-format maximum). Tagged like `Port`; constructed
+via `fromInt`. The `libnet.types.mtu` option type coerces to a bare
+int.
+
 ### PortRange value
 ```nix
 {
@@ -308,6 +332,8 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `transport` | — | `value` (enum string) |
 | `hostname` | — | `value` (RFC 1123 single-label string) |
 | `domain` | — | `value` (RFC 1123 multi-label dotted string) |
+| `vlanId` | — | `value` (int 1..4094) |
+| `mtu` | — | `value` (int 68..65535) |
 
 Composite sub-values that are first-class types in their own right (Port, Ipv4, Ipv6) are stored tagged so the same algebra (`port.le`, `ipv4.compare`, etc.) applies whether the value travels alone or inside a composite. Pure indices like `cidr.prefix` stay as raw ints because they have no algebra of their own.
 
@@ -778,12 +804,22 @@ The orderings are non-overlapping except for IP-shaped strings (dotted-quad), wh
 
 ### `libnet.vlanId`
 
-Bounded-int validator for IEEE 802.1Q VLAN IDs. The 12-bit VLAN tag has 4096 possible values, of which 1..4094 are usable: 0 is the priority-tagged / untagged sentinel and 4095 is reserved for implementation use. This module is intentionally minimal — a VLAN ID is just an int with a range. No tagged value, no parser, no arithmetic.
+IEEE 802.1Q VLAN ID — a tagged int in `[1, 4094]`. The 12-bit VLAN tag has 4096 possible values, of which 1..4094 are usable: 0 is the priority-tagged / untagged sentinel and 4095 is reserved. Tagged like `libnet.port` so a validated VLAN ID is distinguishable from a bare int (`is`). No string `parse` — VLAN IDs are written as integers, so the constructor is `fromInt`.
+
+**Conversion & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `fromInt` | `Int → VlanId` | Throws if out of range. |
+| `toInt` | `VlanId → Int` |
+| `toString` | `VlanId → String` | Decimal. |
 
 **Predicates**
 | Function | Signature | Notes |
 |---|---|---|
-| `isValid` | `Int → Bool` | Returns `true` iff the input is an int in `[1, 4094]`. Rejects non-ints (returns `false` rather than throwing). |
+| `isValid` | `Int → Bool` | Int (not String) predicate: `true` iff the int is in `[1, 4094]`. Rejects non-ints. |
+| `is` | `Any → Bool` | Structural: value is a `{_type="vlanId";…}`. |
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — numeric on `value`.
 
 **Constants**
 | Constant | Value |
@@ -793,12 +829,22 @@ Bounded-int validator for IEEE 802.1Q VLAN IDs. The 12-bit VLAN tag has 4096 pos
 
 ### `libnet.mtu`
 
-Bounded-int validator for IP MTU values. Same shape as `vlanId`: minimal surface, no tagged value, no algebra. Range is `[68, 65535]` — the lower bound is RFC 791's minimum forwarding MTU (and the floor Linux's `ip link set mtu` accepts), the upper bound is the IPv4 / IPv6 wire-format maximum (the 16-bit Total Length field in the IPv4 header). This is a syntactic floor (kernel will accept it), not a semantic recommendation; real-world MTUs are typically in `[1280, 9000]`.
+IP MTU — a tagged int in `[68, 65535]`. Same shape as `vlanId`. The lower bound is RFC 791's minimum forwarding MTU (and the floor Linux's `ip link set mtu` accepts), the upper bound is the IPv4 / IPv6 wire-format maximum (the 16-bit Total Length field). This is a syntactic floor (kernel will accept it), not a semantic recommendation; real-world MTUs are typically in `[1280, 9000]`.
+
+**Conversion & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `fromInt` | `Int → Mtu` | Throws if out of range. |
+| `toInt` | `Mtu → Int` |
+| `toString` | `Mtu → String` | Decimal. |
 
 **Predicates**
 | Function | Signature | Notes |
 |---|---|---|
-| `isValid` | `Int → Bool` | Returns `true` iff the input is an int in `[68, 65535]`. Rejects non-ints (returns `false` rather than throwing). |
+| `isValid` | `Int → Bool` | Int (not String) predicate: `true` iff the int is in `[68, 65535]`. Rejects non-ints. |
+| `is` | `Any → Bool` | Structural: value is a `{_type="mtu";…}`. |
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — numeric on `value`.
 
 **Constants**
 | Constant | Value |

@@ -14,6 +14,8 @@ let
     transport = "transport";
     hostname = "hostname";
     domain = "domain";
+    vlanId = "vlanId";
+    mtu = "mtu";
   };
 
   hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
@@ -32,6 +34,8 @@ let
   isTransport = hasTag tags.transport;
   isHostname = hasTag tags.hostname;
   isDomain = hasTag tags.domain;
+  isVlanId = hasTag tags.vlanId;
+  isMtu = hasTag tags.mtu;
   isIp = v: isIpv4 v || isIpv6 v;
 
   tryOk = value: {
@@ -71,6 +75,8 @@ in
     isTransport
     isHostname
     isDomain
+    isVlanId
+    isMtu
     isIp
     ;
   inherit tryOk tryErr ensureTag;

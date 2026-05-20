@@ -75,6 +75,14 @@ let
     _type = "domain";
     value = "example.com";
   };
+  vlanId = {
+    _type = "vlanId";
+    value = 100;
+  };
+  mtu = {
+    _type = "mtu";
+    value = 1500;
+  };
 
   untagged = {
     value = 0;
@@ -137,6 +145,14 @@ in
   tags-domain = {
     expr = types.tags.domain;
     expected = "domain";
+  };
+  tags-vlanId = {
+    expr = types.tags.vlanId;
+    expected = "vlanId";
+  };
+  tags-mtu = {
+    expr = types.tags.mtu;
+    expected = "mtu";
   };
 
   # ===== hasTag =====
@@ -220,6 +236,14 @@ in
   };
   isDomain-yes = {
     expr = types.isDomain domain;
+    expected = true;
+  };
+  isVlanId-yes = {
+    expr = types.isVlanId vlanId;
+    expected = true;
+  };
+  isMtu-yes = {
+    expr = types.isMtu mtu;
     expected = true;
   };
 

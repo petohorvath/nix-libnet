@@ -100,8 +100,8 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.domain`](./lib/domain.nix) | multi-label DNS name (>=2 labels), parent, isSubdomainOf, toHostname, normalize, case-insensitive eq/compare |
 | [`libnet.dnsName`](./lib/dns-name.nix) | pass-through union over hostname + domain (rejects IP literals); the "name" half of host |
 | [`libnet.host`](./lib/host.nix) | pass-through union over ip + dnsName; dispatches on input shape (no new tag) |
-| [`libnet.vlanId`](./lib/vlan-id.nix) | IEEE 802.1Q VLAN ID validator (int in [1, 4094]); isValid + boundary constants |
-| [`libnet.mtu`](./lib/mtu.nix) | IP MTU validator (int in [68, 65535]); isValid + boundary constants |
+| [`libnet.vlanId`](./lib/vlan-id.nix) | IEEE 802.1Q VLAN ID (tagged int in [1, 4094]); fromInt/toInt, isValid, comparison |
+| [`libnet.mtu`](./lib/mtu.nix) | IP MTU (tagged int in [68, 65535]); fromInt/toInt, isValid, comparison |
 | [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `wellKnownPorts.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 

@@ -1,7 +1,7 @@
 { harness }:
 let
   mtu = import ../lib/mtu.nix;
-  _ = harness; # not used directly; tests are pure predicates.
+  inherit (harness) throws;
 in
 {
   # ===== valid range =====
@@ -86,5 +86,75 @@ in
   highestValue = {
     expr = mtu.highestValue;
     expected = 65535;
+  };
+
+  # ===== Tagged value =====
+  fromInt-tagged = {
+    expr = (mtu.fromInt 1500)._type;
+    expected = "mtu";
+  };
+  fromInt-value = {
+    expr = (mtu.fromInt 1500).value;
+    expected = 1500;
+  };
+  fromInt-roundtrip = {
+    expr = mtu.toInt (mtu.fromInt 9000);
+    expected = 9000;
+  };
+  fromInt-below-throws = {
+    expr = throws (mtu.fromInt 67);
+    expected = true;
+  };
+  fromInt-above-throws = {
+    expr = throws (mtu.fromInt 65536);
+    expected = true;
+  };
+  toString-renders = {
+    expr = mtu.toString (mtu.fromInt 1500);
+    expected = "1500";
+  };
+
+  # ===== is (structural) =====
+  is-tagged = {
+    expr = mtu.is (mtu.fromInt 1500);
+    expected = true;
+  };
+  is-bare-int = {
+    expr = mtu.is 1500;
+    expected = false;
+  };
+  is-untagged = {
+    expr = mtu.is { value = 1500; };
+    expected = false;
+  };
+
+  # ===== Comparison =====
+  eq-same = {
+    expr = mtu.eq (mtu.fromInt 1500) (mtu.fromInt 1500);
+    expected = true;
+  };
+  eq-diff = {
+    expr = mtu.eq (mtu.fromInt 1500) (mtu.fromInt 9000);
+    expected = false;
+  };
+  compare-lt = {
+    expr = mtu.compare (mtu.fromInt 1280) (mtu.fromInt 1500);
+    expected = -1;
+  };
+  compare-gt = {
+    expr = mtu.compare (mtu.fromInt 9000) (mtu.fromInt 1500);
+    expected = 1;
+  };
+  compare-eq = {
+    expr = mtu.compare (mtu.fromInt 1500) (mtu.fromInt 1500);
+    expected = 0;
+  };
+  min-pick = {
+    expr = mtu.toInt (mtu.min (mtu.fromInt 9000) (mtu.fromInt 1500));
+    expected = 1500;
+  };
+  max-pick = {
+    expr = mtu.toInt (mtu.max (mtu.fromInt 9000) (mtu.fromInt 1500));
+    expected = 9000;
   };
 }

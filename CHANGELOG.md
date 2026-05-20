@@ -27,24 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   underlying hostname/domain value. This is the "name" half of
   `host`, which is now composed internally as `ip | dnsName`. Opt-in
   module type `libnet.types.dnsName`.
-- `libnet.mtu` — bounded-int validator for IP MTU values. Accepts
-  ints in `[68, 65535]`: 68 is RFC 791's minimum forwarding MTU
-  (and the floor Linux's `ip link set mtu` accepts), 65535 is the
-  IPv4 / IPv6 wire-format maximum. Syntactic floor only, not a
-  semantic recommendation — real-world MTUs typically live in
-  `[1280, 9000]`. Same minimal shape as `libnet.vlanId`: `isValid`
-  predicate plus `lowestValue` / `highestValue` constants, no
-  tagged value, no parser, no arithmetic. Opt-in module type
-  `libnet.types.mtu` enforces the range at module-eval time with a
-  `.mk` smart-constructor.
-- `libnet.vlanId` — bounded-int validator for IEEE 802.1Q VLAN IDs.
-  Accepts ints in `[1, 4094]`; rejects 0 (priority-tagged sentinel)
-  and 4095 (reserved). Minimal surface: `isValid` predicate plus
-  `lowestValue` / `highestValue` constants. No tagged value, no
-  parser, no arithmetic — it's an int with a range. Opt-in module
-  type `libnet.types.vlanId` enforces the same range at module-eval
-  time and provides a `.mk` smart-constructor that throws on
-  out-of-range input.
+- `libnet.mtu` — IP MTU as a tagged int in `[68, 65535]`: 68 is RFC
+  791's minimum forwarding MTU (and the floor Linux's `ip link set
+  mtu` accepts), 65535 is the IPv4 / IPv6 wire-format maximum.
+  Syntactic floor only, not a semantic recommendation — real-world
+  MTUs typically live in `[1280, 9000]`. Tagged like `libnet.port`
+  (`{ _type = "mtu"; value = <int>; }`): `fromInt` / `toInt` /
+  `toString` / `isValid` / `is` plus the numeric comparison suite and
+  `lowestValue` / `highestValue` constants. No string `parse` (MTUs
+  are written as ints). Opt-in module type `libnet.types.mtu` enforces
+  the range and coerces to a bare int (like `types.port`).
+- `libnet.vlanId` — IEEE 802.1Q VLAN ID as a tagged int in
+  `[1, 4094]`; rejects 0 (priority-tagged sentinel) and 4095
+  (reserved). Tagged like `libnet.port`: `fromInt` / `toInt` /
+  `toString` / `isValid` / `is` plus the numeric comparison suite and
+  `lowestValue` / `highestValue` constants. No string `parse`. Opt-in
+  module type `libnet.types.vlanId` enforces the range and coerces to
+  a bare int (like `types.port`).
 - `libnet.host` — pass-through union over `Ipv4`, `Ipv6`, `Hostname`,
   and `Domain`. No new `_type` tag: `parse` returns the underlying
   typed value and consumers branch on `._type`. Dispatch order is

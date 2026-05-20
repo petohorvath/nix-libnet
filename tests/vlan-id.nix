@@ -1,7 +1,7 @@
 { harness }:
 let
   vlanId = import ../lib/vlan-id.nix;
-  _ = harness; # harness not used directly; tests are all pure predicates.
+  inherit (harness) throws;
 in
 {
   # ===== valid range =====
@@ -74,5 +74,75 @@ in
   highestValue = {
     expr = vlanId.highestValue;
     expected = 4094;
+  };
+
+  # ===== Tagged value =====
+  fromInt-tagged = {
+    expr = (vlanId.fromInt 100)._type;
+    expected = "vlanId";
+  };
+  fromInt-value = {
+    expr = (vlanId.fromInt 100).value;
+    expected = 100;
+  };
+  fromInt-roundtrip = {
+    expr = vlanId.toInt (vlanId.fromInt 4094);
+    expected = 4094;
+  };
+  fromInt-zero-throws = {
+    expr = throws (vlanId.fromInt 0);
+    expected = true;
+  };
+  fromInt-4095-throws = {
+    expr = throws (vlanId.fromInt 4095);
+    expected = true;
+  };
+  toString-renders = {
+    expr = vlanId.toString (vlanId.fromInt 100);
+    expected = "100";
+  };
+
+  # ===== is (structural) =====
+  is-tagged = {
+    expr = vlanId.is (vlanId.fromInt 100);
+    expected = true;
+  };
+  is-bare-int = {
+    expr = vlanId.is 100;
+    expected = false;
+  };
+  is-untagged = {
+    expr = vlanId.is { value = 100; };
+    expected = false;
+  };
+
+  # ===== Comparison =====
+  eq-same = {
+    expr = vlanId.eq (vlanId.fromInt 100) (vlanId.fromInt 100);
+    expected = true;
+  };
+  eq-diff = {
+    expr = vlanId.eq (vlanId.fromInt 100) (vlanId.fromInt 200);
+    expected = false;
+  };
+  compare-lt = {
+    expr = vlanId.compare (vlanId.fromInt 100) (vlanId.fromInt 200);
+    expected = -1;
+  };
+  compare-gt = {
+    expr = vlanId.compare (vlanId.fromInt 200) (vlanId.fromInt 100);
+    expected = 1;
+  };
+  compare-eq = {
+    expr = vlanId.compare (vlanId.fromInt 100) (vlanId.fromInt 100);
+    expected = 0;
+  };
+  min-pick = {
+    expr = vlanId.toInt (vlanId.min (vlanId.fromInt 200) (vlanId.fromInt 100));
+    expected = 100;
+  };
+  max-pick = {
+    expr = vlanId.toInt (vlanId.max (vlanId.fromInt 200) (vlanId.fromInt 100));
+    expected = 200;
   };
 }
