@@ -114,19 +114,20 @@ let
 
   make =
     scheme: ep:
-    let
-      sch = canonical (lowerAscii scheme);
-    in
     if !(builtins.isString scheme) then
       builtins.throw "libnet.secureSocketUrl.make: scheme must be a string"
-    else if !(builtins.hasAttr sch schemes) then
-      builtins.throw "libnet.secureSocketUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
-    else if !(endpoint.is ep) then
-      builtins.throw "libnet.secureSocketUrl.make: expected an endpoint value"
-    else if types.isUnixSocket ep then
-      builtins.throw "libnet.secureSocketUrl.make: a secure socket needs host:port, not a unix socket"
     else
-      mk sch ep;
+      let
+        sch = canonical (lowerAscii scheme);
+      in
+      if !(builtins.hasAttr sch schemes) then
+        builtins.throw "libnet.secureSocketUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
+      else if !(endpoint.is ep) then
+        builtins.throw "libnet.secureSocketUrl.make: expected an endpoint value"
+      else if types.isUnixSocket ep then
+        builtins.throw "libnet.secureSocketUrl.make: a secure socket needs host:port, not a unix socket"
+      else
+        mk sch ep;
 
   # ===== Predicates =====
 

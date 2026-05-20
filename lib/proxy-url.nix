@@ -87,19 +87,20 @@ let
 
   make =
     scheme: auth:
-    let
-      sch = lowerAscii scheme;
-    in
     if !(builtins.isString scheme) then
       builtins.throw "libnet.proxyUrl.make: scheme must be a string"
-    else if !(builtins.elem sch schemes) then
-      builtins.throw "libnet.proxyUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
-    else if !(authority.is auth) then
-      builtins.throw "libnet.proxyUrl.make: expected an authority value"
-    else if authority.port auth == null then
-      builtins.throw "libnet.proxyUrl.make: a proxy URL requires an explicit port"
     else
-      mk sch auth;
+      let
+        sch = lowerAscii scheme;
+      in
+      if !(builtins.elem sch schemes) then
+        builtins.throw "libnet.proxyUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
+      else if !(authority.is auth) then
+        builtins.throw "libnet.proxyUrl.make: expected an authority value"
+      else if authority.port auth == null then
+        builtins.throw "libnet.proxyUrl.make: a proxy URL requires an explicit port"
+      else
+        mk sch auth;
 
   # ===== Predicates =====
 
