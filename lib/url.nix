@@ -269,17 +269,17 @@ let
         types.tryErr "libnet.url.parse: malformed authority \"${a}\""
       else
         let
-          hostVal = urlHost.tryParse hp.host;
+          hostRes = urlHost.tryParse hp.host;
           portRes = if hp.portStr == null then null else port.tryParse hp.portStr;
         in
-        if hostVal == null then
-          types.tryErr "libnet.url.parse: invalid or empty host in \"${a}\""
+        if !hostRes.success then
+          types.tryErr "libnet.url.parse: ${hostRes.error}"
         else if portRes != null && !portRes.success then
           types.tryErr "libnet.url.parse: invalid port \"${hp.portStr}\""
         else
           types.tryOk {
             inherit userinfo;
-            host = hostVal;
+            host = hostRes.value;
             port = if portRes == null then null else portRes.value;
           };
 
@@ -366,12 +366,12 @@ let
     in
     if !(builtins.hasAttr sch schemes) then
       builtins.throw "libnet.url.make: unknown scheme \"${scheme}\""
-    else if h == null then
-      builtins.throw "libnet.url.make: invalid host \"${host}\""
+    else if !h.success then
+      builtins.throw "libnet.url.make: ${h.error}"
     else if port != null && !(builtins.isInt port) then
       builtins.throw "libnet.url.make: port must be an int or null"
     else
-      mk sch userinfo h (if port == null then null else mkPort port) path query fragment;
+      mk sch userinfo h.value (if port == null then null else mkPort port) path query fragment;
 
   # ===== Predicates =====
 

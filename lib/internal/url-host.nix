@@ -16,6 +16,7 @@ let
   dnsName = import ../dns-name.nix;
   parse' = import ./parse.nix;
   dnsLabel = import ./dns-label.nix;
+  types = import ./types.nix;
 
   # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
   regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
@@ -33,30 +34,33 @@ let
     name = s;
   };
 
-  # Returns a urlHost value, or null on failure.
+  # Standard tryParse: returns { success; value; error; } like the
+  # public modules.
   tryParse =
     s:
-    if !(builtins.isString s) || s == "" then
-      null
+    if !(builtins.isString s) then
+      types.tryErr "input must be a string"
+    else if s == "" then
+      types.tryErr "empty host"
     else if parse'.startsWith "[" s then
       if parse'.endsWith "]" s then
         let
           inner = builtins.substring 1 (builtins.stringLength s - 2) s;
           r = ipv6.tryParse inner;
         in
-        if r.success then mkIp r.value else null
+        if r.success then types.tryOk (mkIp r.value) else types.tryErr "invalid IPv6 literal \"${s}\""
       else
-        null
+        types.tryErr "unclosed IPv6 literal \"${s}\""
     else
       let
         v4 = ipv4.tryParse s;
       in
       if v4.success then
-        mkIp v4.value
+        types.tryOk (mkIp v4.value)
       else if builtins.match regNamePattern s != null then
-        mkReg s
+        types.tryOk (mkReg s)
       else
-        null;
+        types.tryErr "invalid host \"${s}\"";
 
   toString =
     h:
@@ -65,7 +69,7 @@ let
     else
       h.name;
 
-  isValid = s: tryParse s != null;
+  isValid = s: (tryParse s).success;
   is = v: builtins.isAttrs v && v ? _type && v._type == "urlHost";
   isIp = h: h.kind == "ip";
   isRegName = h: h.kind == "regName";
