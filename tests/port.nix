@@ -148,9 +148,17 @@ in
     expr = port.toInt (port.sub 1 (p "80"));
     expected = 79;
   };
-  diff = {
+  diff-pos = {
     expr = port.diff (p "80") (p "90");
     expected = 10;
+  };
+  diff-neg = {
+    expr = port.diff (p "90") (p "80");
+    expected = (-10);
+  };
+  diff-zero = {
+    expr = port.diff (p "80") (p "80");
+    expected = 0;
   };
   next-ok = {
     expr = port.toInt (port.next (p "80"));

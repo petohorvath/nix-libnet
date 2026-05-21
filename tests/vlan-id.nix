@@ -137,6 +137,14 @@ in
     expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 150);
     expected = 50;
   };
+  diff-neg = {
+    expr = vlanId.diff (vlanId.fromInt 150) (vlanId.fromInt 100);
+    expected = (-50);
+  };
+  diff-zero = {
+    expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 100);
+    expected = 0;
+  };
   next-at-max-throws = {
     expr = throws (vlanId.next (vlanId.fromInt 4094));
     expected = true;
