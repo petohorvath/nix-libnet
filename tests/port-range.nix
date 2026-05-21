@@ -78,6 +78,10 @@ in
     expr = throws (pr.make 0 65536);
     expected = true;
   };
+  make-non-int = {
+    expr = throws (pr.make "80" 100);
+    expected = true;
+  };
   fromPort-ok = {
     expr = pr.toString (pr.fromPort (port.fromInt 80));
     expected = "80";
@@ -150,6 +154,10 @@ in
   };
   contains-out = {
     expr = pr.contains (p "80-90") (port.fromInt 91);
+    expected = false;
+  };
+  contains-non-port = {
+    expr = pr.contains (p "80-90") 85;
     expected = false;
   };
   overlaps-yes = {

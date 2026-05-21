@@ -207,6 +207,20 @@ in
     expr = (url.transport (p "coap://h")).value;
     expected = "udp";
   };
+  # Schemes that borrow another service's port (url.nix: ws → http,
+  # wss → https, sftp → ssh) must resolve to that specific port.
+  scheme-ws-borrows-http = {
+    expr = url.defaultPort (p "ws://h");
+    expected = 80;
+  };
+  scheme-wss-borrows-https = {
+    expr = url.defaultPort (p "wss://h");
+    expected = 443;
+  };
+  scheme-sftp-borrows-ssh = {
+    expr = url.defaultPort (p "sftp://h");
+    expected = 22;
+  };
   schemes-count = {
     expr = builtins.length (builtins.attrNames url.schemes);
     expected = 30;

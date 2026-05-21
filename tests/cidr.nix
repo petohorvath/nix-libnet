@@ -650,6 +650,10 @@ in
     expr = throws (cidr.make "10.0.0.0" 24);
     expected = true;
   };
+  make-non-int-prefix = {
+    expr = throws (cidr.make (ipv4.parse "10.0.0.0") "24");
+    expected = true;
+  };
   fromAddress-v4 = {
     expr = cidr.toString (cidr.fromAddress (ipv4.parse "10.0.0.5"));
     expected = "10.0.0.5/32";
