@@ -254,7 +254,7 @@ let
       r = mac.value + n;
     in
     if r < 0 || r > bits.mask48 then
-      builtins.throw "libnet.mac.add: result out of range [0, 2^48-1]"
+      builtins.throw "libnet.mac.add: result out of range [0, ${builtins.toString bits.mask48}]: ${builtins.toString r}"
     else
       mk r;
 

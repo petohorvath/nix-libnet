@@ -220,7 +220,7 @@ let
       r = ip.value + n;
     in
     if r < 0 || r > bits.mask32 then
-      builtins.throw "libnet.ipv4.add: result out of range [0, 4294967295]"
+      builtins.throw "libnet.ipv4.add: result out of range [0, 4294967295]: ${builtins.toString r}"
     else
       mk r;
 

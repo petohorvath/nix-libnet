@@ -81,7 +81,10 @@ let
     let
       r = pt.value + n;
     in
-    if r < 0 || r > portMax then builtins.throw "libnet.port.add: result out of range" else mk r;
+    if r < 0 || r > portMax then
+      builtins.throw "libnet.port.add: result out of range [0, 65535]: ${builtins.toString r}"
+    else
+      mk r;
 
   sub = n: pt: add (0 - n) pt;
   diff = a: b: b.value - a.value;
