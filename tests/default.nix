@@ -5,55 +5,47 @@ let
   harness = import ./harness.nix;
   inherit (harness) runTests prefix;
 
-  tryImport =
-    name:
-    let
-      p = ./. + "/${name}";
-    in
-    if builtins.pathExists p then import p { inherit harness; } else { };
+  importTests = name: import (./. + "/${name}") { inherit harness; };
 
   coreTests =
-    prefix "bits" (tryImport "bits.nix")
-    // prefix "ipv4" (tryImport "ipv4.nix")
-    // prefix "mac" (tryImport "mac.nix")
-    // prefix "carry" (tryImport "carry.nix")
-    // prefix "ipv6" (tryImport "ipv6.nix")
-    // prefix "cidr" (tryImport "cidr.nix")
-    // prefix "ip" (tryImport "ip.nix")
-    // prefix "ipRange" (tryImport "ip-range.nix")
-    // prefix "iface" (tryImport "interface.nix")
-    // prefix "port" (tryImport "port.nix")
-    // prefix "pr" (tryImport "port-range.nix")
-    // prefix "ipEndpoint" (tryImport "ip-endpoint.nix")
-    // prefix "dnsEndpoint" (tryImport "dns-endpoint.nix")
-    // prefix "endpoint" (tryImport "endpoint.nix")
-    // prefix "unixSocket" (tryImport "unix-socket.nix")
-    // prefix "socketUrl" (tryImport "socket-url.nix")
-    // prefix "secureSocketUrl" (tryImport "secure-socket-url.nix")
-    // prefix "url" (tryImport "url.nix")
-    // prefix "urlHost" (tryImport "url-host.nix")
-    // prefix "authority" (tryImport "authority.nix")
-    // prefix "proxyUrl" (tryImport "proxy-url.nix")
-    // prefix "ipListener" (tryImport "ip-listener.nix")
-    // prefix "listener" (tryImport "listener.nix")
-    // prefix "transport" (tryImport "transport.nix")
-    // prefix "hostname" (tryImport "hostname.nix")
-    // prefix "domain" (tryImport "domain.nix")
-    // prefix "dnsName" (tryImport "dns-name.nix")
-    // prefix "host" (tryImport "host.nix")
-    // prefix "vlanId" (tryImport "vlan-id.nix")
-    // prefix "mtu" (tryImport "mtu.nix")
-    // prefix "registry" (tryImport "registry.nix")
-    // prefix "iparse" (tryImport "internal/parse.nix")
-    // prefix "ifmt" (tryImport "internal/format.nix")
-    // prefix "itype" (tryImport "internal/types.nix")
-    // prefix "idns" (tryImport "internal/dns-label.nix");
+    prefix "bits" (importTests "bits.nix")
+    // prefix "ipv4" (importTests "ipv4.nix")
+    // prefix "mac" (importTests "mac.nix")
+    // prefix "carry" (importTests "carry.nix")
+    // prefix "ipv6" (importTests "ipv6.nix")
+    // prefix "cidr" (importTests "cidr.nix")
+    // prefix "ip" (importTests "ip.nix")
+    // prefix "ipRange" (importTests "ip-range.nix")
+    // prefix "iface" (importTests "interface.nix")
+    // prefix "port" (importTests "port.nix")
+    // prefix "pr" (importTests "port-range.nix")
+    // prefix "ipEndpoint" (importTests "ip-endpoint.nix")
+    // prefix "dnsEndpoint" (importTests "dns-endpoint.nix")
+    // prefix "endpoint" (importTests "endpoint.nix")
+    // prefix "unixSocket" (importTests "unix-socket.nix")
+    // prefix "socketUrl" (importTests "socket-url.nix")
+    // prefix "secureSocketUrl" (importTests "secure-socket-url.nix")
+    // prefix "url" (importTests "url.nix")
+    // prefix "urlHost" (importTests "url-host.nix")
+    // prefix "authority" (importTests "authority.nix")
+    // prefix "proxyUrl" (importTests "proxy-url.nix")
+    // prefix "ipListener" (importTests "ip-listener.nix")
+    // prefix "listener" (importTests "listener.nix")
+    // prefix "transport" (importTests "transport.nix")
+    // prefix "hostname" (importTests "hostname.nix")
+    // prefix "domain" (importTests "domain.nix")
+    // prefix "dnsName" (importTests "dns-name.nix")
+    // prefix "host" (importTests "host.nix")
+    // prefix "vlanId" (importTests "vlan-id.nix")
+    // prefix "mtu" (importTests "mtu.nix")
+    // prefix "registry" (importTests "registry.nix")
+    // prefix "iparse" (importTests "internal/parse.nix")
+    // prefix "ifmt" (importTests "internal/format.nix")
+    // prefix "itype" (importTests "internal/types.nix")
+    // prefix "idns" (importTests "internal/dns-label.nix");
 
   typeTests =
-    if lib != null && builtins.pathExists (./. + "/types.nix") then
-      prefix "types" (import ./types.nix { inherit harness lib; })
-    else
-      { };
+    if lib != null then prefix "types" (import ./types.nix { inherit harness lib; }) else { };
 
 in
 runTests (coreTests // typeTests)
