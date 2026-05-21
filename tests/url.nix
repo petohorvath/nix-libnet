@@ -314,6 +314,12 @@ in
     expr = url.eq (p "http://h") (p "https://h");
     expected = false;
   };
+  # userinfo is not part of URL identity (see authority.nix): two URLs
+  # differing only in credentials compare equal.
+  eq-ignores-userinfo = {
+    expr = url.eq (p "https://alice@h/p") (p "https://bob@h/p");
+    expected = true;
+  };
   compare-scheme = {
     expr = url.compare (p "http://h") (p "https://h");
     expected = -1;
@@ -332,6 +338,10 @@ in
   };
   compare-eq = {
     expr = url.compare (p "https://h") (p "https://h");
+    expected = 0;
+  };
+  compare-ignores-userinfo = {
+    expr = url.compare (p "https://alice@h/p") (p "https://bob@h/p");
     expected = 0;
   };
   cmp-lt = {
