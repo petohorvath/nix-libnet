@@ -87,6 +87,10 @@ in
     expr = ipRange.size (p "::1-::10");
     expected = 16;
   };
+  size-v6-overflow = {
+    expr = throws (ipRange.size (p "::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+    expected = true;
+  };
 
   # ===== Containment =====
   contains-in = {
@@ -202,6 +206,10 @@ in
     expr = map cidr.toString (ipRange.toCidrs (p "2001:db8::-2001:db8::ff"));
     expected = [ "2001:db8::/120" ];
   };
+  toCidrs-at-max = {
+    expr = map cidr.toString (ipRange.toCidrs (p "255.255.255.254-255.255.255.255"));
+    expected = [ "255.255.255.254/31" ];
+  };
 
   fromCidr-v4 = {
     expr = ipRange.toString (ipRange.fromCidr (cidr.parse "10.0.0.0/24"));
@@ -284,6 +292,14 @@ in
   addressesUnbounded-len = {
     expr = builtins.length (ipRange.addressesUnbounded (p "1.0.0.0-1.0.255.255"));
     expected = 65536;
+  };
+  addressesUnbounded-v6 = {
+    expr = map ipv6.toString (ipRange.addressesUnbounded (p "::1-::3"));
+    expected = [
+      "::1"
+      "::2"
+      "::3"
+    ];
   };
 
   # ===== Comparison helpers =====

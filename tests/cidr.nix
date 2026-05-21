@@ -268,6 +268,14 @@ in
     expr = cidr.size (p "::/66");
     expected = 4611686018427387904;
   };
+  numHosts-v6 = {
+    expr = cidr.numHosts (p "2001:db8::/120");
+    expected = 256;
+  };
+  lastHost-v6 = {
+    expr = c6 (cidr.lastHost (p "2001:db8::/120"));
+    expected = "2001:db8::ff";
+  };
 
   # ===== Enumeration =====
   hostAt-0 = {
@@ -399,6 +407,10 @@ in
   };
   overlaps-adj = {
     expr = cidr.overlaps (p "10.0.0.0/25") (p "10.0.0.128/25");
+    expected = false;
+  };
+  overlaps-cross-fam = {
+    expr = cidr.overlaps (p "10.0.0.0/24") (p "::/0");
     expected = false;
   };
 
@@ -551,6 +563,10 @@ in
       ]
     );
     expected = [ "10.0.0.0/24" ];
+  };
+  summarize-empty = {
+    expr = cidr.summarize [ ];
+    expected = [ ];
   };
 
   exclude-v4-half = {

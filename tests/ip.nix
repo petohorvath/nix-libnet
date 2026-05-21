@@ -253,6 +253,24 @@ in
     expected = true;
   };
 
+  # ===== Non-IP input throws (dispatch / accessor guards) =====
+  toString-non-ip-throws = {
+    expr = throws (ip.toString 42);
+    expected = true;
+  };
+  version-non-ip-throws = {
+    expr = throws (ip.version "nope");
+    expected = true;
+  };
+  isLoopback-non-ip-throws = {
+    expr = throws (ip.isLoopback 42);
+    expected = true;
+  };
+  add-non-ip-throws = {
+    expr = throws (ip.add 1 "nope");
+    expected = true;
+  };
+
   # ===== Sort mixed list (stable v4-before-v6) =====
   sort-mixed = {
     expr = map ip.toString (
