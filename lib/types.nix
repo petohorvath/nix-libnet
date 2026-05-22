@@ -27,6 +27,7 @@ let
   endpoint = import ./endpoint.nix;
   unixSocket = import ./unix-socket.nix;
   socketUrl = import ./socket-url.nix;
+  bindUrl = import ./bind-url.nix;
   secureSocketUrl = import ./secure-socket-url.nix;
   url = import ./url.nix;
   urlHost = import ./url-host.nix;
@@ -149,6 +150,12 @@ let
     typeName = "socketUrl";
     description = "a socket URL (<scheme>://<endpoint>; scheme tcp/udp/sctp/unix)";
     validator = socketUrl.isValid;
+  };
+
+  bindUrlType = mkStrType {
+    typeName = "bindUrl";
+    description = "a bind URL (<scheme>://<bindpoint>; scheme tcp/udp/sctp/unix)";
+    validator = bindUrl.isValid;
   };
 
   secureSocketUrlType = mkStrType {
@@ -324,6 +331,7 @@ in
     endpoint = endpointType;
     unixSocket = unixSocketType;
     socketUrl = socketUrlType;
+    bindUrl = bindUrlType;
     secureSocketUrl = secureSocketUrlType;
     url = urlType;
     urlHost = urlHostType;

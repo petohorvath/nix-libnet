@@ -92,6 +92,11 @@ let
     transport = null;
     endpoint = unixSocket;
   };
+  bindUrl = {
+    _type = "bindUrl";
+    transport = null;
+    bindpoint = unixSocket;
+  };
 
   untagged = {
     value = 0;
@@ -170,6 +175,10 @@ in
   tags-socketUrl = {
     expr = types.tags.socketUrl;
     expected = "socketUrl";
+  };
+  tags-bindUrl = {
+    expr = types.tags.bindUrl;
+    expected = "bindUrl";
   };
 
   # ===== hasTag =====
@@ -269,6 +278,10 @@ in
   };
   isSocketUrl-yes = {
     expr = types.isSocketUrl socketUrl;
+    expected = true;
+  };
+  isBindUrl-yes = {
+    expr = types.isBindUrl bindUrl;
     expected = true;
   };
 

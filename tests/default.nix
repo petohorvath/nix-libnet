@@ -24,6 +24,7 @@ let
     // prefix "endpoint" (importTests "endpoint.nix")
     // prefix "unixSocket" (importTests "unix-socket.nix")
     // prefix "socketUrl" (importTests "socket-url.nix")
+    // prefix "bindUrl" (importTests "bind-url.nix")
     // prefix "secureSocketUrl" (importTests "secure-socket-url.nix")
     // prefix "url" (importTests "url.nix")
     // prefix "urlHost" (importTests "url-host.nix")

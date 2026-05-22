@@ -18,6 +18,7 @@ let
     mtu = "mtu";
     unixSocket = "unixSocket";
     socketUrl = "socketUrl";
+    bindUrl = "bindUrl";
     secureSocketUrl = "secureSocketUrl";
     url = "url";
     urlHost = "urlHost";
@@ -45,6 +46,7 @@ let
   isMtu = hasTag tags.mtu;
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
+  isBindUrl = hasTag tags.bindUrl;
   isSecureSocketUrl = hasTag tags.secureSocketUrl;
   isUrl = hasTag tags.url;
   isUrlHost = hasTag tags.urlHost;
@@ -93,6 +95,7 @@ in
     isMtu
     isUnixSocket
     isSocketUrl
+    isBindUrl
     isSecureSocketUrl
     isUrl
     isUrlHost
