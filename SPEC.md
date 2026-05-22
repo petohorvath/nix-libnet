@@ -1615,6 +1615,11 @@ in {
 | `types.unixSocket` | String (absolute path `/...` or abstract `@...`). | String. |
 | `types.socketUrl` | String (`<scheme>://<endpoint>`; scheme `tcp`/`udp`/`sctp`/`unix`). | String. |
 | `types.bindUrl` | String (`<scheme>://<bindpoint>`; scheme `tcp`/`udp`/`sctp`/`unix`). | String. |
+| `types.secureSocketUrl` | String (`<scheme>://<endpoint>`; scheme `tls`/`ssl`/`dtls`/`quic`, all TLS). | String. |
+| `types.url` | String (absolute `<scheme>://[user@]host[:port][/path][?query][#fragment]`; closed scheme registry). | String. |
+| `types.urlHost` | String (URL-authority host: RFC 3986 IP-literal or reg-name; looser than `host`). | String. |
+| `types.authority` | String (`[userinfo@]host[:port]`). | String. |
+| `types.proxyUrl` | String (`<scheme>://[user@]host:port`; `http`/`https`/`socks4`/`socks4a`/`socks5`/`socks5h`). | String. |
 | `types.ipBindpoint` | String (`[ADDR]:PORT[-END]`, wildcard accepted). | String. |
 | `types.bindpoint` | String (IP bindpoint form or a unix socket path; union of ipBindpoint / unixSocket). | String. |
 | `types.ipRange` | String (`from-to`). | String. |
