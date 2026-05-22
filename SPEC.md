@@ -247,7 +247,7 @@ The endpoint types and the bindpoint types solve different problems — the conn
   - **`unixSocket`** — a socket path to bind (same value as the connect side; sockets are symmetric).
   - **`bindpoint`** — the pass-through union `ipBindpoint | unixSocket`, dispatching on shape.
 
-`bindpoint` is the local-bind peer of `endpoint`; `bindUrl` tags it with a transport (`tcp://:8080`) exactly as `socketUrl` tags an `endpoint`.
+`bindpoint` is the local-bind peer of `endpoint`; `bindUrl` tags it with a transport (`tcp://:8080`) exactly as `socketUrl` tags an `endpoint`. The asymmetry is deliberate: `bindpoint` has no DNS-name member — you bind to an address the host owns, not a name, so `localhost` and other names are rejected (use `127.0.0.1` / `[::1]` for loopback).
 
 The endpoint/bindpoint split gives outbound code a type-level guarantee that it will never receive a wildcard or a range where a concrete target is required, which is the class of bug the split prevents. The ip/dns split gives a type-level guarantee that an `ipEndpoint` is resolved (so its address predicates are meaningful), while `dnsEndpoint` is honest that it is not. Conversion is asymmetric: `ipBindpoint.endpoints` materializes a bindpoint into concrete `ipEndpoint` values (throws if the address is null); wrapping an `ipEndpoint` as a bindpoint is a one-liner and does not warrant a dedicated helper.
 

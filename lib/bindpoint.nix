@@ -18,6 +18,10 @@
   The local-bind peer of `endpoint` (the connect-side union). `bindUrl`
   adds a transport tag on top, mirroring how `socketUrl` tags `endpoint`.
 
+  No DNS-name member (unlike `endpoint`): you bind to a local address,
+  not a name — `localhost` and other names are rejected; use
+  `127.0.0.1` / `[::1]` for a loopback bind.
+
   Example:
     libnet.bindpoint.parse ":8080"           # tagged ipBindpoint
     libnet.bindpoint.parse "/run/foo.sock"   # tagged unixSocket
