@@ -32,8 +32,8 @@ let
   urlHost = import ./url-host.nix;
   authority = import ./authority.nix;
   proxyUrl = import ./proxy-url.nix;
-  ipListener = import ./ip-listener.nix;
-  listener = import ./listener.nix;
+  ipBindpoint = import ./ip-bindpoint.nix;
+  bindpoint = import ./bindpoint.nix;
   ipRange = import ./ip-range.nix;
   interface = import ./interface.nix;
   port = import ./port.nix;
@@ -181,16 +181,16 @@ let
     validator = proxyUrl.isValid;
   };
 
-  ipListenerType = mkStrType {
-    typeName = "ipListener";
-    description = "an IP listener spec ([addr]:port[-end])";
-    validator = ipListener.isValid;
+  ipBindpointType = mkStrType {
+    typeName = "ipBindpoint";
+    description = "an IP bind target ([addr]:port[-end])";
+    validator = ipBindpoint.isValid;
   };
 
-  listenerType = mkStrType {
-    typeName = "listener";
-    description = "a listener (IP [addr]:port[-end] or unix socket path)";
-    validator = listener.isValid;
+  bindpointType = mkStrType {
+    typeName = "bindpoint";
+    description = "a bind target (IP [addr]:port[-end] or unix socket path)";
+    validator = bindpoint.isValid;
   };
 
   ipRangeType = mkStrType {
@@ -329,8 +329,8 @@ in
     urlHost = urlHostType;
     authority = authorityType;
     proxyUrl = proxyUrlType;
-    ipListener = ipListenerType;
-    listener = listenerType;
+    ipBindpoint = ipBindpointType;
+    bindpoint = bindpointType;
     ipRange = ipRangeType;
     interface = interfaceType;
     ipv4Interface = ipv4InterfaceType;

@@ -1,18 +1,18 @@
 /*
-  libnet.ipListener
+  libnet.ipBindpoint
 
-  An IP listening socket: an optional IP address paired with a port
+  An IP bind target: an optional IP address paired with a port
   range. Parses bare-port (":8080"), address+port ("192.0.2.1:80"),
   bracketed v6 ("[::1]:80"), and range ("192.0.2.1:8000-8100") forms.
 
-  The IP-only bind spec. `libnet.listener` is the union that also
+  The IP-only bind spec. `libnet.bindpoint` is the union that also
   accepts a Unix socket path.
 
   Example:
-    libnet.ipListener.parse "192.0.2.1:8000-8100"
-    => { _type = "ipListener"; address = <ipv4>; portRange = <8000-8100>; }
+    libnet.ipBindpoint.parse "192.0.2.1:8000-8100"
+    => { _type = "ipBindpoint"; address = <ipv4>; portRange = <8000-8100>; }
 
-    builtins.length (libnet.ipListener.endpoints (libnet.ipListener.parse ":80-82"))
+    builtins.length (libnet.ipBindpoint.endpoints (libnet.ipBindpoint.parse ":80-82"))
     => 3
 */
 let
@@ -25,7 +25,7 @@ let
   ipEndpoint = import ./ip-endpoint.nix;
 
   mk = addr: pr: {
-    _type = "ipListener";
+    _type = "ipBindpoint";
     address = addr;
     portRange = pr;
   };
@@ -68,7 +68,7 @@ let
       prOpt = parsePortField portStr;
     in
     if prOpt == null then
-      types.tryErr "libnet.ipListener.parse: invalid port field \"${portStr}\""
+      types.tryErr "libnet.ipBindpoint.parse: invalid port field \"${portStr}\""
     else
       types.tryOk (mk null prOpt);
 
@@ -78,7 +78,7 @@ let
       parts = parse'.splitOn "]:" s;
     in
     if builtins.length parts != 2 then
-      types.tryErr "libnet.ipListener.parse: malformed bracketed form \"${s}\""
+      types.tryErr "libnet.ipBindpoint.parse: malformed bracketed form \"${s}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -88,16 +88,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addrStr == null then
-        types.tryErr "libnet.ipListener.parse: missing '[' in \"${s}\""
+        types.tryErr "libnet.ipBindpoint.parse: missing '[' in \"${s}\""
       else
         let
           addrRes = ipv6.tryParse addrStr;
           prOpt = parsePortField portStr;
         in
         if !addrRes.success then
-          types.tryErr "libnet.ipListener.parse: invalid IPv6 in \"${s}\""
+          types.tryErr "libnet.ipBindpoint.parse: invalid IPv6 in \"${s}\""
         else if prOpt == null then
-          types.tryErr "libnet.ipListener.parse: invalid port field in \"${s}\""
+          types.tryErr "libnet.ipBindpoint.parse: invalid port field in \"${s}\""
         else
           types.tryOk (mk addrRes.value prOpt);
 
@@ -107,9 +107,9 @@ let
       colons = parse'.countOccurrences ":" s;
     in
     if colons == 0 then
-      types.tryErr "libnet.ipListener.parse: missing ':port' in \"${s}\""
+      types.tryErr "libnet.ipBindpoint.parse: missing ':port' in \"${s}\""
     else if colons > 1 then
-      types.tryErr "libnet.ipListener.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
+      types.tryErr "libnet.ipBindpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${s}\""
     else
       let
         parts = parse'.splitOn ":" s;
@@ -119,9 +119,9 @@ let
         prOpt = parsePortField portStr;
       in
       if !addrRes.success then
-        types.tryErr "libnet.ipListener.parse: invalid IPv4 in \"${s}\""
+        types.tryErr "libnet.ipBindpoint.parse: invalid IPv4 in \"${s}\""
       else if prOpt == null then
-        types.tryErr "libnet.ipListener.parse: invalid port field in \"${s}\""
+        types.tryErr "libnet.ipBindpoint.parse: invalid port field in \"${s}\""
       else
         types.tryOk (mk addrRes.value prOpt);
 
@@ -132,7 +132,7 @@ let
   tryParse =
     s:
     if !(builtins.isString s) then
-      types.tryErr "libnet.ipListener.parse: input must be a string"
+      types.tryErr "libnet.ipBindpoint.parse: input must be a string"
     else if parse'.startsWith "*:" s then
       tryParseNullAddr (parse'.stripPrefix "*:" s)
     else if parse'.startsWith "any:" s then
@@ -166,16 +166,16 @@ let
   make =
     addr: pr:
     if addr != null && !(types.isIp addr) then
-      builtins.throw "libnet.ipListener.make: address must be ipv4, ipv6, or null"
+      builtins.throw "libnet.ipBindpoint.make: address must be ipv4, ipv6, or null"
     else if !(types.isPortRange pr) then
-      builtins.throw "libnet.ipListener.make: expected portRange value"
+      builtins.throw "libnet.ipBindpoint.make: expected portRange value"
     else
       mk addr pr;
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = types.isIpListener;
+  is = types.isIpBindpoint;
 
   isAnyAddress =
     lst:
@@ -201,7 +201,7 @@ let
 
   # ===== Forwarded predicates (apply to address) =====
   #
-  # Null-address listeners (wildcard binds) don't denote a specific
+  # Null-address bindpoints (wildcard binds) don't denote a specific
   # address, so boolean predicates return false rather than throwing —
   # consistent with isIpv4/isIpv6. toArpa has no sensible value without
   # an address and throws, matching endpoints/network/netmask.
@@ -226,7 +226,7 @@ let
   toArpa =
     lst:
     if lst.address == null then
-      builtins.throw "libnet.ipListener.toArpa: null address has no reverse-DNS form"
+      builtins.throw "libnet.ipBindpoint.toArpa: null address has no reverse-DNS form"
     else if isV4 lst.address then
       ipv4.toArpa lst.address
     else
@@ -249,7 +249,7 @@ let
   endpointsUnbounded =
     lst:
     if lst.address == null then
-      builtins.throw "libnet.ipListener.endpoints: null address cannot be materialized into endpoints"
+      builtins.throw "libnet.ipBindpoint.endpoints: null address cannot be materialized into endpoints"
     else
       let
         ports = portRange.portsUnbounded lst.portRange;
@@ -262,21 +262,21 @@ let
       sz = portRange.size lst.portRange;
     in
     if sz > 4096 then
-      builtins.throw "libnet.ipListener.endpoints: range too large (${builtins.toString sz} > 4096); use endpointsUnbounded"
+      builtins.throw "libnet.ipBindpoint.endpoints: range too large (${builtins.toString sz} > 4096); use endpointsUnbounded"
     else
       endpointsUnbounded lst;
 
   endpointAt =
     n: lst:
     if lst.address == null then
-      builtins.throw "libnet.ipListener.endpointAt: null address cannot be materialized"
+      builtins.throw "libnet.ipBindpoint.endpointAt: null address cannot be materialized"
     else
       let
         sz = portRange.size lst.portRange;
         idx = if n < 0 then sz + n else n;
       in
       if idx < 0 || idx >= sz then
-        builtins.throw "libnet.ipListener.endpointAt: index out of range [0, ${builtins.toString sz})"
+        builtins.throw "libnet.ipBindpoint.endpointAt: index out of range [0, ${builtins.toString sz})"
       else
         let
           pt = port.add idx lst.portRange.from;

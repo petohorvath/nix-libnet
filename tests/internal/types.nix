@@ -48,8 +48,8 @@ let
     };
     port = port;
   };
-  ipListener = {
-    _type = "ipListener";
+  ipBindpoint = {
+    _type = "ipBindpoint";
     address = ipv4;
     portRange = portRange;
   };
@@ -131,9 +131,9 @@ in
     expr = types.tags.dnsEndpoint;
     expected = "dnsEndpoint";
   };
-  tags-ipListener = {
-    expr = types.tags.ipListener;
-    expected = "ipListener";
+  tags-ipBindpoint = {
+    expr = types.tags.ipBindpoint;
+    expected = "ipBindpoint";
   };
   tags-ipRange = {
     expr = types.tags.ipRange;
@@ -231,8 +231,8 @@ in
     expr = types.isDnsEndpoint dnsEndpoint;
     expected = true;
   };
-  isIpListener-yes = {
-    expr = types.isIpListener ipListener;
+  isIpBindpoint-yes = {
+    expr = types.isIpBindpoint ipBindpoint;
     expected = true;
   };
   isIpRange-yes = {

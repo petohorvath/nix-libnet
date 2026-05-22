@@ -1,28 +1,31 @@
 /*
-  libnet.listener
+  libnet.bindpoint
 
-  Pass-through union over the two bind targets: `ipListener` (an
+  Pass-through union over the two bind targets: `ipBindpoint` (an
   optional IP address + port range) and `unixSocket` (a socket path).
-  Composed as `ipListener | unixSocket`; **no new `_type` tag**. `parse`
+  Composed as `ipBindpoint | unixSocket`; **no new `_type` tag**. `parse`
   dispatches by shape: a leading `/` or `@` → `unixSocket`, otherwise
-  the IP listener form.
+  the IP bindpoint form.
 
   Returns the underlying typed value; consumers branch on `value._type`.
-  The members are heterogeneous (`ipListener` has address/portRange and
+  The members are heterogeneous (`ipBindpoint` has address/portRange and
   the `endpoints` materialization; `unixSocket` has a path), so this
   union exposes predicates + `toString` + comparison. Branch with
-  `isIpListener` / `isUnixSocket` and use the member module's API.
+  `isIpBindpoint` / `isUnixSocket` and use the member module's API.
 
-    listener = ipListener | unixSocket
+    bindpoint = ipBindpoint | unixSocket
+
+  The local-bind peer of `endpoint` (the connect-side union). `bindUrl`
+  adds a transport tag on top, mirroring how `socketUrl` tags `endpoint`.
 
   Example:
-    libnet.listener.parse ":8080"           # tagged ipListener
-    libnet.listener.parse "/run/foo.sock"   # tagged unixSocket
+    libnet.bindpoint.parse ":8080"           # tagged ipBindpoint
+    libnet.bindpoint.parse "/run/foo.sock"   # tagged unixSocket
 */
 let
   types = import ./internal/types.nix;
   parse' = import ./internal/parse.nix;
-  ipListener = import ./ip-listener.nix;
+  ipBindpoint = import ./ip-bindpoint.nix;
   unixSocket = import ./unix-socket.nix;
 
   # ===== Parsing =====
@@ -30,11 +33,11 @@ let
   tryParse =
     s:
     if !(builtins.isString s) then
-      types.tryErr "libnet.listener.parse: input must be a string"
+      types.tryErr "libnet.bindpoint.parse: input must be a string"
     else if parse'.startsWith "/" s || parse'.startsWith "@" s then
       unixSocket.tryParse s
     else
-      ipListener.tryParse s;
+      ipBindpoint.tryParse s;
 
   parse =
     s:
@@ -44,38 +47,38 @@ let
     if r.success then r.value else builtins.throw r.error;
 
   toString =
-    lst:
-    if types.isIpListener lst then
-      ipListener.toString lst
-    else if types.isUnixSocket lst then
-      unixSocket.toString lst
+    bp:
+    if types.isIpBindpoint bp then
+      ipBindpoint.toString bp
+    else if types.isUnixSocket bp then
+      unixSocket.toString bp
     else
-      builtins.throw "libnet.listener.toString: expected ipListener or unixSocket value";
+      builtins.throw "libnet.bindpoint.toString: expected ipBindpoint or unixSocket value";
 
   # ===== Predicates =====
 
   isValid = s: (tryParse s).success;
-  is = v: types.isIpListener v || types.isUnixSocket v;
-  isIpListener = types.isIpListener;
+  is = v: types.isIpBindpoint v || types.isUnixSocket v;
+  isIpBindpoint = types.isIpBindpoint;
   isUnixSocket = types.isUnixSocket;
 
   # ===== Comparison =====
   #
-  # Cross-kind order: ipListener < unixSocket. Within a kind, delegates.
+  # Cross-kind order: ipBindpoint < unixSocket. Within a kind, delegates.
 
   rank =
     v:
-    if types.isIpListener v then
+    if types.isIpBindpoint v then
       0
     else if types.isUnixSocket v then
       1
     else
-      builtins.throw "libnet.listener.compare: expected ipListener or unixSocket value";
+      builtins.throw "libnet.bindpoint.compare: expected ipBindpoint or unixSocket value";
 
   eq =
     a: b:
-    if types.isIpListener a && types.isIpListener b then
-      ipListener.eq a b
+    if types.isIpBindpoint a && types.isIpBindpoint b then
+      ipBindpoint.eq a b
     else if types.isUnixSocket a && types.isUnixSocket b then
       unixSocket.eq a b
     else
@@ -92,7 +95,7 @@ let
     else if ra > rb then
       1
     else if ra == 0 then
-      ipListener.compare a b
+      ipBindpoint.compare a b
     else
       unixSocket.compare a b;
 
@@ -112,7 +115,7 @@ in
   inherit
     isValid
     is
-    isIpListener
+    isIpBindpoint
     isUnixSocket
     ;
   inherit

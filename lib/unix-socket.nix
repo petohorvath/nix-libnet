@@ -5,7 +5,7 @@
   port (the path IS the address). Symmetric: the same value is used to
   bind (listen) and to dial (connect). A peer of `ipEndpoint` /
   `dnsEndpoint` at the complete-target level, and a member of both the
-  `endpoint` and `listener` unions.
+  `endpoint` and `bindpoint` unions.
 
   Two forms:
   - pathname: an absolute filesystem path (`/run/foo.sock`), ≤ 107

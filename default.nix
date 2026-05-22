@@ -17,8 +17,8 @@ let
     urlHost = import ./lib/url-host.nix;
     authority = import ./lib/authority.nix;
     proxyUrl = import ./lib/proxy-url.nix;
-    ipListener = import ./lib/ip-listener.nix;
-    listener = import ./lib/listener.nix;
+    ipBindpoint = import ./lib/ip-bindpoint.nix;
+    bindpoint = import ./lib/bindpoint.nix;
     ipRange = import ./lib/ip-range.nix;
     interface = import ./lib/interface.nix;
     transport = import ./lib/transport.nix;

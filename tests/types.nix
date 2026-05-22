@@ -518,59 +518,59 @@ in
     expected = true;
   };
 
-  # ===== ipListener =====
-  ipListener-null = {
-    expr = types.ipListener.check ":80";
+  # ===== ipBindpoint =====
+  ipBindpoint-null = {
+    expr = types.ipBindpoint.check ":80";
     expected = true;
   };
-  ipListener-wild = {
-    expr = types.ipListener.check "*:80";
+  ipBindpoint-wild = {
+    expr = types.ipBindpoint.check "*:80";
     expected = true;
   };
-  ipListener-range = {
-    expr = types.ipListener.check "1.2.3.4:80-90";
+  ipBindpoint-range = {
+    expr = types.ipBindpoint.check "1.2.3.4:80-90";
     expected = true;
   };
-  ipListener-unix-rejected = {
-    expr = types.ipListener.check "/run/foo.sock";
+  ipBindpoint-unix-rejected = {
+    expr = types.ipBindpoint.check "/run/foo.sock";
     expected = false;
   };
-  ipListener-desc = {
-    expr = builtins.isString types.ipListener.description;
+  ipBindpoint-desc = {
+    expr = builtins.isString types.ipBindpoint.description;
     expected = true;
   };
 
-  # ===== listener (union) =====
-  listener-ip = {
-    expr = types.listener.check ":80";
+  # ===== bindpoint (union) =====
+  bindpoint-ip = {
+    expr = types.bindpoint.check ":80";
     expected = true;
   };
-  listener-wild = {
-    expr = types.listener.check "*:80";
+  bindpoint-wild = {
+    expr = types.bindpoint.check "*:80";
     expected = true;
   };
-  listener-range = {
-    expr = types.listener.check "1.2.3.4:80-90";
+  bindpoint-range = {
+    expr = types.bindpoint.check "1.2.3.4:80-90";
     expected = true;
   };
-  listener-unix = {
-    expr = types.listener.check "/run/foo.sock";
+  bindpoint-unix = {
+    expr = types.bindpoint.check "/run/foo.sock";
     expected = true;
   };
-  listener-unix-abstract = {
-    expr = types.listener.check "@foo";
+  bindpoint-unix-abstract = {
+    expr = types.bindpoint.check "@foo";
     expected = true;
   };
-  listener-bad = {
-    expr = types.listener.check "host_name:1";
+  bindpoint-bad = {
+    expr = types.bindpoint.check "host_name:1";
     expected = false;
   };
-  listener-mk-unix = {
-    expr = types.listener.mk "/run/foo.sock";
+  bindpoint-mk-unix = {
+    expr = types.bindpoint.mk "/run/foo.sock";
     expected = "/run/foo.sock";
   };
-  listener-desc = {
-    expr = builtins.isString types.listener.description;
+  bindpoint-desc = {
+    expr = builtins.isString types.bindpoint.description;
     expected = true;
   };
 
