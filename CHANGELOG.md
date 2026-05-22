@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.bindUrl` — a bind address in URL form, `<scheme>://<bindpoint>`
+  (`tcp://:8080`, `udp://0.0.0.0:53`, `tcp://[::]:8000-8100`,
+  `unix:///run/foo.sock`). The bind-side peer of `socketUrl`: stored as
+  the underlying `transport` + `bindpoint` pair (`{ _type = "bindUrl";
+  transport = <transport | null>; bindpoint = <bindpoint>; }`),
+  `transport` null iff the bindpoint is a `unixSocket`. Because it tags
+  a `bindpoint` (not an `endpoint`), it keeps the wildcard-address and
+  port-range affordances `socketUrl` cannot express. API: parse /
+  tryParse / toString / make / isValid / is / isUnix / transport /
+  bindpoint + comparison (fixed scheme rank `tcp < udp < sctp < unix`,
+  then bindpoint) + `schemes` constant. Opt-in module type
+  `libnet.types.bindUrl`.
 - `libnet.proxyUrl` — the address of a proxy server in URL form,
   `<scheme>://[userinfo@]host:port` (`socks5://127.0.0.1:1080`,
   `http://user:pass@proxy.corp:8080`). A bounded composition of a proxy
@@ -61,17 +73,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a general URL parser. The "no URL/URI parsing" non-goal was reworded
   to "no *general* URL parsing" to carve out this bounded form; a full
   `url` type remains out of scope.
-- `libnet.listener` is now a pass-through union `ipListener |
+- `libnet.bindpoint` is a pass-through union `ipBindpoint |
   unixSocket`, so a service can bind an IP socket **or** a Unix socket
-  path. Today's IP listener was renamed to `libnet.ipListener` (tag
-  `ipListener`); it keeps the full bind API (wildcards, forwarded
-  predicates, `endpoints` materialization). The new `listener` union
-  carries no `_type` of its own and exposes parse / toString /
-  predicates (`isIpListener` / `isUnixSocket`) / comparison — branch
-  to reach a member's API. `types.ipListener` is the strict IP form;
-  `types.listener` accepts either. This completes the Unix socket as a
-  genuine third address family (it now appears in both the `endpoint`
-  and `listener` unions).
+  path. The IP bind spec is `libnet.ipBindpoint` (tag `ipBindpoint`);
+  it carries the full bind API (wildcards, forwarded predicates,
+  `endpoints` materialization). The `bindpoint` union carries no
+  `_type` of its own and exposes parse / toString / predicates
+  (`isIpBindpoint` / `isUnixSocket`) / comparison — branch to reach a
+  member's API. `types.ipBindpoint` is the strict IP form;
+  `types.bindpoint` accepts either. The name is the local-bind peer of
+  the connect-side `endpoint`: it is the `bind(2)` argument — address +
+  port range, no transport — not a `listen(2)` state. This completes
+  the Unix socket as a genuine third address family (it appears in both
+  the `endpoint` and `bindpoint` unions).
 - `libnet.endpoint` now also accepts `unixSocket` — the union is
   `ipEndpoint | dnsEndpoint | unixSocket`, dispatching on shape (a
   leading `/` or `@` → unix socket). Because the members are now
@@ -88,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   case-sensitive comparison + `sunPathMax` constant. Symmetric (binds
   or dials). Opt-in module type `libnet.types.unixSocket`. (First of
   three steps making the Unix socket a genuine address family; the
-  `endpoint` and `listener` unions both gained it.)
+  `endpoint` and `bindpoint` unions both gained it.)
 - `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
   trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
   named destination like `pool.ntp.org:123`); it rejects IP literals
@@ -173,12 +187,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value stays a string. The namespace is `transport` rather than
   `proto` to keep the layer explicit and leave room for separate
   network-layer / application-layer enums in the future.
-- Initial specification (`SPEC.md`) covering IPv4, IPv6, MAC, CIDR, Port, PortRange, IpEndpoint, Listener, Range, Interface types with a pure-Nix, zero-nixpkgs-dependency API.
+- Initial specification (`SPEC.md`) covering IPv4, IPv6, MAC, CIDR, Port, PortRange, IpEndpoint, Bindpoint, Range, Interface types with a pure-Nix, zero-nixpkgs-dependency API.
 - Pure-Nix test harness (`tests/harness.nix`) with no external dependencies.
 - Full v1 implementation of all 11 type namespaces:
   - `lib/ipv4.nix`, `lib/ipv6.nix`, `lib/ip.nix`, `lib/mac.nix`, `lib/cidr.nix`
   - `lib/port.nix` (with 31 well-known service constants), `lib/port-range.nix`
-  - `lib/ip-endpoint.nix`, `lib/listener.nix`, `lib/ip-range.nix`, `lib/interface.nix`
+  - `lib/ip-endpoint.nix`, `lib/bindpoint.nix`, `lib/ip-range.nix`, `lib/interface.nix`
 - Internal primitives: `lib/internal/{bits,carry,parse,format,types}.nix`
 - Opt-in NixOS module types via `libnet.withLib pkgs.lib` (see `lib/types.nix`).
 - `default.nix` + `flake.nix` entry points.

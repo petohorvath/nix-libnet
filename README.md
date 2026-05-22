@@ -1,6 +1,6 @@
 # libnet
 
-Pure-Nix library for IP, MAC, CIDR, port, ipEndpoint, listener, range, and
+Pure-Nix library for IP, MAC, CIDR, port, ipEndpoint, bindpoint, range, and
 interface values. Zero nixpkgs dependency in the core.
 
 - **IPv4**, **IPv6**, **MAC** addresses — parse, format, predicates, arithmetic, comparison
@@ -8,7 +8,7 @@ interface values. Zero nixpkgs dependency in the core.
   (summarize/exclude/intersect)
 - **Ports** + **PortRange** — RFC 6335 classification; service-name table in [`libnet.registry.ports`](./lib/registry.nix)
 - **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `unixSocket` (path), `endpoint` (union)
-- **Listener** — `ipListener` (`[ADDR]:PORT[-END]`), `unixSocket`, `listener` (union)
+- **Bindpoint** — `ipBindpoint` (`[ADDR]:PORT[-END]`), `unixSocket`, `bindpoint` (union)
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
 - **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
 - **Reverse DNS** (`toArpa`) for both families
@@ -37,8 +37,8 @@ let
   addr      = libnet.ipEndpoint.address ep;          # ::1
   p         = libnet.ipEndpoint.port ep;             # 443
 
-  listener  = libnet.ipListener.parse ":8080-8082";
-  isWild    = libnet.ipListener.isAnyAddress listener; # true
+  bindpoint = libnet.ipBindpoint.parse ":8080-8082";
+  isWild    = libnet.ipBindpoint.isAnyAddress bindpoint; # true
 
   summary   = libnet.cidr.summarize [
                 (libnet.cidr.parse "10.0.0.0/25")
@@ -62,7 +62,7 @@ in {
   options.mySvc.macAddr     = lib.mkOption { type = types.mac;      example = "aa:bb:cc:dd:ee:ff"; };
   options.mySvc.allowedCidr = lib.mkOption { type = types.ipv4Cidr; default = "10.0.0.0/8"; };
   options.mySvc.port        = lib.mkOption { type = types.port;     default = 8080; };
-  options.mySvc.listen      = lib.mkOption { type = types.listener; default = ":8080"; };
+  options.mySvc.listen      = lib.mkOption { type = types.bindpoint; default = ":8080"; };
 
   config.services.my-service.args = [
     "--bind=${config.mySvc.bind}"
@@ -95,13 +95,14 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.endpoint`](./lib/endpoint.nix) | pass-through union over ipEndpoint + dnsEndpoint + unixSocket; dispatches on shape (no new tag) |
 | [`libnet.unixSocket`](./lib/unix-socket.nix) | Unix domain socket (pathname or @abstract); complete target, no port |
 | [`libnet.socketUrl`](./lib/socket-url.nix) | socket address in URL form `<scheme>://<endpoint>` (tcp/udp/sctp/unix); bounded, not a general URL parser |
+| [`libnet.bindUrl`](./lib/bind-url.nix) | bind address in URL form `<scheme>://<bindpoint>` (tcp/udp/sctp/unix); bind-side peer of `socketUrl`, keeps wildcards + ranges |
 | [`libnet.secureSocketUrl`](./lib/secure-socket-url.nix) | TLS-secured socket URL `<scheme>://<endpoint>` (tls/ssl/dtls/quic); secured peer of `socketUrl`; scheme-derived transport, `ssl`⇒`tls` |
 | [`libnet.url`](./lib/url.nix) | absolute URL `<scheme>://[user@]host[:port][/path][?query][#frag]` over a closed scheme registry; parse, toEndpoint, accessors; components stored verbatim |
 | [`libnet.urlHost`](./lib/url-host.nix) | URL-authority host (RFC 3986 IP-literal/reg-name); looser than `host`; parse, toHost, isIp/isRegName |
 | [`libnet.authority`](./lib/authority.nix) | URL authority `[user@]host[:port]` (RFC 3986 §3.2); shared core of `url`, usable standalone; parse, make, accessors, comparison |
 | [`libnet.proxyUrl`](./lib/proxy-url.nix) | proxy server URL `<scheme>://[user@]host:port` (http/https/socks4/4a/5/5h); proxy scheme + authority; port required |
-| [`libnet.ipListener`](./lib/ip-listener.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
-| [`libnet.listener`](./lib/listener.nix) | pass-through union over ipListener + unixSocket (no new tag) |
+| [`libnet.ipBindpoint`](./lib/ip-bindpoint.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
+| [`libnet.bindpoint`](./lib/bindpoint.nix) | pass-through union over ipBindpoint + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
 | [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
 | [`libnet.transport`](./lib/transport.nix) | tcp/udp/sctp transport-layer enum, parse, isTcp/isUdp/isSctp, eq |
