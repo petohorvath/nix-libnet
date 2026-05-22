@@ -10,7 +10,8 @@ let
     dnsEndpoint = "dnsEndpoint";
     ipBindpoint = "ipBindpoint";
     ipRange = "ipRange";
-    interface = "interface";
+    interfaceAddress = "interfaceAddress";
+    interfaceName = "interfaceName";
     transport = "transport";
     hostname = "hostname";
     domain = "domain";
@@ -38,7 +39,8 @@ let
   isDnsEndpoint = hasTag tags.dnsEndpoint;
   isIpBindpoint = hasTag tags.ipBindpoint;
   isIpRange = hasTag tags.ipRange;
-  isInterface = hasTag tags.interface;
+  isInterfaceAddress = hasTag tags.interfaceAddress;
+  isInterfaceName = hasTag tags.interfaceName;
   isTransport = hasTag tags.transport;
   isHostname = hasTag tags.hostname;
   isDomain = hasTag tags.domain;
@@ -87,7 +89,8 @@ in
     isDnsEndpoint
     isIpBindpoint
     isIpRange
-    isInterface
+    isInterfaceAddress
+    isInterfaceName
     isTransport
     isHostname
     isDomain

@@ -626,21 +626,21 @@ in
     expected = false;
   };
 
-  # ===== interface =====
-  iface-v4 = {
-    expr = types.interface.check "10.0.0.5/24";
+  # ===== interfaceAddress =====
+  ifaddr-v4 = {
+    expr = types.interfaceAddress.check "10.0.0.5/24";
     expected = true;
   };
-  iface-v6 = {
-    expr = types.interface.check "::1/64";
+  ifaddr-v6 = {
+    expr = types.interfaceAddress.check "::1/64";
     expected = true;
   };
-  ipv4Iface-v6-rej = {
-    expr = types.ipv4Interface.check "::1/64";
+  ipv4Ifaddr-v6-rej = {
+    expr = types.ipv4InterfaceAddress.check "::1/64";
     expected = false;
   };
-  ipv6Iface-v4-rej = {
-    expr = types.ipv6Interface.check "10.0.0.5/24";
+  ipv6Ifaddr-v4-rej = {
+    expr = types.ipv6InterfaceAddress.check "10.0.0.5/24";
     expected = false;
   };
 
@@ -695,7 +695,7 @@ in
   };
   ifname-rej-cidr = {
     expr = types.interfaceName.check "10.0.0.5/24";
-    expected = false; # the address-on-subnet form is the `interface` type
+    expected = false; # the address-on-subnet form is the `interfaceAddress` type
   };
 
   # ===== transport =====

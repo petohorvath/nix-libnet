@@ -36,7 +36,8 @@ let
   ipBindpoint = import ./ip-bindpoint.nix;
   bindpoint = import ./bindpoint.nix;
   ipRange = import ./ip-range.nix;
-  interface = import ./interface.nix;
+  interfaceAddress = import ./interface-address.nix;
+  interfaceName = import ./interface-name.nix;
   port = import ./port.nix;
   transport = import ./transport.nix;
   hostname = import ./hostname.nix;
@@ -206,28 +207,28 @@ let
     validator = ipRange.isValid;
   };
 
-  interfaceType = mkStrType {
-    typeName = "interface";
+  interfaceAddressType = mkStrType {
+    typeName = "interfaceAddress";
     description = "an address-on-subnet descriptor (address/prefix)";
-    validator = interface.isValid;
+    validator = interfaceAddress.isValid;
   };
 
-  ipv4InterfaceType = mkStrType {
-    typeName = "ipv4Interface";
+  ipv4InterfaceAddressType = mkStrType {
+    typeName = "ipv4InterfaceAddress";
     description = "an IPv4 address-on-subnet descriptor";
-    validator = s: interface.isValid s && interface.isIpv4 (interface.parse s);
+    validator = s: interfaceAddress.isValid s && interfaceAddress.isIpv4 (interfaceAddress.parse s);
   };
 
-  ipv6InterfaceType = mkStrType {
-    typeName = "ipv6Interface";
+  ipv6InterfaceAddressType = mkStrType {
+    typeName = "ipv6InterfaceAddress";
     description = "an IPv6 address-on-subnet descriptor";
-    validator = s: interface.isValid s && interface.isIpv6 (interface.parse s);
+    validator = s: interfaceAddress.isValid s && interfaceAddress.isIpv6 (interfaceAddress.parse s);
   };
 
   interfaceNameType = mkStrType {
     typeName = "interfaceName";
     description = "a Linux interface name (ifname; kernel dev_valid_name parity)";
-    validator = interface.isValidName;
+    validator = interfaceName.isValid;
   };
 
   transportType = mkStrType {
@@ -340,9 +341,9 @@ in
     ipBindpoint = ipBindpointType;
     bindpoint = bindpointType;
     ipRange = ipRangeType;
-    interface = interfaceType;
-    ipv4Interface = ipv4InterfaceType;
-    ipv6Interface = ipv6InterfaceType;
+    interfaceAddress = interfaceAddressType;
+    ipv4InterfaceAddress = ipv4InterfaceAddressType;
+    ipv6InterfaceAddress = ipv6InterfaceAddressType;
     interfaceName = interfaceNameType;
     transport = transportType;
     hostname = hostnameType;

@@ -58,10 +58,14 @@ let
     from = ipv4;
     to = ipv4;
   };
-  interface = {
-    _type = "interface";
+  interfaceAddress = {
+    _type = "interfaceAddress";
     address = ipv4;
     prefix = 24;
+  };
+  interfaceName = {
+    _type = "interfaceName";
+    value = "eth0";
   };
   transport = {
     _type = "transport";
@@ -144,9 +148,13 @@ in
     expr = types.tags.ipRange;
     expected = "ipRange";
   };
-  tags-interface = {
-    expr = types.tags.interface;
-    expected = "interface";
+  tags-interfaceAddress = {
+    expr = types.tags.interfaceAddress;
+    expected = "interfaceAddress";
+  };
+  tags-interfaceName = {
+    expr = types.tags.interfaceName;
+    expected = "interfaceName";
   };
   tags-transport = {
     expr = types.tags.transport;
@@ -248,8 +256,12 @@ in
     expr = types.isIpRange ipRange;
     expected = true;
   };
-  isInterface-yes = {
-    expr = types.isInterface interface;
+  isInterfaceAddress-yes = {
+    expr = types.isInterfaceAddress interfaceAddress;
+    expected = true;
+  };
+  isInterfaceName-yes = {
+    expr = types.isInterfaceName interfaceName;
     expected = true;
   };
   isTransport-yes = {

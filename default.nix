@@ -21,7 +21,8 @@ let
     ipBindpoint = import ./lib/ip-bindpoint.nix;
     bindpoint = import ./lib/bindpoint.nix;
     ipRange = import ./lib/ip-range.nix;
-    interface = import ./lib/interface.nix;
+    interfaceAddress = import ./lib/interface-address.nix;
+    interfaceName = import ./lib/interface-name.nix;
     transport = import ./lib/transport.nix;
     hostname = import ./lib/hostname.nix;
     domain = import ./lib/domain.nix;
