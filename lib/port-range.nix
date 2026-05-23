@@ -55,29 +55,25 @@ let
         hasHyphen = builtins.length hyphenParts == 2;
         hasColon = builtins.length colonParts == 2 && !hasHyphen;
         isSingle = builtins.length hyphenParts == 1 && !hasColon;
+        # Hyphen ("8000-8100") and colon ("8000:8100") forms both split
+        # into a [from to] pair parsed the same way.
+        fromPair =
+          parts:
+          let
+            f = parsePart (builtins.elemAt parts 0);
+            t = parsePart (builtins.elemAt parts 1);
+          in
+          if f == null || t == null then
+            types.tryErr "libnet.portRange.parse: invalid range \"${s}\""
+          else if f > t then
+            types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
+          else
+            types.tryOk (mk (port.fromInt f) (port.fromInt t));
       in
       if hasHyphen then
-        let
-          f = parsePart (builtins.elemAt hyphenParts 0);
-          t = parsePart (builtins.elemAt hyphenParts 1);
-        in
-        if f == null || t == null then
-          types.tryErr "libnet.portRange.parse: invalid range \"${s}\""
-        else if f > t then
-          types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
-        else
-          types.tryOk (mk (port.fromInt f) (port.fromInt t))
+        fromPair hyphenParts
       else if hasColon then
-        let
-          f = parsePart (builtins.elemAt colonParts 0);
-          t = parsePart (builtins.elemAt colonParts 1);
-        in
-        if f == null || t == null then
-          types.tryErr "libnet.portRange.parse: invalid range \"${s}\""
-        else if f > t then
-          types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
-        else
-          types.tryOk (mk (port.fromInt f) (port.fromInt t))
+        fromPair colonParts
       else if isSingle then
         let
           p = parsePart s;
