@@ -139,7 +139,7 @@ in
   };
   diff-neg = {
     expr = vlanId.diff (vlanId.fromInt 150) (vlanId.fromInt 100);
-    expected = (-50);
+    expected = -50;
   };
   diff-zero = {
     expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 100);

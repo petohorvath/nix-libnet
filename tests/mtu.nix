@@ -151,7 +151,7 @@ in
   };
   diff-neg = {
     expr = mtu.diff (mtu.fromInt 9000) (mtu.fromInt 1500);
-    expected = (-7500);
+    expected = -7500;
   };
   diff-zero = {
     expr = mtu.diff (mtu.fromInt 1500) (mtu.fromInt 1500);

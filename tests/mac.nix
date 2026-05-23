@@ -367,7 +367,7 @@ in
   };
   diff-neg = {
     expr = mac.diff (p "00:00:00:00:00:05") (p "00:00:00:00:00:01");
-    expected = (-4);
+    expected = -4;
   };
   diff-zero = {
     expr = mac.diff (p "00:00:00:00:00:05") (p "00:00:00:00:00:05");

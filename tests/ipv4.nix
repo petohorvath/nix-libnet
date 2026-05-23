@@ -591,7 +591,7 @@ in
   };
   diff-neg = {
     expr = ipv4.diff (p "1.2.3.10") (p "1.2.3.4");
-    expected = (-6);
+    expected = -6;
   };
   diff-same = {
     expr = ipv4.diff (p "1.2.3.4") (p "1.2.3.4");

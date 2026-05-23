@@ -159,7 +159,7 @@ in
   };
   diff-neg = {
     expr = port.diff (p "90") (p "80");
-    expected = (-10);
+    expected = -10;
   };
   diff-zero = {
     expr = port.diff (p "80") (p "80");

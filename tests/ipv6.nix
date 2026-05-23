@@ -675,7 +675,7 @@ in
   };
   diff-neg = {
     expr = ipv6.diff (p "::10") (p "::1");
-    expected = (-15);
+    expected = -15;
   };
 
   # ===== Comparison helpers =====
