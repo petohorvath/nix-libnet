@@ -183,6 +183,22 @@ in
     expr = throws (ipRange.addresses (p "1.0.0.0-2.0.0.0"));
     expected = true;
   };
+  addressAt-first = {
+    expr = ipv4.toString (ipRange.addressAt 0 (p "1.2.3.4-1.2.3.6"));
+    expected = "1.2.3.4";
+  };
+  addressAt-neg = {
+    expr = ipv4.toString (ipRange.addressAt (-1) (p "1.2.3.4-1.2.3.6"));
+    expected = "1.2.3.6";
+  };
+  addressAt-v6 = {
+    expr = ipv6.toString (ipRange.addressAt 2 (p "::1-::5"));
+    expected = "::3";
+  };
+  addressAt-oob = {
+    expr = throws (ipRange.addressAt 3 (p "1.2.3.4-1.2.3.6"));
+    expected = true;
+  };
 
   # ===== toCidrs =====
   toCidrs-aligned = {

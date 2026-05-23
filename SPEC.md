@@ -535,7 +535,7 @@ Every function is documented with:
 - Throws-or-not
 - Example (where non-obvious)
 
-Curry order throughout: **operators come first, operand last**, so `add 1` is a partially applied "add one" function useful in `map`/`foldl'`. This applies to `add`, `sub`, `diff`, `hostAt`, `endpointAt` (on Bindpoint), `subnet`, `supernet`, `contains` (where applicable), and predicates that take a parameter.
+Curry order throughout: **operators come first, operand last**, so `add 1` is a partially applied "add one" function useful in `map`/`foldl'`. This applies to `add`, `sub`, `diff`, `hostAt`, `endpointAt` (on Bindpoint), `portAt` (on PortRange), `addressAt` (on IpRange), `subnet`, `supernet`, `contains` (where applicable), and predicates that take a parameter.
 
 **`isValid` vs `is`**: every family has both. `isValid :: String → Bool` tests "does this string parse successfully" (string-level validation). `is :: Any → Bool` tests "is this value a parsed X value" (structural check on the `_type` tag). They are not interchangeable: `ipv4.isValid "10.0.0.1"` is `true`, but `ipv4.is "10.0.0.1"` is `false` (a raw string is not a parsed ipv4 value).
 
@@ -1106,6 +1106,7 @@ IP MTU — a tagged int in `[68, 65535]`. Same shape as `vlanId`. The lower boun
 |---|---|---|
 | `ports` | `PortRange → [Port]` | Enumerate all ports. Throws if `size > 2¹²` (4096); use `portsUnbounded` to bypass. |
 | `portsUnbounded` | `PortRange → [Port]` | No size guard. Caller's responsibility. |
+| `portAt` | `Int → PortRange → Port` | n-th port (0-indexed) from `from`; negative n from the end. Throws out-of-range. Parallels `cidr.hostAt`. |
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — lexicographic on `(from, to)`. Same pattern as ipv4/ipv6/mac.
 
@@ -1488,6 +1489,7 @@ Non-CIDR contiguous address range (e.g., `10.0.0.1-10.0.0.50`). Parallels `cidr`
 |---|---|---|
 | `addresses` | `IpRange → [(Ipv4 | Ipv6)]` | Enumerate all addresses. Throws if `size > 2¹⁶`; use `addressesUnbounded` to bypass. |
 | `addressesUnbounded` | `IpRange → [(Ipv4 | Ipv6)]` | No size guard. |
+| `addressAt` | `Int → IpRange → (Ipv4 | Ipv6)` | n-th address (0-indexed) from `from`; negative n from the end. Throws out-of-range. Parallels `cidr.hostAt`. |
 
 **CIDR interop**
 | Function | Signature | Notes |

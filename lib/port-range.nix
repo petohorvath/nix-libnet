@@ -193,6 +193,19 @@ let
     else
       portsUnbounded pr;
 
+  # n-th port (0-indexed) from `from`; negative n counts from the end.
+  # Parallels cidr.hostAt / ipBindpoint.endpointAt.
+  portAt =
+    n: pr:
+    let
+      sz = size pr;
+      idx = if n < 0 then sz + n else n;
+    in
+    if idx < 0 || idx >= sz then
+      builtins.throw "libnet.portRange.portAt: index out of range [0, ${builtins.toString sz})"
+    else
+      port.add idx pr.from;
+
   # ===== Comparison =====
 
   eq = a: b: port.eq a.from b.from && port.eq a.to b.to;
@@ -228,7 +241,7 @@ in
     isAdjacent
     merge
     ;
-  inherit ports portsUnbounded;
+  inherit ports portsUnbounded portAt;
   inherit
     eq
     lt

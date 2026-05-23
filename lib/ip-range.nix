@@ -206,6 +206,20 @@ let
     else
       addressesUnbounded r;
 
+  # n-th address (0-indexed) from `from`; negative n counts from the end.
+  # Parallels cidr.hostAt / ipBindpoint.endpointAt. Like cidr.hostAt it
+  # relies on `size`, so it throws for IPv6 ranges wider than ~2^63.
+  addressAt =
+    n: r:
+    let
+      sz = size r;
+      idx = if n < 0 then sz + n else n;
+    in
+    if idx < 0 || idx >= sz then
+      builtins.throw "libnet.ipRange.addressAt: index out of range [0, ${builtins.toString sz})"
+    else
+      (addFor r.from) idx r.from;
+
   # ===== CIDR interop =====
 
   fromCidr =
@@ -329,7 +343,7 @@ in
     isAdjacent
     merge
     ;
-  inherit addresses addressesUnbounded;
+  inherit addresses addressesUnbounded addressAt;
   inherit toCidrs fromCidr;
   inherit
     eq

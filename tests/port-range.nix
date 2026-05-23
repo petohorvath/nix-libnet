@@ -255,6 +255,22 @@ in
     expr = builtins.length (pr.portsUnbounded (p "0-4096"));
     expected = 4097;
   };
+  portAt-first = {
+    expr = port.toInt (pr.portAt 0 (p "80-83"));
+    expected = 80;
+  };
+  portAt-mid = {
+    expr = port.toInt (pr.portAt 2 (p "80-83"));
+    expected = 82;
+  };
+  portAt-neg = {
+    expr = port.toInt (pr.portAt (-1) (p "80-83"));
+    expected = 83;
+  };
+  portAt-oob = {
+    expr = throws (pr.portAt 4 (p "80-83"));
+    expected = true;
+  };
 
   # ===== Comparison helpers =====
   cmp-lt = {
