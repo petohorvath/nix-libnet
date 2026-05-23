@@ -1,8 +1,6 @@
 { harness }:
 let
   ip = import ../lib/ip.nix;
-  ipv4 = import ../lib/ipv4.nix;
-  ipv6 = import ../lib/ipv6.nix;
   inherit (harness) throws;
   p = ip.parse;
 in

@@ -2,8 +2,6 @@
 let
   lst = import ../lib/ip-bindpoint.nix;
   ipv4 = import ../lib/ipv4.nix;
-  ipv6 = import ../lib/ipv6.nix;
-  port = import ../lib/port.nix;
   pr = import ../lib/port-range.nix;
   ipEndpoint = import ../lib/ip-endpoint.nix;
   inherit (harness) throws;
