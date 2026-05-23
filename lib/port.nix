@@ -72,6 +72,8 @@ let
   isRegistered = pt: pt.value >= 1024 && pt.value <= 49151;
   isDynamic = pt: pt.value >= 49152 && pt.value <= portMax;
   isEphemeral = isDynamic;
+  # Port 0 is reserved (RFC 6335) and, being <= 1023, also satisfies
+  # isWellKnown — these classes are not a partition.
   isReserved = pt: pt.value == 0;
 
   # ===== Arithmetic =====

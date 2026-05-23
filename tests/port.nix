@@ -110,6 +110,11 @@ in
     expr = port.isWellKnown (p "1024");
     expected = false;
   };
+  isWellKnown-0 = {
+    # 0 is reserved AND well-known — the classes overlap (not a partition).
+    expr = port.isWellKnown (p "0");
+    expected = true;
+  };
   isRegistered-1024 = {
     expr = port.isRegistered (p "1024");
     expected = true;

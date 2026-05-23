@@ -836,6 +836,8 @@ Family-specific predicates (ipv4 `isPrivate`/`isBroadcast`/`isReserved`, ipv6 `i
 | `isDynamic` | `Port → Bool` | `49152..65535` (alias: `isEphemeral`). |
 | `isReserved` | `Port → Bool` | `0`. |
 
+Port `0` is both reserved (RFC 6335) and well-known (`<= 1023`), so `isWellKnown 0` and `isReserved 0` are both true — these classes are not a partition.
+
 **Arithmetic**: `add`, `sub`, `diff`, `next`, `prev` — parallel to ipv4/mac. `add`/`sub` throw on overflow beyond `[0, 65535]`. `diff a b = toInt b - toInt a`.
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — parallel to ipv4/mac.
