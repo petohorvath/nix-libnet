@@ -306,6 +306,25 @@ in
     );
     expected = true;
   };
+  make-bad-path = {
+    expr = throws (
+      url.make {
+        scheme = "http";
+        host = "h";
+        path = "noslash";
+      }
+    );
+    expected = true;
+  };
+  make-empty-path-ok = {
+    expr = url.toString (
+      url.make {
+        scheme = "http";
+        host = "h";
+      }
+    );
+    expected = "http://h";
+  };
 
   # ===== Comparison =====
   eq-same = {

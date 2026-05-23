@@ -184,6 +184,8 @@ let
       builtins.throw "libnet.url.make: invalid host \"${host}\""
     else if port != null && !(builtins.isInt port) then
       builtins.throw "libnet.url.make: port must be an int or null"
+    else if path != "" && !(parse'.startsWith "/" path) then
+      builtins.throw "libnet.url.make: path must be empty or start with '/': \"${path}\""
     else
       mk sch userinfo h.value (if port == null then null else mkPort port) path query fragment;
 
