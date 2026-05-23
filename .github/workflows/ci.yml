@@ -107,8 +107,10 @@ jobs:
   # `--override-input` swaps just the nixpkgs input without touching
   # flake.lock. `core` is intentionally not matrixed here — it has
   # no nixpkgs dependency by construction, so the channel axis adds
-  # no signal. Runs on x86_64-linux only; the per-system matrix in
-  # `tests` already covers the arch axis.
+  # no signal. The pinned lock is omitted too: the `tests` job
+  # already builds `full` against it, so a row here would only
+  # duplicate that derivation. Runs on x86_64-linux only; the
+  # per-system matrix in `tests` already covers the arch axis.
   compat:
     name: compat (${{ matrix.label }})
     runs-on: ubuntu-latest
@@ -116,8 +118,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: pinned
-            override: ""
           - label: nixos-25.11
             override: --override-input nixpkgs github:NixOS/nixpkgs/nixos-25.11
           - label: nixos-unstable
