@@ -120,10 +120,12 @@ Port is the one exception: `types.port` coerces to int.
 **Tagged values.** Every parsed value is a tagged attrset
 (`{ _type = "ipv4"; value = …; }` etc.) so runtime dispatch is safe.
 
-**Uniform API.** Every family exposes the same skeleton: `parse` / `tryParse` /
+**Uniform API.** Most families share the same skeleton: `parse` / `tryParse` /
 `toString` / `fromX` / `toX` / `isValid` / `is` / predicates / `add` / `sub` /
 `diff` / `next` / `prev` / `eq` / `lt` / `le` / `gt` / `ge` / `compare` / `min` /
-`max`. Learn one, know them all.
+`max` — learn one and the rest mostly follow. Each keeps only what fits: enums
+(`transport`) expose just `eq`, int-only types (`vlanId`/`mtu`) have no `parse`,
+and pass-through unions (`ip`/`host`/`endpoint`/…) add no constructors.
 
 **Curry-friendly.** Operators come first, operand last. `map (ipv4.add 1)
 [a b c]` works.
