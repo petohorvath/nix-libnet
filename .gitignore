@@ -1,1 +1,19 @@
+# nix build output symlinks
+result
+result-*
+
+# editor autosave/backup files
+*~
+\#*\#
+.\#*
+
+# nix-direnv cache and per-user envrc overrides
+.direnv/
+.envrc.local
+
+# git-hooks.nix writes this on `nix develop` / direnv reload;
+# it's a build artifact, not source.
+.pre-commit-config.yaml
+
+# Local Claude instructions, not part of the published library.
 CLAUDE.md
