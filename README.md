@@ -10,7 +10,7 @@ interface values. Zero nixpkgs dependency in the core.
 - **Endpoint** (`ADDR:PORT`) — `ipEndpoint` (IP), `dnsEndpoint` (name), `unixSocket` (path), `endpoint` (union)
 - **Bindpoint** — `ipBindpoint` (`[ADDR]:PORT[-END]`), `unixSocket`, `bindpoint` (union)
 - **Range** — non-CIDR address ranges, `toCidrs` conversion
-- **Interface** — address-on-subnet descriptor (Python `IPv4Interface` analog)
+- **Interface** — `interfaceAddress` (address-on-subnet, Python `IPv4Interface` analog), `interfaceName` (Linux NIC name, `eth0`)
 - **Reverse DNS** (`toArpa`) for both families
 - **EUI-64** derivation per RFC 4291
 - **NixOS module types** — opt-in via `libnet.withLib lib` (core stays dep-free)
@@ -104,7 +104,8 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.ipBindpoint`](./lib/ip-bindpoint.nix) | IP bind spec; parse with `*` / `any` / `:port` wildcards, endpoints, endpointAt(n) |
 | [`libnet.bindpoint`](./lib/bindpoint.nix) | pass-through union over ipBindpoint + unixSocket (no new tag) |
 | [`libnet.ipRange`](./lib/ip-range.nix) | parse, contains, merge, toCidrs, fromCidr |
-| [`libnet.interface`](./lib/interface.nix) | parse (preserves host bits), network, toCidr, toRange |
+| [`libnet.interfaceAddress`](./lib/interface-address.nix) | parse (preserves host bits), network, toCidr, toRange |
+| [`libnet.interfaceName`](./lib/interface-name.nix) | Linux ifname (`eth0`); dev_valid_name parity (≤15 bytes); parse, isValid, eq/compare |
 | [`libnet.transport`](./lib/transport.nix) | tcp/udp/sctp transport-layer enum, parse, isTcp/isUdp/isSctp, eq |
 | [`libnet.hostname`](./lib/hostname.nix) | single-label RFC 1123 hostname (1-63 chars), parse, normalize, case-insensitive eq/compare |
 | [`libnet.domain`](./lib/domain.nix) | multi-label DNS name (>=2 labels), parent, isSubdomainOf, toHostname, normalize, case-insensitive eq/compare |
