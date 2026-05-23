@@ -106,6 +106,11 @@ let
 
   isValid = s: (tryParse s).success;
   is = types.isProxyUrl;
+  # Only an `https` proxy wraps the client↔proxy hop in TLS; `http` and
+  # every SOCKS scheme (incl. `socks5h` — the `h` is remote DNS, not TLS)
+  # reach the proxy in plaintext. Mirrors `url.isSecure` (scheme implies
+  # TLS) and the `secureSocketUrl` peer (always true).
+  isSecure = pu: pu.scheme == "https";
 
   # ===== Comparison =====
   #
@@ -156,7 +161,7 @@ in
     toString
     make
     ;
-  inherit isValid is;
+  inherit isValid is isSecure;
   # `scheme` / `authority` accessors declared inline to avoid shadowing
   # the imported module of the same name.
   scheme = pu: pu.scheme;

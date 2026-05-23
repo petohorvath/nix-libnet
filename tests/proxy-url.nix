@@ -199,6 +199,22 @@ in
     expr = proxyUrl.isValid "socks5://h";
     expected = false;
   };
+  isSecure-https = {
+    expr = proxyUrl.isSecure (p "https://h:443");
+    expected = true;
+  };
+  isSecure-http = {
+    expr = proxyUrl.isSecure (p "http://h:8080");
+    expected = false;
+  };
+  isSecure-socks5 = {
+    expr = proxyUrl.isSecure (p "socks5://h:1080");
+    expected = false;
+  };
+  isSecure-socks5h = {
+    expr = proxyUrl.isSecure (p "socks5h://h:1080");
+    expected = false;
+  };
 
   # ===== Comparison =====
   eq-same = {

@@ -1364,7 +1364,7 @@ The address of a proxy server, `<scheme>://[userinfo@]host:port` — a bounded c
 | `toString` | `ProxyUrl → String` | `<scheme>://<authority>`. |
 | `make` | `String → Authority → ProxyUrl` | Validates the scheme (lowercased); requires the authority to carry a port. |
 
-**Predicates**: `isValid` (`String → Bool`), `is`.
+**Predicates**: `isValid` (`String → Bool`), `is`, `isSecure` (`ProxyUrl → Bool` — true only for `https`; the client↔proxy hop is TLS. `http` and all SOCKS schemes, including `socks5h`, reach the proxy in plaintext).
 
 **Accessors**: `scheme` (→ String), `authority` (→ authority; reach host/userinfo/port through it).
 
