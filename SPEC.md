@@ -23,7 +23,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
-3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipBindpoint"`, `"ipRange"`, `"interfaceAddress"`, `"interfaceName"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"unixSocket"`, `"socketUrl"`, `"bindUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`, `"proxyUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
+3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipBindpoint"`, `"ipRange"`, `"interfaceAddress"`, `"interfaceName"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"icmpType"`, `"unixSocket"`, `"socketUrl"`, `"bindUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`, `"proxyUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
 5. **Completeness over minimalism (v1)** — parse/format, validation, predicates, arithmetic, conversions, CIDR math, iteration, comparison. One spec, one implementation pass. Partial APIs cause churn.
 6. **RFC-conformant I/O** — canonical IPv6 per RFC 5952 on output; accept all valid inputs (compression, IPv4-mapped, mixed case) on input.
@@ -202,6 +202,20 @@ Invariant: `value` is in `[68, 65535]` (RFC 791 forwarding floor
 through the IPv4 wire-format maximum). Tagged like `Port`; constructed
 via `fromInt`. The `libnet.types.mtu` option type coerces to a bare
 int.
+
+### IcmpType value
+```nix
+{
+  _type = "icmpType";
+  value = <int>;   # 0 .. 255
+}
+```
+Invariant: `value` is in `[0, 255]` (the 8-bit ICMP / ICMPv6 Type
+field). Family-agnostic: v4 and v6 share the range, so family
+correctness is not checkable from the value. Tagged like `Port`;
+constructed via `fromInt` (no string form). The
+`libnet.types.icmpType` option type coerces to a bare int. Named
+constants live in `registry.icmpTypes` as bare ints.
 
 ### PortRange value
 ```nix
@@ -520,6 +534,7 @@ Rule: a field is a tagged attrset when the value is independently useful as a fi
 | `domain` | — | `value` (RFC 1123 multi-label dotted string) |
 | `vlanId` | — | `value` (int 1..4094) |
 | `mtu` | — | `value` (int 68..65535) |
+| `icmpType` | — | `value` (int 0..255) |
 | `unixSocket` | — | `path` (string) |
 | `socketUrl` | `transport` (Transport/null), `endpoint` (Endpoint) | — |
 
@@ -1066,6 +1081,33 @@ IP MTU — a tagged int in `[68, 65535]`. Same shape as `vlanId`. The lower boun
 |---|---|
 | `lowestValue` | `68` |
 | `highestValue` | `65535` |
+
+### `libnet.icmpType`
+
+ICMP / ICMPv6 message type — a tagged int in `[0, 255]` (the 8-bit Type field, RFC 792 / RFC 4443). Same shape as `vlanId` minus arithmetic. One family-agnostic type: v4 and v6 share the range, so a wrong-family constant is semantically wrong but not range-detectable — like a UDP port in a TCP list. The type validates the value space; `registry.icmpTypes.{ipv4,ipv6}` supplies the vocabulary (bare ints, deliberately curated rather than exhaustive) — the same split as `port` vs. the well-known port tables.
+
+**Conversion & formatting**
+| Function | Signature | Notes |
+|---|---|---|
+| `fromInt` | `Int → IcmpType` | Throws if out of range. |
+| `toInt` | `IcmpType → Int` |
+| `toString` | `IcmpType → String` | Decimal. |
+
+**Predicates**
+| Function | Signature | Notes |
+|---|---|---|
+| `isValid` | `Int → Bool` | Int (not String) predicate: `true` iff the int is in `[0, 255]`. Rejects non-ints. |
+| `is` | `Any → Bool` | Structural: value is a `{_type="icmpType";…}`. |
+
+**Arithmetic**: none — adjacent ICMP type numbers are unrelated messages, so the `add`/`sub`/`diff`/`next`/`prev` block of `vlanId`/`mtu` is deliberately omitted.
+
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge`, `compare`, `min`, `max` — numeric on `value`. Ordering carries real meaning once: RFC 4443 §2.1 classes ICMPv6 types as error (`< 128`) vs informational (`>= 128`).
+
+**Constants**
+| Constant | Value |
+|---|---|
+| `lowestValue` | `0` |
+| `highestValue` | `255` |
 
 ### `libnet.portRange`
 
@@ -1640,6 +1682,7 @@ in {
 | `types.host` | String — an IP, hostname, or domain (union of `ipv4` / `ipv6` / `hostname` / `domain` validators). | String. |
 | `types.vlanId` | Int in `[1, 4094]` (IEEE 802.1Q usable range). | Int. |
 | `types.mtu` | Int in `[68, 65535]` (RFC 791 forwarding floor through IPv4 wire-format maximum). | Int. |
+| `types.icmpType` | Int in `[0, 255]` (8-bit ICMP / ICMPv6 message-type field). | Int. |
 
 **Behavior**:
 - **Option values remain strings after merge**, matching existing NixOS idioms (`networking.*.address`, `networking.hostName`). No coercion to parsed attrsets during module eval. Downstream consumers call `libnet.ipv4.parse`, `libnet.cidr.parse`, etc. explicitly when structural access is needed.
@@ -1712,6 +1755,7 @@ nix-libnet/
 │   ├── host.nix             # Pass-through union over ip + dnsName
 │   ├── vlan-id.nix
 │   ├── mtu.nix
+│   ├── icmp-type.nix
 │   ├── registry.nix         # Well-known ports & protocol-number constants
 │   ├── types.nix            # NixOS module types factory (consumes injected `lib`)
 │   ├── with-lib.nix         # `withLib lib` entry point, composes types.nix
@@ -1757,6 +1801,7 @@ nix-libnet/
 │   ├── host.nix
 │   ├── vlan-id.nix
 │   ├── mtu.nix
+│   ├── icmp-type.nix
 │   ├── registry.nix
 │   ├── types.nix            # Module-type tests; opt-in, require `lib` as arg
 │   └── internal/

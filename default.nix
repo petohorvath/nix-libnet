@@ -30,6 +30,7 @@ let
     host = import ./lib/host.nix;
     vlanId = import ./lib/vlan-id.nix;
     mtu = import ./lib/mtu.nix;
+    icmpType = import ./lib/icmp-type.nix;
     registry = import ./lib/registry.nix;
   };
 in

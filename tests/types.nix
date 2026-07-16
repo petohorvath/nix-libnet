@@ -1,7 +1,12 @@
 { harness, lib }:
 let
   types = (import ../lib/types.nix { inherit lib; }).types;
+  registry = import ../lib/registry.nix;
   inherit (harness) throws;
+
+  # Registry ↔ type cross-check: the curated vocabulary always
+  # satisfies the type that validates its value space.
+  allIcmpTypesCheck = set: builtins.all (n: types.icmpType.check set.${n}) (builtins.attrNames set);
 in
 {
   # ===== ipv4 =====
@@ -1017,6 +1022,68 @@ in
   };
   mtu-desc = {
     expr = builtins.isString types.mtu.description;
+    expected = true;
+  };
+
+  # ===== icmpType =====
+  icmpType-check-typical = {
+    expr = types.icmpType.check 8;
+    expected = true;
+  };
+  icmpType-check-min = {
+    expr = types.icmpType.check 0;
+    expected = true;
+  };
+  icmpType-check-max = {
+    expr = types.icmpType.check 255;
+    expected = true;
+  };
+  icmpType-check-256 = {
+    expr = types.icmpType.check 256;
+    expected = false;
+  };
+  icmpType-check-negative = {
+    expr = types.icmpType.check (-1);
+    expected = false;
+  };
+  icmpType-check-string = {
+    expr = types.icmpType.check "8";
+    expected = false;
+  };
+  icmpType-mk-ok = {
+    expr = types.icmpType.mk 8;
+    expected = 8;
+  };
+  icmpType-mk-min = {
+    expr = types.icmpType.mk 0;
+    expected = 0;
+  };
+  icmpType-mk-max = {
+    expr = types.icmpType.mk 255;
+    expected = 255;
+  };
+  icmpType-mk-256-throws = {
+    expr = throws (types.icmpType.mk 256);
+    expected = true;
+  };
+  icmpType-mk-negative-throws = {
+    expr = throws (types.icmpType.mk (-1));
+    expected = true;
+  };
+  icmpType-mk-string-throws = {
+    expr = throws (types.icmpType.mk "8");
+    expected = true;
+  };
+  icmpType-desc = {
+    expr = builtins.isString types.icmpType.description;
+    expected = true;
+  };
+  icmpType-registry-v4 = {
+    expr = allIcmpTypesCheck registry.icmpTypes.ipv4;
+    expected = true;
+  };
+  icmpType-registry-v6 = {
+    expr = allIcmpTypesCheck registry.icmpTypes.ipv6;
     expected = true;
   };
 

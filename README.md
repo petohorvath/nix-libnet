@@ -113,6 +113,7 @@ Port is the one exception: `types.port` coerces to int.
 | [`libnet.host`](./lib/host.nix) | pass-through union over ip + dnsName; dispatches on input shape (no new tag) |
 | [`libnet.vlanId`](./lib/vlan-id.nix) | IEEE 802.1Q VLAN ID (tagged int in [1, 4094]); fromInt/toInt, isValid, arithmetic, comparison |
 | [`libnet.mtu`](./lib/mtu.nix) | IP MTU (tagged int in [68, 65535]); fromInt/toInt, isValid, arithmetic, comparison |
+| [`libnet.icmpType`](./lib/icmp-type.nix) | ICMP / ICMPv6 message type (tagged int in [0, 255]); fromInt/toInt, isValid, comparison (no arithmetic); named constants in `registry.icmpTypes` |
 | [`libnet.registry`](./lib/registry.nix) | `bogons.{ipv4,ipv6}` CIDR lists, `ports.{tcp,udp}` service-name tables, `icmpTypes.{ipv4,ipv6}` message-type tables |
 | `libnet.withLib lib` | Inject `nixpkgs.lib` to unlock `types.*` module option types |
 
@@ -125,8 +126,9 @@ Port is the one exception: `types.port` coerces to int.
 `toString` / `fromX` / `toX` / `isValid` / `is` / predicates / `add` / `sub` /
 `diff` / `next` / `prev` / `eq` / `lt` / `le` / `gt` / `ge` / `compare` / `min` /
 `max` — learn one and the rest mostly follow. Each keeps only what fits: enums
-(`transport`) expose just `eq`, int-only types (`vlanId`/`mtu`) have no `parse`,
-and pass-through unions (`ip`/`host`/`endpoint`/…) add no constructors.
+(`transport`) expose just `eq`, int-only types (`vlanId`/`mtu`/`icmpType`) have
+no `parse`, and pass-through unions (`ip`/`host`/`endpoint`/…) add no
+constructors.
 
 **Curry-friendly.** Operators come first, operand last. `map (ipv4.add 1)
 [a b c]` works.

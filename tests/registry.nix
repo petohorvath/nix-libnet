@@ -6,6 +6,7 @@ let
   ipv6 = import ../lib/ipv6.nix;
   ip = import ../lib/ip.nix;
   port = import ../lib/port.nix;
+  icmpType = import ../lib/icmp-type.nix;
 
   v4Strings = registry.bogons.ipv4;
   v6Strings = registry.bogons.ipv6;
@@ -32,6 +33,8 @@ let
   icmp = registry.icmpTypes;
   isIcmpByte = v: builtins.isInt v && v >= 0 && v <= 255;
   allIcmpBytes = types: builtins.all (n: isIcmpByte types.${n}) (builtins.attrNames types);
+  allIcmpLiftable =
+    types: builtins.all (n: icmpType.is (icmpType.fromInt types.${n})) (builtins.attrNames types);
 in
 {
   # ===== Shape =====
@@ -235,6 +238,16 @@ in
   };
   icmp-v6-all-bytes = {
     expr = allIcmpBytes icmp.ipv6;
+    expected = true;
+  };
+
+  # ===== icmpTypes — liftable to IcmpType =====
+  icmp-v4-all-liftable = {
+    expr = allIcmpLiftable icmp.ipv4;
+    expected = true;
+  };
+  icmp-v6-all-liftable = {
+    expr = allIcmpLiftable icmp.ipv6;
     expected = true;
   };
 

@@ -46,6 +46,7 @@ let
   host = import ./host.nix;
   vlanId = import ./vlan-id.nix;
   mtu = import ./mtu.nix;
+  icmpType = import ./icmp-type.nix;
 
   # Factory for string-typed module types.
   mkStrType =
@@ -293,6 +294,22 @@ let
           v;
     };
 
+  icmpTypeType =
+    let
+      t = lib.types.ints.between icmpType.lowestValue icmpType.highestValue;
+    in
+    t
+    // {
+      mk =
+        v:
+        if !(builtins.isInt v) then
+          builtins.throw "libnet.types.icmpType.mk: expected int, got ${builtins.typeOf v}"
+        else if !(icmpType.isValid v) then
+          builtins.throw "libnet.types.icmpType.mk: out of range [${builtins.toString icmpType.lowestValue}, ${builtins.toString icmpType.highestValue}]: ${builtins.toString v}"
+        else
+          v;
+    };
+
   portType =
     let
       t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
@@ -352,5 +369,6 @@ in
     host = hostType;
     vlanId = vlanIdType;
     mtu = mtuType;
+    icmpType = icmpTypeType;
   };
 }

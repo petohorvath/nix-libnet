@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `libnet.icmpType` — ICMP / ICMPv6 message type as a tagged int in
+  `[0, 255]` (the 8-bit Type field, RFC 792 / RFC 4443). One
+  family-agnostic type: v4 and v6 share the range, so a wrong-family
+  constant is not range-detectable (like a UDP port in a TCP list);
+  named constants stay bare ints in `libnet.registry.icmpTypes`.
+  Tagged like `libnet.port`: `fromInt` / `toInt` / `toString` /
+  `isValid` / `is` plus the numeric comparison suite and
+  `lowestValue` / `highestValue` constants. No string `parse`, and no
+  arithmetic — adjacent type numbers are unrelated messages. Opt-in
+  module type `libnet.types.icmpType` enforces the range and coerces
+  to a bare int (like `types.port`).
 - `libnet.bindUrl` — a bind address in URL form, `<scheme>://<bindpoint>`
   (`tcp://:8080`, `udp://0.0.0.0:53`, `tcp://[::]:8000-8100`,
   `unix:///run/foo.sock`). The bind-side peer of `socketUrl`: stored as

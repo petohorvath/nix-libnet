@@ -17,6 +17,7 @@ let
     domain = "domain";
     vlanId = "vlanId";
     mtu = "mtu";
+    icmpType = "icmpType";
     unixSocket = "unixSocket";
     socketUrl = "socketUrl";
     bindUrl = "bindUrl";
@@ -46,6 +47,7 @@ let
   isDomain = hasTag tags.domain;
   isVlanId = hasTag tags.vlanId;
   isMtu = hasTag tags.mtu;
+  isIcmpType = hasTag tags.icmpType;
   isUnixSocket = hasTag tags.unixSocket;
   isSocketUrl = hasTag tags.socketUrl;
   isBindUrl = hasTag tags.bindUrl;
@@ -96,6 +98,7 @@ in
     isDomain
     isVlanId
     isMtu
+    isIcmpType
     isUnixSocket
     isSocketUrl
     isBindUrl
