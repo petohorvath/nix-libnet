@@ -87,6 +87,10 @@ let
     _type = "mtu";
     value = 1500;
   };
+  icmpType = {
+    _type = "icmpType";
+    value = 8;
+  };
   unixSocket = {
     _type = "unixSocket";
     path = "/run/foo.sock";
@@ -100,6 +104,38 @@ let
     _type = "bindUrl";
     transport = null;
     bindpoint = unixSocket;
+  };
+  secureSocketUrl = {
+    _type = "secureSocketUrl";
+    scheme = "tls";
+    endpoint = ipEndpoint;
+  };
+  urlHost = {
+    _type = "urlHost";
+    kind = "regName";
+    ip = null;
+    name = "example.com";
+  };
+  url = {
+    _type = "url";
+    scheme = "https";
+    userinfo = null;
+    host = urlHost;
+    port = null;
+    path = "";
+    query = null;
+    fragment = null;
+  };
+  authority = {
+    _type = "authority";
+    userinfo = null;
+    host = urlHost;
+    port = port;
+  };
+  proxyUrl = {
+    _type = "proxyUrl";
+    scheme = "socks5";
+    authority = authority;
   };
 
   untagged = {
@@ -176,6 +212,10 @@ in
     expr = types.tags.mtu;
     expected = "mtu";
   };
+  tags-icmpType = {
+    expr = types.tags.icmpType;
+    expected = "icmpType";
+  };
   tags-unixSocket = {
     expr = types.tags.unixSocket;
     expected = "unixSocket";
@@ -187,6 +227,26 @@ in
   tags-bindUrl = {
     expr = types.tags.bindUrl;
     expected = "bindUrl";
+  };
+  tags-secureSocketUrl = {
+    expr = types.tags.secureSocketUrl;
+    expected = "secureSocketUrl";
+  };
+  tags-url = {
+    expr = types.tags.url;
+    expected = "url";
+  };
+  tags-urlHost = {
+    expr = types.tags.urlHost;
+    expected = "urlHost";
+  };
+  tags-authority = {
+    expr = types.tags.authority;
+    expected = "authority";
+  };
+  tags-proxyUrl = {
+    expr = types.tags.proxyUrl;
+    expected = "proxyUrl";
   };
 
   # ===== hasTag =====
@@ -284,6 +344,10 @@ in
     expr = types.isMtu mtu;
     expected = true;
   };
+  isIcmpType-yes = {
+    expr = types.isIcmpType icmpType;
+    expected = true;
+  };
   isUnixSocket-yes = {
     expr = types.isUnixSocket unixSocket;
     expected = true;
@@ -294,6 +358,26 @@ in
   };
   isBindUrl-yes = {
     expr = types.isBindUrl bindUrl;
+    expected = true;
+  };
+  isSecureSocketUrl-yes = {
+    expr = types.isSecureSocketUrl secureSocketUrl;
+    expected = true;
+  };
+  isUrl-yes = {
+    expr = types.isUrl url;
+    expected = true;
+  };
+  isUrlHost-yes = {
+    expr = types.isUrlHost urlHost;
+    expected = true;
+  };
+  isAuthority-yes = {
+    expr = types.isAuthority authority;
+    expected = true;
+  };
+  isProxyUrl-yes = {
+    expr = types.isProxyUrl proxyUrl;
     expected = true;
   };
 
