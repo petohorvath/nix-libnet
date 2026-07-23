@@ -32,14 +32,7 @@ let
 
   # ===== Validation (kernel dev_valid_name parity) =====
 
-  isValid =
-    s:
-    builtins.isString s
-    && s != ""
-    && builtins.stringLength s < ifnamsiz
-    && s != "."
-    && s != ".."
-    && !(hasForbiddenChar s);
+  isValid = s: (tryParse s).success;
 
   # ===== Parsing =====
 

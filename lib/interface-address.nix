@@ -33,6 +33,7 @@ let
   };
 
   isV4 = addr: addr._type == "ipv4";
+  isV6 = addr: addr._type == "ipv6";
 
   maxPrefix = addr: if isV4 addr then 32 else 128;
 
@@ -119,7 +120,7 @@ let
   isValid = s: (tryParse s).success;
   is = types.isInterfaceAddress;
   isIpv4 = i: isV4 i.address;
-  isIpv6 = i: !(isV4 i.address);
+  isIpv6 = i: isV6 i.address;
 
   # ===== Forwarded predicates (apply to the address) =====
 
