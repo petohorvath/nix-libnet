@@ -64,7 +64,7 @@ let
 
   # ===== Comparison =====
 
-  eq = a: b: a.value == b.value;
+  eq = a: b: a._type == b._type && a.value == b.value;
 
   compare =
     a: b:

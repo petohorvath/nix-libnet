@@ -245,7 +245,8 @@ let
 
   eq =
     a: b:
-    a.scheme == b.scheme
+    a._type == b._type
+    && a.scheme == b.scheme
     && urlHost.eq a.host b.host
     && port.eq (effectivePort a) (effectivePort b)
     && a.path == b.path

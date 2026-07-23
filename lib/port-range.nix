@@ -204,7 +204,7 @@ let
 
   # ===== Comparison =====
 
-  eq = a: b: port.eq a.from b.from && port.eq a.to b.to;
+  eq = a: b: a._type == b._type && port.eq a.from b.from && port.eq a.to b.to;
   compare =
     a: b:
     let

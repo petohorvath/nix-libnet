@@ -599,7 +599,7 @@ let
     in
     go 0;
 
-  eq = a: b: a.words == b.words;
+  eq = a: b: a._type == b._type && a.words == b.words;
   lt = a: b: compare a b == -1;
   le = a: b: compare a b <= 0;
   gt = a: b: compare a b == 1;

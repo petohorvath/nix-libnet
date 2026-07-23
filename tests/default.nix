@@ -41,6 +41,7 @@ let
     // prefix "vlanId" (importTests "vlan-id.nix")
     // prefix "mtu" (importTests "mtu.nix")
     // prefix "icmpType" (importTests "icmp-type.nix")
+    // prefix "crossTypeEq" (importTests "cross-type-equality.nix")
     // prefix "registry" (importTests "registry.nix")
     // prefix "iparse" (importTests "internal/parse.nix")
     // prefix "ifmt" (importTests "internal/format.nix")

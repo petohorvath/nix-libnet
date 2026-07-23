@@ -63,7 +63,7 @@ let
   # so `lt` / `compare` / `min` / `max` would have to invent one. Users
   # who need to sort a list of transports can sort on `.value` directly.
 
-  eq = a: b: a.value == b.value;
+  eq = a: b: a._type == b._type && a.value == b.value;
 
   # ===== Constants =====
 

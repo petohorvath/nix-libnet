@@ -80,7 +80,7 @@ let
   # Byte-wise on the name, case-sensitive (Linux ifnames are
   # case-sensitive).
 
-  eq = a: b: a.value == b.value;
+  eq = a: b: a._type == b._type && a.value == b.value;
 
   compare =
     a: b:

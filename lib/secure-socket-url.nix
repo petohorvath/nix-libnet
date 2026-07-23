@@ -151,7 +151,7 @@ let
     else
       2;
 
-  eq = a: b: a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
+  eq = a: b: a._type == b._type && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
 
   compare =
     a: b:

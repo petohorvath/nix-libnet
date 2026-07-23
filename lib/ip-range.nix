@@ -300,7 +300,8 @@ let
 
   eq =
     a: b:
-    a.from._type == b.from._type
+    a._type == b._type
+    && a.from._type == b.from._type
     && (
       if isV4 a.from then
         ipv4.eq a.from b.from && ipv4.eq a.to b.to
