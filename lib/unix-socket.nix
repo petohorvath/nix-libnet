@@ -87,7 +87,7 @@ let
   #
   # Byte-wise on the path; case-sensitive (filesystem paths are).
 
-  eq = a: b: a.path == b.path;
+  eq = a: b: a._type == b._type && a.path == b.path;
 
   compare =
     a: b:

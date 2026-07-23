@@ -145,7 +145,9 @@ let
     else
       transport.eq a b;
 
-  eq = a: b: transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
+  eq =
+    a: b:
+    a._type == b._type && transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
 
   compare =
     a: b:

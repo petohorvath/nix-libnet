@@ -203,7 +203,9 @@ let
     else
       port.compare a b;
 
-  eq = a: b: a.userinfo == b.userinfo && urlHost.eq a.host b.host && portEq a.port b.port;
+  eq =
+    a: b:
+    a._type == b._type && a.userinfo == b.userinfo && urlHost.eq a.host b.host && portEq a.port b.port;
 
   compare =
     a: b:

@@ -167,7 +167,8 @@ let
 
   eq =
     a: b:
-    a.address._type == b.address._type
+    a._type == b._type
+    && a.address._type == b.address._type
     && a.prefix == b.prefix
     && (if isV4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address);
 

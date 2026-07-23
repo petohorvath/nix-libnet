@@ -113,7 +113,7 @@ let
 
   eq =
     a: b:
-    if a.kind != b.kind then
+    if a._type != b._type || a.kind != b.kind then
       false
     else if a.kind == "ip" then
       ip.eq a.ip b.ip

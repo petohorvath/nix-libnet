@@ -132,7 +132,7 @@ let
     else
       5;
 
-  eq = a: b: a.scheme == b.scheme && authority.eq a.authority b.authority;
+  eq = a: b: a._type == b._type && a.scheme == b.scheme && authority.eq a.authority b.authority;
 
   compare =
     a: b:

@@ -90,7 +90,7 @@ let
   #
   # Dispatch on the name address (case-insensitive per DNS), then port.
 
-  eq = a: b: dnsName.eq a.address b.address && port.eq a.port b.port;
+  eq = a: b: a._type == b._type && dnsName.eq a.address b.address && port.eq a.port b.port;
 
   compare =
     a: b:

@@ -66,7 +66,7 @@ let
   # Case-insensitive per DNS semantics. `toString` still preserves the
   # verbatim input case; only `eq` / `compare` and friends fold case.
 
-  eq = a: b: dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
+  eq = a: b: a._type == b._type && dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
 
   compare =
     a: b:

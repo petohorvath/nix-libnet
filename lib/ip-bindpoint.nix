@@ -287,7 +287,8 @@ let
 
   eq =
     a: b:
-    (
+    a._type == b._type
+    && (
       a.address == null && b.address == null
       || (
         a.address != null

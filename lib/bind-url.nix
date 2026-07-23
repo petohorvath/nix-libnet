@@ -150,7 +150,9 @@ let
     else
       transport.eq a b;
 
-  eq = a: b: transportEq a.transport b.transport && bindpoint.eq a.bindpoint b.bindpoint;
+  eq =
+    a: b:
+    a._type == b._type && transportEq a.transport b.transport && bindpoint.eq a.bindpoint b.bindpoint;
 
   compare =
     a: b:
