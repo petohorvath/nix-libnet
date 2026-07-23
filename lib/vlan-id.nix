@@ -5,6 +5,9 @@
   tag has 4096 values, of which only 1..4094 are usable: 0 is the
   priority-tagged / untagged sentinel and 4095 is reserved.
 
+  Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
+  matching the other scalar modules for consistency.
+
   Tagged like `libnet.port` so a validated VLAN ID is distinguishable
   from a bare int (`is`). There is no string `parse`: VLAN IDs are
   written as integers, so the constructor is `fromInt`. The opt-in
