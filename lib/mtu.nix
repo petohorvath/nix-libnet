@@ -8,6 +8,9 @@
   will accept it), not a semantic recommendation — real-world MTUs are
   typically in `[1280, 9000]`.
 
+  Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
+  matching the other scalar modules for consistency.
+
   Tagged like `libnet.port` so a validated MTU is distinguishable from
   a bare int (`is`). There is no string `parse`: MTUs are written as
   integers, so the constructor is `fromInt`. The opt-in module type
