@@ -130,6 +130,10 @@ in
     expr = ipv4.toString (ifAddr.netmask (p "192.168.1.5/24"));
     expected = "255.255.255.0";
   };
+  hostmask-v4 = {
+    expr = ipv4.toString (ifAddr.hostmask (p "192.168.1.5/24"));
+    expected = "0.0.0.255";
+  };
   broadcast-v4 = {
     expr = ipv4.toString (ifAddr.broadcast (p "192.168.1.5/24"));
     expected = "192.168.1.255";
@@ -280,6 +284,14 @@ in
   };
   fwd-loopback-no = {
     expr = ifAddr.isLoopback (p "8.8.8.8/32");
+    expected = false;
+  };
+  fwd-unspecified-v6 = {
+    expr = ifAddr.isUnspecified (p "::/128");
+    expected = true;
+  };
+  fwd-unspecified-no = {
+    expr = ifAddr.isUnspecified (p "192.0.2.1/24");
     expected = false;
   };
   fwd-linkLocal-v6 = {

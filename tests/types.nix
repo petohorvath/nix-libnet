@@ -1,6 +1,6 @@
 { harness, lib }:
 let
-  types = (import ../lib/types.nix { inherit lib; }).types;
+  types = ((import ../.).withLib lib).types;
   registry = import ../lib/registry.nix;
   inherit (harness) throws;
 
