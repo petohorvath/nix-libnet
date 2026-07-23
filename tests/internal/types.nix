@@ -38,7 +38,7 @@ let
   ipEndpoint = {
     _type = "ipEndpoint";
     address = ipv4;
-    port = port;
+    inherit port;
   };
   dnsEndpoint = {
     _type = "dnsEndpoint";
@@ -46,12 +46,12 @@ let
       _type = "domain";
       value = "example.com";
     };
-    port = port;
+    inherit port;
   };
   ipBindpoint = {
     _type = "ipBindpoint";
     address = ipv4;
-    portRange = portRange;
+    inherit portRange;
   };
   ipRange = {
     _type = "ipRange";
@@ -130,12 +130,12 @@ let
     _type = "authority";
     userinfo = null;
     host = urlHost;
-    port = port;
+    inherit port;
   };
   proxyUrl = {
     _type = "proxyUrl";
     scheme = "socks5";
-    authority = authority;
+    inherit authority;
   };
 
   untagged = {
