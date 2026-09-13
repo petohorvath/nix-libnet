@@ -20,87 +20,9 @@
     libnet.icmpType.isValid 255   # => true   (reserved, but in range)
     libnet.icmpType.isValid 256   # => false  (the Type field is 8 bits)
 */
-let
-  types = import ./internal/types.nix;
-
+# Adjacent type numbers are unrelated messages, so arithmetic stays absent.
+import ./internal/bounded-int.nix {
+  typeName = "icmpType";
   lowestValue = 0;
   highestValue = 255;
-
-  mk = v: {
-    _type = "icmpType";
-    value = v;
-  };
-
-  # ===== Validation =====
-  #
-  # Int predicate (not String → Bool like other `isValid`): an ICMP
-  # type has no string form, so this validates a bare int.
-  isValid = v: builtins.isInt v && v >= lowestValue && v <= highestValue;
-
-  # ===== Conversion =====
-
-  fromInt =
-    n:
-    if !(isValid n) then
-      builtins.throw "libnet.icmpType.fromInt: out of range [${builtins.toString lowestValue}, ${builtins.toString highestValue}]: ${builtins.toString n}"
-    else
-      mk n;
-
-  toInt = v: v.value;
-
-  toString = v: builtins.toString v.value;
-
-  # ===== Predicates =====
-
-  is = types.isIcmpType;
-
-  # ===== Arithmetic =====
-  #
-  # None. Adjacent ICMP type numbers are unrelated messages (11 is
-  # time-exceeded, 12 parameter-problem), so the `add` / `sub` /
-  # `diff` / `next` / `prev` block `vlanId` / `mtu` carry would be
-  # meaningless here. Comparison stays: RFC 4443 §2.1 orders ICMPv6
-  # types into error (< 128) and informational (>= 128) classes.
-
-  # ===== Comparison =====
-
-  eq = a: b: a._type == b._type && a.value == b.value;
-
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
-
-  lt = a: b: compare a b == -1;
-  le = a: b: compare a b <= 0;
-  gt = a: b: compare a b == 1;
-  ge = a: b: compare a b >= 0;
-  min = a: b: if le a b then a else b;
-  max = a: b: if ge a b then a else b;
-in
-{
-  inherit
-    fromInt
-    toInt
-    toString
-    ;
-  inherit
-    isValid
-    is
-    ;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
-    compare
-    min
-    max
-    ;
-  inherit lowestValue highestValue;
 }

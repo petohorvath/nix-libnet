@@ -76,6 +76,26 @@ let
           s;
     };
 
+  # Keep nixpkgs' integer type metadata and merge behavior, with validation
+  # delegated to the same domain rules used by the core constructors.
+  mkIntType =
+    typeName: scalar:
+    let
+      t = lib.types.ints.between scalar.lowestValue scalar.highestValue;
+    in
+    t
+    // {
+      check = scalar.isValid;
+      mk =
+        v:
+        if !(builtins.isInt v) then
+          builtins.throw "libnet.types.${typeName}.mk: expected int, got ${builtins.typeOf v}"
+        else if !(scalar.isValid v) then
+          builtins.throw "libnet.types.${typeName}.mk: out of range [${builtins.toString scalar.lowestValue}, ${builtins.toString scalar.highestValue}]: ${builtins.toString v}"
+        else
+          v;
+    };
+
   ipv4Type = mkStrType {
     typeName = "ipv4";
     description = "an IPv4 address (dotted-quad)";
@@ -262,53 +282,9 @@ let
     validator = host.isValid;
   };
 
-  vlanIdType =
-    let
-      t = lib.types.ints.between vlanId.lowestValue vlanId.highestValue;
-    in
-    t
-    // {
-      mk =
-        v:
-        if !(builtins.isInt v) then
-          builtins.throw "libnet.types.vlanId.mk: expected int, got ${builtins.typeOf v}"
-        else if !(vlanId.isValid v) then
-          builtins.throw "libnet.types.vlanId.mk: out of range [${builtins.toString vlanId.lowestValue}, ${builtins.toString vlanId.highestValue}]: ${builtins.toString v}"
-        else
-          v;
-    };
-
-  mtuType =
-    let
-      t = lib.types.ints.between mtu.lowestValue mtu.highestValue;
-    in
-    t
-    // {
-      mk =
-        v:
-        if !(builtins.isInt v) then
-          builtins.throw "libnet.types.mtu.mk: expected int, got ${builtins.typeOf v}"
-        else if !(mtu.isValid v) then
-          builtins.throw "libnet.types.mtu.mk: out of range [${builtins.toString mtu.lowestValue}, ${builtins.toString mtu.highestValue}]: ${builtins.toString v}"
-        else
-          v;
-    };
-
-  icmpTypeType =
-    let
-      t = lib.types.ints.between icmpType.lowestValue icmpType.highestValue;
-    in
-    t
-    // {
-      mk =
-        v:
-        if !(builtins.isInt v) then
-          builtins.throw "libnet.types.icmpType.mk: expected int, got ${builtins.typeOf v}"
-        else if !(icmpType.isValid v) then
-          builtins.throw "libnet.types.icmpType.mk: out of range [${builtins.toString icmpType.lowestValue}, ${builtins.toString icmpType.highestValue}]: ${builtins.toString v}"
-        else
-          v;
-    };
+  vlanIdType = mkIntType "vlanId" vlanId;
+  mtuType = mkIntType "mtu" mtu;
+  icmpTypeType = mkIntType "icmpType" icmpType;
 
   portType =
     let

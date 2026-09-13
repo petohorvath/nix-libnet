@@ -934,6 +934,32 @@ in
     expr = types.vlanId.check "100";
     expected = false;
   };
+  vlanId-check-rejects-non-ints = {
+    expr = builtins.any types.vlanId.check [
+      null
+      true
+      100.0
+      [ 100 ]
+      {
+        _type = "vlanId";
+        value = 100;
+      }
+    ];
+    expected = false;
+  };
+  vlanId-mk-rejects-non-ints = {
+    expr = builtins.all (v: throws (types.vlanId.mk v)) [
+      null
+      true
+      100.0
+      [ 100 ]
+      {
+        _type = "vlanId";
+        value = 100;
+      }
+    ];
+    expected = true;
+  };
   vlanId-mk-ok = {
     expr = types.vlanId.mk 100;
     expected = 100;
@@ -996,6 +1022,32 @@ in
     expr = types.mtu.check "1500";
     expected = false;
   };
+  mtu-check-rejects-non-ints = {
+    expr = builtins.any types.mtu.check [
+      null
+      true
+      1500.0
+      [ 1500 ]
+      {
+        _type = "mtu";
+        value = 1500;
+      }
+    ];
+    expected = false;
+  };
+  mtu-mk-rejects-non-ints = {
+    expr = builtins.all (v: throws (types.mtu.mk v)) [
+      null
+      true
+      1500.0
+      [ 1500 ]
+      {
+        _type = "mtu";
+        value = 1500;
+      }
+    ];
+    expected = true;
+  };
   mtu-mk-ok = {
     expr = types.mtu.mk 1500;
     expected = 1500;
@@ -1049,6 +1101,32 @@ in
   icmpType-check-string = {
     expr = types.icmpType.check "8";
     expected = false;
+  };
+  icmpType-check-rejects-non-ints = {
+    expr = builtins.any types.icmpType.check [
+      null
+      true
+      8.0
+      [ 8 ]
+      {
+        _type = "icmpType";
+        value = 8;
+      }
+    ];
+    expected = false;
+  };
+  icmpType-mk-rejects-non-ints = {
+    expr = builtins.all (v: throws (types.icmpType.mk v)) [
+      null
+      true
+      8.0
+      [ 8 ]
+      {
+        _type = "icmpType";
+        value = 8;
+      }
+    ];
+    expected = true;
   };
   icmpType-mk-ok = {
     expr = types.icmpType.mk 8;

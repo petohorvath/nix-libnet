@@ -89,6 +89,23 @@ in
     expr = vlanId.toInt (vlanId.fromInt 4094);
     expected = 4094;
   };
+  fromInt-min = {
+    expr = vlanId.fromInt 1;
+    expected = {
+      _type = "vlanId";
+      value = 1;
+    };
+  };
+  fromInt-rejects-non-ints = {
+    expr = builtins.all (v: throws (vlanId.fromInt v)) [
+      "100"
+      100.0
+      null
+      true
+      [ 100 ]
+    ];
+    expected = true;
+  };
   fromInt-zero-throws = {
     expr = throws (vlanId.fromInt 0);
     expected = true;
@@ -115,6 +132,24 @@ in
     expr = vlanId.is { value = 100; };
     expected = false;
   };
+  is-tag-only = {
+    expr = vlanId.is { _type = "vlanId"; };
+    expected = true;
+  };
+  is-does-not-force-value = {
+    expr = vlanId.is {
+      _type = "vlanId";
+      value = builtins.throw "is must only inspect the tag";
+    };
+    expected = true;
+  };
+  eq-foreign-does-not-force-value = {
+    expr = vlanId.eq {
+      _type = "vlanId";
+      value = builtins.throw "eq must compare tags before values";
+    } { _type = "foreign"; };
+    expected = false;
+  };
 
   # ===== Arithmetic =====
   add-ok = {
@@ -124,6 +159,22 @@ in
   sub-ok = {
     expr = vlanId.toInt (vlanId.sub 5 (vlanId.fromInt 100));
     expected = 95;
+  };
+  add-negative-to-min = {
+    expr = vlanId.toInt (vlanId.add (-99) (vlanId.fromInt 100));
+    expected = 1;
+  };
+  sub-negative-to-max = {
+    expr = vlanId.toInt (vlanId.sub (-3994) (vlanId.fromInt 100));
+    expected = 4094;
+  };
+  add-float-throws = {
+    expr = throws (vlanId.add 1.0 (vlanId.fromInt 100));
+    expected = true;
+  };
+  sub-below-min-throws = {
+    expr = throws (vlanId.sub 100 (vlanId.fromInt 100));
+    expected = true;
   };
   next-ok = {
     expr = vlanId.toInt (vlanId.next (vlanId.fromInt 100));
