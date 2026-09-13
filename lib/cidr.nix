@@ -15,80 +15,23 @@
 let
   bits = import ./internal/bits.nix;
   carry = import ./internal/carry.nix;
-  parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
 
-  mk = addr: prefix: {
-    _type = "cidr";
-    address = addr;
-    inherit prefix;
-  };
+  addressPrefix = import ./internal/address-prefix.nix { typeName = "cidr"; };
+  inherit (addressPrefix)
+    mk
+    maxPrefix
+    tryParse
+    parse
+    toString
+    make
+    fromAddress
+    ;
 
   isV4 = addr: addr._type == "ipv4";
   isV6 = addr: addr._type == "ipv6";
-
-  maxPrefix = addr: if isV4 addr then 32 else 128;
-
-  # ===== Parsing =====
-
-  tryParse =
-    s:
-    if !(builtins.isString s) then
-      types.tryErr "libnet.cidr.parse: input must be a string"
-    else
-      let
-        parts = parse'.splitOn "/" s;
-      in
-      if builtins.length parts != 2 then
-        types.tryErr "libnet.cidr.parse: missing '/': \"${s}\""
-      else
-        let
-          addrStr = builtins.elemAt parts 0;
-          prefStr = builtins.elemAt parts 1;
-          isV6Str = parse'.countOccurrences ":" addrStr > 0;
-          addrRes = if isV6Str then ipv6.tryParse addrStr else ipv4.tryParse addrStr;
-          prefInt = parse'.decimal prefStr;
-        in
-        if !addrRes.success then
-          types.tryErr "libnet.cidr.parse: ${addrRes.error}"
-        else if prefInt == null then
-          types.tryErr "libnet.cidr.parse: invalid prefix \"${prefStr}\""
-        else if prefInt > (maxPrefix addrRes.value) then
-          types.tryErr "libnet.cidr.parse: prefix /${prefStr} out of range"
-        else
-          types.tryOk (mk addrRes.value prefInt);
-
-  parse =
-    s:
-    let
-      r = tryParse s;
-    in
-    if r.success then r.value else builtins.throw r.error;
-
-  toString =
-    c:
-    let
-      s = if isV4 c.address then ipv4.toString c.address else ipv6.toString c.address;
-    in
-    "${s}/${builtins.toString c.prefix}";
-
-  make =
-    addr: prefix:
-    if !(types.isIp addr) then
-      builtins.throw "libnet.cidr.make: address must be ipv4 or ipv6"
-    else if !(builtins.isInt prefix) || prefix < 0 || prefix > (maxPrefix addr) then
-      builtins.throw "libnet.cidr.make: prefix out of range"
-    else
-      mk addr prefix;
-
-  fromAddress =
-    addr:
-    if !(types.isIp addr) then
-      builtins.throw "libnet.cidr.fromAddress: expected ipv4 or ipv6 value"
-    else
-      mk addr (maxPrefix addr);
 
   # ===== Accessors / predicates =====
 

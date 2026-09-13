@@ -66,6 +66,107 @@ in
   };
 
   # ===== tryParse =====
+  # Exact recoverable errors, including validation precedence.
+  tryParse-error-non-string = {
+    expr = cidr.tryParse 42;
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: input must be a string";
+    };
+  };
+  tryParse-error-missing-slash = {
+    expr = cidr.tryParse "10.0.0.1";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: missing '/': \"10.0.0.1\"";
+    };
+  };
+  tryParse-error-extra-slash = {
+    expr = cidr.tryParse "10.0.0.1/24/1";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: missing '/': \"10.0.0.1/24/1\"";
+    };
+  };
+  tryParse-error-address-before-prefix = {
+    expr = cidr.tryParse "999.0.0.1/nope";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: libnet.ipv4.parse: invalid octet in \"999.0.0.1\"";
+    };
+  };
+  tryParse-error-ipv6-address = {
+    expr = cidr.tryParse ":::/64";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: libnet.ipv6.parse: invalid \":::\"";
+    };
+  };
+  tryParse-error-empty-prefix = {
+    expr = cidr.tryParse "10.0.0.1/";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: invalid prefix \"\"";
+    };
+  };
+  tryParse-error-negative-prefix = {
+    expr = cidr.tryParse "10.0.0.1/-1";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: invalid prefix \"-1\"";
+    };
+  };
+  tryParse-error-large-prefix = {
+    expr = cidr.tryParse "::1/9223372036854775807";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: prefix /9223372036854775807 out of range";
+    };
+  };
+  tryParse-error-v4-range = {
+    expr = cidr.tryParse "10.0.0.1/33";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: prefix /33 out of range";
+    };
+  };
+  tryParse-error-v6-range = {
+    expr = cidr.tryParse "::1/129";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.cidr.parse: prefix /129 out of range";
+    };
+  };
+  make-keeps-address-lazy = {
+    expr =
+      (cidr.make {
+        _type = "ipv6";
+        words = throw "address payload forced";
+      } 64).prefix;
+    expected = 64;
+  };
+  fromAddress-keeps-address-lazy = {
+    expr =
+      (cidr.fromAddress {
+        _type = "ipv4";
+        value = throw "address payload forced";
+      }).prefix;
+    expected = 32;
+  };
+  parse-normalizes-prefix-and-ipv6 = {
+    expr = cidr.toString (p "2001:DB8::5/064");
+    expected = "2001:db8::5/64";
+  };
   tryParse-ok = {
     expr = (cidr.tryParse "10.0.0.0/24").success;
     expected = true;

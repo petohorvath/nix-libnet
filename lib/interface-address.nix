@@ -5,8 +5,8 @@
   with a prefix length — e.g. `192.168.1.10/24`. The pure-Nix analog of
   Python's `IPv4Interface` / `IPv6Interface`.
 
-  Distinct from `cidr`: a `cidr` is a network/block with the host bits
-  zeroed (`192.168.1.0/24`), whereas an `interfaceAddress` keeps the host
+  Distinct from `cidr`: CIDR identity compares canonical networks,
+  although parsing retains host bits. An `interfaceAddress` keeps host
   bits significant (`192.168.1.10/24` — a specific host's address plus
   its subnet). The two never compare `eq` (different `_type`); `toCidr`
   converts (preserving host bits), `network` derives the canonical block.
@@ -19,88 +19,24 @@
     => { _type = "interfaceAddress"; address = <ipv4>; prefix = 24; }
 */
 let
-  parse' = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
   ipRange = import ./ip-range.nix;
 
-  mk = addr: prefix: {
-    _type = "interfaceAddress";
-    address = addr;
-    inherit prefix;
-  };
+  addressPrefix = import ./internal/address-prefix.nix { typeName = "interfaceAddress"; };
+  inherit (addressPrefix)
+    mk
+    tryParse
+    parse
+    toString
+    make
+    fromAddress
+    ;
 
   isV4 = addr: addr._type == "ipv4";
   isV6 = addr: addr._type == "ipv6";
-
-  maxPrefix = addr: if isV4 addr then 32 else 128;
-
-  # ===== Parsing =====
-
-  tryParse =
-    s:
-    if !(builtins.isString s) then
-      types.tryErr "libnet.interfaceAddress.parse: input must be a string"
-    else
-      let
-        parts = parse'.splitOn "/" s;
-      in
-      if builtins.length parts != 2 then
-        types.tryErr "libnet.interfaceAddress.parse: missing '/': \"${s}\""
-      else
-        let
-          addrStr = builtins.elemAt parts 0;
-          prefStr = builtins.elemAt parts 1;
-          isV6Str = parse'.countOccurrences ":" addrStr > 0;
-          addrRes = if isV6Str then ipv6.tryParse addrStr else ipv4.tryParse addrStr;
-          prefInt = parse'.decimal prefStr;
-        in
-        if !addrRes.success then
-          types.tryErr "libnet.interfaceAddress.parse: ${addrRes.error}"
-        else if prefInt == null then
-          types.tryErr "libnet.interfaceAddress.parse: invalid prefix \"${prefStr}\""
-        else if prefInt > maxPrefix addrRes.value then
-          types.tryErr "libnet.interfaceAddress.parse: prefix /${prefStr} out of range"
-        else
-          types.tryOk (mk addrRes.value prefInt);
-
-  parse =
-    s:
-    let
-      r = tryParse s;
-    in
-    if r.success then r.value else builtins.throw r.error;
-
-  # ===== Formatting =====
-
-  # Canonical text form is `<address>/<prefix>` with the host bits kept
-  # (same string shape as a CIDR; the distinction is in the type tag).
-  toString =
-    i:
-    let
-      s = if isV4 i.address then ipv4.toString i.address else ipv6.toString i.address;
-    in
-    "${s}/${builtins.toString i.prefix}";
-
-  # ===== Construction =====
-
-  make =
-    addr: prefix:
-    if !(types.isIp addr) then
-      builtins.throw "libnet.interfaceAddress.make: address must be ipv4 or ipv6"
-    else if !(builtins.isInt prefix) || prefix < 0 || prefix > maxPrefix addr then
-      builtins.throw "libnet.interfaceAddress.make: prefix out of range"
-    else
-      mk addr prefix;
-
-  fromAddress =
-    addr:
-    if !(types.isIp addr) then
-      builtins.throw "libnet.interfaceAddress.fromAddress: expected ipv4 or ipv6 value"
-    else
-      mk addr (maxPrefix addr);
 
   fromAddressAndNetwork =
     addr: net:

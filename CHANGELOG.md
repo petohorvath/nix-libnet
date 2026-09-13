@@ -213,6 +213,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT license.
 
 ### Changed
+- Share CIDR and InterfaceAddress decoding, construction checks, and formatting
+  internally, preserving tags, host bits, identity rules, and error context.
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
   `Port` values rather than raw ints. The accessors `portRange.from` /
   `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
