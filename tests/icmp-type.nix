@@ -85,6 +85,16 @@ in
     expr = icmpType.toInt (icmpType.fromInt 255);
     expected = 255;
   };
+  fromInt-rejects-non-ints = {
+    expr = builtins.all (v: throws (icmpType.fromInt v)) [
+      "8"
+      8.0
+      null
+      true
+      [ 8 ]
+    ];
+    expected = true;
+  };
   fromInt-negative-throws = {
     expr = throws (icmpType.fromInt (-1));
     expected = true;
@@ -109,6 +119,36 @@ in
   };
   is-untagged = {
     expr = icmpType.is { value = 8; };
+    expected = false;
+  };
+  is-tag-only = {
+    expr = icmpType.is { _type = "icmpType"; };
+    expected = true;
+  };
+  is-does-not-force-value = {
+    expr = icmpType.is {
+      _type = "icmpType";
+      value = builtins.throw "is must only inspect the tag";
+    };
+    expected = true;
+  };
+  eq-foreign-does-not-force-value = {
+    expr = icmpType.eq {
+      _type = "icmpType";
+      value = builtins.throw "eq must compare tags before values";
+    } { _type = "foreign"; };
+    expected = false;
+  };
+
+  # Adjacent ICMP type numbers are unrelated messages.
+  arithmetic-absent = {
+    expr = builtins.any (name: builtins.hasAttr name icmpType) [
+      "add"
+      "sub"
+      "diff"
+      "next"
+      "prev"
+    ];
     expected = false;
   };
 

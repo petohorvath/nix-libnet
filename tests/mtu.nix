@@ -101,6 +101,27 @@ in
     expr = mtu.toInt (mtu.fromInt 9000);
     expected = 9000;
   };
+  fromInt-min = {
+    expr = mtu.fromInt 68;
+    expected = {
+      _type = "mtu";
+      value = 68;
+    };
+  };
+  fromInt-max = {
+    expr = mtu.toInt (mtu.fromInt 65535);
+    expected = 65535;
+  };
+  fromInt-rejects-non-ints = {
+    expr = builtins.all (v: throws (mtu.fromInt v)) [
+      "1500"
+      1500.0
+      null
+      true
+      [ 1500 ]
+    ];
+    expected = true;
+  };
   fromInt-below-throws = {
     expr = throws (mtu.fromInt 67);
     expected = true;
@@ -127,6 +148,24 @@ in
     expr = mtu.is { value = 1500; };
     expected = false;
   };
+  is-tag-only = {
+    expr = mtu.is { _type = "mtu"; };
+    expected = true;
+  };
+  is-does-not-force-value = {
+    expr = mtu.is {
+      _type = "mtu";
+      value = builtins.throw "is must only inspect the tag";
+    };
+    expected = true;
+  };
+  eq-foreign-does-not-force-value = {
+    expr = mtu.eq {
+      _type = "mtu";
+      value = builtins.throw "eq must compare tags before values";
+    } { _type = "foreign"; };
+    expected = false;
+  };
 
   # ===== Arithmetic =====
   add-ok = {
@@ -136,6 +175,18 @@ in
   sub-overhead = {
     expr = mtu.toInt (mtu.sub 80 (mtu.fromInt 1500));
     expected = 1420;
+  };
+  add-negative-to-min = {
+    expr = mtu.toInt (mtu.add (-1432) (mtu.fromInt 1500));
+    expected = 68;
+  };
+  sub-negative-to-max = {
+    expr = mtu.toInt (mtu.sub (-64035) (mtu.fromInt 1500));
+    expected = 65535;
+  };
+  sub-float-throws = {
+    expr = throws (mtu.sub 1.0 (mtu.fromInt 1500));
+    expected = true;
   };
   next-ok = {
     expr = mtu.toInt (mtu.next (mtu.fromInt 1500));
@@ -163,6 +214,14 @@ in
   };
   add-over-max-throws = {
     expr = throws (mtu.add 1 (mtu.fromInt 65535));
+    expected = true;
+  };
+  next-at-max-throws = {
+    expr = throws (mtu.next (mtu.fromInt 65535));
+    expected = true;
+  };
+  prev-at-min-throws = {
+    expr = throws (mtu.prev (mtu.fromInt 68));
     expected = true;
   };
 

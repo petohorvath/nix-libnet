@@ -240,6 +240,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `bogon-excludes-6to4`.
 
 ### Cleanup
+- Consolidated `vlanId`, `mtu`, and `icmpType` behind a private bounded-integer
+  implementation and a shared integer option adapter. Public functions,
+  tagged values, bounds, diagnostics, and option merge behavior are preserved;
+  arithmetic remains limited to `vlanId` and `mtu` among these types.
 - Removed unused internal exports: `hexLower`, `joinStrings`, `repeat` from
   `lib/internal/format.nix`; `isDigit`, `isHex`, `digitValues`, `hexValues`
   exports from `lib/internal/parse.nix`. No public API impact.

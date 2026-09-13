@@ -1703,6 +1703,7 @@ Modules in scope:
 - `internal/format.nix` — `hex2`, `hex4`, zero-run compression for IPv6.
 - `internal/bits.nix` — `shl`, `shr`, `mask`, `pow2` (shift emulation using `* 2^n` and `div`).
 - `internal/carry.nix` — `add32`, `sub32` add-with-carry primitives used by IPv6 arithmetic.
+- `internal/bounded-int.nix` — shared validation, construction, comparison, and opt-in arithmetic for `vlanId`, `mtu`, and `icmpType`; their public interfaces remain unchanged.
 - `internal/dns-label.nix` — RFC 1123 single-label syntax shared by `hostname` and `domain`.
 - `internal/types.nix` — `_type` tag constants, structural predicates, `tryResult` constructor.
 
@@ -1762,6 +1763,7 @@ nix-libnet/
 │   └── internal/
 │       ├── bits.nix         # Shift emulation, mask helpers
 │       ├── carry.nix        # u32 add/sub with carry propagation
+│       ├── bounded-int.nix  # Int-only scalar behavior for VLAN IDs, MTUs, and ICMP types
 │       ├── parse.nix        # Shared parse primitives (octet, hex group, etc.)
 │       ├── format.nix       # Shared format primitives (hex padding, zero-run compression)
 │       ├── dns-label.nix    # RFC 1123 single-label syntax shared by hostname/domain
