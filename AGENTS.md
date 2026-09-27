@@ -37,3 +37,17 @@ CI runs the `core` and `full` commands for both `x86_64-linux` and `aarch64-linu
 nix build --print-build-logs --override-input nixpkgs github:NixOS/nixpkgs/nixos-25.11 .#checks.x86_64-linux.full
 nix build --print-build-logs --override-input nixpkgs github:NixOS/nixpkgs/nixos-unstable .#checks.x86_64-linux.full
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `petohorvath/nix-libnet`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five triage roles use the default label names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
