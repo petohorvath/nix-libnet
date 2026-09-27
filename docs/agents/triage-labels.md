@@ -13,3 +13,14 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
+
+## Provisioning
+
+`gh issue edit --add-label` fails when the label does not exist. If a label is missing, create it before applying it:
+
+```sh
+for l in needs-triage needs-info ready-for-agent ready-for-human wontfix \
+  wayfinder:map wayfinder:research wayfinder:prototype wayfinder:grilling wayfinder:task; do
+  gh label create "$l" --repo petohorvath/nix-libnet 2>/dev/null || true
+done
+```
