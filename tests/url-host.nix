@@ -2,183 +2,183 @@
 let
   urlHost = import ../lib/url-host.nix;
   inherit (harness) throws;
-  tp = urlHost.tryParse;
-  v = s: (urlHost.tryParse s).value;
+  tryParse = urlHost.tryParse;
+  parseValue = input: (urlHost.tryParse input).value;
 in
 {
   # ===== tryParse: standard record =====
-  tryParse-ok-success = {
-    expr = (tp "example.com").success;
+  testTryParseOkSuccess = {
+    expr = (tryParse "example.com").success;
     expected = true;
   };
-  tryParse-bad-success = {
-    expr = (tp "bad host").success;
+  testTryParseBadSuccess = {
+    expr = (tryParse "bad host").success;
     expected = false;
   };
-  tryParse-error-string = {
-    expr = builtins.isString (tp "bad host").error;
+  testTryParseErrorString = {
+    expr = builtins.isString (tryParse "bad host").error;
     expected = true;
   };
-  parse-ok = {
+  testParseOk = {
     expr = (urlHost.parse "example.com").kind;
     expected = "regName";
   };
-  parse-throws = {
+  testParseThrows = {
     expr = throws (urlHost.parse "bad host");
     expected = true;
   };
 
   # ===== Parse: kinds =====
-  ipv4 = {
-    expr = (v "1.2.3.4").kind;
+  testIpv4 = {
+    expr = (parseValue "1.2.3.4").kind;
     expected = "ip";
   };
-  ipv6-bracketed = {
-    expr = urlHost.toString (v "[::1]");
+  testIpv6Bracketed = {
+    expr = urlHost.toString (parseValue "[::1]");
     expected = "[::1]";
   };
-  ipv6-unbracketed-rejected = {
-    expr = (tp "::1").success;
+  testIpv6UnbracketedRejected = {
+    expr = (tryParse "::1").success;
     expected = false;
   };
-  regname = {
-    expr = (v "example.com").kind;
+  testRegName = {
+    expr = (parseValue "example.com").kind;
     expected = "regName";
   };
-  regname-underscore = {
-    expr = (v "my_host").name;
+  testRegNameUnderscore = {
+    expr = (parseValue "my_host").name;
     expected = "my_host";
   };
-  regname-subdelims = {
-    expr = (v "a+b!c").kind;
+  testRegNameSubDelimiters = {
+    expr = (parseValue "a+b!c").kind;
     expected = "regName";
   };
-  regname-pct = {
-    expr = (v "a%20b").kind;
+  testRegNamePercentEncoded = {
+    expr = (parseValue "a%20b").kind;
     expected = "regName";
   };
 
   # ===== Reject =====
-  reject-empty = {
-    expr = (tp "").success;
+  testRejectEmpty = {
+    expr = (tryParse "").success;
     expected = false;
   };
-  reject-space = {
-    expr = (tp "bad host").success;
+  testRejectSpace = {
+    expr = (tryParse "bad host").success;
     expected = false;
   };
-  reject-bad-bracket = {
-    expr = (tp "[::xyz]").success;
+  testRejectBadBracket = {
+    expr = (tryParse "[::xyz]").success;
     expected = false;
   };
-  reject-unclosed-bracket = {
-    expr = (tp "[::1").success;
+  testRejectUnclosedBracket = {
+    expr = (tryParse "[::1").success;
     expected = false;
   };
 
   # ===== toString / predicates =====
-  toString-regname-case = {
-    expr = urlHost.toString (v "Example.COM");
+  testToStringRegNamePreservesCase = {
+    expr = urlHost.toString (parseValue "Example.COM");
     expected = "Example.COM";
   };
-  toString-ipv4 = {
-    expr = urlHost.toString (v "1.2.3.4");
+  testToStringIpv4 = {
+    expr = urlHost.toString (parseValue "1.2.3.4");
     expected = "1.2.3.4";
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = urlHost.isValid "example.com";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = urlHost.isValid "bad host";
     expected = false;
   };
-  is-yes = {
-    expr = urlHost.is (v "1.2.3.4");
+  testIsYes = {
+    expr = urlHost.is (parseValue "1.2.3.4");
     expected = true;
   };
-  is-no = {
+  testIsNo = {
     expr = urlHost.is "x";
     expected = false;
   };
-  isIp-yes = {
-    expr = urlHost.isIp (v "1.2.3.4");
+  testIsIpYes = {
+    expr = urlHost.isIp (parseValue "1.2.3.4");
     expected = true;
   };
-  isIp-no = {
-    expr = urlHost.isIp (v "example.com");
+  testIsIpNo = {
+    expr = urlHost.isIp (parseValue "example.com");
     expected = false;
   };
-  isRegName-yes = {
-    expr = urlHost.isRegName (v "example.com");
+  testIsRegNameYes = {
+    expr = urlHost.isRegName (parseValue "example.com");
     expected = true;
   };
 
   # ===== toHost (bridge to libnet.host) =====
-  toHost-ip = {
-    expr = (urlHost.toHost (v "1.2.3.4"))._type;
+  testToHostIp = {
+    expr = (urlHost.toHost (parseValue "1.2.3.4"))._type;
     expected = "ipv4";
   };
-  toHost-hostname = {
-    expr = (urlHost.toHost (v "nas"))._type;
+  testToHostHostname = {
+    expr = (urlHost.toHost (parseValue "nas"))._type;
     expected = "hostname";
   };
-  toHost-domain = {
-    expr = (urlHost.toHost (v "example.com"))._type;
+  testToHostDomain = {
+    expr = (urlHost.toHost (parseValue "example.com"))._type;
     expected = "domain";
   };
-  toHost-underscore-null = {
-    expr = urlHost.toHost (v "my_host") == null;
+  testToHostUnderscoreNull = {
+    expr = urlHost.toHost (parseValue "my_host") == null;
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-ip = {
-    expr = urlHost.eq (v "1.2.3.4") (v "1.2.3.4");
+  testEqIp = {
+    expr = urlHost.eq (parseValue "1.2.3.4") (parseValue "1.2.3.4");
     expected = true;
   };
-  eq-regname-ci = {
-    expr = urlHost.eq (v "Example.COM") (v "example.com");
+  testEqRegNameCaseInsensitive = {
+    expr = urlHost.eq (parseValue "Example.COM") (parseValue "example.com");
     expected = true;
   };
-  eq-cross-kind = {
-    expr = urlHost.eq (v "1.2.3.4") (v "example.com");
+  testEqCrossKind = {
+    expr = urlHost.eq (parseValue "1.2.3.4") (parseValue "example.com");
     expected = false;
   };
-  compare-ip-before-regname = {
-    expr = urlHost.compare (v "1.2.3.4") (v "example.com");
+  testCompareIpBeforeRegName = {
+    expr = urlHost.compare (parseValue "1.2.3.4") (parseValue "example.com");
     expected = -1;
   };
-  compare-regname-ci = {
-    expr = urlHost.compare (v "alpha.com") (v "beta.com");
+  testCompareRegNameOrder = {
+    expr = urlHost.compare (parseValue "alpha.com") (parseValue "beta.com");
     expected = -1;
   };
-  compare-eq = {
-    expr = urlHost.compare (v "Example.COM") (v "example.com");
+  testCompareCaseInsensitiveEqual = {
+    expr = urlHost.compare (parseValue "Example.COM") (parseValue "example.com");
     expected = 0;
   };
-  cmp-lt = {
-    expr = urlHost.lt (v "alpha.com") (v "beta.com");
+  testLt = {
+    expr = urlHost.lt (parseValue "alpha.com") (parseValue "beta.com");
     expected = true;
   };
-  cmp-le = {
-    expr = urlHost.le (v "alpha.com") (v "beta.com");
+  testLe = {
+    expr = urlHost.le (parseValue "alpha.com") (parseValue "beta.com");
     expected = true;
   };
-  cmp-gt = {
-    expr = urlHost.gt (v "beta.com") (v "alpha.com");
+  testGt = {
+    expr = urlHost.gt (parseValue "beta.com") (parseValue "alpha.com");
     expected = true;
   };
-  cmp-ge = {
-    expr = urlHost.ge (v "beta.com") (v "alpha.com");
+  testGe = {
+    expr = urlHost.ge (parseValue "beta.com") (parseValue "alpha.com");
     expected = true;
   };
-  cmp-min = {
-    expr = urlHost.toString (urlHost.min (v "alpha.com") (v "beta.com"));
+  testMin = {
+    expr = urlHost.toString (urlHost.min (parseValue "alpha.com") (parseValue "beta.com"));
     expected = "alpha.com";
   };
-  cmp-max = {
-    expr = urlHost.toString (urlHost.max (v "alpha.com") (v "beta.com"));
+  testMax = {
+    expr = urlHost.toString (urlHost.max (parseValue "alpha.com") (parseValue "beta.com"));
     expected = "beta.com";
   };
 }

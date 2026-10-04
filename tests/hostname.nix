@@ -2,237 +2,237 @@
 let
   hostname = import ../lib/hostname.nix;
   inherit (harness) throws;
-  p = hostname.parse;
+  parse = hostname.parse;
 
   # 1 + 60 ("123456789-" × 6) + 2 = 63 chars (maximum valid)
-  len63 = "a123456789-123456789-123456789-123456789-123456789-123456789-xy";
+  label63Chars = "a123456789-123456789-123456789-123456789-123456789-123456789-xy";
   # 1 + 60 + 3 = 64 chars (one over the limit)
-  len64 = "a123456789-123456789-123456789-123456789-123456789-123456789-xyz";
+  label64Chars = "a123456789-123456789-123456789-123456789-123456789-123456789-xyz";
 in
 {
   # ===== Parse =====
-  parse-simple = {
-    expr = (p "nas").value;
+  testParseSimple = {
+    expr = (parse "nas").value;
     expected = "nas";
   };
-  parse-single-char = {
-    expr = (p "b").value;
+  testParseSingleChar = {
+    expr = (parse "b").value;
     expected = "b";
   };
-  parse-with-digits = {
-    expr = (p "host01").value;
+  testParseWithDigits = {
+    expr = (parse "host01").value;
     expected = "host01";
   };
-  parse-leading-digit = {
-    expr = (p "3com").value;
+  testParseLeadingDigit = {
+    expr = (parse "3com").value;
     expected = "3com";
   };
-  parse-with-hyphen = {
-    expr = (p "my-server").value;
+  testParseWithHyphen = {
+    expr = (parse "my-server").value;
     expected = "my-server";
   };
-  parse-mixed-case = {
-    expr = (p "MyHost").value;
+  testParseMixedCase = {
+    expr = (parse "MyHost").value;
     expected = "MyHost";
   };
-  parse-max-len = {
-    expr = (p len63).value;
-    expected = len63;
+  testParseMaxLength = {
+    expr = (parse label63Chars).value;
+    expected = label63Chars;
   };
-  parse-tagged = {
-    expr = (p "nas")._type;
+  testParseTagged = {
+    expr = (parse "nas")._type;
     expected = "hostname";
   };
 
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-underscore = {
-    expr = throws (p "host_name");
+  testRejectUnderscore = {
+    expr = throws (parse "host_name");
     expected = true;
   };
-  reject-dot = {
-    expr = throws (p "host.example.com");
+  testRejectDot = {
+    expr = throws (parse "host.example.com");
     expected = true;
   };
-  reject-leading-hyphen = {
-    expr = throws (p "-foo");
+  testRejectLeadingHyphen = {
+    expr = throws (parse "-foo");
     expected = true;
   };
-  reject-trailing-hyphen = {
-    expr = throws (p "foo-");
+  testRejectTrailingHyphen = {
+    expr = throws (parse "foo-");
     expected = true;
   };
-  reject-single-hyphen = {
-    expr = throws (p "-");
+  testRejectSingleHyphen = {
+    expr = throws (parse "-");
     expected = true;
   };
-  reject-too-long = {
-    expr = throws (p len64);
+  testRejectTooLong = {
+    expr = throws (parse label64Chars);
     expected = true;
   };
-  reject-whitespace-leading = {
-    expr = throws (p " nas");
+  testRejectWhitespaceLeading = {
+    expr = throws (parse " nas");
     expected = true;
   };
-  reject-whitespace-trailing = {
-    expr = throws (p "nas ");
+  testRejectWhitespaceTrailing = {
+    expr = throws (parse "nas ");
     expected = true;
   };
-  reject-whitespace-middle = {
-    expr = throws (p "my host");
+  testRejectWhitespaceMiddle = {
+    expr = throws (parse "my host");
     expected = true;
   };
-  reject-non-ascii = {
-    expr = throws (p "café");
+  testRejectNonAscii = {
+    expr = throws (parse "café");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (hostname.parse 42);
     expected = true;
   };
-  reject-slash = {
-    expr = throws (p "foo/bar");
+  testRejectSlash = {
+    expr = throws (parse "foo/bar");
     expected = true;
   };
 
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (hostname.tryParse "nas").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (hostname.tryParse "host_name").success;
     expected = false;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (hostname.tryParse "host_name").error;
     expected = true;
   };
-  tryParse-not-string = {
+  testTryParseNotString = {
     expr = (hostname.tryParse 42).success;
     expected = false;
   };
 
   # ===== Round-trip =====
-  rt-toString = {
-    expr = hostname.toString (p "nas");
+  testRoundTripToString = {
+    expr = hostname.toString (parse "nas");
     expected = "nas";
   };
-  rt-preserves-case = {
-    expr = hostname.toString (p "MyHost");
+  testRoundTripPreservesCase = {
+    expr = hostname.toString (parse "MyHost");
     expected = "MyHost";
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = hostname.is (p "nas");
+  testIsParsed = {
+    expr = hostname.is (parse "nas");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = hostname.is "nas";
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = hostname.is { value = "nas"; };
     expected = false;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = hostname.isValid "nas";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = hostname.isValid "host_name";
     expected = false;
   };
-  isValid-not-string = {
+  testIsValidNotString = {
     expr = hostname.isValid 42;
     expected = false;
   };
 
   # ===== Normalize =====
-  normalize-upper = {
-    expr = (hostname.normalize (p "MyHost")).value;
+  testNormalizeUpper = {
+    expr = (hostname.normalize (parse "MyHost")).value;
     expected = "myhost";
   };
-  normalize-already-lower = {
-    expr = (hostname.normalize (p "myhost")).value;
+  testNormalizeAlreadyLower = {
+    expr = (hostname.normalize (parse "myhost")).value;
     expected = "myhost";
   };
-  normalize-mixed = {
-    expr = (hostname.normalize (p "My-Host")).value;
+  testNormalizeMixed = {
+    expr = (hostname.normalize (parse "My-Host")).value;
     expected = "my-host";
   };
-  normalize-preserves-tag = {
-    expr = hostname.is (hostname.normalize (p "NAS"));
+  testNormalizePreservesTag = {
+    expr = hostname.is (hostname.normalize (parse "NAS"));
     expected = true;
   };
-  normalize-digits-unchanged = {
-    expr = (hostname.normalize (p "host01")).value;
+  testNormalizeDigitsUnchanged = {
+    expr = (hostname.normalize (parse "host01")).value;
     expected = "host01";
   };
 
   # ===== Equality (case-insensitive) =====
-  eq-same = {
-    expr = hostname.eq (p "nas") (p "nas");
+  testEqSame = {
+    expr = hostname.eq (parse "nas") (parse "nas");
     expected = true;
   };
-  eq-case-upper = {
-    expr = hostname.eq (p "NAS") (p "nas");
+  testEqCaseUpper = {
+    expr = hostname.eq (parse "NAS") (parse "nas");
     expected = true;
   };
-  eq-case-mixed = {
-    expr = hostname.eq (p "MyHost") (p "myhost");
+  testEqCaseMixed = {
+    expr = hostname.eq (parse "MyHost") (parse "myhost");
     expected = true;
   };
-  eq-diff = {
-    expr = hostname.eq (p "nas") (p "router");
+  testEqDifferent = {
+    expr = hostname.eq (parse "nas") (parse "router");
     expected = false;
   };
 
   # ===== Comparison (case-insensitive) =====
-  cmp-gt = {
-    expr = hostname.gt (p "beta") (p "alpha");
+  testGtYes = {
+    expr = hostname.gt (parse "beta") (parse "alpha");
     expected = true;
   };
-  lt-yes = {
-    expr = hostname.lt (p "alpha") (p "beta");
+  testLtYes = {
+    expr = hostname.lt (parse "alpha") (parse "beta");
     expected = true;
   };
-  lt-no = {
-    expr = hostname.lt (p "beta") (p "alpha");
+  testLtNo = {
+    expr = hostname.lt (parse "beta") (parse "alpha");
     expected = false;
   };
-  lt-case-insens = {
-    expr = hostname.lt (p "Alpha") (p "beta");
+  testLtCaseInsensitive = {
+    expr = hostname.lt (parse "Alpha") (parse "beta");
     expected = true;
   };
-  compare-lt = {
-    expr = hostname.compare (p "alpha") (p "beta");
+  testCompareLt = {
+    expr = hostname.compare (parse "alpha") (parse "beta");
     expected = -1;
   };
-  compare-eq-case = {
-    expr = hostname.compare (p "NAS") (p "nas");
+  testCompareEqCase = {
+    expr = hostname.compare (parse "NAS") (parse "nas");
     expected = 0;
   };
-  compare-gt = {
-    expr = hostname.compare (p "z") (p "a");
+  testCompareGt = {
+    expr = hostname.compare (parse "z") (parse "a");
     expected = 1;
   };
-  le-equal = {
-    expr = hostname.le (p "nas") (p "nas");
+  testLeEqual = {
+    expr = hostname.le (parse "nas") (parse "nas");
     expected = true;
   };
-  ge-equal = {
-    expr = hostname.ge (p "nas") (p "nas");
+  testGeEqual = {
+    expr = hostname.ge (parse "nas") (parse "nas");
     expected = true;
   };
-  min-pick = {
-    expr = (hostname.min (p "beta") (p "alpha")).value;
+  testMinPick = {
+    expr = (hostname.min (parse "beta") (parse "alpha")).value;
     expected = "alpha";
   };
-  max-pick = {
-    expr = (hostname.max (p "beta") (p "alpha")).value;
+  testMaxPick = {
+    expr = (hostname.max (parse "beta") (parse "alpha")).value;
     expected = "beta";
   };
 }

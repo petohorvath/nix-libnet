@@ -5,335 +5,335 @@ let
   hostname = import ../lib/hostname.nix;
   domain = import ../lib/domain.nix;
   inherit (harness) throws;
-  p = host.parse;
+  parse = host.parse;
 in
 {
   # ===== Dispatch =====
-  parse-ipv4-tagged = {
-    expr = (p "192.168.1.1")._type;
+  testParseIpv4Tagged = {
+    expr = (parse "192.168.1.1")._type;
     expected = "ipv4";
   };
-  parse-ipv6-tagged = {
-    expr = (p "::1")._type;
+  testParseIpv6Tagged = {
+    expr = (parse "::1")._type;
     expected = "ipv6";
   };
-  parse-hostname-tagged = {
-    expr = (p "nas")._type;
+  testParseHostnameTagged = {
+    expr = (parse "nas")._type;
     expected = "hostname";
   };
-  parse-hostname-mixed-case = {
-    expr = (p "MyHost")._type;
+  testParseHostnameMixedCase = {
+    expr = (parse "MyHost")._type;
     expected = "hostname";
   };
-  parse-domain-tagged = {
-    expr = (p "example.com")._type;
+  testParseDomainTagged = {
+    expr = (parse "example.com")._type;
     expected = "domain";
   };
-  parse-deep-domain-tagged = {
-    expr = (p "a.b.c.example.com")._type;
+  testParseDeepDomainTagged = {
+    expr = (parse "a.b.c.example.com")._type;
     expected = "domain";
   };
   # Dispatch order: IP wins over domain for dotted-quad strings.
-  parse-dotted-quad-as-ip = {
-    expr = (p "10.0.0.1")._type;
+  testParseDottedQuadAsIp = {
+    expr = (parse "10.0.0.1")._type;
     expected = "ipv4";
   };
-  parse-ipv4-value = {
-    expr = ip.toString (p "192.168.1.1");
+  testParseIpv4Value = {
+    expr = ip.toString (parse "192.168.1.1");
     expected = "192.168.1.1";
   };
-  parse-hostname-value = {
-    expr = (p "nas").value;
+  testParseHostnameValue = {
+    expr = (parse "nas").value;
     expected = "nas";
   };
-  parse-domain-value = {
-    expr = (p "example.com").value;
+  testParseDomainValue = {
+    expr = (parse "example.com").value;
     expected = "example.com";
   };
 
   # ===== Reject =====
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-underscore = {
-    expr = throws (p "host_name");
+  testRejectUnderscore = {
+    expr = throws (parse "host_name");
     expected = true;
   };
-  reject-trailing-dot = {
-    expr = throws (p "example.com.");
+  testRejectTrailingDot = {
+    expr = throws (parse "example.com.");
     expected = true;
   };
-  reject-leading-dot = {
-    expr = throws (p ".example.com");
+  testRejectLeadingDot = {
+    expr = throws (parse ".example.com");
     expected = true;
   };
-  reject-whitespace = {
-    expr = throws (p "my host");
+  testRejectWhitespace = {
+    expr = throws (parse "my host");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (host.parse 42);
     expected = true;
   };
 
-  tryParse-ok-ip = {
+  testTryParseOkIp = {
     expr = (host.tryParse "192.168.1.1").success;
     expected = true;
   };
-  tryParse-ok-hostname = {
+  testTryParseOkHostname = {
     expr = (host.tryParse "nas").success;
     expected = true;
   };
-  tryParse-ok-domain = {
+  testTryParseOkDomain = {
     expr = (host.tryParse "example.com").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (host.tryParse "host_name").success;
     expected = false;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (host.tryParse "host_name").error;
     expected = true;
   };
 
   # ===== toString (dispatches) =====
-  toString-ipv4 = {
-    expr = host.toString (p "192.168.1.1");
+  testToStringIpv4 = {
+    expr = host.toString (parse "192.168.1.1");
     expected = "192.168.1.1";
   };
-  toString-ipv6 = {
-    expr = host.toString (p "::1");
+  testToStringIpv6 = {
+    expr = host.toString (parse "::1");
     expected = "::1";
   };
-  toString-hostname = {
-    expr = host.toString (p "nas");
+  testToStringHostname = {
+    expr = host.toString (parse "nas");
     expected = "nas";
   };
-  toString-domain = {
-    expr = host.toString (p "example.com");
+  testToStringDomain = {
+    expr = host.toString (parse "example.com");
     expected = "example.com";
   };
-  toString-hostname-preserves-case = {
-    expr = host.toString (p "MyHost");
+  testToStringHostnamePreservesCase = {
+    expr = host.toString (parse "MyHost");
     expected = "MyHost";
   };
-  toString-untagged-throws = {
+  testToStringUntaggedThrows = {
     expr = throws (host.toString { value = "nope"; });
     expected = true;
   };
 
   # ===== Predicates =====
-  is-ip = {
-    expr = host.is (p "192.168.1.1");
+  testIsIp = {
+    expr = host.is (parse "192.168.1.1");
     expected = true;
   };
-  is-hostname = {
-    expr = host.is (p "nas");
+  testIsHostname = {
+    expr = host.is (parse "nas");
     expected = true;
   };
-  is-domain = {
-    expr = host.is (p "example.com");
+  testIsDomain = {
+    expr = host.is (parse "example.com");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = host.is "nas";
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = host.is { value = "nas"; };
     expected = false;
   };
 
-  isIp-ip = {
-    expr = host.isIp (p "10.0.0.1");
+  testIsIpIp = {
+    expr = host.isIp (parse "10.0.0.1");
     expected = true;
   };
-  isIp-hostname = {
-    expr = host.isIp (p "nas");
+  testIsIpHostname = {
+    expr = host.isIp (parse "nas");
     expected = false;
   };
-  isIp-domain = {
-    expr = host.isIp (p "example.com");
+  testIsIpDomain = {
+    expr = host.isIp (parse "example.com");
     expected = false;
   };
 
-  isHostname-hostname = {
-    expr = host.isHostname (p "nas");
+  testIsHostnameHostname = {
+    expr = host.isHostname (parse "nas");
     expected = true;
   };
-  isHostname-ip = {
-    expr = host.isHostname (p "10.0.0.1");
+  testIsHostnameIp = {
+    expr = host.isHostname (parse "10.0.0.1");
     expected = false;
   };
-  isHostname-domain = {
-    expr = host.isHostname (p "example.com");
+  testIsHostnameDomain = {
+    expr = host.isHostname (parse "example.com");
     expected = false;
   };
 
-  isDomain-domain = {
-    expr = host.isDomain (p "example.com");
+  testIsDomainDomain = {
+    expr = host.isDomain (parse "example.com");
     expected = true;
   };
-  isDomain-hostname = {
-    expr = host.isDomain (p "nas");
+  testIsDomainHostname = {
+    expr = host.isDomain (parse "nas");
     expected = false;
   };
-  isDomain-ip = {
-    expr = host.isDomain (p "10.0.0.1");
-    expected = false;
-  };
-
-  isName-hostname = {
-    expr = host.isName (p "nas");
-    expected = true;
-  };
-  isName-domain = {
-    expr = host.isName (p "example.com");
-    expected = true;
-  };
-  isName-ip = {
-    expr = host.isName (p "10.0.0.1");
+  testIsDomainIp = {
+    expr = host.isDomain (parse "10.0.0.1");
     expected = false;
   };
 
-  isValid-ip = {
+  testIsNameHostname = {
+    expr = host.isName (parse "nas");
+    expected = true;
+  };
+  testIsNameDomain = {
+    expr = host.isName (parse "example.com");
+    expected = true;
+  };
+  testIsNameIp = {
+    expr = host.isName (parse "10.0.0.1");
+    expected = false;
+  };
+
+  testIsValidIp = {
     expr = host.isValid "192.168.1.1";
     expected = true;
   };
-  isValid-hostname = {
+  testIsValidHostname = {
     expr = host.isValid "nas";
     expected = true;
   };
-  isValid-domain = {
+  testIsValidDomain = {
     expr = host.isValid "example.com";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = host.isValid "host_name";
     expected = false;
   };
-  isValid-not-string = {
+  testIsValidNotString = {
     expr = host.isValid 42;
     expected = false;
   };
 
   # ===== eq =====
-  eq-same-ipv4 = {
-    expr = host.eq (p "10.0.0.1") (p "10.0.0.1");
+  testEqSameIpv4 = {
+    expr = host.eq (parse "10.0.0.1") (parse "10.0.0.1");
     expected = true;
   };
-  eq-same-hostname = {
-    expr = host.eq (p "nas") (p "nas");
+  testEqSameHostname = {
+    expr = host.eq (parse "nas") (parse "nas");
     expected = true;
   };
-  eq-same-domain = {
-    expr = host.eq (p "example.com") (p "example.com");
+  testEqSameDomain = {
+    expr = host.eq (parse "example.com") (parse "example.com");
     expected = true;
   };
-  eq-hostname-case-insens = {
-    expr = host.eq (p "NAS") (p "nas");
+  testEqHostnameCaseInsensitive = {
+    expr = host.eq (parse "NAS") (parse "nas");
     expected = true;
   };
-  eq-domain-case-insens = {
-    expr = host.eq (p "EXAMPLE.COM") (p "example.com");
+  testEqDomainCaseInsensitive = {
+    expr = host.eq (parse "EXAMPLE.COM") (parse "example.com");
     expected = true;
   };
-  eq-ip-vs-hostname = {
-    expr = host.eq (p "10.0.0.1") (p "nas");
+  testEqIpVsHostname = {
+    expr = host.eq (parse "10.0.0.1") (parse "nas");
     expected = false;
   };
-  eq-hostname-vs-domain = {
-    expr = host.eq (p "nas") (p "example.com");
+  testEqHostnameVsDomain = {
+    expr = host.eq (parse "nas") (parse "example.com");
     expected = false;
   };
-  eq-ipv4-vs-ipv6 = {
-    expr = host.eq (p "0.0.0.0") (p "::");
+  testEqIpv4VsIpv6 = {
+    expr = host.eq (parse "0.0.0.0") (parse "::");
     expected = false;
   };
-  eq-untagged = {
-    expr = host.eq (p "nas") { value = "nas"; };
+  testEqUntagged = {
+    expr = host.eq (parse "nas") { value = "nas"; };
     expected = false;
   };
 
   # ===== compare =====
-  compare-ip-before-hostname = {
-    expr = host.compare (p "10.0.0.1") (p "nas");
+  testCompareIpBeforeHostname = {
+    expr = host.compare (parse "10.0.0.1") (parse "nas");
     expected = -1;
   };
-  compare-hostname-before-domain = {
-    expr = host.compare (p "nas") (p "example.com");
+  testCompareHostnameBeforeDomain = {
+    expr = host.compare (parse "nas") (parse "example.com");
     expected = -1;
   };
-  compare-domain-after-ip = {
-    expr = host.compare (p "example.com") (p "10.0.0.1");
+  testCompareDomainAfterIp = {
+    expr = host.compare (parse "example.com") (parse "10.0.0.1");
     expected = 1;
   };
-  compare-ipv4-before-ipv6 = {
-    expr = host.compare (p "10.0.0.1") (p "::1");
+  testCompareIpv4BeforeIpv6 = {
+    expr = host.compare (parse "10.0.0.1") (parse "::1");
     expected = -1;
   };
-  compare-same-ipv4-eq = {
-    expr = host.compare (p "10.0.0.1") (p "10.0.0.1");
+  testCompareSameIpv4Equal = {
+    expr = host.compare (parse "10.0.0.1") (parse "10.0.0.1");
     expected = 0;
   };
-  compare-same-hostname-case = {
-    expr = host.compare (p "NAS") (p "nas");
+  testCompareSameHostnameCase = {
+    expr = host.compare (parse "NAS") (parse "nas");
     expected = 0;
   };
-  compare-same-domain-case = {
-    expr = host.compare (p "EXAMPLE.COM") (p "example.com");
+  testCompareSameDomainCase = {
+    expr = host.compare (parse "EXAMPLE.COM") (parse "example.com");
     expected = 0;
   };
-  compare-within-hostname-lex = {
-    expr = host.compare (p "alpha") (p "beta");
+  testCompareWithinHostnameLexical = {
+    expr = host.compare (parse "alpha") (parse "beta");
     expected = -1;
   };
-  compare-within-domain-lex = {
-    expr = host.compare (p "alpha.com") (p "beta.com");
+  testCompareWithinDomainLexical = {
+    expr = host.compare (parse "alpha.com") (parse "beta.com");
     expected = -1;
   };
-  compare-within-ipv4 = {
-    expr = host.compare (p "10.0.0.1") (p "10.0.0.2");
+  testCompareWithinIpv4 = {
+    expr = host.compare (parse "10.0.0.1") (parse "10.0.0.2");
     expected = -1;
   };
 
-  lt-ip-vs-hostname = {
-    expr = host.lt (p "10.0.0.1") (p "nas");
+  testLtIpVsHostname = {
+    expr = host.lt (parse "10.0.0.1") (parse "nas");
     expected = true;
   };
-  le-equal = {
-    expr = host.le (p "nas") (p "nas");
+  testLeEqual = {
+    expr = host.le (parse "nas") (parse "nas");
     expected = true;
   };
-  ge-equal = {
-    expr = host.ge (p "nas") (p "nas");
+  testGeEqual = {
+    expr = host.ge (parse "nas") (parse "nas");
     expected = true;
   };
-  gt-hostname-vs-ip = {
-    expr = host.gt (p "nas") (p "10.0.0.1");
+  testGtHostnameVsIp = {
+    expr = host.gt (parse "nas") (parse "10.0.0.1");
     expected = true;
   };
-  min-picks-smaller-family = {
-    expr = (host.min (p "nas") (p "10.0.0.1"))._type;
+  testMinPicksSmallerFamily = {
+    expr = (host.min (parse "nas") (parse "10.0.0.1"))._type;
     expected = "ipv4";
   };
-  max-picks-larger-family = {
-    expr = (host.max (p "10.0.0.1") (p "example.com"))._type;
+  testMaxPicksLargerFamily = {
+    expr = (host.max (parse "10.0.0.1") (parse "example.com"))._type;
     expected = "domain";
   };
 
   # Sanity: structural .is checks recognise values from each underlying module
-  is-from-ip-module = {
+  testIsFromIpModule = {
     expr = host.is (ip.parse "10.0.0.1");
     expected = true;
   };
-  is-from-hostname-module = {
+  testIsFromHostnameModule = {
     expr = host.is (hostname.parse "nas");
     expected = true;
   };
-  is-from-domain-module = {
+  testIsFromDomainModule = {
     expr = host.is (domain.parse "example.com");
     expected = true;
   };

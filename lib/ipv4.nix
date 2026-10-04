@@ -16,117 +16,183 @@
 */
 let
   bits = import ./internal/bits.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
 
-  # Internal constructor — assumes `v` is already validated.
-  mk = v: {
+  # Internal constructor; assumes `value` is already validated.
+  mk = value: {
     _type = "ipv4";
-    value = v;
+    inherit value;
   };
 
   # ===== Conversion =====
 
+  /*
+    Build an address from its 32-bit integer value.
+
+    `n`: integer in [0, 4294967295].
+
+    Returns an IPv4 value; throws on a non-integer or out-of-range input.
+  */
   fromInt =
     n:
     if !(builtins.isInt n) || n < 0 || n > bits.mask32 then
-      builtins.throw "libnet.ipv4.fromInt: value out of range [0, 4294967295]: ${builtins.toString n}"
+      throw "libnet.ipv4.fromInt: value out of range [0, 4294967295]: ${builtins.toString n}"
     else
       mk n;
 
+  /*
+    Get the 32-bit integer value of an address.
+
+    `ip`: IPv4 value.
+
+    Returns an integer in [0, 4294967295].
+  */
   toInt = ip: ip.value;
 
-  fromOctets =
-    os:
-    if !(builtins.isList os) || builtins.length os != 4 then
-      builtins.throw "libnet.ipv4.fromOctets: expected list of 4 ints"
-    else
-      let
-        a = builtins.elemAt os 0;
-        b = builtins.elemAt os 1;
-        c = builtins.elemAt os 2;
-        d = builtins.elemAt os 3;
-        invalid = builtins.any (v: !(builtins.isInt v) || v < 0 || v > 255) os;
-      in
-      if invalid then
-        builtins.throw "libnet.ipv4.fromOctets: each octet must be int in [0, 255]"
-      else
-        mk (a * bits.pow2_24 + b * bits.pow2_16 + c * bits.pow2_8 + d);
+  /*
+    Build an address from its four octets, most significant first.
 
+    `octets`: list of exactly 4 integers, each in [0, 255].
+
+    Returns an IPv4 value; throws on a wrong length or an invalid octet.
+  */
+  fromOctets =
+    octets:
+    if !(builtins.isList octets) || builtins.length octets != 4 then
+      throw "libnet.ipv4.fromOctets: expected list of 4 ints"
+    else if builtins.any (octet: !(builtins.isInt octet) || octet < 0 || octet > 255) octets then
+      throw "libnet.ipv4.fromOctets: each octet must be int in [0, 255]"
+    else
+      mk (builtins.foldl' (accumulated: octet: accumulated * bits.pow2_8 + octet) 0 octets);
+
+  /*
+    Split an address into its four octets.
+
+    `ip`: IPv4 value.
+
+    Returns a list of 4 integers in [0, 255], most significant first.
+  */
   toOctets =
     ip:
     let
-      v = ip.value;
+      inherit (ip) value;
     in
     [
-      (bits.bits 24 8 v)
-      (bits.bits 16 8 v)
-      (bits.bits 8 8 v)
-      (bits.bits 0 8 v)
+      (bits.bits 24 8 value)
+      (bits.bits 16 8 value)
+      (bits.bits 8 8 value)
+      (bits.bits 0 8 value)
     ];
 
-  # Aliases — "octet" is the IPv4-canonical term (RFC 791); "byte" matches
-  # mac/ipv6. Same function, two names for cross-family discoverability.
-  fromBytes = fromOctets;
-  toBytes = toOctets;
+  /*
+    Alias of `fromOctets`. "Octet" is the IPv4 term (RFC 791); "byte"
+    matches `mac` and `ipv6` for cross-family discoverability.
+
+    `octets`: list of exactly 4 integers, each in [0, 255].
+
+    Returns an IPv4 value; throws on a wrong length or an invalid octet.
+  */
+  fromBytes = octets: fromOctets octets;
+
+  /*
+    Alias of `toOctets`, named like `mac.toBytes` and `ipv6.toBytes` for
+    cross-family discoverability.
+
+    `ip`: IPv4 value.
+
+    Returns a list of 4 integers in [0, 255], most significant first.
+  */
+  toBytes = ip: toOctets ip;
 
   # ===== Parsing & formatting =====
 
+  /*
+    Parse a dotted-quad string without throwing, for validating untrusted
+    input. Octets with leading zeros or above 255 are rejected.
+
+    `input`: string such as "192.0.2.1".
+
+    Returns a tryParse result: `{ success, value, error }`, where `value`
+    is the IPv4 value on success and `error` describes the failure.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.ipv4.parse: input must be a string"
     else
       let
-        parts = parse'.splitOn "." s;
-        len = builtins.length parts;
+        parts = parsing.splitOn "." input;
+        partCount = builtins.length parts;
+        octets = map parsing.octet parts;
       in
-      if len != 4 then
-        types.tryErr "libnet.ipv4.parse: must have 4 octets, got ${builtins.toString len}: \"${s}\""
+      if partCount != 4 then
+        types.tryErr "libnet.ipv4.parse: must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
+      else if builtins.elem null octets then
+        types.tryErr "libnet.ipv4.parse: invalid octet in \"${input}\""
       else
-        let
-          oct = i: parse'.octet (builtins.elemAt parts i);
-          a = oct 0;
-          b = oct 1;
-          c = oct 2;
-          d = oct 3;
-        in
-        if a == null || b == null || c == null || d == null then
-          types.tryErr "libnet.ipv4.parse: invalid octet in \"${s}\""
-        else
-          types.tryOk (fromOctets [
-            a
-            b
-            c
-            d
-          ]);
+        types.tryOk (fromOctets octets);
 
+  /*
+    Parse a dotted-quad string, for trusted configuration values.
+
+    `input`: string such as "192.0.2.1".
+
+    Returns an IPv4 value; throws on malformed input.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Format an address in canonical dotted-quad form.
+
+    `ip`: IPv4 value.
+
+    Returns a string such as "192.0.2.1".
+  */
   toString = ip: builtins.concatStringsSep "." (map builtins.toString (toOctets ip));
 
+  /*
+    Format an address as its reverse-DNS name.
+
+    `ip`: IPv4 value.
+
+    Returns a string such as "1.2.0.192.in-addr.arpa" for 192.0.2.1.
+  */
   toArpa =
     ip:
     let
-      os = toOctets ip;
+      octets = toOctets ip;
+      octetText = i: builtins.toString (builtins.elemAt octets i);
     in
-    "${builtins.toString (builtins.elemAt os 3)}"
-    + ".${builtins.toString (builtins.elemAt os 2)}"
-    + ".${builtins.toString (builtins.elemAt os 1)}"
-    + ".${builtins.toString (builtins.elemAt os 0)}"
-    + ".in-addr.arpa";
+    "${octetText 3}.${octetText 2}.${octetText 1}.${octetText 0}.in-addr.arpa";
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isIpv4;
+  /*
+    Check whether a string parses as an IPv4 address.
 
-  # Range helpers using explicit block boundaries (readable).
+    `input`: value to check; non-strings yield false.
+
+    Returns a Boolean.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a parsed IPv4 value by its `_type` tag, as
+    opposed to `isValid`, which checks whether a string parses.
+
+    `value`: any value.
+
+    Returns a Boolean; raw strings yield false.
+  */
+  is = value: types.isIpv4 value;
+
+  # Inclusive bounds of the special-purpose blocks used by the predicates.
   class10Start = 10 * bits.pow2_24;
   class10End = 11 * bits.pow2_24 - 1;
   class172Start = 172 * bits.pow2_24 + 16 * bits.pow2_16;
@@ -135,63 +201,158 @@ let
   class192End = 192 * bits.pow2_24 + 169 * bits.pow2_16 - 1;
   shared100Start = 100 * bits.pow2_24 + 64 * bits.pow2_16;
   shared100End = 100 * bits.pow2_24 + 128 * bits.pow2_16 - 1;
-  proto192Start = 192 * bits.pow2_24;
-  proto192End = 192 * bits.pow2_24 + bits.pow2_8 - 1;
-  bench198Start = 198 * bits.pow2_24 + 18 * bits.pow2_16;
-  bench198End = 198 * bits.pow2_24 + 20 * bits.pow2_16 - 1;
+  protocol192Start = 192 * bits.pow2_24;
+  protocol192End = 192 * bits.pow2_24 + bits.pow2_8 - 1;
+  benchmarking198Start = 198 * bits.pow2_24 + 18 * bits.pow2_16;
+  benchmarking198End = 198 * bits.pow2_24 + 20 * bits.pow2_16 - 1;
 
+  /*
+    Check whether an address is loopback (127.0.0.0/8).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isLoopback = ip: ip.value >= 127 * bits.pow2_24 && ip.value <= 128 * bits.pow2_24 - 1;
 
+  /*
+    Check whether an address is private (RFC 1918: 10.0.0.0/8,
+    172.16.0.0/12, 192.168.0.0/16).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isPrivate =
     ip:
     (ip.value >= class10Start && ip.value <= class10End)
     || (ip.value >= class172Start && ip.value <= class172End)
     || (ip.value >= class192Start && ip.value <= class192End);
 
+  /*
+    Check whether an address is link-local (169.254.0.0/16).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isLinkLocal =
     ip:
     ip.value >= 169 * bits.pow2_24 + 254 * bits.pow2_16
     && ip.value <= 169 * bits.pow2_24 + 255 * bits.pow2_16 - 1;
 
+  /*
+    Check whether an address is multicast (224.0.0.0/4).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isMulticast = ip: ip.value >= 224 * bits.pow2_24 && ip.value <= 240 * bits.pow2_24 - 1;
 
+  /*
+    Check whether an address is the limited broadcast address
+    255.255.255.255.
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isBroadcast = ip: ip.value == bits.mask32;
+
+  /*
+    Check whether an address is the unspecified address 0.0.0.0.
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isUnspecified = ip: ip.value == 0;
 
-  # 240.0.0.0/4 excluding 255.255.255.255
+  /*
+    Check whether an address is reserved for future use (240.0.0.0/4,
+    excluding the broadcast address 255.255.255.255).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isReserved = ip: ip.value >= 240 * bits.pow2_24 && ip.value <= bits.mask32 - 1;
 
-  # Documentation blocks: 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24
+  /*
+    Check whether an address is in a documentation block (192.0.2.0/24,
+    198.51.100.0/24, 203.0.113.0/24).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isDocumentation =
     ip:
     let
-      v = ip.value;
+      inherit (ip) value;
     in
     (
-      v >= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 2 * bits.pow2_8
-      && v <= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 3 * bits.pow2_8 - 1
+      value >= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 2 * bits.pow2_8
+      && value <= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 3 * bits.pow2_8 - 1
     )
     || (
-      v >= 198 * bits.pow2_24 + 51 * bits.pow2_16 + 100 * bits.pow2_8
-      && v <= 198 * bits.pow2_24 + 51 * bits.pow2_16 + 101 * bits.pow2_8 - 1
+      value >= 198 * bits.pow2_24 + 51 * bits.pow2_16 + 100 * bits.pow2_8
+      && value <= 198 * bits.pow2_24 + 51 * bits.pow2_16 + 101 * bits.pow2_8 - 1
     )
     || (
-      v >= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 113 * bits.pow2_8
-      && v <= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 114 * bits.pow2_8 - 1
+      value >= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 113 * bits.pow2_8
+      && value <= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 114 * bits.pow2_8 - 1
     );
 
-  # 0.0.0.0/8 — "this host on this network" (RFC 1122 §3.2.1.3).
+  /*
+    Check whether an address is in 0.0.0.0/8, "this host on this network"
+    (RFC 1122 §3.2.1.3).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isThisNetwork = ip: ip.value < bits.pow2_24;
 
-  # 100.64.0.0/10 — shared address space / CGNAT (RFC 6598).
+  /*
+    Check whether an address is in the shared address space used for
+    carrier-grade NAT (100.64.0.0/10, RFC 6598).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isSharedAddressSpace = ip: ip.value >= shared100Start && ip.value <= shared100End;
 
-  # 192.0.0.0/24 — IETF protocol assignments (RFC 6890).
-  isProtocolAssignment = ip: ip.value >= proto192Start && ip.value <= proto192End;
+  /*
+    Check whether an address is an IETF protocol assignment
+    (192.0.0.0/24, RFC 6890).
 
-  # 198.18.0.0/15 — benchmarking (RFC 2544).
-  isBenchmarking = ip: ip.value >= bench198Start && ip.value <= bench198End;
+    `ip`: IPv4 value.
 
+    Returns a Boolean.
+  */
+  isProtocolAssignment = ip: ip.value >= protocol192Start && ip.value <= protocol192End;
+
+  /*
+    Check whether an address is in the benchmarking block (198.18.0.0/15,
+    RFC 2544).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
+  isBenchmarking = ip: ip.value >= benchmarking198Start && ip.value <= benchmarking198End;
+
+  /*
+    Check whether an address is not globally routable: it matches any of
+    the special-purpose predicates in this module.
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isBogon =
     ip:
     isLoopback ip
@@ -207,34 +368,96 @@ let
     || isProtocolAssignment ip
     || isBenchmarking ip;
 
-  # IPv4 has no transition/interop forms analogous to v6's IPv4-mapped,
-  # IPv4-compatible, or 6to4, so isGlobal collapses to !isBogon. The v6
-  # counterpart is strictly tighter — see ipv6.nix.
+  /*
+    Check whether an address is globally routable. IPv4 has no transition
+    forms like IPv6's IPv4-mapped, IPv4-compatible, or 6to4 addresses, so
+    this is exactly `!isBogon`; `ipv6.isGlobal` is stricter.
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
   isGlobal = ip: !(isBogon ip);
 
   # ===== Arithmetic =====
 
+  /*
+    Offset an address by an integer; curried so `add n` can be mapped.
+
+    `n`: integer offset; may be negative.
+    `ip`: IPv4 value.
+
+    Returns an IPv4 value; throws if the result leaves the address space.
+  */
   add =
     n: ip:
     let
-      r = ip.value + n;
+      result = ip.value + n;
     in
-    if r < 0 || r > bits.mask32 then
-      builtins.throw "libnet.ipv4.add: result out of range [0, 4294967295]: ${builtins.toString r}"
+    if result < 0 || result > bits.mask32 then
+      throw "libnet.ipv4.add: result out of range [0, 4294967295]: ${builtins.toString result}"
     else
-      mk r;
+      mk result;
 
+  /*
+    Offset an address downwards by an integer.
+
+    `n`: integer to subtract; may be negative.
+    `ip`: IPv4 value.
+
+    Returns an IPv4 value; throws if the result leaves the address space.
+  */
   sub = n: ip: add (0 - n) ip;
 
+  /*
+    Measure the distance between two addresses.
+
+    `a`: IPv4 value to measure from.
+    `b`: IPv4 value to measure to.
+
+    Returns `toInt b - toInt a`, negative when `b` precedes `a`.
+  */
   diff = a: b: b.value - a.value;
 
-  next = add 1;
-  prev = sub 1;
+  /*
+    Get the address one above `ip`. Equivalent to `add 1`, so it can be
+    mapped over a list of addresses.
+
+    `ip`: IPv4 value.
+
+    Returns an IPv4 value; throws at 255.255.255.255.
+  */
+  next = ip: add 1 ip;
+
+  /*
+    Get the address one below `ip`. Equivalent to `sub 1`, so it can be
+    mapped over a list of addresses.
+
+    `ip`: IPv4 value.
+
+    Returns an IPv4 value; throws at 0.0.0.0.
+  */
+  prev = ip: sub 1 ip;
 
   # ===== Comparison =====
 
+  /*
+    Check whether two values are the same address. Never throws for
+    values of a different `_type`.
+
+    `a`, `b`: IPv4 values.
+
+    Returns true when both tag and value match.
+  */
   eq = a: b: a._type == b._type && a.value == b.value;
 
+  /*
+    Order two addresses numerically.
+
+    `a`, `b`: IPv4 values.
+
+    Returns -1 if `a < b`, 0 if equal, 1 if `a > b`.
+  */
   compare =
     a: b:
     if a.value < b.value then
@@ -244,11 +467,58 @@ let
     else
       0;
 
+  /*
+    Check whether `a` sorts before `b`.
+
+    `a`, `b`: IPv4 values.
+
+    Returns a Boolean.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Check whether `a` sorts before or equal to `b`.
+
+    `a`, `b`: IPv4 values.
+
+    Returns a Boolean.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Check whether `a` sorts after `b`.
+
+    `a`, `b`: IPv4 values.
+
+    Returns a Boolean.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Check whether `a` sorts after or equal to `b`.
+
+    `a`, `b`: IPv4 values.
+
+    Returns a Boolean.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lower of two addresses.
+
+    `a`, `b`: IPv4 values.
+
+    Returns `a` when the two are equal.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the higher of two addresses.
+
+    `a`, `b`: IPv4 values.
+
+    Returns `a` when the two are equal.
+  */
   max = a: b: if ge a b then a else b;
 
   # ===== Constants =====
@@ -264,52 +534,47 @@ let
 in
 {
   inherit
-    fromInt
-    toInt
-    fromOctets
-    toOctets
-    fromBytes
-    toBytes
-    ;
-  inherit
-    parse
-    tryParse
-    toString
-    toArpa
-    ;
-  inherit isValid is;
-  inherit
-    isLoopback
-    isPrivate
-    isLinkLocal
-    isMulticast
-    isBroadcast
-    isUnspecified
-    isReserved
-    isDocumentation
-    isThisNetwork
-    isSharedAddressSpace
-    isProtocolAssignment
-    isBenchmarking
-    isGlobal
-    isBogon
-    ;
-  inherit
     add
-    sub
-    diff
-    next
-    prev
-    ;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
+    broadcast
     compare
-    min
+    diff
+    eq
+    fromBytes
+    fromInt
+    fromOctets
+    ge
+    gt
+    is
+    isBenchmarking
+    isBogon
+    isBroadcast
+    isDocumentation
+    isGlobal
+    isLinkLocal
+    isLoopback
+    isMulticast
+    isPrivate
+    isProtocolAssignment
+    isReserved
+    isSharedAddressSpace
+    isThisNetwork
+    isUnspecified
+    isValid
+    le
+    loopback
+    lt
     max
+    min
+    next
+    parse
+    prev
+    sub
+    toArpa
+    toBytes
+    toInt
+    toOctets
+    toString
+    tryParse
+    unspecified
     ;
-  inherit unspecified broadcast loopback;
 }

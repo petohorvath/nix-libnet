@@ -5,88 +5,88 @@ let
 in
 {
   # ===== valid range =====
-  isValid-min = {
+  testIsValidMin = {
     expr = icmpType.isValid 0;
     expected = true;
   };
-  isValid-typical = {
+  testIsValidTypical = {
     expr = icmpType.isValid 8;
     expected = true;
   };
-  isValid-mid = {
+  testIsValidMid = {
     expr = icmpType.isValid 128;
     expected = true;
   };
-  isValid-max = {
+  testIsValidMax = {
     expr = icmpType.isValid 255;
     expected = true;
   };
 
   # ===== boundary rejects =====
-  isValid-negative = {
+  testIsValidNegative = {
     expr = icmpType.isValid (-1);
     expected = false;
   };
-  isValid-256 = {
+  testIsValid256 = {
     expr = icmpType.isValid 256;
     expected = false;
   };
-  isValid-large = {
+  testIsValidLarge = {
     expr = icmpType.isValid 65535;
     expected = false;
   };
 
   # ===== type rejects =====
-  isValid-string = {
+  testIsValidString = {
     expr = icmpType.isValid "8";
     expected = false;
   };
-  isValid-null = {
+  testIsValidNull = {
     expr = icmpType.isValid null;
     expected = false;
   };
-  isValid-float = {
+  testIsValidFloat = {
     expr = icmpType.isValid 8.5;
     expected = false;
   };
-  isValid-bool = {
+  testIsValidBool = {
     expr = icmpType.isValid true;
     expected = false;
   };
-  isValid-list = {
+  testIsValidList = {
     expr = icmpType.isValid [ 8 ];
     expected = false;
   };
 
   # ===== Constants =====
-  lowestValue = {
+  testLowestValue = {
     expr = icmpType.lowestValue;
     expected = 0;
   };
-  highestValue = {
+  testHighestValue = {
     expr = icmpType.highestValue;
     expected = 255;
   };
 
   # ===== Tagged value =====
-  fromInt-tagged = {
+  testFromIntTagged = {
     expr = (icmpType.fromInt 8)._type;
     expected = "icmpType";
   };
-  fromInt-value = {
+  testFromIntValue = {
     expr = (icmpType.fromInt 8).value;
     expected = 8;
   };
-  fromInt-min = {
+  testFromIntMin = {
     expr = icmpType.toInt (icmpType.fromInt 0);
     expected = 0;
   };
-  fromInt-roundtrip = {
+  testFromIntRoundTrip = {
     expr = icmpType.toInt (icmpType.fromInt 255);
     expected = 255;
   };
-  fromInt-rejects-non-ints = {
-    expr = builtins.all (v: throws (icmpType.fromInt v)) [
+  testFromIntRejectsNonInts = {
+    expr = builtins.all (value: throws (icmpType.fromInt value)) [
       "8"
       8.0
       null
@@ -95,53 +95,53 @@ in
     ];
     expected = true;
   };
-  fromInt-negative-throws = {
+  testFromIntNegativeThrows = {
     expr = throws (icmpType.fromInt (-1));
     expected = true;
   };
-  fromInt-256-throws = {
+  testFromInt256Throws = {
     expr = throws (icmpType.fromInt 256);
     expected = true;
   };
-  toString-renders = {
+  testToStringRenders = {
     expr = icmpType.toString (icmpType.fromInt 8);
     expected = "8";
   };
 
   # ===== is (structural) =====
-  is-tagged = {
+  testIsTagged = {
     expr = icmpType.is (icmpType.fromInt 8);
     expected = true;
   };
-  is-bare-int = {
+  testIsBareInt = {
     expr = icmpType.is 8;
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = icmpType.is { value = 8; };
     expected = false;
   };
-  is-tag-only = {
+  testIsTagOnly = {
     expr = icmpType.is { _type = "icmpType"; };
     expected = true;
   };
-  is-does-not-force-value = {
+  testIsDoesNotForceValue = {
     expr = icmpType.is {
       _type = "icmpType";
-      value = builtins.throw "is must only inspect the tag";
+      value = throw "is must only inspect the tag";
     };
     expected = true;
   };
-  eq-foreign-does-not-force-value = {
+  testEqForeignDoesNotForceValue = {
     expr = icmpType.eq {
       _type = "icmpType";
-      value = builtins.throw "eq must compare tags before values";
+      value = throw "eq must compare tags before values";
     } { _type = "foreign"; };
     expected = false;
   };
 
   # Adjacent ICMP type numbers are unrelated messages.
-  arithmetic-absent = {
+  testArithmeticAbsent = {
     expr = builtins.any (name: builtins.hasAttr name icmpType) [
       "add"
       "sub"
@@ -153,49 +153,49 @@ in
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
+  testLt = {
     expr = icmpType.lt (icmpType.fromInt 8) (icmpType.fromInt 128);
     expected = true;
   };
-  cmp-le = {
+  testLe = {
     expr = icmpType.le (icmpType.fromInt 8) (icmpType.fromInt 128);
     expected = true;
   };
-  cmp-gt = {
+  testGt = {
     expr = icmpType.gt (icmpType.fromInt 128) (icmpType.fromInt 8);
     expected = true;
   };
-  cmp-ge = {
+  testGe = {
     expr = icmpType.ge (icmpType.fromInt 128) (icmpType.fromInt 8);
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
+  testEqSame = {
     expr = icmpType.eq (icmpType.fromInt 8) (icmpType.fromInt 8);
     expected = true;
   };
-  eq-diff = {
+  testEqDifferent = {
     expr = icmpType.eq (icmpType.fromInt 8) (icmpType.fromInt 128);
     expected = false;
   };
-  compare-lt = {
+  testCompareLt = {
     expr = icmpType.compare (icmpType.fromInt 8) (icmpType.fromInt 128);
     expected = -1;
   };
-  compare-gt = {
+  testCompareGt = {
     expr = icmpType.compare (icmpType.fromInt 128) (icmpType.fromInt 8);
     expected = 1;
   };
-  compare-eq = {
+  testCompareEq = {
     expr = icmpType.compare (icmpType.fromInt 8) (icmpType.fromInt 8);
     expected = 0;
   };
-  min-pick = {
+  testMinPick = {
     expr = icmpType.toInt (icmpType.min (icmpType.fromInt 128) (icmpType.fromInt 8));
     expected = 8;
   };
-  max-pick = {
+  testMaxPick = {
     expr = icmpType.toInt (icmpType.max (icmpType.fromInt 128) (icmpType.fromInt 8));
     expected = 128;
   };

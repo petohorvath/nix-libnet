@@ -1,358 +1,358 @@
 { harness }:
 let
-  lst = import ../lib/ip-bindpoint.nix;
+  ipBindpoint = import ../lib/ip-bindpoint.nix;
   ipv4 = import ../lib/ipv4.nix;
-  pr = import ../lib/port-range.nix;
+  portRange = import ../lib/port-range.nix;
   ipEndpoint = import ../lib/ip-endpoint.nix;
   inherit (harness) throws;
-  p = lst.parse;
+  parse = ipBindpoint.parse;
 in
 {
   # ===== Parse =====
-  parse-null-single = {
-    expr = lst.toString (p ":8080");
+  testParseNullSingle = {
+    expr = ipBindpoint.toString (parse ":8080");
     expected = ":8080";
   };
-  parse-null-range = {
-    expr = lst.toString (p ":8080-8090");
+  testParseNullRange = {
+    expr = ipBindpoint.toString (parse ":8080-8090");
     expected = ":8080-8090";
   };
-  parse-wild-star = {
-    expr = lst.toString (p "*:8080");
+  testParseWildcardStar = {
+    expr = ipBindpoint.toString (parse "*:8080");
     expected = ":8080";
   };
-  parse-wild-any = {
-    expr = lst.toString (p "any:8080");
+  testParseWildcardAny = {
+    expr = ipBindpoint.toString (parse "any:8080");
     expected = ":8080";
   };
-  parse-v4-single = {
-    expr = lst.toString (p "1.2.3.4:8080");
+  testParseV4Single = {
+    expr = ipBindpoint.toString (parse "1.2.3.4:8080");
     expected = "1.2.3.4:8080";
   };
-  parse-v4-range = {
-    expr = lst.toString (p "1.2.3.4:5000-6000");
+  testParseV4Range = {
+    expr = ipBindpoint.toString (parse "1.2.3.4:5000-6000");
     expected = "1.2.3.4:5000-6000";
   };
-  parse-v4-explicit = {
-    expr = lst.toString (p "0.0.0.0:80");
+  testParseV4Explicit = {
+    expr = ipBindpoint.toString (parse "0.0.0.0:80");
     expected = "0.0.0.0:80";
   };
-  parse-v6-range = {
-    expr = lst.toString (p "[::1]:5000-6000");
+  testParseV6Range = {
+    expr = ipBindpoint.toString (parse "[::1]:5000-6000");
     expected = "[::1]:5000-6000";
   };
-  parse-v6-explicit = {
-    expr = lst.toString (p "[::]:80");
+  testParseV6Explicit = {
+    expr = ipBindpoint.toString (parse "[::]:80");
     expected = "[::]:80";
   };
-  parse-v6-single = {
-    expr = lst.toString (p "[::1]:80");
+  testParseV6Single = {
+    expr = ipBindpoint.toString (parse "[::1]:80");
     expected = "[::1]:80";
   };
 
   # ===== Reject =====
-  reject-v6-unbrak = {
-    expr = throws (p "::1:80");
+  testRejectUnbracketedV6 = {
+    expr = throws (parse "::1:80");
     expected = true;
   };
-  reject-bad-port = {
-    expr = throws (p ":70000");
+  testRejectBadPort = {
+    expr = throws (parse ":70000");
     expected = true;
   };
-  reject-open-range = {
-    expr = throws (p "1.2.3.4:5500-");
+  testRejectOpenRange = {
+    expr = throws (parse "1.2.3.4:5500-");
     expected = true;
   };
-  reject-reverse = {
-    expr = throws (p "1.2.3.4:6000-5500");
+  testRejectReversedRange = {
+    expr = throws (parse "1.2.3.4:6000-5500");
     expected = true;
   };
-  reject-not-string = {
-    expr = throws (lst.parse 123);
+  testRejectNotString = {
+    expr = throws (ipBindpoint.parse 123);
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
-    expr = (lst.tryParse ":80").success;
+  testTryParseOk = {
+    expr = (ipBindpoint.tryParse ":80").success;
     expected = true;
   };
-  tryParse-bad = {
-    expr = (lst.tryParse "bad").success;
+  testTryParseBad = {
+    expr = (ipBindpoint.tryParse "bad").success;
     expected = false;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = lst.is (p ":80");
+  testIsParsed = {
+    expr = ipBindpoint.is (parse ":80");
     expected = true;
   };
-  is-string = {
-    expr = lst.is ":80";
+  testIsString = {
+    expr = ipBindpoint.is ":80";
     expected = false;
   };
-  isValid-ok = {
-    expr = lst.isValid ":80";
+  testIsValidOk = {
+    expr = ipBindpoint.isValid ":80";
     expected = true;
   };
 
   # ===== isAnyAddress variants =====
-  anyAddr-null = {
-    expr = lst.isAnyAddress (p ":80");
+  testIsAnyAddressNull = {
+    expr = ipBindpoint.isAnyAddress (parse ":80");
     expected = true;
   };
-  anyAddr-star = {
-    expr = lst.isAnyAddress (p "*:80");
+  testIsAnyAddressStar = {
+    expr = ipBindpoint.isAnyAddress (parse "*:80");
     expected = true;
   };
-  anyAddr-any = {
-    expr = lst.isAnyAddress (p "any:80");
+  testIsAnyAddressAny = {
+    expr = ipBindpoint.isAnyAddress (parse "any:80");
     expected = true;
   };
-  anyAddr-0000 = {
-    expr = lst.isAnyAddress (p "0.0.0.0:80");
+  testIsAnyAddressV4Unspecified = {
+    expr = ipBindpoint.isAnyAddress (parse "0.0.0.0:80");
     expected = true;
   };
-  anyAddr-v6-any = {
-    expr = lst.isAnyAddress (p "[::]:80");
+  testIsAnyAddressV6Unspecified = {
+    expr = ipBindpoint.isAnyAddress (parse "[::]:80");
     expected = true;
   };
-  anyAddr-no = {
-    expr = lst.isAnyAddress (p "1.2.3.4:80");
+  testIsAnyAddressNo = {
+    expr = ipBindpoint.isAnyAddress (parse "1.2.3.4:80");
     expected = false;
   };
-  anyAddr-v6-loop = {
-    expr = lst.isAnyAddress (p "[::1]:80");
+  testIsAnyAddressV6Loopback = {
+    expr = ipBindpoint.isAnyAddress (parse "[::1]:80");
     expected = false;
   };
-  isWildcard-alias = {
-    expr = lst.isWildcard (p ":80");
+  testIsWildcardAlias = {
+    expr = ipBindpoint.isWildcard (parse ":80");
     expected = true;
   };
 
   # ===== isRange =====
-  isRange-single = {
-    expr = lst.isRange (p ":80");
+  testIsRangeSingle = {
+    expr = ipBindpoint.isRange (parse ":80");
     expected = false;
   };
-  isRange-range = {
-    expr = lst.isRange (p ":80-90");
+  testIsRangeRange = {
+    expr = ipBindpoint.isRange (parse ":80-90");
     expected = true;
   };
 
   # ===== Family =====
-  isIpv4-v4 = {
-    expr = lst.isIpv4 (p "1.2.3.4:80");
+  testIsIpv4V4 = {
+    expr = ipBindpoint.isIpv4 (parse "1.2.3.4:80");
     expected = true;
   };
-  isIpv4-null = {
-    expr = lst.isIpv4 (p ":80");
+  testIsIpv4Null = {
+    expr = ipBindpoint.isIpv4 (parse ":80");
     expected = false;
   };
-  isIpv6-v6 = {
-    expr = lst.isIpv6 (p "[::1]:80");
+  testIsIpv6V6 = {
+    expr = ipBindpoint.isIpv6 (parse "[::1]:80");
     expected = true;
   };
-  version-v4 = {
-    expr = lst.version (p "1.2.3.4:80");
+  testVersionV4 = {
+    expr = ipBindpoint.version (parse "1.2.3.4:80");
     expected = 4;
   };
-  version-null = {
-    expr = lst.version (p ":80");
+  testVersionNull = {
+    expr = ipBindpoint.version (parse ":80");
     expected = null;
   };
 
   # ===== Expansion =====
-  endpoints = {
-    expr = map ipEndpoint.toString (lst.endpoints (p "1.2.3.4:80-82"));
+  testEndpoints = {
+    expr = map ipEndpoint.toString (ipBindpoint.endpoints (parse "1.2.3.4:80-82"));
     expected = [
       "1.2.3.4:80"
       "1.2.3.4:81"
       "1.2.3.4:82"
     ];
   };
-  endpoints-v6 = {
-    expr = map ipEndpoint.toString (lst.endpoints (p "[::1]:80-81"));
+  testEndpointsV6 = {
+    expr = map ipEndpoint.toString (ipBindpoint.endpoints (parse "[::1]:80-81"));
     expected = [
       "[::1]:80"
       "[::1]:81"
     ];
   };
-  endpoints-null = {
-    expr = throws (lst.endpoints (p ":80-82"));
+  testEndpointsNull = {
+    expr = throws (ipBindpoint.endpoints (parse ":80-82"));
     expected = true;
   };
-  endpoints-big = {
-    expr = throws (lst.endpoints (p "1.2.3.4:0-5000"));
+  testEndpointsTooLarge = {
+    expr = throws (ipBindpoint.endpoints (parse "1.2.3.4:0-5000"));
     expected = true;
   };
 
-  endpointAt-0 = {
-    expr = ipEndpoint.toString (lst.endpointAt 0 (p "1.2.3.4:80-82"));
+  testEndpointAt0 = {
+    expr = ipEndpoint.toString (ipBindpoint.endpointAt 0 (parse "1.2.3.4:80-82"));
     expected = "1.2.3.4:80";
   };
-  endpointAt-2 = {
-    expr = ipEndpoint.toString (lst.endpointAt 2 (p "1.2.3.4:80-82"));
+  testEndpointAt2 = {
+    expr = ipEndpoint.toString (ipBindpoint.endpointAt 2 (parse "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
-  endpointAt-neg = {
-    expr = ipEndpoint.toString (lst.endpointAt (-1) (p "1.2.3.4:80-82"));
+  testEndpointAtNegative = {
+    expr = ipEndpoint.toString (ipBindpoint.endpointAt (-1) (parse "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
-  endpointAt-oob = {
-    expr = throws (lst.endpointAt 3 (p "1.2.3.4:80-82"));
+  testEndpointAtOutOfRange = {
+    expr = throws (ipBindpoint.endpointAt 3 (parse "1.2.3.4:80-82"));
     expected = true;
   };
-  endpointAt-null = {
-    expr = throws (lst.endpointAt 0 (p ":80-82"));
+  testEndpointAtNull = {
+    expr = throws (ipBindpoint.endpointAt 0 (parse ":80-82"));
     expected = true;
   };
 
   # ===== Forwarded predicates =====
-  fwd-loopback-v4 = {
-    expr = lst.isLoopback (p "127.0.0.1:80");
+  testForwardedLoopbackV4 = {
+    expr = ipBindpoint.isLoopback (parse "127.0.0.1:80");
     expected = true;
   };
-  fwd-loopback-v6 = {
-    expr = lst.isLoopback (p "[::1]:80");
+  testForwardedLoopbackV6 = {
+    expr = ipBindpoint.isLoopback (parse "[::1]:80");
     expected = true;
   };
-  fwd-loopback-no = {
-    expr = lst.isLoopback (p "8.8.8.8:80");
+  testForwardedLoopbackNo = {
+    expr = ipBindpoint.isLoopback (parse "8.8.8.8:80");
     expected = false;
   };
-  fwd-loopback-null = {
-    expr = lst.isLoopback (p ":80");
+  testForwardedLoopbackNull = {
+    expr = ipBindpoint.isLoopback (parse ":80");
     expected = false;
   };
-  fwd-unspecified-null = {
-    expr = lst.isUnspecified (p ":80");
+  testForwardedUnspecifiedNull = {
+    expr = ipBindpoint.isUnspecified (parse ":80");
     expected = false;
   };
-  fwd-linkLocal-v6 = {
-    expr = lst.isLinkLocal (p "[fe80::1]:80");
+  testForwardedLinkLocalV6 = {
+    expr = ipBindpoint.isLinkLocal (parse "[fe80::1]:80");
     expected = true;
   };
-  fwd-multicast-v4 = {
-    expr = lst.isMulticast (p "224.0.0.1:80");
+  testForwardedMulticastV4 = {
+    expr = ipBindpoint.isMulticast (parse "224.0.0.1:80");
     expected = true;
   };
-  fwd-documentation-v4 = {
-    expr = lst.isDocumentation (p "192.0.2.1:80");
+  testForwardedDocumentationV4 = {
+    expr = ipBindpoint.isDocumentation (parse "192.0.2.1:80");
     expected = true;
   };
-  fwd-global-v4 = {
-    expr = lst.isGlobal (p "8.8.8.8:80");
+  testForwardedGlobalV4 = {
+    expr = ipBindpoint.isGlobal (parse "8.8.8.8:80");
     expected = true;
   };
-  fwd-global-null = {
-    expr = lst.isGlobal (p ":80");
+  testForwardedGlobalNull = {
+    expr = ipBindpoint.isGlobal (parse ":80");
     expected = false;
   };
-  fwd-bogon-v4 = {
-    expr = lst.isBogon (p "10.0.0.1:80");
+  testForwardedBogonV4 = {
+    expr = ipBindpoint.isBogon (parse "10.0.0.1:80");
     expected = true;
   };
-  fwd-bogon-v6 = {
-    expr = lst.isBogon (p "[fc00::1]:80");
+  testForwardedBogonV6 = {
+    expr = ipBindpoint.isBogon (parse "[fc00::1]:80");
     expected = true;
   };
-  fwd-bogon-null = {
-    expr = lst.isBogon (p ":80");
+  testForwardedBogonNull = {
+    expr = ipBindpoint.isBogon (parse ":80");
     expected = false;
   };
-  fwd-toArpa-v4 = {
-    expr = lst.toArpa (p "1.2.3.4:80");
+  testForwardedToArpaV4 = {
+    expr = ipBindpoint.toArpa (parse "1.2.3.4:80");
     expected = "4.3.2.1.in-addr.arpa";
   };
-  fwd-toArpa-v6 = {
-    expr = lst.toArpa (p "[::1]:80");
+  testForwardedToArpaV6 = {
+    expr = ipBindpoint.toArpa (parse "[::1]:80");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
-  fwd-toArpa-null = {
-    expr = throws (lst.toArpa (p ":80"));
+  testForwardedToArpaNull = {
+    expr = throws (ipBindpoint.toArpa (parse ":80"));
     expected = true;
   };
 
   # ===== make / accessors / unbounded expansion =====
-  make-ok = {
-    expr = lst.toString (lst.make (ipv4.parse "1.2.3.4") (pr.make 80 82));
+  testMakeOk = {
+    expr = ipBindpoint.toString (ipBindpoint.make (ipv4.parse "1.2.3.4") (portRange.make 80 82));
     expected = "1.2.3.4:80-82";
   };
-  make-null-addr = {
-    expr = lst.toString (lst.make null (pr.make 80 80));
+  testMakeNullAddress = {
+    expr = ipBindpoint.toString (ipBindpoint.make null (portRange.make 80 80));
     expected = ":80";
   };
-  make-bad-addr = {
-    expr = throws (lst.make "1.2.3.4" (pr.make 80 80));
+  testMakeBadAddress = {
+    expr = throws (ipBindpoint.make "1.2.3.4" (portRange.make 80 80));
     expected = true;
   };
-  make-bad-pr = {
-    expr = throws (lst.make (ipv4.parse "1.2.3.4") 80);
+  testMakeBadPortRange = {
+    expr = throws (ipBindpoint.make (ipv4.parse "1.2.3.4") 80);
     expected = true;
   };
-  endpointsUnbounded-len = {
-    expr = builtins.length (lst.endpointsUnbounded (p "1.2.3.4:0-5000"));
+  testEndpointsUnboundedLength = {
+    expr = builtins.length (ipBindpoint.endpointsUnbounded (parse "1.2.3.4:0-5000"));
     expected = 5001;
   };
-  address-accessor = {
-    expr = ipv4.toString (lst.address (p "1.2.3.4:80"));
+  testAddressAccessor = {
+    expr = ipv4.toString (ipBindpoint.address (parse "1.2.3.4:80"));
     expected = "1.2.3.4";
   };
-  address-null = {
-    expr = lst.address (p ":80");
+  testAddressNull = {
+    expr = ipBindpoint.address (parse ":80");
     expected = null;
   };
-  portRange-accessor = {
-    expr = pr.toString (lst.portRange (p "1.2.3.4:80-90"));
+  testPortRangeAccessor = {
+    expr = portRange.toString (ipBindpoint.portRange (parse "1.2.3.4:80-90"));
     expected = "80-90";
   };
 
   # ===== Comparison helpers =====
-  cmp-le = {
-    expr = lst.le (p ":80") (p ":81");
+  testCompareLe = {
+    expr = ipBindpoint.le (parse ":80") (parse ":81");
     expected = true;
   };
-  cmp-gt = {
-    expr = lst.gt (p ":81") (p ":80");
+  testCompareGt = {
+    expr = ipBindpoint.gt (parse ":81") (parse ":80");
     expected = true;
   };
-  cmp-ge = {
-    expr = lst.ge (p ":81") (p ":80");
+  testCompareGe = {
+    expr = ipBindpoint.ge (parse ":81") (parse ":80");
     expected = true;
   };
-  cmp-min = {
-    expr = lst.toString (lst.min (p ":80") (p ":81"));
+  testCompareMin = {
+    expr = ipBindpoint.toString (ipBindpoint.min (parse ":80") (parse ":81"));
     expected = ":80";
   };
-  cmp-max = {
-    expr = lst.toString (lst.max (p ":80") (p ":81"));
+  testCompareMax = {
+    expr = ipBindpoint.toString (ipBindpoint.max (parse ":80") (parse ":81"));
     expected = ":81";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = lst.eq (p ":80") (p ":80");
+  testEqSame = {
+    expr = ipBindpoint.eq (parse ":80") (parse ":80");
     expected = true;
   };
-  eq-null-vs-expl = {
-    expr = lst.eq (p ":80") (p "0.0.0.0:80");
+  testEqNullVsExplicit = {
+    expr = ipBindpoint.eq (parse ":80") (parse "0.0.0.0:80");
     expected = false;
   };
-  compare-null-v4 = {
-    expr = lst.compare (p ":80") (p "0.0.0.0:80");
+  testCompareNullV4 = {
+    expr = ipBindpoint.compare (parse ":80") (parse "0.0.0.0:80");
     expected = -1;
   };
-  compare-v4-v6 = {
-    expr = lst.compare (p "1.2.3.4:80") (p "[::1]:80");
+  testCompareV4V6 = {
+    expr = ipBindpoint.compare (parse "1.2.3.4:80") (parse "[::1]:80");
     expected = -1;
   };
-  compare-same = {
-    expr = lst.compare (p ":80") (p ":80");
+  testCompareSame = {
+    expr = ipBindpoint.compare (parse ":80") (parse ":80");
     expected = 0;
   };
-  lt-null-first = {
-    expr = lst.lt (p ":80") (p "0.0.0.0:80");
+  testLtNullFirst = {
+    expr = ipBindpoint.lt (parse ":80") (parse "0.0.0.0:80");
     expected = true;
   };
 }

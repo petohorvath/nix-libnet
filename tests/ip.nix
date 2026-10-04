@@ -2,281 +2,281 @@
 let
   ip = import ../lib/ip.nix;
   inherit (harness) throws;
-  p = ip.parse;
+  inherit (ip) parse;
 in
 {
   # ===== Dispatch parse =====
-  parse-v4 = {
-    expr = ip.version (p "1.2.3.4");
+  testParseV4 = {
+    expr = ip.version (parse "1.2.3.4");
     expected = 4;
   };
-  parse-v6 = {
-    expr = ip.version (p "::1");
+  testParseV6 = {
+    expr = ip.version (parse "::1");
     expected = 6;
   };
-  parse-rejects-bad = {
-    expr = throws (p "bogus");
+  testParseRejectsBad = {
+    expr = throws (parse "bogus");
     expected = true;
   };
-  tryParse-v4 = {
+  testTryParseV4 = {
     expr = (ip.tryParse "1.2.3.4").success;
     expected = true;
   };
-  tryParse-v6 = {
+  testTryParseV6 = {
     expr = (ip.tryParse "::1").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (ip.tryParse "bad").success;
     expected = false;
   };
 
   # ===== version / is predicates =====
-  isIpv4-v4 = {
-    expr = ip.isIpv4 (p "1.2.3.4");
+  testIsIpv4V4 = {
+    expr = ip.isIpv4 (parse "1.2.3.4");
     expected = true;
   };
-  isIpv4-v6 = {
-    expr = ip.isIpv4 (p "::1");
+  testIsIpv4V6 = {
+    expr = ip.isIpv4 (parse "::1");
     expected = false;
   };
-  isIpv6-v6 = {
-    expr = ip.isIpv6 (p "::1");
+  testIsIpv6V6 = {
+    expr = ip.isIpv6 (parse "::1");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = ip.is "1.2.3.4";
     expected = false;
   };
-  is-parsed = {
-    expr = ip.is (p "1.2.3.4");
+  testIsParsed = {
+    expr = ip.is (parse "1.2.3.4");
     expected = true;
   };
-  isValid-v4 = {
+  testIsValidV4 = {
     expr = ip.isValid "192.0.2.1";
     expected = true;
   };
-  isValid-v6 = {
+  testIsValidV6 = {
     expr = ip.isValid "::1";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = ip.isValid "nope";
     expected = false;
   };
 
-  toString-v4 = {
-    expr = ip.toString (p "1.2.3.4");
+  testToStringV4 = {
+    expr = ip.toString (parse "1.2.3.4");
     expected = "1.2.3.4";
   };
-  toString-v6 = {
-    expr = ip.toString (p "2001:db8::1");
+  testToStringV6 = {
+    expr = ip.toString (parse "2001:db8::1");
     expected = "2001:db8::1";
   };
 
   # ===== Forwarded predicates: dispatch by family =====
-  loopback-v4 = {
-    expr = ip.isLoopback (p "127.0.0.1");
+  testLoopbackV4 = {
+    expr = ip.isLoopback (parse "127.0.0.1");
     expected = true;
   };
-  loopback-v6 = {
-    expr = ip.isLoopback (p "::1");
+  testLoopbackV6 = {
+    expr = ip.isLoopback (parse "::1");
     expected = true;
   };
-  loopback-no-v4 = {
-    expr = ip.isLoopback (p "8.8.8.8");
+  testNotLoopbackV4 = {
+    expr = ip.isLoopback (parse "8.8.8.8");
     expected = false;
   };
-  loopback-no-v6 = {
-    expr = ip.isLoopback (p "2001:db8::1");
-    expected = false;
-  };
-
-  unspec-v4 = {
-    expr = ip.isUnspecified (p "0.0.0.0");
-    expected = true;
-  };
-  unspec-v6 = {
-    expr = ip.isUnspecified (p "::");
-    expected = true;
-  };
-
-  link-v4 = {
-    expr = ip.isLinkLocal (p "169.254.1.1");
-    expected = true;
-  };
-  link-v6 = {
-    expr = ip.isLinkLocal (p "fe80::1");
-    expected = true;
-  };
-
-  mcast-v4 = {
-    expr = ip.isMulticast (p "224.0.0.1");
-    expected = true;
-  };
-  mcast-v6 = {
-    expr = ip.isMulticast (p "ff00::1");
-    expected = true;
-  };
-
-  doc-v4 = {
-    expr = ip.isDocumentation (p "192.0.2.1");
-    expected = true;
-  };
-  doc-v6 = {
-    expr = ip.isDocumentation (p "2001:db8::1");
-    expected = true;
-  };
-
-  global-v4 = {
-    expr = ip.isGlobal (p "8.8.8.8");
-    expected = true;
-  };
-  global-v6 = {
-    expr = ip.isGlobal (p "2606:4700:4700::1111");
-    expected = true;
-  };
-
-  bogon-v4 = {
-    expr = ip.isBogon (p "127.0.0.1");
-    expected = true;
-  };
-  bogon-v6 = {
-    expr = ip.isBogon (p "::1");
-    expected = true;
-  };
-  bogon-public-v4 = {
-    expr = ip.isBogon (p "8.8.8.8");
+  testNotLoopbackV6 = {
+    expr = ip.isLoopback (parse "2001:db8::1");
     expected = false;
   };
 
-  arpa-v4 = {
-    expr = ip.toArpa (p "1.2.3.4");
+  testUnspecifiedV4 = {
+    expr = ip.isUnspecified (parse "0.0.0.0");
+    expected = true;
+  };
+  testUnspecifiedV6 = {
+    expr = ip.isUnspecified (parse "::");
+    expected = true;
+  };
+
+  testLinkLocalV4 = {
+    expr = ip.isLinkLocal (parse "169.254.1.1");
+    expected = true;
+  };
+  testLinkLocalV6 = {
+    expr = ip.isLinkLocal (parse "fe80::1");
+    expected = true;
+  };
+
+  testMulticastV4 = {
+    expr = ip.isMulticast (parse "224.0.0.1");
+    expected = true;
+  };
+  testMulticastV6 = {
+    expr = ip.isMulticast (parse "ff00::1");
+    expected = true;
+  };
+
+  testDocumentationV4 = {
+    expr = ip.isDocumentation (parse "192.0.2.1");
+    expected = true;
+  };
+  testDocumentationV6 = {
+    expr = ip.isDocumentation (parse "2001:db8::1");
+    expected = true;
+  };
+
+  testGlobalV4 = {
+    expr = ip.isGlobal (parse "8.8.8.8");
+    expected = true;
+  };
+  testGlobalV6 = {
+    expr = ip.isGlobal (parse "2606:4700:4700::1111");
+    expected = true;
+  };
+
+  testBogonV4 = {
+    expr = ip.isBogon (parse "127.0.0.1");
+    expected = true;
+  };
+  testBogonV6 = {
+    expr = ip.isBogon (parse "::1");
+    expected = true;
+  };
+  testNotBogonPublicV4 = {
+    expr = ip.isBogon (parse "8.8.8.8");
+    expected = false;
+  };
+
+  testArpaV4 = {
+    expr = ip.toArpa (parse "1.2.3.4");
     expected = "4.3.2.1.in-addr.arpa";
   };
-  arpa-v6 = {
-    expr = ip.toArpa (p "::1");
+  testArpaV6 = {
+    expr = ip.toArpa (parse "::1");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
 
   # ===== Comparison helpers =====
-  cmp-le = {
-    expr = ip.le (p "1.2.3.4") (p "1.2.3.5");
+  testComparisonLe = {
+    expr = ip.le (parse "1.2.3.4") (parse "1.2.3.5");
     expected = true;
   };
-  cmp-gt = {
-    expr = ip.gt (p "1.2.3.5") (p "1.2.3.4");
+  testComparisonGt = {
+    expr = ip.gt (parse "1.2.3.5") (parse "1.2.3.4");
     expected = true;
   };
-  cmp-ge = {
-    expr = ip.ge (p "1.2.3.5") (p "1.2.3.4");
+  testComparisonGe = {
+    expr = ip.ge (parse "1.2.3.5") (parse "1.2.3.4");
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-v4-v4 = {
-    expr = ip.eq (p "1.2.3.4") (p "1.2.3.4");
+  testEqV4V4 = {
+    expr = ip.eq (parse "1.2.3.4") (parse "1.2.3.4");
     expected = true;
   };
-  eq-v4-v6 = {
-    expr = ip.eq (p "1.2.3.4") (p "::1");
+  testEqV4V6 = {
+    expr = ip.eq (parse "1.2.3.4") (parse "::1");
     expected = false;
   };
-  eq-v6-v6 = {
-    expr = ip.eq (p "::1") (p "::1");
+  testEqV6V6 = {
+    expr = ip.eq (parse "::1") (parse "::1");
     expected = true;
   };
 
-  compare-v4-v6 = {
-    expr = ip.compare (p "255.255.255.255") (p "::");
+  testCompareV4V6 = {
+    expr = ip.compare (parse "255.255.255.255") (parse "::");
     expected = -1;
   }; # v4 < v6
-  compare-v6-v4 = {
-    expr = ip.compare (p "::") (p "0.0.0.0");
+  testCompareV6V4 = {
+    expr = ip.compare (parse "::") (parse "0.0.0.0");
     expected = 1;
   };
-  compare-same-v4 = {
-    expr = ip.compare (p "1.2.3.4") (p "1.2.3.4");
+  testCompareSameV4 = {
+    expr = ip.compare (parse "1.2.3.4") (parse "1.2.3.4");
     expected = 0;
   };
-  lt-cross = {
-    expr = ip.lt (p "255.255.255.255") (p "::");
+  testLtCrossFamily = {
+    expr = ip.lt (parse "255.255.255.255") (parse "::");
     expected = true;
   };
 
-  min-cross = {
-    expr = ip.toString (ip.min (p "1.2.3.4") (p "::1"));
+  testMinCrossFamily = {
+    expr = ip.toString (ip.min (parse "1.2.3.4") (parse "::1"));
     expected = "1.2.3.4";
   };
-  max-cross = {
-    expr = ip.toString (ip.max (p "1.2.3.4") (p "::1"));
+  testMaxCrossFamily = {
+    expr = ip.toString (ip.max (parse "1.2.3.4") (parse "::1"));
     expected = "::1";
   };
 
   # ===== Arithmetic dispatch =====
-  add-v4 = {
-    expr = ip.toString (ip.add 1 (p "1.2.3.4"));
+  testAddV4 = {
+    expr = ip.toString (ip.add 1 (parse "1.2.3.4"));
     expected = "1.2.3.5";
   };
-  add-v6 = {
-    expr = ip.toString (ip.add 1 (p "::1"));
+  testAddV6 = {
+    expr = ip.toString (ip.add 1 (parse "::1"));
     expected = "::2";
   };
-  sub-v4 = {
-    expr = ip.toString (ip.sub 1 (p "1.2.3.5"));
+  testSubV4 = {
+    expr = ip.toString (ip.sub 1 (parse "1.2.3.5"));
     expected = "1.2.3.4";
   };
-  next-v4 = {
-    expr = ip.toString (ip.next (p "1.2.3.4"));
+  testNextV4 = {
+    expr = ip.toString (ip.next (parse "1.2.3.4"));
     expected = "1.2.3.5";
   };
-  next-v6 = {
-    expr = ip.toString (ip.next (p "::1"));
+  testNextV6 = {
+    expr = ip.toString (ip.next (parse "::1"));
     expected = "::2";
   };
-  prev-v4 = {
-    expr = ip.toString (ip.prev (p "1.2.3.5"));
+  testPrevV4 = {
+    expr = ip.toString (ip.prev (parse "1.2.3.5"));
     expected = "1.2.3.4";
   };
-  diff-v4 = {
-    expr = ip.diff (p "1.2.3.4") (p "1.2.3.10");
+  testDiffV4 = {
+    expr = ip.diff (parse "1.2.3.4") (parse "1.2.3.10");
     expected = 6;
   };
-  diff-v6 = {
-    expr = ip.diff (p "::1") (p "::10");
+  testDiffV6 = {
+    expr = ip.diff (parse "::1") (parse "::10");
     expected = 15;
   };
-  diff-cross = {
-    expr = throws (ip.diff (p "1.2.3.4") (p "::1"));
+  testDiffCrossFamilyThrows = {
+    expr = throws (ip.diff (parse "1.2.3.4") (parse "::1"));
     expected = true;
   };
 
   # ===== Non-IP input throws (dispatch / accessor guards) =====
-  toString-non-ip-throws = {
+  testToStringNonIpThrows = {
     expr = throws (ip.toString 42);
     expected = true;
   };
-  version-non-ip-throws = {
+  testVersionNonIpThrows = {
     expr = throws (ip.version "nope");
     expected = true;
   };
-  isLoopback-non-ip-throws = {
+  testIsLoopbackNonIpThrows = {
     expr = throws (ip.isLoopback 42);
     expected = true;
   };
-  add-non-ip-throws = {
+  testAddNonIpThrows = {
     expr = throws (ip.add 1 "nope");
     expected = true;
   };
 
   # ===== Sort mixed list (stable v4-before-v6) =====
-  sort-mixed = {
+  testSortMixedFamilies = {
     expr = map ip.toString (
       builtins.sort (a: b: ip.lt a b) [
-        (p "::1")
-        (p "1.2.3.4")
-        (p "::")
-        (p "0.0.0.1")
+        (parse "::1")
+        (parse "1.2.3.4")
+        (parse "::")
+        (parse "0.0.0.1")
       ]
     );
     expected = [

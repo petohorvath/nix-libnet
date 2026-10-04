@@ -198,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   network-layer / application-layer enums in the future.
 - Initial specification (`SPEC.md`) for a pure-Nix,
   zero-nixpkgs-dependency network-address API.
-- Pure-Nix test harness (`tests/harness.nix`) with no external dependencies.
+- nix-unit test suites (`tests/default.nix`); the core suites evaluate
+  without `nixpkgs.lib`.
 - Complete public API across addresses, prefixes and ranges, endpoints and
   bindpoints, bounded URL forms, interface addresses and names, transport,
   VLAN, MTU, ICMP types, and static registries. Public implementations live
@@ -236,14 +237,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   spec defines `isGlobal` as "none of the above special categories" which for
   IPv6 also includes `isIpv4Mapped`, `isIpv4Compatible`, and `is6to4`. These
   transition/compat forms are now correctly excluded from `isGlobal`. Regression
-  tests added: `global-neg-v4mapped`, `global-neg-v4compat`, `global-neg-6to4`,
-  `bogon-excludes-6to4`.
+  tests added: `testGlobalNegativeV4Mapped`, `testGlobalNegativeV4Compatible`,
+  `testGlobalNegative6to4`, `testBogonExcludes6to4`.
 
 ### Cleanup
 - Consolidated `vlanId`, `mtu`, and `icmpType` behind a private bounded-integer
   implementation and a shared integer option adapter. Public functions,
   tagged values, bounds, diagnostics, and option merge behavior are preserved;
   arithmetic remains limited to `vlanId` and `mtu` among these types.
+- Brought the code and tests in line with the project's Nix style: every
+  public function has a header describing its parameters and result,
+  bindings and test names are spelled out, `inherit` lists are grouped by
+  source and alphabetized, and the suites run under nix-unit with
+  `test`-prefixed names nested by module. No public API impact.
 - Removed unused internal exports: `hexLower`, `joinStrings`, `repeat` from
   `lib/internal/format.nix`; `isDigit`, `isHex`, `digitValues`, `hexValues`
   exports from `lib/internal/parse.nix`. No public API impact.

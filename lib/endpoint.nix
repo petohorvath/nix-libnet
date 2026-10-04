@@ -27,63 +27,128 @@
 */
 let
   types = import ./internal/types.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
   unixSocket = import ./unix-socket.nix;
 
   # ===== Parsing =====
 
-  # A leading `/` or `@` unambiguously marks a unix socket (no addr:port
-  # form starts that way). Otherwise ipEndpoint is tried before
-  # dnsEndpoint so an IP literal (or bracketed IPv6) classifies as a
-  # concrete ipEndpoint rather than a domain.
+  /*
+    Parse any connection target without throwing, classifying it by shape.
+
+    `input`: a unix socket path (leading `/` or `@`), `"<ip>:<port>"`,
+    `"[<ipv6>]:<port>"`, or `"<name>:<port>"`. A leading `/` or `@`
+    cannot start an address:port form, so it marks a unix socket. IP
+    forms are tried before names so a literal address yields a full
+    ipEndpoint rather than a dnsEndpoint.
+
+    Returns a tryResult whose value is an ipEndpoint, dnsEndpoint, or
+    unixSocket; on failure, `error` explains why no member matched.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.endpoint.parse: input must be a string"
-    else if parse'.startsWith "/" s || parse'.startsWith "@" s then
-      unixSocket.tryParse s
+    else if parsing.startsWith "/" input || parsing.startsWith "@" input then
+      unixSocket.tryParse input
     else
       let
-        ipR = ipEndpoint.tryParse s;
+        ipEndpointResult = ipEndpoint.tryParse input;
       in
-      if ipR.success then
-        ipR
+      if ipEndpointResult.success then
+        ipEndpointResult
       else
         let
-          dR = dnsEndpoint.tryParse s;
+          dnsEndpointResult = dnsEndpoint.tryParse input;
         in
-        if dR.success then
-          dR
+        if dnsEndpointResult.success then
+          dnsEndpointResult
         else
-          types.tryErr "libnet.endpoint.parse: \"${s}\" is not a valid IP, name, or unix-socket endpoint";
+          types.tryErr "libnet.endpoint.parse: \"${input}\" is not a valid IP, name, or unix-socket endpoint";
 
+  /*
+    Parse any connection target, classifying it by shape as `tryParse`
+    does.
+
+    `input`: a unix socket path, `"<ip>:<port>"`, `"[<ipv6>]:<port>"`,
+    or `"<name>:<port>"`.
+
+    Returns an ipEndpoint, dnsEndpoint, or unixSocket value; throws if
+    no member matches.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Render any endpoint member in its canonical text form.
+
+    `endpoint`: ipEndpoint, dnsEndpoint, or unixSocket value.
+
+    Returns the member module's `toString` output; throws for other
+    values.
+  */
   toString =
-    ep:
-    if types.isIpEndpoint ep then
-      ipEndpoint.toString ep
-    else if types.isDnsEndpoint ep then
-      dnsEndpoint.toString ep
-    else if types.isUnixSocket ep then
-      unixSocket.toString ep
+    endpoint:
+    if types.isIpEndpoint endpoint then
+      ipEndpoint.toString endpoint
+    else if types.isDnsEndpoint endpoint then
+      dnsEndpoint.toString endpoint
+    else if types.isUnixSocket endpoint then
+      unixSocket.toString endpoint
     else
-      builtins.throw "libnet.endpoint.toString: expected ipEndpoint, dnsEndpoint, or unixSocket value";
+      throw "libnet.endpoint.toString: expected ipEndpoint, dnsEndpoint, or unixSocket value";
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = v: types.isIpEndpoint v || types.isDnsEndpoint v || types.isUnixSocket v;
-  isIpEndpoint = types.isIpEndpoint;
-  isDnsEndpoint = types.isDnsEndpoint;
-  isUnixSocket = types.isUnixSocket;
+  /*
+    Test whether a string parses as any endpoint member.
+
+    `input`: value to test; non-strings yield false.
+
+    Returns a Boolean.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Test whether a value is an ipEndpoint, dnsEndpoint, or unixSocket.
+
+    `value`: any value.
+
+    Returns a Boolean.
+  */
+  is = value: types.isIpEndpoint value || types.isDnsEndpoint value || types.isUnixSocket value;
+
+  /*
+    Test whether a value is an ipEndpoint.
+
+    `value`: any value.
+
+    Returns a Boolean.
+  */
+  isIpEndpoint = value: types.isIpEndpoint value;
+
+  /*
+    Test whether a value is a dnsEndpoint.
+
+    `value`: any value.
+
+    Returns a Boolean.
+  */
+  isDnsEndpoint = value: types.isDnsEndpoint value;
+
+  /*
+    Test whether a value is a unixSocket.
+
+    `value`: any value.
+
+    Returns a Boolean.
+  */
+  isUnixSocket = value: types.isUnixSocket value;
 
   # ===== Comparison =====
   #
@@ -91,16 +156,23 @@ let
   # kind, delegates to that kind's comparator.
 
   rank =
-    v:
-    if types.isIpEndpoint v then
+    value:
+    if types.isIpEndpoint value then
       0
-    else if types.isDnsEndpoint v then
+    else if types.isDnsEndpoint value then
       1
-    else if types.isUnixSocket v then
+    else if types.isUnixSocket value then
       2
     else
-      builtins.throw "libnet.endpoint.compare: expected ipEndpoint, dnsEndpoint, or unixSocket value";
+      throw "libnet.endpoint.compare: expected ipEndpoint, dnsEndpoint, or unixSocket value";
 
+  /*
+    Test two endpoints for equality using their member module's `eq`.
+
+    `a`, `b`: values to compare.
+
+    Returns a Boolean; false when the two are different kinds.
+  */
   eq =
     a: b:
     if types.isIpEndpoint a && types.isIpEndpoint b then
@@ -112,51 +184,103 @@ let
     else
       false;
 
+  /*
+    Order two endpoints by kind (ipEndpoint < dnsEndpoint < unixSocket),
+    then by the member module's `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns `-1`, `0`, or `1`; throws if either is not an endpoint
+    member.
+  */
   compare =
     a: b:
     let
-      ra = rank a;
-      rb = rank b;
+      rankA = rank a;
+      rankB = rank b;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
-    else if ra == 0 then
+    else if rankA == 0 then
       ipEndpoint.compare a b
-    else if ra == 1 then
+    else if rankA == 1 then
       dnsEndpoint.compare a b
     else
       unixSocket.compare a b;
 
+  /*
+    Test whether `a` orders strictly before `b` under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns a Boolean.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether `a` orders before or equal to `b` under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns a Boolean.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether `a` orders strictly after `b` under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns a Boolean.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether `a` orders after or equal to `b` under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns a Boolean.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lesser of two endpoints under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns `a` when they order equal, otherwise the lesser value.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the greater of two endpoints under `compare`.
+
+    `a`, `b`: endpoint member values.
+
+    Returns `a` when they order equal, otherwise the greater value.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    ;
-  inherit
-    isValid
-    is
-    isIpEndpoint
-    isDnsEndpoint
-    isUnixSocket
-    ;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
     compare
-    min
+    eq
+    ge
+    gt
+    is
+    isDnsEndpoint
+    isIpEndpoint
+    isUnixSocket
+    isValid
+    le
+    lt
     max
+    min
+    parse
+    toString
+    tryParse
     ;
 }

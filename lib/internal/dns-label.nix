@@ -20,7 +20,7 @@ let
   # `builtins.match` anchors the pattern against the whole string.
   labelPattern = "[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?";
 
-  isValidLabel = s: builtins.isString s && builtins.match labelPattern s != null;
+  isValidLabel = input: builtins.isString input && builtins.match labelPattern input != null;
 
   # ASCII-only lowercase for case-insensitive equality and ordering (DNS
   # labels are case-insensitive). Names are ASCII by validation, so this
@@ -86,5 +86,5 @@ let
       ];
 in
 {
-  inherit labelPattern isValidLabel toLowerAscii;
+  inherit isValidLabel labelPattern toLowerAscii;
 }

@@ -1,55 +1,66 @@
+/*
+  nix-unit entry point for the libnet test suites.
+
+  The core suites run without nixpkgs. Pass `lib` to add the module-type
+  suite, which needs `nixpkgs.lib`.
+
+  Example:
+    nix-unit tests/default.nix
+    nix-unit --arg lib 'import <nixpkgs/lib>' tests/default.nix
+*/
 {
   lib ? null,
 }:
 let
   harness = import ./harness.nix;
-  inherit (harness) runTests prefix;
 
-  importTests = name: import (./. + "/${name}") { inherit harness; };
+  importSuite = path: import path { inherit harness; };
 
-  coreTests =
-    prefix "bits" (importTests "bits.nix")
-    // prefix "ipv4" (importTests "ipv4.nix")
-    // prefix "mac" (importTests "mac.nix")
-    // prefix "carry" (importTests "carry.nix")
-    // prefix "ipv6" (importTests "ipv6.nix")
-    // prefix "cidr" (importTests "cidr.nix")
-    // prefix "ip" (importTests "ip.nix")
-    // prefix "ipRange" (importTests "ip-range.nix")
-    // prefix "ifaddr" (importTests "interface-address.nix")
-    // prefix "ifname" (importTests "interface-name.nix")
-    // prefix "port" (importTests "port.nix")
-    // prefix "pr" (importTests "port-range.nix")
-    // prefix "ipEndpoint" (importTests "ip-endpoint.nix")
-    // prefix "dnsEndpoint" (importTests "dns-endpoint.nix")
-    // prefix "endpoint" (importTests "endpoint.nix")
-    // prefix "unixSocket" (importTests "unix-socket.nix")
-    // prefix "socketUrl" (importTests "socket-url.nix")
-    // prefix "bindUrl" (importTests "bind-url.nix")
-    // prefix "secureSocketUrl" (importTests "secure-socket-url.nix")
-    // prefix "url" (importTests "url.nix")
-    // prefix "urlHost" (importTests "url-host.nix")
-    // prefix "authority" (importTests "authority.nix")
-    // prefix "proxyUrl" (importTests "proxy-url.nix")
-    // prefix "ipBindpoint" (importTests "ip-bindpoint.nix")
-    // prefix "bindpoint" (importTests "bindpoint.nix")
-    // prefix "transport" (importTests "transport.nix")
-    // prefix "hostname" (importTests "hostname.nix")
-    // prefix "domain" (importTests "domain.nix")
-    // prefix "dnsName" (importTests "dns-name.nix")
-    // prefix "host" (importTests "host.nix")
-    // prefix "vlanId" (importTests "vlan-id.nix")
-    // prefix "mtu" (importTests "mtu.nix")
-    // prefix "icmpType" (importTests "icmp-type.nix")
-    // prefix "crossTypeEq" (importTests "cross-type-equality.nix")
-    // prefix "registry" (importTests "registry.nix")
-    // prefix "iparse" (importTests "internal/parse.nix")
-    // prefix "ifmt" (importTests "internal/format.nix")
-    // prefix "itype" (importTests "internal/types.nix")
-    // prefix "idns" (importTests "internal/dns-label.nix");
+  coreSuites = {
+    authority = importSuite ./authority.nix;
+    bindUrl = importSuite ./bind-url.nix;
+    bindpoint = importSuite ./bindpoint.nix;
+    cidr = importSuite ./cidr.nix;
+    crossTypeEquality = importSuite ./cross-type-equality.nix;
+    dnsEndpoint = importSuite ./dns-endpoint.nix;
+    dnsName = importSuite ./dns-name.nix;
+    domain = importSuite ./domain.nix;
+    endpoint = importSuite ./endpoint.nix;
+    host = importSuite ./host.nix;
+    hostname = importSuite ./hostname.nix;
+    icmpType = importSuite ./icmp-type.nix;
+    interfaceAddress = importSuite ./interface-address.nix;
+    interfaceName = importSuite ./interface-name.nix;
+    internal = {
+      bits = importSuite ./internal/bits.nix;
+      carry = importSuite ./internal/carry.nix;
+      dnsLabel = importSuite ./internal/dns-label.nix;
+      format = importSuite ./internal/format.nix;
+      parse = importSuite ./internal/parse.nix;
+      types = importSuite ./internal/types.nix;
+    };
+    ip = importSuite ./ip.nix;
+    ipBindpoint = importSuite ./ip-bindpoint.nix;
+    ipEndpoint = importSuite ./ip-endpoint.nix;
+    ipRange = importSuite ./ip-range.nix;
+    ipv4 = importSuite ./ipv4.nix;
+    ipv6 = importSuite ./ipv6.nix;
+    mac = importSuite ./mac.nix;
+    mtu = importSuite ./mtu.nix;
+    port = importSuite ./port.nix;
+    portRange = importSuite ./port-range.nix;
+    proxyUrl = importSuite ./proxy-url.nix;
+    registry = importSuite ./registry.nix;
+    secureSocketUrl = importSuite ./secure-socket-url.nix;
+    socketUrl = importSuite ./socket-url.nix;
+    transport = importSuite ./transport.nix;
+    unixSocket = importSuite ./unix-socket.nix;
+    url = importSuite ./url.nix;
+    urlHost = importSuite ./url-host.nix;
+    vlanId = importSuite ./vlan-id.nix;
+  };
 
-  typeTests =
-    if lib != null then prefix "types" (import ./types.nix { inherit harness lib; }) else { };
-
+  moduleTypeSuites =
+    if lib == null then { } else { types = import ./types.nix { inherit harness lib; }; };
 in
-runTests (coreTests // typeTests)
+coreSuites // moduleTypeSuites

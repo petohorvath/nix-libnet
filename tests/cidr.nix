@@ -4,444 +4,444 @@ let
   ipv4 = import ../lib/ipv4.nix;
   ipv6 = import ../lib/ipv6.nix;
   inherit (harness) throws;
-  p = cidr.parse;
-  c4 = str: ipv4.toString str;
-  c6 = str: ipv6.toString str;
+  inherit (cidr) parse;
+  formatIpv4 = ipv4.toString;
+  formatIpv6 = ipv6.toString;
 in
 {
   # ===== Parse: positive =====
-  parse-v4-24 = {
-    expr = cidr.toString (p "10.0.0.0/24");
+  testParseV4Prefix24 = {
+    expr = cidr.toString (parse "10.0.0.0/24");
     expected = "10.0.0.0/24";
   };
-  parse-v4-0 = {
-    expr = cidr.toString (p "0.0.0.0/0");
+  testParseV4Prefix0 = {
+    expr = cidr.toString (parse "0.0.0.0/0");
     expected = "0.0.0.0/0";
   };
-  parse-v4-32 = {
-    expr = cidr.toString (p "1.2.3.4/32");
+  testParseV4Prefix32 = {
+    expr = cidr.toString (parse "1.2.3.4/32");
     expected = "1.2.3.4/32";
   };
-  parse-v6-64 = {
-    expr = cidr.toString (p "2001:db8::/64");
+  testParseV6Prefix64 = {
+    expr = cidr.toString (parse "2001:db8::/64");
     expected = "2001:db8::/64";
   };
-  parse-v6-128 = {
-    expr = cidr.toString (p "::1/128");
+  testParseV6Prefix128 = {
+    expr = cidr.toString (parse "::1/128");
     expected = "::1/128";
   };
-  parse-v6-0 = {
-    expr = cidr.toString (p "::/0");
+  testParseV6Prefix0 = {
+    expr = cidr.toString (parse "::/0");
     expected = "::/0";
   };
-  parse-noncanon = {
-    expr = cidr.toString (p "10.0.0.5/24");
+  testParseNonCanonical = {
+    expr = cidr.toString (parse "10.0.0.5/24");
     expected = "10.0.0.5/24";
   }; # stores as-is
 
   # ===== Parse: negative =====
-  reject-no-slash = {
-    expr = throws (p "10.0.0.0");
+  testRejectNoSlash = {
+    expr = throws (parse "10.0.0.0");
     expected = true;
   };
-  reject-v4-pfx-33 = {
-    expr = throws (p "10.0.0.0/33");
+  testRejectV4Prefix33 = {
+    expr = throws (parse "10.0.0.0/33");
     expected = true;
   };
-  reject-v6-pfx-129 = {
-    expr = throws (p "::/129");
+  testRejectV6Prefix129 = {
+    expr = throws (parse "::/129");
     expected = true;
   };
-  reject-pfx-neg = {
-    expr = throws (p "10.0.0.0/-1");
+  testRejectNegativePrefix = {
+    expr = throws (parse "10.0.0.0/-1");
     expected = true;
   };
-  reject-pfx-txt = {
-    expr = throws (p "10.0.0.0/a");
+  testRejectTextPrefix = {
+    expr = throws (parse "10.0.0.0/a");
     expected = true;
   };
-  reject-bad-addr = {
-    expr = throws (p "999.0.0.0/24");
+  testRejectBadAddress = {
+    expr = throws (parse "999.0.0.0/24");
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (cidr.tryParse "10.0.0.0/24").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (cidr.tryParse "bad").success;
     expected = false;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = cidr.is (p "10.0.0.0/24");
+  testIsParsed = {
+    expr = cidr.is (parse "10.0.0.0/24");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = cidr.is "10.0.0.0/24";
     expected = false;
   };
-  isIpv4-v4 = {
-    expr = cidr.isIpv4 (p "10.0.0.0/24");
+  testIsIpv4V4 = {
+    expr = cidr.isIpv4 (parse "10.0.0.0/24");
     expected = true;
   };
-  isIpv4-v6 = {
-    expr = cidr.isIpv4 (p "::/64");
+  testIsIpv4V6 = {
+    expr = cidr.isIpv4 (parse "::/64");
     expected = false;
   };
-  isIpv6-v6 = {
-    expr = cidr.isIpv6 (p "::/64");
+  testIsIpv6V6 = {
+    expr = cidr.isIpv6 (parse "::/64");
     expected = true;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = cidr.isValid "10.0.0.0/24";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = cidr.isValid "bad";
     expected = false;
   };
 
   # ===== Accessors =====
-  prefix-v4 = {
-    expr = cidr.prefix (p "10.0.0.0/24");
+  testPrefixV4 = {
+    expr = cidr.prefix (parse "10.0.0.0/24");
     expected = 24;
   };
-  version-v4 = {
-    expr = cidr.version (p "10.0.0.0/24");
+  testVersionV4 = {
+    expr = cidr.version (parse "10.0.0.0/24");
     expected = 4;
   };
-  version-v6 = {
-    expr = cidr.version (p "::/64");
+  testVersionV6 = {
+    expr = cidr.version (parse "::/64");
     expected = 6;
   };
 
   # ===== Derived values: v4 /24 =====
-  network-v4-24 = {
-    expr = c4 (cidr.network (p "10.0.0.5/24"));
+  testNetworkV4Prefix24 = {
+    expr = formatIpv4 (cidr.network (parse "10.0.0.5/24"));
     expected = "10.0.0.0";
   };
-  broadcast-v4-24 = {
-    expr = c4 (cidr.broadcast (p "10.0.0.0/24"));
+  testBroadcastV4Prefix24 = {
+    expr = formatIpv4 (cidr.broadcast (parse "10.0.0.0/24"));
     expected = "10.0.0.255";
   };
-  netmask-v4-24 = {
-    expr = c4 (cidr.netmask (p "10.0.0.0/24"));
+  testNetmaskV4Prefix24 = {
+    expr = formatIpv4 (cidr.netmask (parse "10.0.0.0/24"));
     expected = "255.255.255.0";
   };
-  hostmask-v4-24 = {
-    expr = c4 (cidr.hostmask (p "10.0.0.0/24"));
+  testHostmaskV4Prefix24 = {
+    expr = formatIpv4 (cidr.hostmask (parse "10.0.0.0/24"));
     expected = "0.0.0.255";
   };
-  firstHost-v4-24 = {
-    expr = c4 (cidr.firstHost (p "10.0.0.0/24"));
+  testFirstHostV4Prefix24 = {
+    expr = formatIpv4 (cidr.firstHost (parse "10.0.0.0/24"));
     expected = "10.0.0.1";
   };
-  lastHost-v4-24 = {
-    expr = c4 (cidr.lastHost (p "10.0.0.0/24"));
+  testLastHostV4Prefix24 = {
+    expr = formatIpv4 (cidr.lastHost (parse "10.0.0.0/24"));
     expected = "10.0.0.254";
   };
-  size-v4-24 = {
-    expr = cidr.size (p "10.0.0.0/24");
+  testSizeV4Prefix24 = {
+    expr = cidr.size (parse "10.0.0.0/24");
     expected = 256;
   };
-  numHosts-v4-24 = {
-    expr = cidr.numHosts (p "10.0.0.0/24");
+  testNumHostsV4Prefix24 = {
+    expr = cidr.numHosts (parse "10.0.0.0/24");
     expected = 254;
   };
 
   # ===== Derived values: v4 /30 =====
-  firstHost-v4-30 = {
-    expr = c4 (cidr.firstHost (p "10.0.0.0/30"));
+  testFirstHostV4Prefix30 = {
+    expr = formatIpv4 (cidr.firstHost (parse "10.0.0.0/30"));
     expected = "10.0.0.1";
   };
-  lastHost-v4-30 = {
-    expr = c4 (cidr.lastHost (p "10.0.0.0/30"));
+  testLastHostV4Prefix30 = {
+    expr = formatIpv4 (cidr.lastHost (parse "10.0.0.0/30"));
     expected = "10.0.0.2";
   };
-  size-v4-30 = {
-    expr = cidr.size (p "10.0.0.0/30");
+  testSizeV4Prefix30 = {
+    expr = cidr.size (parse "10.0.0.0/30");
     expected = 4;
   };
-  numHosts-v4-30 = {
-    expr = cidr.numHosts (p "10.0.0.0/30");
+  testNumHostsV4Prefix30 = {
+    expr = cidr.numHosts (parse "10.0.0.0/30");
     expected = 2;
   };
 
   # ===== Derived values: v4 /31 (point-to-point) =====
-  firstHost-v4-31 = {
-    expr = c4 (cidr.firstHost (p "10.0.0.0/31"));
+  testFirstHostV4Prefix31 = {
+    expr = formatIpv4 (cidr.firstHost (parse "10.0.0.0/31"));
     expected = "10.0.0.0";
   };
-  lastHost-v4-31 = {
-    expr = c4 (cidr.lastHost (p "10.0.0.0/31"));
+  testLastHostV4Prefix31 = {
+    expr = formatIpv4 (cidr.lastHost (parse "10.0.0.0/31"));
     expected = "10.0.0.1";
   };
-  size-v4-31 = {
-    expr = cidr.size (p "10.0.0.0/31");
+  testSizeV4Prefix31 = {
+    expr = cidr.size (parse "10.0.0.0/31");
     expected = 2;
   };
-  numHosts-v4-31 = {
-    expr = cidr.numHosts (p "10.0.0.0/31");
+  testNumHostsV4Prefix31 = {
+    expr = cidr.numHosts (parse "10.0.0.0/31");
     expected = 2;
   };
 
   # ===== Derived values: v4 /32 =====
-  firstHost-v4-32 = {
-    expr = c4 (cidr.firstHost (p "1.2.3.4/32"));
+  testFirstHostV4Prefix32 = {
+    expr = formatIpv4 (cidr.firstHost (parse "1.2.3.4/32"));
     expected = "1.2.3.4";
   };
-  lastHost-v4-32 = {
-    expr = c4 (cidr.lastHost (p "1.2.3.4/32"));
+  testLastHostV4Prefix32 = {
+    expr = formatIpv4 (cidr.lastHost (parse "1.2.3.4/32"));
     expected = "1.2.3.4";
   };
-  size-v4-32 = {
-    expr = cidr.size (p "1.2.3.4/32");
+  testSizeV4Prefix32 = {
+    expr = cidr.size (parse "1.2.3.4/32");
     expected = 1;
   };
-  numHosts-v4-32 = {
-    expr = cidr.numHosts (p "1.2.3.4/32");
+  testNumHostsV4Prefix32 = {
+    expr = cidr.numHosts (parse "1.2.3.4/32");
     expected = 1;
   };
 
   # ===== Derived values: v4 /0 =====
-  size-v4-0 = {
-    expr = cidr.size (p "0.0.0.0/0");
+  testSizeV4Prefix0 = {
+    expr = cidr.size (parse "0.0.0.0/0");
     expected = 4294967296;
   };
 
   # ===== Derived values: v6 /64 =====
-  network-v6-64 = {
-    expr = c6 (cidr.network (p "2001:db8::1/64"));
+  testNetworkV6Prefix64 = {
+    expr = formatIpv6 (cidr.network (parse "2001:db8::1/64"));
     expected = "2001:db8::";
   };
-  netmask-v6-64 = {
-    expr = c6 (cidr.netmask (p "2001:db8::/64"));
+  testNetmaskV6Prefix64 = {
+    expr = formatIpv6 (cidr.netmask (parse "2001:db8::/64"));
     expected = "ffff:ffff:ffff:ffff::";
   };
-  firstHost-v6-64 = {
-    expr = c6 (cidr.firstHost (p "2001:db8::/64"));
+  testFirstHostV6Prefix64 = {
+    expr = formatIpv6 (cidr.firstHost (parse "2001:db8::/64"));
     expected = "2001:db8::1";
   };
-  broadcast-v6 = {
-    expr = throws (cidr.broadcast (p "2001:db8::/64"));
+  testBroadcastV6Throws = {
+    expr = throws (cidr.broadcast (parse "2001:db8::/64"));
     expected = true;
   };
 
   # ===== v6 /127 (point-to-point) =====
-  firstHost-v6-127 = {
-    expr = c6 (cidr.firstHost (p "2001:db8::/127"));
+  testFirstHostV6Prefix127 = {
+    expr = formatIpv6 (cidr.firstHost (parse "2001:db8::/127"));
     expected = "2001:db8::";
   };
-  lastHost-v6-127 = {
-    expr = c6 (cidr.lastHost (p "2001:db8::/127"));
+  testLastHostV6Prefix127 = {
+    expr = formatIpv6 (cidr.lastHost (parse "2001:db8::/127"));
     expected = "2001:db8::1";
   };
-  size-v6-127 = {
-    expr = cidr.size (p "2001:db8::/127");
+  testSizeV6Prefix127 = {
+    expr = cidr.size (parse "2001:db8::/127");
     expected = 2;
   };
 
   # ===== v6 /128 =====
-  firstHost-v6-128 = {
-    expr = c6 (cidr.firstHost (p "::1/128"));
+  testFirstHostV6Prefix128 = {
+    expr = formatIpv6 (cidr.firstHost (parse "::1/128"));
     expected = "::1";
   };
-  size-v6-128 = {
-    expr = cidr.size (p "::1/128");
+  testSizeV6Prefix128 = {
+    expr = cidr.size (parse "::1/128");
     expected = 1;
   };
 
   # ===== v6 /0 and /65 overflow =====
-  size-v6-65 = {
-    expr = throws (cidr.size (p "::/65"));
+  testSizeV6Prefix65Throws = {
+    expr = throws (cidr.size (parse "::/65"));
     expected = true;
   };
-  size-v6-0 = {
-    expr = throws (cidr.size (p "::/0"));
+  testSizeV6Prefix0Throws = {
+    expr = throws (cidr.size (parse "::/0"));
     expected = true;
   };
-  size-v6-66 = {
-    expr = cidr.size (p "::/66");
+  testSizeV6Prefix66 = {
+    expr = cidr.size (parse "::/66");
     expected = 4611686018427387904;
   };
-  numHosts-v6 = {
-    expr = cidr.numHosts (p "2001:db8::/120");
+  testNumHostsV6Prefix120 = {
+    expr = cidr.numHosts (parse "2001:db8::/120");
     expected = 256;
   };
-  lastHost-v6 = {
-    expr = c6 (cidr.lastHost (p "2001:db8::/120"));
+  testLastHostV6Prefix120 = {
+    expr = formatIpv6 (cidr.lastHost (parse "2001:db8::/120"));
     expected = "2001:db8::ff";
   };
 
   # ===== Enumeration =====
-  hostAt-0 = {
-    expr = c4 (cidr.hostAt 0 (p "10.0.0.0/28"));
+  testHostAt0 = {
+    expr = formatIpv4 (cidr.hostAt 0 (parse "10.0.0.0/28"));
     expected = "10.0.0.0";
   };
-  hostAt-5 = {
-    expr = c4 (cidr.hostAt 5 (p "10.0.0.0/28"));
+  testHostAt5 = {
+    expr = formatIpv4 (cidr.hostAt 5 (parse "10.0.0.0/28"));
     expected = "10.0.0.5";
   };
-  hostAt-last = {
-    expr = c4 (cidr.hostAt 15 (p "10.0.0.0/28"));
+  testHostAtLast = {
+    expr = formatIpv4 (cidr.hostAt 15 (parse "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  hostAt-neg-1 = {
-    expr = c4 (cidr.hostAt (-1) (p "10.0.0.0/28"));
+  testHostAtNegative1 = {
+    expr = formatIpv4 (cidr.hostAt (-1) (parse "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  hostAt-neg-2 = {
-    expr = c4 (cidr.hostAt (-2) (p "10.0.0.0/28"));
+  testHostAtNegative2 = {
+    expr = formatIpv4 (cidr.hostAt (-2) (parse "10.0.0.0/28"));
     expected = "10.0.0.14";
   };
-  hostAt-oob-pos = {
-    expr = throws (cidr.hostAt 16 (p "10.0.0.0/28"));
+  testHostAtOutOfRangePositive = {
+    expr = throws (cidr.hostAt 16 (parse "10.0.0.0/28"));
     expected = true;
   };
-  hostAt-oob-neg = {
-    expr = throws (cidr.hostAt (-17) (p "10.0.0.0/28"));
+  testHostAtOutOfRangeNegative = {
+    expr = throws (cidr.hostAt (-17) (parse "10.0.0.0/28"));
     expected = true;
   };
 
-  hosts-24 = {
-    expr = builtins.length (cidr.hosts (p "10.0.0.0/24"));
+  testHostsPrefix24 = {
+    expr = builtins.length (cidr.hosts (parse "10.0.0.0/24"));
     expected = 254;
   };
-  hosts-size-30 = {
-    expr = map c4 (cidr.hosts (p "10.0.0.0/30"));
+  testHostsPrefix30 = {
+    expr = map formatIpv4 (cidr.hosts (parse "10.0.0.0/30"));
     expected = [
       "10.0.0.1"
       "10.0.0.2"
     ];
   };
-  hosts-huge = {
-    expr = throws (cidr.hosts (p "10.0.0.0/15"));
+  testHostsTooLargeThrows = {
+    expr = throws (cidr.hosts (parse "10.0.0.0/15"));
     expected = true;
   };
-  hosts-unbound = {
-    expr = builtins.length (cidr.hostsUnbounded (p "10.0.0.0/24"));
+  testHostsUnbounded = {
+    expr = builtins.length (cidr.hostsUnbounded (parse "10.0.0.0/24"));
     expected = 254;
   };
 
   # ===== Containment =====
-  contains-addr-in = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv4.parse "10.0.0.5");
+  testContainsAddressInside = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "10.0.0.5");
     expected = true;
   };
-  contains-addr-net = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv4.parse "10.0.0.0");
+  testContainsNetworkAddress = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "10.0.0.0");
     expected = true;
   };
-  contains-addr-bcst = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv4.parse "10.0.0.255");
+  testContainsBroadcastAddress = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "10.0.0.255");
     expected = true;
   };
-  contains-addr-out = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv4.parse "10.0.1.0");
+  testContainsAddressOutside = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "10.0.1.0");
     expected = false;
   };
-  contains-addr-below = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv4.parse "9.255.255.255");
+  testContainsAddressBelow = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "9.255.255.255");
     expected = false;
   };
-  contains-cidr-in = {
-    expr = cidr.contains (p "10.0.0.0/8") (p "10.1.0.0/16");
+  testContainsSubnetInside = {
+    expr = cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16");
     expected = true;
   };
-  contains-cidr-eq = {
-    expr = cidr.contains (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testContainsSubnetEqual = {
+    expr = cidr.contains (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = true;
   };
-  contains-cidr-out = {
-    expr = cidr.contains (p "10.0.0.0/24") (p "10.1.0.0/24");
+  testContainsSubnetOutside = {
+    expr = cidr.contains (parse "10.0.0.0/24") (parse "10.1.0.0/24");
     expected = false;
   };
-  contains-cross-fam = {
-    expr = cidr.contains (p "10.0.0.0/24") (ipv6.parse "::1");
+  testContainsCrossFamily = {
+    expr = cidr.contains (parse "10.0.0.0/24") (ipv6.parse "::1");
     expected = false;
   };
-  contains-v6 = {
-    expr = cidr.contains (p "2001:db8::/32") (ipv6.parse "2001:db8::1");
+  testContainsV6 = {
+    expr = cidr.contains (parse "2001:db8::/32") (ipv6.parse "2001:db8::1");
     expected = true;
   };
 
-  isSubnet-yes = {
-    expr = cidr.isSubnetOf (p "10.0.0.0/24") (p "10.0.0.0/8");
+  testIsSubnetOfTrue = {
+    expr = cidr.isSubnetOf (parse "10.0.0.0/24") (parse "10.0.0.0/8");
     expected = true;
   };
-  isSubnet-self = {
-    expr = cidr.isSubnetOf (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testIsSubnetOfSelf = {
+    expr = cidr.isSubnetOf (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = true;
   };
-  isSubnet-no = {
-    expr = cidr.isSubnetOf (p "10.0.0.0/8") (p "10.0.0.0/24");
+  testIsSubnetOfFalse = {
+    expr = cidr.isSubnetOf (parse "10.0.0.0/8") (parse "10.0.0.0/24");
     expected = false;
   };
-  isSubnet-disj = {
-    expr = cidr.isSubnetOf (p "10.0.0.0/24") (p "11.0.0.0/24");
+  testIsSubnetOfDisjoint = {
+    expr = cidr.isSubnetOf (parse "10.0.0.0/24") (parse "11.0.0.0/24");
     expected = false;
   };
-  isSubnet-cross-fam = {
-    expr = cidr.isSubnetOf (p "10.0.0.0/24") (p "::/0");
+  testIsSubnetOfCrossFamily = {
+    expr = cidr.isSubnetOf (parse "10.0.0.0/24") (parse "::/0");
     expected = false;
   };
-  isSupernet-yes = {
-    expr = cidr.isSupernetOf (p "10.0.0.0/8") (p "10.0.0.0/24");
+  testIsSupernetOfTrue = {
+    expr = cidr.isSupernetOf (parse "10.0.0.0/8") (parse "10.0.0.0/24");
     expected = true;
   };
-  overlaps-yes = {
-    expr = cidr.overlaps (p "10.0.0.0/24") (p "10.0.0.0/8");
+  testOverlapsTrue = {
+    expr = cidr.overlaps (parse "10.0.0.0/24") (parse "10.0.0.0/8");
     expected = true;
   };
-  overlaps-no = {
-    expr = cidr.overlaps (p "10.0.0.0/24") (p "11.0.0.0/24");
+  testOverlapsFalse = {
+    expr = cidr.overlaps (parse "10.0.0.0/24") (parse "11.0.0.0/24");
     expected = false;
   };
-  overlaps-eq = {
-    expr = cidr.overlaps (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testOverlapsEqual = {
+    expr = cidr.overlaps (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = true;
   };
-  overlaps-adj = {
-    expr = cidr.overlaps (p "10.0.0.0/25") (p "10.0.0.128/25");
+  testOverlapsAdjacent = {
+    expr = cidr.overlaps (parse "10.0.0.0/25") (parse "10.0.0.128/25");
     expected = false;
   };
-  overlaps-cross-fam = {
-    expr = cidr.overlaps (p "10.0.0.0/24") (p "::/0");
+  testOverlapsCrossFamily = {
+    expr = cidr.overlaps (parse "10.0.0.0/24") (parse "::/0");
     expected = false;
   };
 
   # ===== Canonical =====
-  canonical-zero = {
-    expr = cidr.toString (cidr.canonical (p "10.0.0.5/24"));
+  testCanonicalZeroesHostBits = {
+    expr = cidr.toString (cidr.canonical (parse "10.0.0.5/24"));
     expected = "10.0.0.0/24";
   };
-  canonical-already = {
-    expr = cidr.toString (cidr.canonical (p "10.0.0.0/24"));
+  testCanonicalAlready = {
+    expr = cidr.toString (cidr.canonical (parse "10.0.0.0/24"));
     expected = "10.0.0.0/24";
   };
-  isCanonical-yes = {
-    expr = cidr.isCanonical (p "10.0.0.0/24");
+  testIsCanonicalTrue = {
+    expr = cidr.isCanonical (parse "10.0.0.0/24");
     expected = true;
   };
-  isCanonical-no = {
-    expr = cidr.isCanonical (p "10.0.0.5/24");
+  testIsCanonicalFalse = {
+    expr = cidr.isCanonical (parse "10.0.0.5/24");
     expected = false;
   };
 
   # ===== subnet / supernet =====
-  subnet-1-split-2 = {
-    expr = map cidr.toString (cidr.subnet 1 (p "10.0.0.0/24"));
+  testSubnet1SplitsInTwo = {
+    expr = map cidr.toString (cidr.subnet 1 (parse "10.0.0.0/24"));
     expected = [
       "10.0.0.0/25"
       "10.0.0.128/25"
     ];
   };
-  subnet-2-split-4 = {
-    expr = map cidr.toString (cidr.subnet 2 (p "10.0.0.0/24"));
+  testSubnet2SplitsInFour = {
+    expr = map cidr.toString (cidr.subnet 2 (parse "10.0.0.0/24"));
     expected = [
       "10.0.0.0/26"
       "10.0.0.64/26"
@@ -449,27 +449,27 @@ in
       "10.0.0.192/26"
     ];
   };
-  subnet-0-identity = {
-    expr = map cidr.toString (cidr.subnet 0 (p "10.0.0.0/24"));
+  testSubnet0Identity = {
+    expr = map cidr.toString (cidr.subnet 0 (parse "10.0.0.0/24"));
     expected = [ "10.0.0.0/24" ];
   };
-  subnet-exceeds-max = {
-    expr = throws (cidr.subnet 1 (p "10.0.0.0/32"));
+  testSubnetExceedsMax = {
+    expr = throws (cidr.subnet 1 (parse "10.0.0.0/32"));
     expected = true;
   };
-  subnet-too-many = {
-    expr = throws (cidr.subnet 17 (p "10.0.0.0/8"));
+  testSubnetTooMany = {
+    expr = throws (cidr.subnet 17 (parse "10.0.0.0/8"));
     expected = true;
   };
-  subnet-v6-1-split-2 = {
-    expr = map cidr.toString (cidr.subnet 1 (p "2001:db8::/64"));
+  testSubnetV6SplitsInTwo = {
+    expr = map cidr.toString (cidr.subnet 1 (parse "2001:db8::/64"));
     expected = [
       "2001:db8::/65"
       "2001:db8:0:0:8000::/65"
     ];
   };
-  subnet-v6-2-split-4 = {
-    expr = map cidr.toString (cidr.subnet 2 (p "2001:db8::/64"));
+  testSubnetV6SplitsInFour = {
+    expr = map cidr.toString (cidr.subnet 2 (parse "2001:db8::/64"));
     expected = [
       "2001:db8::/66"
       "2001:db8:0:0:4000::/66"
@@ -477,75 +477,75 @@ in
       "2001:db8:0:0:c000::/66"
     ];
   };
-  subnet-v6-0-identity = {
-    expr = map cidr.toString (cidr.subnet 0 (p "2001:db8::/64"));
+  testSubnetV6ZeroIdentity = {
+    expr = map cidr.toString (cidr.subnet 0 (parse "2001:db8::/64"));
     expected = [ "2001:db8::/64" ];
   };
-  subnet-v6-of-0 = {
-    expr = map cidr.toString (cidr.subnet 1 (p "::/0"));
+  testSubnetV6OfPrefix0 = {
+    expr = map cidr.toString (cidr.subnet 1 (parse "::/0"));
     expected = [
       "::/1"
       "8000::/1"
     ];
   };
-  subnet-v6-of-127 = {
-    expr = map cidr.toString (cidr.subnet 1 (p "2001:db8::/127"));
+  testSubnetV6OfPrefix127 = {
+    expr = map cidr.toString (cidr.subnet 1 (parse "2001:db8::/127"));
     expected = [
       "2001:db8::/128"
       "2001:db8::1/128"
     ];
   };
-  subnet-v6-exceeds-max = {
-    expr = throws (cidr.subnet 1 (p "::1/128"));
+  testSubnetV6ExceedsMax = {
+    expr = throws (cidr.subnet 1 (parse "::1/128"));
     expected = true;
   };
 
-  supernet-1 = {
-    expr = cidr.toString (cidr.supernet 1 (p "10.0.0.0/24"));
+  testSupernet1 = {
+    expr = cidr.toString (cidr.supernet 1 (parse "10.0.0.0/24"));
     expected = "10.0.0.0/23";
   };
-  supernet-8 = {
-    expr = cidr.toString (cidr.supernet 8 (p "10.0.0.0/24"));
+  testSupernet8 = {
+    expr = cidr.toString (cidr.supernet 8 (parse "10.0.0.0/24"));
     expected = "10.0.0.0/16";
   };
-  supernet-from-0 = {
-    expr = throws (cidr.supernet 1 (p "0.0.0.0/0"));
+  testSupernetFromPrefix0Throws = {
+    expr = throws (cidr.supernet 1 (parse "0.0.0.0/0"));
     expected = true;
   };
 
   # ===== Set algebra =====
-  summarize-merge = {
+  testSummarizeMerge = {
     expr = map cidr.toString (
       cidr.summarize [
-        (p "10.0.0.0/25")
-        (p "10.0.0.128/25")
+        (parse "10.0.0.0/25")
+        (parse "10.0.0.128/25")
       ]
     );
     expected = [ "10.0.0.0/24" ];
   };
-  summarize-dup = {
+  testSummarizeDuplicate = {
     expr = map cidr.toString (
       cidr.summarize [
-        (p "10.0.0.0/24")
-        (p "10.0.0.0/24")
+        (parse "10.0.0.0/24")
+        (parse "10.0.0.0/24")
       ]
     );
     expected = [ "10.0.0.0/24" ];
   };
-  summarize-contain = {
+  testSummarizeContained = {
     expr = map cidr.toString (
       cidr.summarize [
-        (p "10.0.0.0/8")
-        (p "10.0.0.0/24")
+        (parse "10.0.0.0/8")
+        (parse "10.0.0.0/24")
       ]
     );
     expected = [ "10.0.0.0/8" ];
   };
-  summarize-mixed = {
+  testSummarizeMixed = {
     expr = map cidr.toString (
       cidr.summarize [
-        (p "10.0.0.0/24")
-        (p "::/0")
+        (parse "10.0.0.0/24")
+        (parse "::/0")
       ]
     );
     expected = [
@@ -553,209 +553,213 @@ in
       "::/0"
     ];
   };
-  summarize-4-to-2 = {
+  testSummarizeFourToOne = {
     expr = map cidr.toString (
       cidr.summarize [
-        (p "10.0.0.0/26")
-        (p "10.0.0.64/26")
-        (p "10.0.0.128/26")
-        (p "10.0.0.192/26")
+        (parse "10.0.0.0/26")
+        (parse "10.0.0.64/26")
+        (parse "10.0.0.128/26")
+        (parse "10.0.0.192/26")
       ]
     );
     expected = [ "10.0.0.0/24" ];
   };
-  summarize-empty = {
+  testSummarizeEmpty = {
     expr = cidr.summarize [ ];
     expected = [ ];
   };
 
-  exclude-v4-half = {
-    expr = map cidr.toString (cidr.exclude (p "10.0.0.0/24") (p "10.0.0.0/25"));
+  testExcludeV4Half = {
+    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/25"));
     expected = [ "10.0.0.128/25" ];
   };
-  exclude-v4-self = {
-    expr = cidr.exclude (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testExcludeV4Self = {
+    expr = cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = [ ];
   };
-  exclude-not-parent = {
-    expr = throws (cidr.exclude (p "10.0.0.0/24") (p "11.0.0.0/25"));
+  testExcludeNotParent = {
+    expr = throws (cidr.exclude (parse "10.0.0.0/24") (parse "11.0.0.0/25"));
     expected = true;
   };
-  exclude-v4-sixth = {
-    expr = map cidr.toString (cidr.exclude (p "10.0.0.0/24") (p "10.0.0.0/26"));
+  testExcludeV4Quarter = {
+    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/26"));
     expected = [
       "10.0.0.64/26"
       "10.0.0.128/25"
     ];
   };
-  exclude-v6-half = {
-    expr = map cidr.toString (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/65"));
+  testExcludeV6Half = {
+    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/65"));
     expected = [ "2001:db8:0:0:8000::/65" ];
   };
-  exclude-v6-self = {
-    expr = cidr.exclude (p "2001:db8::/64") (p "2001:db8::/64");
+  testExcludeV6Self = {
+    expr = cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/64");
     expected = [ ];
   };
-  exclude-v6-depth-2 = {
-    expr = map cidr.toString (cidr.exclude (p "2001:db8::/126") (p "2001:db8::/128"));
+  testExcludeV6Depth2 = {
+    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/126") (parse "2001:db8::/128"));
     expected = [
       "2001:db8::1/128"
       "2001:db8::2/127"
     ];
   };
-  exclude-v6-deep-len = {
-    expr = builtins.length (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128"));
+  testExcludeV6DeepLength = {
+    expr = builtins.length (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128"));
     expected = 64;
   };
-  exclude-v6-deep-first = {
-    expr = cidr.toString (builtins.elemAt (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128")) 0);
+  testExcludeV6DeepFirst = {
+    expr = cidr.toString (
+      builtins.elemAt (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128")) 0
+    );
     expected = "2001:db8::1/128";
   };
-  exclude-v6-deep-last = {
-    expr = cidr.toString (builtins.elemAt (cidr.exclude (p "2001:db8::/64") (p "2001:db8::/128")) 63);
+  testExcludeV6DeepLast = {
+    expr = cidr.toString (
+      builtins.elemAt (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128")) 63
+    );
     expected = "2001:db8:0:0:8000::/65";
   };
-  exclude-v6-not-parent = {
-    expr = throws (cidr.exclude (p "2001:db8::/64") (p "2001:dead::/128"));
+  testExcludeV6NotParent = {
+    expr = throws (cidr.exclude (parse "2001:db8::/64") (parse "2001:dead::/128"));
     expected = true;
   };
 
-  intersect-contained = {
-    expr = cidr.toString (cidr.intersect (p "10.0.0.0/8") (p "10.0.0.0/24"));
+  testIntersectContained = {
+    expr = cidr.toString (cidr.intersect (parse "10.0.0.0/8") (parse "10.0.0.0/24"));
     expected = "10.0.0.0/24";
   };
-  intersect-disjoint = {
-    expr = cidr.intersect (p "10.0.0.0/24") (p "11.0.0.0/24");
+  testIntersectDisjoint = {
+    expr = cidr.intersect (parse "10.0.0.0/24") (parse "11.0.0.0/24");
     expected = null;
   };
-  intersect-eq = {
-    expr = cidr.toString (cidr.intersect (p "10.0.0.0/24") (p "10.0.0.0/24"));
+  testIntersectEqual = {
+    expr = cidr.toString (cidr.intersect (parse "10.0.0.0/24") (parse "10.0.0.0/24"));
     expected = "10.0.0.0/24";
   };
-  intersect-cross = {
-    expr = cidr.intersect (p "10.0.0.0/24") (p "::/0");
+  testIntersectCrossFamily = {
+    expr = cidr.intersect (parse "10.0.0.0/24") (parse "::/0");
     expected = null;
   };
 
   # ===== make / fromAddress / accessors / direct containment =====
-  make-ok = {
+  testMakeOk = {
     expr = cidr.toString (cidr.make (ipv4.parse "10.0.0.0") 24);
     expected = "10.0.0.0/24";
   };
-  make-bad-prefix = {
+  testMakeBadPrefix = {
     expr = throws (cidr.make (ipv4.parse "10.0.0.0") 33);
     expected = true;
   };
-  make-bad-addr = {
+  testMakeBadAddress = {
     expr = throws (cidr.make "10.0.0.0" 24);
     expected = true;
   };
-  make-non-int-prefix = {
+  testMakeNonIntPrefix = {
     expr = throws (cidr.make (ipv4.parse "10.0.0.0") "24");
     expected = true;
   };
-  fromAddress-v4 = {
+  testFromAddressV4 = {
     expr = cidr.toString (cidr.fromAddress (ipv4.parse "10.0.0.5"));
     expected = "10.0.0.5/32";
   };
-  fromAddress-v6 = {
+  testFromAddressV6 = {
     expr = cidr.toString (cidr.fromAddress (ipv6.parse "2001:db8::1"));
     expected = "2001:db8::1/128";
   };
-  fromAddress-bad = {
+  testFromAddressBad = {
     expr = throws (cidr.fromAddress "10.0.0.5");
     expected = true;
   };
-  address-accessor = {
-    expr = ipv4.toString (cidr.address (p "10.0.0.5/24"));
+  testAddressAccessor = {
+    expr = ipv4.toString (cidr.address (parse "10.0.0.5/24"));
     expected = "10.0.0.5";
   };
-  topAddress-v4 = {
-    expr = ipv4.toString (cidr.topAddress (p "10.0.0.0/24"));
+  testTopAddressV4 = {
+    expr = ipv4.toString (cidr.topAddress (parse "10.0.0.0/24"));
     expected = "10.0.0.255";
   };
-  topAddress-v6 = {
-    expr = ipv6.toString (cidr.topAddress (p "2001:db8::/120"));
+  testTopAddressV6 = {
+    expr = ipv6.toString (cidr.topAddress (parse "2001:db8::/120"));
     expected = "2001:db8::ff";
   };
-  containsAddress-direct = {
-    expr = cidr.containsAddress (p "10.0.0.0/24") (ipv4.parse "10.0.0.5");
+  testContainsAddressDirect = {
+    expr = cidr.containsAddress (parse "10.0.0.0/24") (ipv4.parse "10.0.0.5");
     expected = true;
   };
-  containsAddress-out = {
-    expr = cidr.containsAddress (p "10.0.0.0/24") (ipv4.parse "10.0.1.0");
+  testContainsAddressOut = {
+    expr = cidr.containsAddress (parse "10.0.0.0/24") (ipv4.parse "10.0.1.0");
     expected = false;
   };
-  containsCidr-direct = {
-    expr = cidr.containsCidr (p "10.0.0.0/8") (p "10.1.0.0/16");
+  testContainsCidrDirect = {
+    expr = cidr.containsCidr (parse "10.0.0.0/8") (parse "10.1.0.0/16");
     expected = true;
   };
-  containsCidr-out = {
-    expr = cidr.containsCidr (p "10.0.0.0/24") (p "11.0.0.0/24");
+  testContainsCidrOut = {
+    expr = cidr.containsCidr (parse "10.0.0.0/24") (parse "11.0.0.0/24");
     expected = false;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = cidr.lt (p "10.0.0.0/24") (p "10.0.0.0/25");
+  testComparisonLt = {
+    expr = cidr.lt (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = true;
   };
-  cmp-le = {
-    expr = cidr.le (p "10.0.0.0/24") (p "10.0.0.0/25");
+  testComparisonLe = {
+    expr = cidr.le (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = true;
   };
-  cmp-gt = {
-    expr = cidr.gt (p "10.0.0.0/25") (p "10.0.0.0/24");
+  testComparisonGt = {
+    expr = cidr.gt (parse "10.0.0.0/25") (parse "10.0.0.0/24");
     expected = true;
   };
-  cmp-ge = {
-    expr = cidr.ge (p "10.0.0.0/25") (p "10.0.0.0/24");
+  testComparisonGe = {
+    expr = cidr.ge (parse "10.0.0.0/25") (parse "10.0.0.0/24");
     expected = true;
   };
-  cmp-min = {
-    expr = cidr.toString (cidr.min (p "10.0.0.0/24") (p "10.0.0.0/25"));
+  testComparisonMin = {
+    expr = cidr.toString (cidr.min (parse "10.0.0.0/24") (parse "10.0.0.0/25"));
     expected = "10.0.0.0/24";
   };
-  cmp-max = {
-    expr = cidr.toString (cidr.max (p "10.0.0.0/24") (p "10.0.0.0/25"));
+  testComparisonMax = {
+    expr = cidr.toString (cidr.max (parse "10.0.0.0/24") (parse "10.0.0.0/25"));
     expected = "10.0.0.0/25";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = cidr.eq (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testEqSame = {
+    expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = true;
   };
-  eq-noncanon = {
-    expr = cidr.eq (p "10.0.0.0/24") (p "10.0.0.5/24");
+  testEqNonCanonical = {
+    expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.5/24");
     expected = true;
   }; # canonical eq
-  eq-diff-prefix = {
-    expr = cidr.eq (p "10.0.0.0/24") (p "10.0.0.0/25");
+  testEqDifferentPrefix = {
+    expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = false;
   };
-  eq-diff-net = {
-    expr = cidr.eq (p "10.0.0.0/24") (p "10.0.1.0/24");
+  testEqDifferentNetwork = {
+    expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.1.0/24");
     expected = false;
   };
-  eq-cross-fam = {
-    expr = cidr.eq (p "10.0.0.0/24") (p "::/0");
+  testEqCrossFamily = {
+    expr = cidr.eq (parse "10.0.0.0/24") (parse "::/0");
     expected = false;
   };
-  compare-v4-v6 = {
-    expr = cidr.compare (p "10.0.0.0/24") (p "::/0");
+  testCompareV4V6 = {
+    expr = cidr.compare (parse "10.0.0.0/24") (parse "::/0");
     expected = -1;
   };
-  compare-v6-v4 = {
-    expr = cidr.compare (p "::/0") (p "10.0.0.0/24");
+  testCompareV6V4 = {
+    expr = cidr.compare (parse "::/0") (parse "10.0.0.0/24");
     expected = 1;
   };
-  compare-same = {
-    expr = cidr.compare (p "10.0.0.0/24") (p "10.0.0.0/24");
+  testCompareSame = {
+    expr = cidr.compare (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = 0;
   };
-  compare-prefix-lt = {
-    expr = cidr.compare (p "10.0.0.0/24") (p "10.0.0.0/25");
+  testComparePrefixLt = {
+    expr = cidr.compare (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = -1;
   };
 }

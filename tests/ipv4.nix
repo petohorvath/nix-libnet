@@ -3,121 +3,121 @@ let
   ipv4 = import ../lib/ipv4.nix;
   inherit (harness) throws;
 
-  p = ipv4.parse;
+  parse = ipv4.parse;
 in
 {
   # ===== Parse: positive =====
-  parse-zero = {
-    expr = ipv4.toInt (p "0.0.0.0");
+  testParseZero = {
+    expr = ipv4.toInt (parse "0.0.0.0");
     expected = 0;
   };
-  parse-max = {
-    expr = ipv4.toInt (p "255.255.255.255");
+  testParseMax = {
+    expr = ipv4.toInt (parse "255.255.255.255");
     expected = 4294967295;
   };
-  parse-generic = {
-    expr = ipv4.toInt (p "1.2.3.4");
+  testParseGeneric = {
+    expr = ipv4.toInt (parse "1.2.3.4");
     expected = 16909060;
   };
-  parse-loopback = {
-    expr = ipv4.toInt (p "127.0.0.1");
+  testParseLoopback = {
+    expr = ipv4.toInt (parse "127.0.0.1");
     expected = 2130706433;
   };
-  parse-octet-zero = {
-    expr = ipv4.toInt (p "1.0.0.1");
+  testParseOctetZero = {
+    expr = ipv4.toInt (parse "1.0.0.1");
     expected = 16777217;
   };
 
   # ===== Parse: negative =====
-  parse-empty = {
-    expr = throws (p "");
+  testParseEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  parse-3-octets = {
-    expr = throws (p "1.2.3");
+  testParse3Octets = {
+    expr = throws (parse "1.2.3");
     expected = true;
   };
-  parse-5-octets = {
-    expr = throws (p "1.2.3.4.5");
+  testParse5Octets = {
+    expr = throws (parse "1.2.3.4.5");
     expected = true;
   };
-  parse-octet-256 = {
-    expr = throws (p "1.2.3.256");
+  testParseOctet256 = {
+    expr = throws (parse "1.2.3.256");
     expected = true;
   };
-  parse-leading-0 = {
-    expr = throws (p "01.2.3.4");
+  testParseLeadingZero = {
+    expr = throws (parse "01.2.3.4");
     expected = true;
   };
-  parse-leading-0b = {
-    expr = throws (p "1.02.3.4");
+  testParseLeadingZeroSecondOctet = {
+    expr = throws (parse "1.02.3.4");
     expected = true;
   };
-  parse-negative = {
-    expr = throws (p "1.2.3.-1");
+  testParseNegative = {
+    expr = throws (parse "1.2.3.-1");
     expected = true;
   };
-  parse-whitespace = {
-    expr = throws (p " 1.2.3.4");
+  testParseLeadingWhitespace = {
+    expr = throws (parse " 1.2.3.4");
     expected = true;
   };
-  parse-trailing = {
-    expr = throws (p "1.2.3.4 ");
+  testParseTrailingWhitespace = {
+    expr = throws (parse "1.2.3.4 ");
     expected = true;
   };
-  parse-non-digit = {
-    expr = throws (p "a.b.c.d");
+  testParseNonDigit = {
+    expr = throws (parse "a.b.c.d");
     expected = true;
   };
-  parse-hex = {
-    expr = throws (p "0x1.2.3.4");
+  testParseHex = {
+    expr = throws (parse "0x1.2.3.4");
     expected = true;
   };
-  parse-empty-oct = {
-    expr = throws (p "1..3.4");
+  testParseEmptyOctet = {
+    expr = throws (parse "1..3.4");
     expected = true;
   };
-  parse-non-string = {
+  testParseNonString = {
     expr = throws (ipv4.parse 123);
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (ipv4.tryParse "1.2.3.4").success;
     expected = true;
   };
-  tryParse-fail = {
+  testTryParseFail = {
     expr = (ipv4.tryParse "bad").success;
     expected = false;
   };
-  tryParse-err-msg = {
+  testTryParseErrorMessage = {
     expr = builtins.isString (ipv4.tryParse "bad").error;
     expected = true;
   };
-  tryParse-null-val = {
+  testTryParseNullValue = {
     expr = (ipv4.tryParse "bad").value == null;
     expected = true;
   };
 
   # ===== Round-trip =====
-  rt-string = {
-    expr = ipv4.toString (p "1.2.3.4");
+  testRoundTripString = {
+    expr = ipv4.toString (parse "1.2.3.4");
     expected = "1.2.3.4";
   };
-  rt-string-zero = {
-    expr = ipv4.toString (p "0.0.0.0");
+  testRoundTripStringZero = {
+    expr = ipv4.toString (parse "0.0.0.0");
     expected = "0.0.0.0";
   };
-  rt-string-max = {
-    expr = ipv4.toString (p "255.255.255.255");
+  testRoundTripStringMax = {
+    expr = ipv4.toString (parse "255.255.255.255");
     expected = "255.255.255.255";
   };
-  rt-int = {
+  testRoundTripInt = {
     expr = ipv4.toInt (ipv4.fromInt 16909060);
     expected = 16909060;
   };
-  rt-octets = {
+  testRoundTripOctets = {
     expr = ipv4.toOctets (
       ipv4.fromOctets [
         1
@@ -133,35 +133,35 @@ in
       4
     ];
   };
-  rt-full = {
-    expr = ipv4.toString (ipv4.fromOctets (ipv4.toOctets (p "10.0.0.1")));
+  testRoundTripStringThroughOctets = {
+    expr = ipv4.toString (ipv4.fromOctets (ipv4.toOctets (parse "10.0.0.1")));
     expected = "10.0.0.1";
   };
 
   # ===== fromInt / toInt =====
-  fromInt-zero = {
+  testFromIntZero = {
     expr = ipv4.toString (ipv4.fromInt 0);
     expected = "0.0.0.0";
   };
-  fromInt-max = {
+  testFromIntMax = {
     expr = ipv4.toString (ipv4.fromInt 4294967295);
     expected = "255.255.255.255";
   };
-  fromInt-over = {
+  testFromIntOverflow = {
     expr = throws (ipv4.fromInt 4294967296);
     expected = true;
   };
-  fromInt-neg = {
+  testFromIntNegative = {
     expr = throws (ipv4.fromInt (-1));
     expected = true;
   };
-  fromInt-not-int = {
+  testFromIntNotInt = {
     expr = throws (ipv4.fromInt "42");
     expected = true;
   };
 
   # ===== fromOctets / toOctets =====
-  fromOct-zero = {
+  testFromOctetsZero = {
     expr = ipv4.toString (
       ipv4.fromOctets [
         0
@@ -172,7 +172,7 @@ in
     );
     expected = "0.0.0.0";
   };
-  fromOct-max = {
+  testFromOctetsMax = {
     expr = ipv4.toString (
       ipv4.fromOctets [
         255
@@ -183,7 +183,7 @@ in
     );
     expected = "255.255.255.255";
   };
-  fromOct-short = {
+  testFromOctetsShort = {
     expr = throws (
       ipv4.fromOctets [
         1
@@ -193,7 +193,7 @@ in
     );
     expected = true;
   };
-  fromOct-long = {
+  testFromOctetsLong = {
     expr = throws (
       ipv4.fromOctets [
         1
@@ -205,7 +205,7 @@ in
     );
     expected = true;
   };
-  fromOct-over = {
+  testFromOctetsOver255 = {
     expr = throws (
       ipv4.fromOctets [
         1
@@ -216,7 +216,7 @@ in
     );
     expected = true;
   };
-  fromOct-neg = {
+  testFromOctetsNegative = {
     expr = throws (
       ipv4.fromOctets [
         1
@@ -229,7 +229,7 @@ in
   };
 
   # ===== fromBytes / toBytes (aliases) =====
-  fromBytes-alias = {
+  testFromBytesAlias = {
     expr = ipv4.toString (
       ipv4.fromBytes [
         10
@@ -240,8 +240,8 @@ in
     );
     expected = "10.0.0.1";
   };
-  toBytes-alias = {
-    expr = ipv4.toBytes (p "10.0.0.1");
+  testToBytesAlias = {
+    expr = ipv4.toBytes (parse "10.0.0.1");
     expected = [
       10
       0
@@ -251,432 +251,432 @@ in
   };
 
   # ===== toArpa =====
-  arpa-simple = {
-    expr = ipv4.toArpa (p "1.2.3.4");
+  testArpaSimple = {
+    expr = ipv4.toArpa (parse "1.2.3.4");
     expected = "4.3.2.1.in-addr.arpa";
   };
-  arpa-zero = {
-    expr = ipv4.toArpa (p "0.0.0.0");
+  testArpaZero = {
+    expr = ipv4.toArpa (parse "0.0.0.0");
     expected = "0.0.0.0.in-addr.arpa";
   };
-  arpa-loopback = {
-    expr = ipv4.toArpa (p "127.0.0.1");
+  testArpaLoopback = {
+    expr = ipv4.toArpa (parse "127.0.0.1");
     expected = "1.0.0.127.in-addr.arpa";
   };
 
   # ===== Predicates: is / isValid =====
-  isValid-good = {
+  testIsValidGood = {
     expr = ipv4.isValid "1.2.3.4";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = ipv4.isValid "1.2.3";
     expected = false;
   };
-  is-parsed = {
-    expr = ipv4.is (p "1.2.3.4");
+  testIsParsed = {
+    expr = ipv4.is (parse "1.2.3.4");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = ipv4.is "1.2.3.4";
     expected = false;
   };
-  is-int = {
+  testIsInt = {
     expr = ipv4.is 123;
     expected = false;
   };
-  is-wrong-type = {
+  testIsWrongType = {
     expr = ipv4.is { _type = "ipv6"; };
     expected = false;
   };
 
   # ===== Predicates: loopback =====
-  loopback-pos = {
-    expr = ipv4.isLoopback (p "127.0.0.1");
+  testLoopbackPositive = {
+    expr = ipv4.isLoopback (parse "127.0.0.1");
     expected = true;
   };
-  loopback-pos-low = {
-    expr = ipv4.isLoopback (p "127.0.0.0");
+  testLoopbackPositiveLow = {
+    expr = ipv4.isLoopback (parse "127.0.0.0");
     expected = true;
   };
-  loopback-pos-high = {
-    expr = ipv4.isLoopback (p "127.255.255.255");
+  testLoopbackPositiveHigh = {
+    expr = ipv4.isLoopback (parse "127.255.255.255");
     expected = true;
   };
-  loopback-neg = {
-    expr = ipv4.isLoopback (p "128.0.0.1");
+  testLoopbackNegative = {
+    expr = ipv4.isLoopback (parse "128.0.0.1");
     expected = false;
   };
-  loopback-neg-low = {
-    expr = ipv4.isLoopback (p "126.255.255.255");
+  testLoopbackNegativeLow = {
+    expr = ipv4.isLoopback (parse "126.255.255.255");
     expected = false;
   };
 
   # ===== Predicates: private (RFC 1918) =====
-  priv-10 = {
-    expr = ipv4.isPrivate (p "10.0.0.1");
+  testPrivate10 = {
+    expr = ipv4.isPrivate (parse "10.0.0.1");
     expected = true;
   };
-  priv-10-last = {
-    expr = ipv4.isPrivate (p "10.255.255.255");
+  testPrivate10Last = {
+    expr = ipv4.isPrivate (parse "10.255.255.255");
     expected = true;
   };
-  priv-10-neg = {
-    expr = ipv4.isPrivate (p "11.0.0.1");
+  testPrivate11Negative = {
+    expr = ipv4.isPrivate (parse "11.0.0.1");
     expected = false;
   };
-  priv-172-16 = {
-    expr = ipv4.isPrivate (p "172.16.0.1");
+  testPrivate17216 = {
+    expr = ipv4.isPrivate (parse "172.16.0.1");
     expected = true;
   };
-  priv-172-31 = {
-    expr = ipv4.isPrivate (p "172.31.255.255");
+  testPrivate17231 = {
+    expr = ipv4.isPrivate (parse "172.31.255.255");
     expected = true;
   };
-  priv-172-15 = {
-    expr = ipv4.isPrivate (p "172.15.255.255");
+  testPrivate17215Negative = {
+    expr = ipv4.isPrivate (parse "172.15.255.255");
     expected = false;
   };
-  priv-172-32 = {
-    expr = ipv4.isPrivate (p "172.32.0.0");
+  testPrivate17232Negative = {
+    expr = ipv4.isPrivate (parse "172.32.0.0");
     expected = false;
   };
-  priv-192-168 = {
-    expr = ipv4.isPrivate (p "192.168.0.1");
+  testPrivate192168 = {
+    expr = ipv4.isPrivate (parse "192.168.0.1");
     expected = true;
   };
-  priv-192-169 = {
-    expr = ipv4.isPrivate (p "192.169.0.0");
+  testPrivate192169Negative = {
+    expr = ipv4.isPrivate (parse "192.169.0.0");
     expected = false;
   };
-  priv-public = {
-    expr = ipv4.isPrivate (p "8.8.8.8");
+  testPrivatePublicNegative = {
+    expr = ipv4.isPrivate (parse "8.8.8.8");
     expected = false;
   };
 
   # ===== Predicates: linkLocal =====
-  ll-pos = {
-    expr = ipv4.isLinkLocal (p "169.254.1.1");
+  testLinkLocalPositive = {
+    expr = ipv4.isLinkLocal (parse "169.254.1.1");
     expected = true;
   };
-  ll-pos-low = {
-    expr = ipv4.isLinkLocal (p "169.254.0.0");
+  testLinkLocalPositiveLow = {
+    expr = ipv4.isLinkLocal (parse "169.254.0.0");
     expected = true;
   };
-  ll-pos-high = {
-    expr = ipv4.isLinkLocal (p "169.254.255.255");
+  testLinkLocalPositiveHigh = {
+    expr = ipv4.isLinkLocal (parse "169.254.255.255");
     expected = true;
   };
-  ll-neg = {
-    expr = ipv4.isLinkLocal (p "169.253.255.255");
+  testLinkLocalNegative = {
+    expr = ipv4.isLinkLocal (parse "169.253.255.255");
     expected = false;
   };
 
   # ===== Predicates: multicast =====
-  mcast-224 = {
-    expr = ipv4.isMulticast (p "224.0.0.1");
+  testMulticast224 = {
+    expr = ipv4.isMulticast (parse "224.0.0.1");
     expected = true;
   };
-  mcast-239 = {
-    expr = ipv4.isMulticast (p "239.255.255.255");
+  testMulticast239 = {
+    expr = ipv4.isMulticast (parse "239.255.255.255");
     expected = true;
   };
-  mcast-223 = {
-    expr = ipv4.isMulticast (p "223.255.255.255");
+  testMulticast223Negative = {
+    expr = ipv4.isMulticast (parse "223.255.255.255");
     expected = false;
   };
-  mcast-240 = {
-    expr = ipv4.isMulticast (p "240.0.0.0");
+  testMulticast240Negative = {
+    expr = ipv4.isMulticast (parse "240.0.0.0");
     expected = false;
   };
 
   # ===== Predicates: broadcast / unspecified =====
-  bcast-pos = {
-    expr = ipv4.isBroadcast (p "255.255.255.255");
+  testBroadcastPositive = {
+    expr = ipv4.isBroadcast (parse "255.255.255.255");
     expected = true;
   };
-  bcast-neg = {
-    expr = ipv4.isBroadcast (p "255.255.255.254");
+  testBroadcastNegative = {
+    expr = ipv4.isBroadcast (parse "255.255.255.254");
     expected = false;
   };
-  unspec-pos = {
-    expr = ipv4.isUnspecified (p "0.0.0.0");
+  testUnspecifiedPositive = {
+    expr = ipv4.isUnspecified (parse "0.0.0.0");
     expected = true;
   };
-  unspec-neg = {
-    expr = ipv4.isUnspecified (p "0.0.0.1");
+  testUnspecifiedNegative = {
+    expr = ipv4.isUnspecified (parse "0.0.0.1");
     expected = false;
   };
 
   # ===== Predicates: reserved =====
-  reserved-pos = {
-    expr = ipv4.isReserved (p "240.0.0.1");
+  testReservedPositive = {
+    expr = ipv4.isReserved (parse "240.0.0.1");
     expected = true;
   };
-  reserved-pos-low = {
-    expr = ipv4.isReserved (p "240.0.0.0");
+  testReservedPositiveLow = {
+    expr = ipv4.isReserved (parse "240.0.0.0");
     expected = true;
   };
-  reserved-exc-b = {
-    expr = ipv4.isReserved (p "255.255.255.255");
+  testReservedExcludesBroadcast = {
+    expr = ipv4.isReserved (parse "255.255.255.255");
     expected = false;
   };
-  reserved-neg = {
-    expr = ipv4.isReserved (p "239.255.255.255");
+  testReservedNegative = {
+    expr = ipv4.isReserved (parse "239.255.255.255");
     expected = false;
   };
 
   # ===== Predicates: documentation =====
-  doc-test-net-1 = {
-    expr = ipv4.isDocumentation (p "192.0.2.1");
+  testDocumentationTestNet1 = {
+    expr = ipv4.isDocumentation (parse "192.0.2.1");
     expected = true;
   };
-  doc-test-net-2 = {
-    expr = ipv4.isDocumentation (p "198.51.100.5");
+  testDocumentationTestNet2 = {
+    expr = ipv4.isDocumentation (parse "198.51.100.5");
     expected = true;
   };
-  doc-test-net-3 = {
-    expr = ipv4.isDocumentation (p "203.0.113.10");
+  testDocumentationTestNet3 = {
+    expr = ipv4.isDocumentation (parse "203.0.113.10");
     expected = true;
   };
-  doc-neg = {
-    expr = ipv4.isDocumentation (p "192.0.3.1");
+  testDocumentationNegative = {
+    expr = ipv4.isDocumentation (parse "192.0.3.1");
     expected = false;
   };
 
   # ===== Predicates: special-use (RFC 6890) =====
-  this-network-pos = {
-    expr = ipv4.isThisNetwork (p "0.1.2.3");
+  testThisNetworkPositive = {
+    expr = ipv4.isThisNetwork (parse "0.1.2.3");
     expected = true;
   };
-  this-network-pos-zero = {
-    expr = ipv4.isThisNetwork (p "0.0.0.0");
+  testThisNetworkPositiveZero = {
+    expr = ipv4.isThisNetwork (parse "0.0.0.0");
     expected = true;
   };
-  this-network-neg = {
-    expr = ipv4.isThisNetwork (p "1.0.0.0");
+  testThisNetworkNegative = {
+    expr = ipv4.isThisNetwork (parse "1.0.0.0");
     expected = false;
   };
-  shared-pos = {
-    expr = ipv4.isSharedAddressSpace (p "100.64.0.1");
+  testSharedPositive = {
+    expr = ipv4.isSharedAddressSpace (parse "100.64.0.1");
     expected = true;
   };
-  shared-pos-hi = {
-    expr = ipv4.isSharedAddressSpace (p "100.127.255.255");
+  testSharedPositiveHigh = {
+    expr = ipv4.isSharedAddressSpace (parse "100.127.255.255");
     expected = true;
   };
-  shared-neg-below = {
-    expr = ipv4.isSharedAddressSpace (p "100.63.255.255");
+  testSharedNegativeBelow = {
+    expr = ipv4.isSharedAddressSpace (parse "100.63.255.255");
     expected = false;
   };
-  shared-neg-above = {
-    expr = ipv4.isSharedAddressSpace (p "100.128.0.0");
+  testSharedNegativeAbove = {
+    expr = ipv4.isSharedAddressSpace (parse "100.128.0.0");
     expected = false;
   };
-  protocol-pos = {
-    expr = ipv4.isProtocolAssignment (p "192.0.0.8");
+  testProtocolPositive = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.8");
     expected = true;
   };
-  protocol-neg-above = {
-    expr = ipv4.isProtocolAssignment (p "192.0.1.0");
+  testProtocolNegativeAbove = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.1.0");
     expected = false;
   };
-  protocol-neg-doc = {
-    expr = ipv4.isProtocolAssignment (p "192.0.2.1");
+  testProtocolNegativeDocumentation = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.2.1");
     expected = false;
   };
-  benchmarking-pos = {
-    expr = ipv4.isBenchmarking (p "198.18.0.1");
+  testBenchmarkingPositive = {
+    expr = ipv4.isBenchmarking (parse "198.18.0.1");
     expected = true;
   };
-  benchmarking-pos-hi = {
-    expr = ipv4.isBenchmarking (p "198.19.255.255");
+  testBenchmarkingPositiveHigh = {
+    expr = ipv4.isBenchmarking (parse "198.19.255.255");
     expected = true;
   };
-  benchmarking-neg = {
-    expr = ipv4.isBenchmarking (p "198.20.0.0");
+  testBenchmarkingNegative = {
+    expr = ipv4.isBenchmarking (parse "198.20.0.0");
     expected = false;
   };
-  bogon-shared = {
-    expr = ipv4.isBogon (p "100.64.0.1");
+  testBogonShared = {
+    expr = ipv4.isBogon (parse "100.64.0.1");
     expected = true;
   };
-  bogon-benchmarking = {
-    expr = ipv4.isBogon (p "198.18.0.1");
+  testBogonBenchmarking = {
+    expr = ipv4.isBogon (parse "198.18.0.1");
     expected = true;
   };
-  global-neg-shared = {
-    expr = ipv4.isGlobal (p "100.64.0.1");
+  testGlobalNegativeShared = {
+    expr = ipv4.isGlobal (parse "100.64.0.1");
     expected = false;
   };
 
   # ===== Predicates: global / bogon =====
-  global-pos = {
-    expr = ipv4.isGlobal (p "8.8.8.8");
+  testGlobalPositive = {
+    expr = ipv4.isGlobal (parse "8.8.8.8");
     expected = true;
   };
-  global-neg-loop = {
-    expr = ipv4.isGlobal (p "127.0.0.1");
+  testGlobalNegativeLoopback = {
+    expr = ipv4.isGlobal (parse "127.0.0.1");
     expected = false;
   };
-  global-neg-priv = {
-    expr = ipv4.isGlobal (p "10.0.0.1");
+  testGlobalNegativePrivate = {
+    expr = ipv4.isGlobal (parse "10.0.0.1");
     expected = false;
   };
-  bogon-pos = {
-    expr = ipv4.isBogon (p "127.0.0.1");
+  testBogonPositive = {
+    expr = ipv4.isBogon (parse "127.0.0.1");
     expected = true;
   };
-  bogon-neg = {
-    expr = ipv4.isBogon (p "8.8.8.8");
+  testBogonNegative = {
+    expr = ipv4.isBogon (parse "8.8.8.8");
     expected = false;
   };
-  bogon-doc = {
-    expr = ipv4.isBogon (p "192.0.2.1");
+  testBogonDocumentation = {
+    expr = ipv4.isBogon (parse "192.0.2.1");
     expected = true;
   };
 
   # ===== Arithmetic =====
-  add-zero = {
-    expr = ipv4.toString (ipv4.add 0 (p "1.2.3.4"));
+  testAddZero = {
+    expr = ipv4.toString (ipv4.add 0 (parse "1.2.3.4"));
     expected = "1.2.3.4";
   };
-  add-one = {
-    expr = ipv4.toString (ipv4.add 1 (p "1.2.3.4"));
+  testAddOne = {
+    expr = ipv4.toString (ipv4.add 1 (parse "1.2.3.4"));
     expected = "1.2.3.5";
   };
-  add-carry = {
-    expr = ipv4.toString (ipv4.add 1 (p "1.2.3.255"));
+  testAddCarry = {
+    expr = ipv4.toString (ipv4.add 1 (parse "1.2.3.255"));
     expected = "1.2.4.0";
   };
-  add-big = {
-    expr = ipv4.toString (ipv4.add 256 (p "0.0.0.0"));
+  testAddBig = {
+    expr = ipv4.toString (ipv4.add 256 (parse "0.0.0.0"));
     expected = "0.0.1.0";
   };
-  add-overflow = {
-    expr = throws (ipv4.add 1 (p "255.255.255.255"));
+  testAddOverflow = {
+    expr = throws (ipv4.add 1 (parse "255.255.255.255"));
     expected = true;
   };
-  sub-one = {
-    expr = ipv4.toString (ipv4.sub 1 (p "1.2.3.4"));
+  testSubOne = {
+    expr = ipv4.toString (ipv4.sub 1 (parse "1.2.3.4"));
     expected = "1.2.3.3";
   };
-  sub-borrow = {
-    expr = ipv4.toString (ipv4.sub 1 (p "1.2.3.0"));
+  testSubBorrow = {
+    expr = ipv4.toString (ipv4.sub 1 (parse "1.2.3.0"));
     expected = "1.2.2.255";
   };
-  sub-underflow = {
-    expr = throws (ipv4.sub 1 (p "0.0.0.0"));
+  testSubUnderflow = {
+    expr = throws (ipv4.sub 1 (parse "0.0.0.0"));
     expected = true;
   };
-  next-ok = {
-    expr = ipv4.toString (ipv4.next (p "1.2.3.4"));
+  testNextOk = {
+    expr = ipv4.toString (ipv4.next (parse "1.2.3.4"));
     expected = "1.2.3.5";
   };
-  next-overflow = {
-    expr = throws (ipv4.next (p "255.255.255.255"));
+  testNextOverflow = {
+    expr = throws (ipv4.next (parse "255.255.255.255"));
     expected = true;
   };
-  prev-ok = {
-    expr = ipv4.toString (ipv4.prev (p "1.2.3.4"));
+  testPrevOk = {
+    expr = ipv4.toString (ipv4.prev (parse "1.2.3.4"));
     expected = "1.2.3.3";
   };
-  prev-underflow = {
-    expr = throws (ipv4.prev (p "0.0.0.0"));
+  testPrevUnderflow = {
+    expr = throws (ipv4.prev (parse "0.0.0.0"));
     expected = true;
   };
-  diff-pos = {
-    expr = ipv4.diff (p "1.2.3.4") (p "1.2.3.10");
+  testDiffPositive = {
+    expr = ipv4.diff (parse "1.2.3.4") (parse "1.2.3.10");
     expected = 6;
   };
-  diff-neg = {
-    expr = ipv4.diff (p "1.2.3.10") (p "1.2.3.4");
+  testDiffNegative = {
+    expr = ipv4.diff (parse "1.2.3.10") (parse "1.2.3.4");
     expected = -6;
   };
-  diff-same = {
-    expr = ipv4.diff (p "1.2.3.4") (p "1.2.3.4");
+  testDiffSame = {
+    expr = ipv4.diff (parse "1.2.3.4") (parse "1.2.3.4");
     expected = 0;
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = ipv4.eq (p "1.2.3.4") (p "1.2.3.4");
+  testEqSame = {
+    expr = ipv4.eq (parse "1.2.3.4") (parse "1.2.3.4");
     expected = true;
   };
-  eq-diff = {
-    expr = ipv4.eq (p "1.2.3.4") (p "1.2.3.5");
+  testEqDifferent = {
+    expr = ipv4.eq (parse "1.2.3.4") (parse "1.2.3.5");
     expected = false;
   };
-  lt-yes = {
-    expr = ipv4.lt (p "1.2.3.4") (p "1.2.3.5");
+  testLtYes = {
+    expr = ipv4.lt (parse "1.2.3.4") (parse "1.2.3.5");
     expected = true;
   };
-  lt-no = {
-    expr = ipv4.lt (p "1.2.3.5") (p "1.2.3.4");
+  testLtNo = {
+    expr = ipv4.lt (parse "1.2.3.5") (parse "1.2.3.4");
     expected = false;
   };
-  lt-eq = {
-    expr = ipv4.lt (p "1.2.3.4") (p "1.2.3.4");
+  testLtEqual = {
+    expr = ipv4.lt (parse "1.2.3.4") (parse "1.2.3.4");
     expected = false;
   };
-  le-eq = {
-    expr = ipv4.le (p "1.2.3.4") (p "1.2.3.4");
+  testLeEqual = {
+    expr = ipv4.le (parse "1.2.3.4") (parse "1.2.3.4");
     expected = true;
   };
-  gt-yes = {
-    expr = ipv4.gt (p "1.2.3.5") (p "1.2.3.4");
+  testGtYes = {
+    expr = ipv4.gt (parse "1.2.3.5") (parse "1.2.3.4");
     expected = true;
   };
-  ge-eq = {
-    expr = ipv4.ge (p "1.2.3.4") (p "1.2.3.4");
+  testGeEqual = {
+    expr = ipv4.ge (parse "1.2.3.4") (parse "1.2.3.4");
     expected = true;
   };
-  compare-lt = {
-    expr = ipv4.compare (p "1.0.0.0") (p "2.0.0.0");
+  testCompareLess = {
+    expr = ipv4.compare (parse "1.0.0.0") (parse "2.0.0.0");
     expected = -1;
   };
-  compare-eq = {
-    expr = ipv4.compare (p "1.0.0.0") (p "1.0.0.0");
+  testCompareEqual = {
+    expr = ipv4.compare (parse "1.0.0.0") (parse "1.0.0.0");
     expected = 0;
   };
-  compare-gt = {
-    expr = ipv4.compare (p "2.0.0.0") (p "1.0.0.0");
+  testCompareGreater = {
+    expr = ipv4.compare (parse "2.0.0.0") (parse "1.0.0.0");
     expected = 1;
   };
-  min-a = {
-    expr = ipv4.toString (ipv4.min (p "1.0.0.0") (p "2.0.0.0"));
+  testMinFirstLower = {
+    expr = ipv4.toString (ipv4.min (parse "1.0.0.0") (parse "2.0.0.0"));
     expected = "1.0.0.0";
   };
-  min-b = {
-    expr = ipv4.toString (ipv4.min (p "2.0.0.0") (p "1.0.0.0"));
+  testMinSecondLower = {
+    expr = ipv4.toString (ipv4.min (parse "2.0.0.0") (parse "1.0.0.0"));
     expected = "1.0.0.0";
   };
-  max-a = {
-    expr = ipv4.toString (ipv4.max (p "1.0.0.0") (p "2.0.0.0"));
+  testMaxSecondHigher = {
+    expr = ipv4.toString (ipv4.max (parse "1.0.0.0") (parse "2.0.0.0"));
     expected = "2.0.0.0";
   };
 
   # ===== Constants =====
-  const-unspecified = {
+  testConstantUnspecified = {
     expr = ipv4.toString ipv4.unspecified;
     expected = "0.0.0.0";
   };
-  const-broadcast = {
+  testConstantBroadcast = {
     expr = ipv4.toString ipv4.broadcast;
     expected = "255.255.255.255";
   };
-  const-loopback = {
+  testConstantLoopback = {
     expr = ipv4.toString ipv4.loopback;
     expected = "127.0.0.1";
   };
 
   # ===== Curry partial application =====
-  curry-add = {
+  testCurriedAdd = {
     expr = map (ipv4.toString) (
       map (ipv4.add 1) [
-        (p "1.0.0.0")
-        (p "2.0.0.0")
-        (p "3.0.0.0")
+        (parse "1.0.0.0")
+        (parse "2.0.0.0")
+        (parse "3.0.0.0")
       ]
     );
     expected = [

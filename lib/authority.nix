@@ -24,117 +24,151 @@
 */
 let
   types = import ./internal/types.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   urlHost = import ./url-host.nix;
   port = import ./port.nix;
 
   mkPort = port.fromInt;
 
-  mk = userinfo: host: portVal: {
+  mk = userinfoValue: hostValue: portValue: {
     _type = "authority";
-    inherit userinfo host;
-    port = portVal;
+    userinfo = userinfoValue;
+    host = hostValue;
+    port = portValue;
   };
 
   # ===== Parsing =====
 
-  # Split "host[:port]" into { host; portStr }, or null if malformed. A
-  # bracketed IPv6 literal (`[::1]:80`) is handled so the colons inside
+  # Split "host[:port]" into { hostText; portText }, or null if malformed.
+  # A bracketed IPv6 literal (`[::1]:80`) is handled so the colons inside
   # it are not mistaken for the port separator.
   splitHostPort =
-    hp:
-    if parse'.startsWith "[" hp then
+    hostPort:
+    if parsing.startsWith "[" hostPort then
       let
-        parts = parse'.splitOn "]" hp;
+        parts = parsing.splitOn "]" hostPort;
       in
       if builtins.length parts < 2 then
         null
       else
         let
-          host = (builtins.elemAt parts 0) + "]";
+          hostText = (builtins.elemAt parts 0) + "]";
           after = builtins.concatStringsSep "]" (builtins.tail parts);
         in
         if after == "" then
           {
-            inherit host;
-            portStr = null;
+            inherit hostText;
+            portText = null;
           }
-        else if parse'.startsWith ":" after then
+        else if parsing.startsWith ":" after then
           {
-            inherit host;
-            portStr = parse'.stripPrefix ":" after;
+            inherit hostText;
+            portText = parsing.stripPrefix ":" after;
           }
         else
           null
     else
       let
-        parts = parse'.splitOn ":" hp;
+        parts = parsing.splitOn ":" hostPort;
         n = builtins.length parts;
       in
       if n == 1 then
         {
-          host = hp;
-          portStr = null;
+          hostText = hostPort;
+          portText = null;
         }
       else if n == 2 then
         {
-          host = builtins.elemAt parts 0;
-          portStr = builtins.elemAt parts 1;
+          hostText = builtins.elemAt parts 0;
+          portText = builtins.elemAt parts 1;
         }
       else
         null;
 
+  /*
+    Parse an authority without throwing, for callers that branch on
+    validity.
+
+    `input`: `[userinfo@]host[:port]` text; the host may be a bracketed IPv6
+    literal.
+
+    Returns a tryResult: `{ success = true; value = <authority>; }` or
+    `{ success = false; error = <string>; }` for an empty or invalid host,
+    multiple `@`, or a bad port. Never throws.
+  */
   tryParse =
-    a:
-    if !(builtins.isString a) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.authority.parse: input must be a string"
     else
       let
-        atParts = parse'.splitOn "@" a;
-        nAt = builtins.length atParts;
+        atParts = parsing.splitOn "@" input;
+        atPartCount = builtins.length atParts;
       in
-      if nAt > 2 then
+      if atPartCount > 2 then
         types.tryErr "libnet.authority.parse: malformed userinfo (multiple '@')"
       else
         let
-          userinfo = if nAt == 2 then builtins.elemAt atParts 0 else null;
-          hostport = builtins.elemAt atParts (nAt - 1);
-          hp = splitHostPort hostport;
+          userinfoValue = if atPartCount == 2 then builtins.elemAt atParts 0 else null;
+          hostPort = splitHostPort (builtins.elemAt atParts (atPartCount - 1));
         in
-        if hp == null then
-          types.tryErr "libnet.authority.parse: malformed authority \"${a}\""
+        if hostPort == null then
+          types.tryErr "libnet.authority.parse: malformed authority \"${input}\""
         else
           let
-            hostRes = urlHost.tryParse hp.host;
-            portRes = if hp.portStr == null then null else port.tryParse hp.portStr;
+            hostResult = urlHost.tryParse hostPort.hostText;
+            portResult = if hostPort.portText == null then null else port.tryParse hostPort.portText;
           in
-          if !hostRes.success then
-            types.tryErr "libnet.authority.parse: invalid host \"${hp.host}\""
-          else if portRes != null && !portRes.success then
-            types.tryErr "libnet.authority.parse: invalid port \"${hp.portStr}\""
+          if !hostResult.success then
+            types.tryErr "libnet.authority.parse: invalid host \"${hostPort.hostText}\""
+          else if portResult != null && !portResult.success then
+            types.tryErr "libnet.authority.parse: invalid port \"${hostPort.portText}\""
           else
-            types.tryOk (mk userinfo hostRes.value (if portRes == null then null else portRes.value));
+            types.tryOk (
+              mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
+            );
 
+  /*
+    Parse an authority, for values that must be valid.
+
+    `input`: `[userinfo@]host[:port]` text as accepted by `tryParse`.
+
+    Returns an authority value; throws on invalid input.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Render an authority as `[userinfo@]host[:port]`.
+
+    `authority`: an authority value.
+
+    Returns the text, omitting userinfo and port when they are null.
+  */
   toString =
-    au:
+    authority:
     let
-      ui = if au.userinfo == null then "" else "${au.userinfo}@";
-      pt = if au.port == null then "" else ":${port.toString au.port}";
+      userinfoPart = if authority.userinfo == null then "" else "${authority.userinfo}@";
+      portPart = if authority.port == null then "" else ":${port.toString authority.port}";
     in
-    "${ui}${urlHost.toString au.host}${pt}";
+    "${userinfoPart}${urlHost.toString authority.host}${portPart}";
 
   # ===== Construction =====
 
-  # `make` takes primitives (strings + an int port), not tagged values:
-  # an authority is built from its textual parts. Pass a string to
-  # `parse` if you already have one.
+  /*
+    Build an authority from its textual parts; pass a whole authority string
+    to `parse` instead.
+
+    `host`: URL host text, parsed with `urlHost.parse` rules.
+    `userinfo`: raw userinfo string, or null (default).
+    `port`: integer port, or null (default) to omit it.
+
+    Returns an authority value; throws on an invalid host or a non-int port.
+  */
   make =
     {
       host,
@@ -142,19 +176,54 @@ let
       port ? null,
     }:
     let
-      h = urlHost.tryParse host;
+      hostResult = urlHost.tryParse host;
     in
-    if !h.success then
-      builtins.throw "libnet.authority.make: invalid host \"${host}\""
+    if !hostResult.success then
+      throw "libnet.authority.make: invalid host \"${host}\""
     else if port != null && !(builtins.isInt port) then
-      builtins.throw "libnet.authority.make: port must be an int or null"
+      throw "libnet.authority.make: port must be an int or null"
     else
-      mk userinfo h.value (if port == null then null else mkPort port);
+      mk userinfo hostResult.value (if port == null then null else mkPort port);
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isAuthority;
+  /*
+    Check whether a string parses as an authority.
+
+    `input`: candidate authority text.
+
+    Returns true when `tryParse` succeeds.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is an authority value.
+
+    `value`: any value.
+
+    Returns true for an authority-tagged attrset.
+  */
+  is = value: types.isAuthority value;
+
+  # ===== Accessors =====
+
+  /*
+    Get the userinfo of an authority.
+
+    `authority`: an authority value.
+
+    Returns the raw userinfo string, or null when absent.
+  */
+  userinfo = authority: authority.userinfo;
+
+  /*
+    Get the host of an authority.
+
+    `authority`: an authority value.
+
+    Returns the urlHost value.
+  */
+  host = authority: authority.host;
 
   # ===== Comparison =====
   #
@@ -163,25 +232,26 @@ let
   # `[userinfo@]host[:port]` — and the port is compared as-stored, since
   # an authority has no scheme and therefore no default port.
 
-  cmpStr =
-    x: y:
-    if x < y then
+  compareStrings =
+    a: b:
+    if a < b then
       -1
-    else if x > y then
+    else if a > b then
       1
     else
       0;
 
-  cmpOpt =
-    x: y:
-    if x == null && y == null then
+  # Order nullable strings with null first.
+  compareOptionalStrings =
+    a: b:
+    if a == null && b == null then
       0
-    else if x == null then
+    else if a == null then
       -1
-    else if y == null then
+    else if b == null then
       1
     else
-      cmpStr x y;
+      compareStrings a b;
 
   portEq =
     a: b:
@@ -203,51 +273,121 @@ let
     else
       port.compare a b;
 
+  /*
+    Test two authorities for equality.
+
+    `a`, `b`: authority values.
+
+    Returns true when userinfo matches exactly, hosts are equal
+    (case-folded), and ports match as stored (null equals only null).
+  */
   eq =
     a: b:
     a._type == b._type && a.userinfo == b.userinfo && urlHost.eq a.host b.host && portEq a.port b.port;
 
+  /*
+    Order two authorities by host, then port (null first), then userinfo
+    (null first).
+
+    `a`, `b`: authority values.
+
+    Returns -1, 0, or 1.
+  */
   compare =
     a: b:
     let
-      hc = urlHost.compare a.host b.host;
+      hostOrder = urlHost.compare a.host b.host;
     in
-    if hc != 0 then
-      hc
+    if hostOrder != 0 then
+      hostOrder
     else
       let
-        pc = portCompare a.port b.port;
+        portOrder = portCompare a.port b.port;
       in
-      if pc != 0 then pc else cmpOpt a.userinfo b.userinfo;
+      if portOrder != 0 then portOrder else compareOptionalStrings a.userinfo b.userinfo;
 
+  /*
+    Check whether one authority sorts before another.
+
+    `a`, `b`: authority values.
+
+    Returns true when `compare a b` is -1.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Check whether one authority sorts before or equal to another.
+
+    `a`, `b`: authority values.
+
+    Returns true when `compare a b` is -1 or 0.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Check whether one authority sorts after another.
+
+    `a`, `b`: authority values.
+
+    Returns true when `compare a b` is 1.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Check whether one authority sorts after or equal to another.
+
+    `a`, `b`: authority values.
+
+    Returns true when `compare a b` is 1 or 0.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lesser of two authorities by `compare`.
+
+    `a`, `b`: authority values.
+
+    Returns `a` when it sorts first or equal, otherwise `b`.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the greater of two authorities by `compare`.
+
+    `a`, `b`: authority values.
+
+    Returns `a` when it sorts last or equal, otherwise `b`.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    make
-    ;
-  inherit isValid is;
-  # `userinfo` / `host` / `port` accessors declared inline to avoid
-  # shadowing the imported modules of the same name.
-  userinfo = au: au.userinfo;
-  host = au: au.host;
-  port = au: au.port;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
     compare
-    min
+    eq
+    ge
+    gt
+    host
+    is
+    isValid
+    le
+    lt
+    make
     max
+    min
+    parse
+    toString
+    tryParse
+    userinfo
     ;
+
+  # Defined here rather than in `let`, where `port` names the
+  # port module.
+  /*
+    Get the explicit port of an authority.
+
+    `authority`: an authority value.
+
+    Returns the port value, or null when omitted (no default applies).
+  */
+  port = authority: authority.port;
 }

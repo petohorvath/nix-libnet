@@ -4,118 +4,118 @@ let
   ipEndpoint = import ../lib/ip-endpoint.nix;
   dnsEndpoint = import ../lib/dns-endpoint.nix;
   inherit (harness) throws;
-  p = endpoint.parse;
+  parse = endpoint.parse;
 in
 {
   # ===== Dispatch =====
-  parse-ipv4-tagged = {
-    expr = (p "192.0.2.1:80")._type;
+  testParseIpv4Tagged = {
+    expr = (parse "192.0.2.1:80")._type;
     expected = "ipEndpoint";
   };
-  parse-ipv6-tagged = {
-    expr = (p "[::1]:443")._type;
+  testParseIpv6Tagged = {
+    expr = (parse "[::1]:443")._type;
     expected = "ipEndpoint";
   };
-  parse-hostname-tagged = {
-    expr = (p "nas:22")._type;
+  testParseHostnameTagged = {
+    expr = (parse "nas:22")._type;
     expected = "dnsEndpoint";
   };
-  parse-domain-tagged = {
-    expr = (p "pool.ntp.org:123")._type;
+  testParseDomainTagged = {
+    expr = (parse "pool.ntp.org:123")._type;
     expected = "dnsEndpoint";
   };
-  parse-ipv4-roundtrip = {
-    expr = endpoint.toString (p "192.0.2.1:80");
+  testParseIpv4RoundTrip = {
+    expr = endpoint.toString (parse "192.0.2.1:80");
     expected = "192.0.2.1:80";
   };
-  parse-ipv6-roundtrip = {
-    expr = endpoint.toString (p "[::1]:443");
+  testParseIpv6RoundTrip = {
+    expr = endpoint.toString (parse "[::1]:443");
     expected = "[::1]:443";
   };
-  parse-domain-roundtrip = {
-    expr = endpoint.toString (p "pool.ntp.org:123");
+  testParseDomainRoundTrip = {
+    expr = endpoint.toString (parse "pool.ntp.org:123");
     expected = "pool.ntp.org:123";
   };
 
   # ===== Reject =====
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-no-port = {
-    expr = throws (p "nas");
+  testRejectNoPort = {
+    expr = throws (parse "nas");
     expected = true;
   };
-  reject-underscore = {
-    expr = throws (p "host_name:22");
+  testRejectUnderscore = {
+    expr = throws (parse "host_name:22");
     expected = true;
   };
-  reject-unbracketed-ipv6 = {
-    expr = throws (p "::1:443");
+  testRejectUnbracketedIpv6 = {
+    expr = throws (parse "::1:443");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (endpoint.parse 42);
     expected = true;
   };
 
-  tryParse-ok-ip = {
+  testTryParseOkIp = {
     expr = (endpoint.tryParse "192.0.2.1:80").success;
     expected = true;
   };
-  tryParse-ok-name = {
+  testTryParseOkName = {
     expr = (endpoint.tryParse "nas:22").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (endpoint.tryParse "host_name:1").success;
     expected = false;
   };
 
   # ===== toString =====
-  toString-name-preserves-case = {
-    expr = endpoint.toString (p "MyHost.example.com:443");
+  testToStringNamePreservesCase = {
+    expr = endpoint.toString (parse "MyHost.example.com:443");
     expected = "MyHost.example.com:443";
   };
 
   # ===== Predicates =====
-  is-ip = {
-    expr = endpoint.is (p "192.0.2.1:80");
+  testIsIp = {
+    expr = endpoint.is (parse "192.0.2.1:80");
     expected = true;
   };
-  is-dns = {
-    expr = endpoint.is (p "nas:22");
+  testIsDns = {
+    expr = endpoint.is (parse "nas:22");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = endpoint.is "nas:22";
     expected = false;
   };
-  isIpEndpoint-yes = {
-    expr = endpoint.isIpEndpoint (p "192.0.2.1:80");
+  testIsIpEndpointYes = {
+    expr = endpoint.isIpEndpoint (parse "192.0.2.1:80");
     expected = true;
   };
-  isIpEndpoint-no = {
-    expr = endpoint.isIpEndpoint (p "nas:22");
+  testIsIpEndpointNo = {
+    expr = endpoint.isIpEndpoint (parse "nas:22");
     expected = false;
   };
-  isDnsEndpoint-yes = {
-    expr = endpoint.isDnsEndpoint (p "nas:22");
+  testIsDnsEndpointYes = {
+    expr = endpoint.isDnsEndpoint (parse "nas:22");
     expected = true;
   };
-  isDnsEndpoint-no = {
-    expr = endpoint.isDnsEndpoint (p "192.0.2.1:80");
+  testIsDnsEndpointNo = {
+    expr = endpoint.isDnsEndpoint (parse "192.0.2.1:80");
     expected = false;
   };
-  isValid-ip = {
+  testIsValidIp = {
     expr = endpoint.isValid "192.0.2.1:80";
     expected = true;
   };
-  isValid-name = {
+  testIsValidName = {
     expr = endpoint.isValid "pool.ntp.org:123";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = endpoint.isValid "host_name:1";
     expected = false;
   };
@@ -123,129 +123,129 @@ in
   # ===== Member access via predicates =====
   # The union is heterogeneous (no uniform address/port), so branch on
   # the kind and use the member module's accessors.
-  port-via-member = {
-    expr = (import ../lib/port.nix).toInt (ipEndpoint.port (p "192.0.2.1:80"));
+  testPortViaMember = {
+    expr = (import ../lib/port.nix).toInt (ipEndpoint.port (parse "192.0.2.1:80"));
     expected = 80;
   };
-  address-via-member = {
-    expr = (dnsEndpoint.address (p "nas:22")).value;
+  testAddressViaMember = {
+    expr = (dnsEndpoint.address (parse "nas:22")).value;
     expected = "nas";
   };
 
   # IP-endpoint result carries the full ipEndpoint API (predicates).
-  ip-result-has-predicates = {
-    expr = ipEndpoint.isLoopback (p "127.0.0.1:80");
+  testIpResultHasPredicates = {
+    expr = ipEndpoint.isLoopback (parse "127.0.0.1:80");
     expected = true;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = endpoint.lt (p "192.0.2.1:80") (p "192.0.2.2:80");
+  testCompareLt = {
+    expr = endpoint.lt (parse "192.0.2.1:80") (parse "192.0.2.2:80");
     expected = true;
   };
-  cmp-le = {
-    expr = endpoint.le (p "192.0.2.1:80") (p "192.0.2.2:80");
+  testCompareLe = {
+    expr = endpoint.le (parse "192.0.2.1:80") (parse "192.0.2.2:80");
     expected = true;
   };
-  cmp-gt = {
-    expr = endpoint.gt (p "192.0.2.2:80") (p "192.0.2.1:80");
+  testCompareGt = {
+    expr = endpoint.gt (parse "192.0.2.2:80") (parse "192.0.2.1:80");
     expected = true;
   };
-  cmp-ge = {
-    expr = endpoint.ge (p "192.0.2.2:80") (p "192.0.2.1:80");
+  testCompareGe = {
+    expr = endpoint.ge (parse "192.0.2.2:80") (parse "192.0.2.1:80");
     expected = true;
   };
-  cmp-max = {
-    expr = endpoint.toString (endpoint.max (p "192.0.2.1:80") (p "192.0.2.2:80"));
+  testCompareMax = {
+    expr = endpoint.toString (endpoint.max (parse "192.0.2.1:80") (parse "192.0.2.2:80"));
     expected = "192.0.2.2:80";
   };
 
   # ===== Comparison =====
-  eq-same-ip = {
-    expr = endpoint.eq (p "192.0.2.1:80") (p "192.0.2.1:80");
+  testEqSameIp = {
+    expr = endpoint.eq (parse "192.0.2.1:80") (parse "192.0.2.1:80");
     expected = true;
   };
-  eq-same-name = {
-    expr = endpoint.eq (p "nas:22") (p "nas:22");
+  testEqSameName = {
+    expr = endpoint.eq (parse "nas:22") (parse "nas:22");
     expected = true;
   };
-  eq-name-case = {
-    expr = endpoint.eq (p "NAS:22") (p "nas:22");
+  testEqNameCaseInsensitive = {
+    expr = endpoint.eq (parse "NAS:22") (parse "nas:22");
     expected = true;
   };
-  eq-cross-kind = {
-    expr = endpoint.eq (p "192.0.2.1:80") (p "nas:22");
+  testEqCrossKind = {
+    expr = endpoint.eq (parse "192.0.2.1:80") (parse "nas:22");
     expected = false;
   };
-  compare-ip-before-name = {
-    expr = endpoint.compare (p "192.0.2.1:80") (p "nas:22");
+  testCompareIpBeforeName = {
+    expr = endpoint.compare (parse "192.0.2.1:80") (parse "nas:22");
     expected = -1;
   };
-  compare-name-after-ip = {
-    expr = endpoint.compare (p "nas:22") (p "192.0.2.1:80");
+  testCompareNameAfterIp = {
+    expr = endpoint.compare (parse "nas:22") (parse "192.0.2.1:80");
     expected = 1;
   };
-  compare-within-name = {
-    expr = endpoint.compare (p "alpha:80") (p "beta:80");
+  testCompareWithinName = {
+    expr = endpoint.compare (parse "alpha:80") (parse "beta:80");
     expected = -1;
   };
-  compare-name-before-unix = {
-    expr = endpoint.compare (p "nas:22") (p "/run/foo.sock");
+  testCompareNameBeforeUnix = {
+    expr = endpoint.compare (parse "nas:22") (parse "/run/foo.sock");
     expected = -1;
   };
-  compare-unix-after-ip = {
-    expr = endpoint.compare (p "/run/foo.sock") (p "10.0.0.1:80");
+  testCompareUnixAfterIp = {
+    expr = endpoint.compare (parse "/run/foo.sock") (parse "10.0.0.1:80");
     expected = 1;
   };
-  min-picks-ip = {
-    expr = (endpoint.min (p "nas:22") (p "10.0.0.1:80"))._type;
+  testMinPicksIp = {
+    expr = (endpoint.min (parse "nas:22") (parse "10.0.0.1:80"))._type;
     expected = "ipEndpoint";
   };
 
   # ===== unixSocket member =====
-  parse-unix-tagged = {
-    expr = (p "/run/foo.sock")._type;
+  testParseUnixTagged = {
+    expr = (parse "/run/foo.sock")._type;
     expected = "unixSocket";
   };
-  parse-unix-abstract = {
-    expr = (p "@foo")._type;
+  testParseUnixAbstract = {
+    expr = (parse "@foo")._type;
     expected = "unixSocket";
   };
-  parse-unix-roundtrip = {
-    expr = endpoint.toString (p "/run/postgresql/.s.PGSQL.5432");
+  testParseUnixRoundTrip = {
+    expr = endpoint.toString (parse "/run/postgresql/.s.PGSQL.5432");
     expected = "/run/postgresql/.s.PGSQL.5432";
   };
-  isUnixSocket-yes = {
-    expr = endpoint.isUnixSocket (p "/run/foo.sock");
+  testIsUnixSocketYes = {
+    expr = endpoint.isUnixSocket (parse "/run/foo.sock");
     expected = true;
   };
-  isUnixSocket-no = {
-    expr = endpoint.isUnixSocket (p "192.0.2.1:80");
+  testIsUnixSocketNo = {
+    expr = endpoint.isUnixSocket (parse "192.0.2.1:80");
     expected = false;
   };
-  isValid-unix = {
+  testIsValidUnix = {
     expr = endpoint.isValid "/run/foo.sock";
     expected = true;
   };
-  eq-same-unix = {
-    expr = endpoint.eq (p "/run/foo.sock") (p "/run/foo.sock");
+  testEqSameUnix = {
+    expr = endpoint.eq (parse "/run/foo.sock") (parse "/run/foo.sock");
     expected = true;
   };
-  eq-unix-cross-kind = {
-    expr = endpoint.eq (p "/run/foo.sock") (p "nas:22");
+  testEqUnixCrossKind = {
+    expr = endpoint.eq (parse "/run/foo.sock") (parse "nas:22");
     expected = false;
   };
 
   # Sanity: union recognises values from each member module
-  is-from-ip-module = {
+  testIsFromIpModule = {
     expr = endpoint.is (ipEndpoint.parse "10.0.0.1:80");
     expected = true;
   };
-  is-from-dns-module = {
+  testIsFromDnsModule = {
     expr = endpoint.is (dnsEndpoint.parse "nas:22");
     expected = true;
   };
-  is-from-unix-module = {
+  testIsFromUnixModule = {
     expr = endpoint.is ((import ../lib/unix-socket.nix).parse "/run/foo.sock");
     expected = true;
   };

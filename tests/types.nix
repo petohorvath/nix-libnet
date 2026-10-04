@@ -6,935 +6,938 @@ let
 
   # Registry ↔ type cross-check: the curated vocabulary always
   # satisfies the type that validates its value space.
-  allIcmpTypesCheck = set: builtins.all (n: types.icmpType.check set.${n}) (builtins.attrNames set);
+  allIcmpTypesCheck =
+    icmpTypes:
+    builtins.all (name: types.icmpType.check icmpTypes.${name}) (builtins.attrNames icmpTypes);
 in
 {
   # ===== ipv4 =====
-  ipv4-check-ok = {
+  testIpv4CheckOk = {
     expr = types.ipv4.check "1.2.3.4";
     expected = true;
   };
-  ipv4-check-bad = {
+  testIpv4CheckBad = {
     expr = types.ipv4.check "bad";
     expected = false;
   };
-  ipv4-check-int = {
+  testIpv4CheckInt = {
     expr = types.ipv4.check 123;
     expected = false;
   };
-  ipv4-mk-ok = {
+  testIpv4MkOk = {
     expr = types.ipv4.mk "1.2.3.4";
     expected = "1.2.3.4";
   };
-  ipv4-mk-bad = {
+  testIpv4MkBad = {
     expr = throws (types.ipv4.mk "bad");
     expected = true;
   };
-  ipv4-mk-int = {
+  testIpv4MkInt = {
     expr = throws (types.ipv4.mk 123);
     expected = true;
   };
-  ipv4-desc = {
+  testIpv4Description = {
     expr = builtins.isString types.ipv4.description;
     expected = true;
   };
 
   # ===== ipv6 =====
-  ipv6-check-ok = {
+  testIpv6CheckOk = {
     expr = types.ipv6.check "::1";
     expected = true;
   };
-  ipv6-check-bad = {
+  testIpv6CheckBad = {
     expr = types.ipv6.check "bad";
     expected = false;
   };
-  ipv6-mk-ok = {
+  testIpv6MkOk = {
     expr = types.ipv6.mk "2001:db8::1";
     expected = "2001:db8::1";
   };
-  ipv6-mk-not-normalized = {
+  testIpv6MkNotNormalized = {
     expr = types.ipv6.mk "2001:DB8::1";
     expected = "2001:DB8::1";
   };
 
   # ===== ip =====
-  ip-check-v4 = {
+  testIpCheckV4 = {
     expr = types.ip.check "1.2.3.4";
     expected = true;
   };
-  ip-check-v6 = {
+  testIpCheckV6 = {
     expr = types.ip.check "::1";
     expected = true;
   };
-  ip-check-bad = {
+  testIpCheckBad = {
     expr = types.ip.check "bad";
     expected = false;
   };
 
   # ===== mac =====
-  mac-check-colon = {
+  testMacCheckColon = {
     expr = types.mac.check "aa:bb:cc:dd:ee:ff";
     expected = true;
   };
-  mac-check-hyphen = {
+  testMacCheckHyphen = {
     expr = types.mac.check "aa-bb-cc-dd-ee-ff";
     expected = true;
   };
-  mac-check-cisco = {
+  testMacCheckCisco = {
     expr = types.mac.check "aabb.ccdd.eeff";
     expected = true;
   };
-  mac-check-bad = {
+  testMacCheckBad = {
     expr = types.mac.check "zz:zz:zz:zz:zz:zz";
     expected = false;
   };
-  mac-mk-ok = {
+  testMacMkOk = {
     expr = types.mac.mk "aa:bb:cc:dd:ee:ff";
     expected = "aa:bb:cc:dd:ee:ff";
   };
 
   # ===== cidr =====
-  cidr-v4-ok = {
+  testCidrV4Ok = {
     expr = types.cidr.check "10.0.0.0/24";
     expected = true;
   };
-  cidr-v6-ok = {
+  testCidrV6Ok = {
     expr = types.cidr.check "2001:db8::/32";
     expected = true;
   };
-  cidr-bad = {
+  testCidrBad = {
     expr = types.cidr.check "bad";
     expected = false;
   };
-  ipv4Cidr-v4-ok = {
+  testIpv4CidrV4Ok = {
     expr = types.ipv4Cidr.check "10.0.0.0/24";
     expected = true;
   };
-  ipv4Cidr-v6-rej = {
+  testIpv4CidrRejectsV6 = {
     expr = types.ipv4Cidr.check "::/0";
     expected = false;
   };
-  ipv6Cidr-v6-ok = {
+  testIpv6CidrV6Ok = {
     expr = types.ipv6Cidr.check "::/0";
     expected = true;
   };
-  ipv6Cidr-v4-rej = {
+  testIpv6CidrRejectsV4 = {
     expr = types.ipv6Cidr.check "10.0.0.0/24";
     expected = false;
   };
 
   # ===== port (coerced int) =====
-  port-check-int = {
+  testPortCheckInt = {
     expr = types.port.check 80;
     expected = true;
   };
-  port-check-string = {
+  testPortCheckString = {
     expr = types.port.check "80";
     expected = true;
   };
-  port-check-over = {
+  testPortCheckOutOfRange = {
     expr = types.port.check 70000;
     expected = false;
   };
-  port-check-neg = {
+  testPortCheckNegative = {
     expr = types.port.check (-1);
     expected = false;
   };
-  port-mk-int = {
+  testPortMkInt = {
     expr = types.port.mk 80;
     expected = 80;
   };
-  port-mk-string = {
+  testPortMkString = {
     expr = types.port.mk "80";
     expected = 80;
   };
-  port-mk-bad-int = {
+  testPortMkBadInt = {
     expr = throws (types.port.mk 70000);
     expected = true;
   };
-  port-mk-bad-str = {
+  testPortMkBadString = {
     expr = throws (types.port.mk "abc");
     expected = true;
   };
 
   # ===== portRange =====
-  portRange-single = {
+  testPortRangeSingle = {
     expr = types.portRange.check "80";
     expected = true;
   };
-  portRange-range = {
+  testPortRangeRange = {
     expr = types.portRange.check "80-90";
     expected = true;
   };
-  portRange-bad = {
+  testPortRangeBad = {
     expr = types.portRange.check "90-80";
     expected = false;
   };
 
   # ===== ipEndpoint =====
-  ipEndpoint-v4-ok = {
+  testIpEndpointV4Ok = {
     expr = types.ipEndpoint.check "1.2.3.4:80";
     expected = true;
   };
-  ipEndpoint-v6-ok = {
+  testIpEndpointV6Ok = {
     expr = types.ipEndpoint.check "[::1]:80";
     expected = true;
   };
-  ipEndpoint-bad = {
+  testIpEndpointBad = {
     expr = types.ipEndpoint.check "::1:80";
     expected = false;
   };
-  ipEndpoint-name-rejected = {
+  testIpEndpointNameRejected = {
     expr = types.ipEndpoint.check "nas:22";
     expected = false;
   };
 
   # ===== dnsEndpoint =====
-  dnsEndpoint-hostname-ok = {
+  testDnsEndpointHostnameOk = {
     expr = types.dnsEndpoint.check "nas:22";
     expected = true;
   };
-  dnsEndpoint-domain-ok = {
+  testDnsEndpointDomainOk = {
     expr = types.dnsEndpoint.check "pool.ntp.org:123";
     expected = true;
   };
-  dnsEndpoint-ip-rejected = {
+  testDnsEndpointIpRejected = {
     expr = types.dnsEndpoint.check "192.0.2.1:80";
     expected = false;
   };
-  dnsEndpoint-no-port = {
+  testDnsEndpointNoPort = {
     expr = types.dnsEndpoint.check "nas";
     expected = false;
   };
-  dnsEndpoint-mk-ok = {
+  testDnsEndpointMkOk = {
     expr = types.dnsEndpoint.mk "pool.ntp.org:123";
     expected = "pool.ntp.org:123";
   };
-  dnsEndpoint-desc = {
+  testDnsEndpointDescription = {
     expr = builtins.isString types.dnsEndpoint.description;
     expected = true;
   };
 
   # ===== endpoint (union) =====
-  endpoint-ipv4-ok = {
+  testEndpointIpv4Ok = {
     expr = types.endpoint.check "192.0.2.1:80";
     expected = true;
   };
-  endpoint-ipv6-ok = {
+  testEndpointIpv6Ok = {
     expr = types.endpoint.check "[::1]:443";
     expected = true;
   };
-  endpoint-hostname-ok = {
+  testEndpointHostnameOk = {
     expr = types.endpoint.check "nas:22";
     expected = true;
   };
-  endpoint-domain-ok = {
+  testEndpointDomainOk = {
     expr = types.endpoint.check "pool.ntp.org:123";
     expected = true;
   };
-  endpoint-unix-ok = {
+  testEndpointUnixOk = {
     expr = types.endpoint.check "/run/foo.sock";
     expected = true;
   };
-  endpoint-bad = {
+  testEndpointBad = {
     expr = types.endpoint.check "host_name:1";
     expected = false;
   };
-  endpoint-no-port = {
+  testEndpointNoPort = {
     expr = types.endpoint.check "nas";
     expected = false;
   };
-  endpoint-mk-ip = {
+  testEndpointMkIp = {
     expr = types.endpoint.mk "192.0.2.1:80";
     expected = "192.0.2.1:80";
   };
-  endpoint-mk-name = {
+  testEndpointMkName = {
     expr = types.endpoint.mk "pool.ntp.org:123";
     expected = "pool.ntp.org:123";
   };
-  endpoint-desc = {
+  testEndpointDescription = {
     expr = builtins.isString types.endpoint.description;
     expected = true;
   };
 
   # ===== unixSocket =====
-  unixSocket-pathname-ok = {
+  testUnixSocketPathnameOk = {
     expr = types.unixSocket.check "/run/foo.sock";
     expected = true;
   };
-  unixSocket-abstract-ok = {
+  testUnixSocketAbstractOk = {
     expr = types.unixSocket.check "@foo";
     expected = true;
   };
-  unixSocket-relative-rejected = {
+  testUnixSocketRelativeRejected = {
     expr = types.unixSocket.check "run/foo.sock";
     expected = false;
   };
-  unixSocket-host-port-rejected = {
+  testUnixSocketHostPortRejected = {
     expr = types.unixSocket.check "1.2.3.4:80";
     expected = false;
   };
-  unixSocket-int = {
+  testUnixSocketInt = {
     expr = types.unixSocket.check 42;
     expected = false;
   };
-  unixSocket-mk-ok = {
+  testUnixSocketMkOk = {
     expr = types.unixSocket.mk "/run/foo.sock";
     expected = "/run/foo.sock";
   };
-  unixSocket-mk-bad = {
+  testUnixSocketMkBad = {
     expr = throws (types.unixSocket.mk "foo.sock");
     expected = true;
   };
-  unixSocket-desc = {
+  testUnixSocketDescription = {
     expr = builtins.isString types.unixSocket.description;
     expected = true;
   };
 
   # ===== socketUrl =====
-  socketUrl-tcp = {
+  testSocketUrlTcp = {
     expr = types.socketUrl.check "tcp://1.2.3.4:80";
     expected = true;
   };
-  socketUrl-udp-v6 = {
+  testSocketUrlUdpV6 = {
     expr = types.socketUrl.check "udp://[::1]:53";
     expected = true;
   };
-  socketUrl-unix = {
+  testSocketUrlUnix = {
     expr = types.socketUrl.check "unix:///run/foo.sock";
     expected = true;
   };
-  socketUrl-no-scheme = {
+  testSocketUrlNoScheme = {
     expr = types.socketUrl.check "1.2.3.4:80";
     expected = false;
   };
-  socketUrl-unknown-scheme = {
+  testSocketUrlUnknownScheme = {
     expr = types.socketUrl.check "http://1.2.3.4:80";
     expected = false;
   };
-  socketUrl-tcp-path-rejected = {
+  testSocketUrlTcpPathRejected = {
     expr = types.socketUrl.check "tcp:///run/foo.sock";
     expected = false;
   };
-  socketUrl-mk-ok = {
+  testSocketUrlMkOk = {
     expr = types.socketUrl.mk "tcp://1.2.3.4:80";
     expected = "tcp://1.2.3.4:80";
   };
-  socketUrl-mk-bad = {
+  testSocketUrlMkBad = {
     expr = throws (types.socketUrl.mk "ftp://x:1");
     expected = true;
   };
-  socketUrl-desc = {
+  testSocketUrlDescription = {
     expr = builtins.isString types.socketUrl.description;
     expected = true;
   };
 
   # ===== bindUrl =====
-  bindUrl-tcp-wildcard = {
+  testBindUrlTcpWildcard = {
     expr = types.bindUrl.check "tcp://:8080";
     expected = true;
   };
-  bindUrl-udp-v6-range = {
+  testBindUrlUdpV6Range = {
     expr = types.bindUrl.check "udp://[::]:8000-8100";
     expected = true;
   };
-  bindUrl-unix = {
+  testBindUrlUnix = {
     expr = types.bindUrl.check "unix:///run/foo.sock";
     expected = true;
   };
-  bindUrl-no-scheme = {
+  testBindUrlNoScheme = {
     expr = types.bindUrl.check ":8080";
     expected = false;
   };
-  bindUrl-unknown-scheme = {
+  testBindUrlUnknownScheme = {
     expr = types.bindUrl.check "http://:8080";
     expected = false;
   };
-  bindUrl-tcp-path-rejected = {
+  testBindUrlTcpPathRejected = {
     expr = types.bindUrl.check "tcp:///run/foo.sock";
     expected = false;
   };
-  bindUrl-mk-ok = {
+  testBindUrlMkOk = {
     expr = types.bindUrl.mk "tcp://:8080";
     expected = "tcp://:8080";
   };
-  bindUrl-mk-bad = {
+  testBindUrlMkBad = {
     expr = throws (types.bindUrl.mk "ftp://:1");
     expected = true;
   };
-  bindUrl-desc = {
+  testBindUrlDescription = {
     expr = builtins.isString types.bindUrl.description;
     expected = true;
   };
 
   # ===== secureSocketUrl =====
-  secureSocketUrl-tls = {
+  testSecureSocketUrlTls = {
     expr = types.secureSocketUrl.check "tls://1.2.3.4:443";
     expected = true;
   };
-  secureSocketUrl-ssl-alias = {
+  testSecureSocketUrlSslAlias = {
     expr = types.secureSocketUrl.check "ssl://1.2.3.4:443";
     expected = true;
   };
-  secureSocketUrl-quic-v6 = {
+  testSecureSocketUrlQuicV6 = {
     expr = types.secureSocketUrl.check "quic://[::1]:443";
     expected = true;
   };
-  secureSocketUrl-plaintext-rejected = {
+  testSecureSocketUrlPlaintextRejected = {
     expr = types.secureSocketUrl.check "tcp://1.2.3.4:443";
     expected = false;
   };
-  secureSocketUrl-unix-rejected = {
+  testSecureSocketUrlUnixRejected = {
     expr = types.secureSocketUrl.check "unix:///run/foo.sock";
     expected = false;
   };
-  secureSocketUrl-mk-ok = {
+  testSecureSocketUrlMkOk = {
     expr = types.secureSocketUrl.mk "tls://1.2.3.4:443";
     expected = "tls://1.2.3.4:443";
   };
-  secureSocketUrl-mk-bad = {
+  testSecureSocketUrlMkBad = {
     expr = throws (types.secureSocketUrl.mk "tcp://x:1");
     expected = true;
   };
-  secureSocketUrl-desc = {
+  testSecureSocketUrlDescription = {
     expr = builtins.isString types.secureSocketUrl.description;
     expected = true;
   };
 
   # ===== url =====
-  url-https-ok = {
+  testUrlHttpsOk = {
     expr = types.url.check "https://example.com/p?q=1#f";
     expected = true;
   };
-  url-scheme-ok = {
+  testUrlSchemeOk = {
     expr = types.url.check "redis://[::1]:6379";
     expected = true;
   };
-  url-underscore-host = {
+  testUrlUnderscoreHost = {
     expr = types.url.check "http://my_host:8080/x";
     expected = true;
   };
-  url-unknown-scheme = {
+  testUrlUnknownScheme = {
     expr = types.url.check "gopher://h";
     expected = false;
   };
-  url-no-scheme = {
+  testUrlNoScheme = {
     expr = types.url.check "example.com/x";
     expected = false;
   };
-  url-empty-host = {
+  testUrlEmptyHost = {
     expr = types.url.check "https:///path";
     expected = false;
   };
-  url-int = {
+  testUrlInt = {
     expr = types.url.check 42;
     expected = false;
   };
-  url-mk-ok = {
+  testUrlMkOk = {
     expr = types.url.mk "https://example.com/p";
     expected = "https://example.com/p";
   };
-  url-mk-bad = {
+  testUrlMkBad = {
     expr = throws (types.url.mk "gopher://h");
     expected = true;
   };
-  url-desc = {
+  testUrlDescription = {
     expr = builtins.isString types.url.description;
     expected = true;
   };
 
   # ===== urlHost =====
-  urlHost-ip = {
+  testUrlHostIp = {
     expr = types.urlHost.check "1.2.3.4";
     expected = true;
   };
-  urlHost-bracketed-v6 = {
+  testUrlHostBracketedV6 = {
     expr = types.urlHost.check "[::1]";
     expected = true;
   };
-  urlHost-regname = {
+  testUrlHostRegName = {
     expr = types.urlHost.check "example.com";
     expected = true;
   };
-  urlHost-underscore-ok = {
+  testUrlHostUnderscoreOk = {
     expr = types.urlHost.check "my_host";
     expected = true;
   }; # looser than host, which rejects underscores
-  urlHost-vs-host = {
+  testUrlHostVsHost = {
     expr = types.host.check "my_host";
     expected = false;
   };
-  urlHost-bad = {
+  testUrlHostBad = {
     expr = types.urlHost.check "bad host";
     expected = false;
   };
-  urlHost-int = {
+  testUrlHostInt = {
     expr = types.urlHost.check 42;
     expected = false;
   };
-  urlHost-mk-ok = {
+  testUrlHostMkOk = {
     expr = types.urlHost.mk "example.com";
     expected = "example.com";
   };
-  urlHost-mk-bad = {
+  testUrlHostMkBad = {
     expr = throws (types.urlHost.mk "bad host");
     expected = true;
   };
-  urlHost-desc = {
+  testUrlHostDescription = {
     expr = builtins.isString types.urlHost.description;
     expected = true;
   };
 
   # ===== authority =====
-  authority-host-only = {
+  testAuthorityHostOnly = {
     expr = types.authority.check "example.com";
     expected = true;
   };
-  authority-userinfo-port = {
+  testAuthorityUserinfoPort = {
     expr = types.authority.check "user@example.com:8443";
     expected = true;
   };
-  authority-ipv6 = {
+  testAuthorityIpv6 = {
     expr = types.authority.check "[::1]:80";
     expected = true;
   };
-  authority-empty-rejected = {
+  testAuthorityEmptyRejected = {
     expr = types.authority.check "";
     expected = false;
   };
-  authority-multi-at-rejected = {
+  testAuthorityMultiAtRejected = {
     expr = types.authority.check "a@b@h";
     expected = false;
   };
-  authority-int = {
+  testAuthorityInt = {
     expr = types.authority.check 42;
     expected = false;
   };
-  authority-mk-ok = {
+  testAuthorityMkOk = {
     expr = types.authority.mk "user@h:80";
     expected = "user@h:80";
   };
-  authority-mk-bad = {
+  testAuthorityMkBad = {
     expr = throws (types.authority.mk "a@b@c");
     expected = true;
   };
-  authority-desc = {
+  testAuthorityDescription = {
     expr = builtins.isString types.authority.description;
     expected = true;
   };
 
   # ===== proxyUrl =====
-  proxyUrl-socks5 = {
+  testProxyUrlSocks5 = {
     expr = types.proxyUrl.check "socks5://127.0.0.1:1080";
     expected = true;
   };
-  proxyUrl-http-userinfo = {
+  testProxyUrlHttpUserinfo = {
     expr = types.proxyUrl.check "http://user:pass@proxy:8080";
     expected = true;
   };
-  proxyUrl-no-port-rejected = {
+  testProxyUrlNoPortRejected = {
     expr = types.proxyUrl.check "socks5://127.0.0.1";
     expected = false;
   };
-  proxyUrl-unknown-scheme-rejected = {
+  testProxyUrlUnknownSchemeRejected = {
     expr = types.proxyUrl.check "ftp://h:1080";
     expected = false;
   };
-  proxyUrl-bare-socks-rejected = {
+  testProxyUrlBareSocksRejected = {
     expr = types.proxyUrl.check "socks://h:1080";
     expected = false;
   };
-  proxyUrl-int = {
+  testProxyUrlInt = {
     expr = types.proxyUrl.check 42;
     expected = false;
   };
-  proxyUrl-mk-ok = {
+  testProxyUrlMkOk = {
     expr = types.proxyUrl.mk "socks5://h:1080";
     expected = "socks5://h:1080";
   };
-  proxyUrl-mk-bad = {
+  testProxyUrlMkBad = {
     expr = throws (types.proxyUrl.mk "socks5://h");
     expected = true;
   };
-  proxyUrl-desc = {
+  testProxyUrlDescription = {
     expr = builtins.isString types.proxyUrl.description;
     expected = true;
   };
 
   # ===== ipBindpoint =====
-  ipBindpoint-null = {
+  testIpBindpointNoAddress = {
     expr = types.ipBindpoint.check ":80";
     expected = true;
   };
-  ipBindpoint-wild = {
+  testIpBindpointWildcard = {
     expr = types.ipBindpoint.check "*:80";
     expected = true;
   };
-  ipBindpoint-range = {
+  testIpBindpointRange = {
     expr = types.ipBindpoint.check "1.2.3.4:80-90";
     expected = true;
   };
-  ipBindpoint-unix-rejected = {
+  testIpBindpointUnixRejected = {
     expr = types.ipBindpoint.check "/run/foo.sock";
     expected = false;
   };
-  ipBindpoint-desc = {
+  testIpBindpointDescription = {
     expr = builtins.isString types.ipBindpoint.description;
     expected = true;
   };
 
   # ===== bindpoint (union) =====
-  bindpoint-ip = {
+  testBindpointIp = {
     expr = types.bindpoint.check ":80";
     expected = true;
   };
-  bindpoint-wild = {
+  testBindpointWildcard = {
     expr = types.bindpoint.check "*:80";
     expected = true;
   };
-  bindpoint-range = {
+  testBindpointRange = {
     expr = types.bindpoint.check "1.2.3.4:80-90";
     expected = true;
   };
-  bindpoint-unix = {
+  testBindpointUnix = {
     expr = types.bindpoint.check "/run/foo.sock";
     expected = true;
   };
-  bindpoint-unix-abstract = {
+  testBindpointUnixAbstract = {
     expr = types.bindpoint.check "@foo";
     expected = true;
   };
-  bindpoint-bad = {
+  testBindpointBad = {
     expr = types.bindpoint.check "host_name:1";
     expected = false;
   };
-  bindpoint-mk-unix = {
+  testBindpointMkUnix = {
     expr = types.bindpoint.mk "/run/foo.sock";
     expected = "/run/foo.sock";
   };
-  bindpoint-desc = {
+  testBindpointDescription = {
     expr = builtins.isString types.bindpoint.description;
     expected = true;
   };
 
   # ===== ipRange =====
-  ipRange-v4 = {
+  testIpRangeV4 = {
     expr = types.ipRange.check "1.2.3.4-1.2.3.10";
     expected = true;
   };
-  ipRange-v6 = {
+  testIpRangeV6 = {
     expr = types.ipRange.check "::1-::ff";
     expected = true;
   };
-  ipRange-bad = {
+  testIpRangeBad = {
     expr = types.ipRange.check "1.2.3.4";
     expected = false;
   };
 
   # ===== interfaceAddress =====
-  ifaddr-v4 = {
+  testInterfaceAddressV4 = {
     expr = types.interfaceAddress.check "10.0.0.5/24";
     expected = true;
   };
-  ifaddr-v6 = {
+  testInterfaceAddressV6 = {
     expr = types.interfaceAddress.check "::1/64";
     expected = true;
   };
-  ipv4Ifaddr-v6-rej = {
+  testIpv4InterfaceAddressRejectsV6 = {
     expr = types.ipv4InterfaceAddress.check "::1/64";
     expected = false;
   };
-  ipv6Ifaddr-v4-rej = {
+  testIpv6InterfaceAddressRejectsV4 = {
     expr = types.ipv6InterfaceAddress.check "10.0.0.5/24";
     expected = false;
   };
 
   # ===== interfaceName =====
-  ifname-ok = {
+  testInterfaceNameOk = {
     expr = types.interfaceName.check "eth0";
     expected = true;
   };
-  ifname-ok-max = {
+  testInterfaceNameMaxLength = {
     expr = types.interfaceName.check "abcdefghijklmno"; # 15 bytes
     expected = true;
   };
-  ifname-empty = {
+  testInterfaceNameEmpty = {
     expr = types.interfaceName.check "";
     expected = false;
   };
-  ifname-too-long = {
+  testInterfaceNameTooLong = {
     expr = types.interfaceName.check "abcdefghijklmnop"; # 16 bytes
     expected = false;
   };
-  ifname-dot = {
+  testInterfaceNameDot = {
     expr = types.interfaceName.check ".";
     expected = false;
   };
-  ifname-dotdot = {
+  testInterfaceNameDotDot = {
     expr = types.interfaceName.check "..";
     expected = false;
   };
-  ifname-slash = {
+  testInterfaceNameSlash = {
     expr = types.interfaceName.check "eth/0";
     expected = false;
   };
-  ifname-colon = {
+  testInterfaceNameColon = {
     expr = types.interfaceName.check "eth:0";
     expected = false;
   };
-  ifname-space = {
+  testInterfaceNameSpace = {
     expr = types.interfaceName.check "eth 0";
     expected = false;
   };
-  ifname-int = {
+  testInterfaceNameInt = {
     expr = types.interfaceName.check 0;
     expected = false;
   };
-  ifname-mk-ok = {
+  testInterfaceNameMkOk = {
     expr = types.interfaceName.mk "wg0";
     expected = "wg0";
   };
-  ifname-mk-bad = {
+  testInterfaceNameMkBad = {
     expr = throws (types.interfaceName.mk "..");
     expected = true;
   };
-  ifname-rej-cidr = {
+  # The address-on-subnet form belongs to the `interfaceAddress` type.
+  testInterfaceNameRejectsCidr = {
     expr = types.interfaceName.check "10.0.0.5/24";
-    expected = false; # the address-on-subnet form is the `interfaceAddress` type
+    expected = false;
   };
 
   # ===== transport =====
-  transport-check-tcp = {
+  testTransportCheckTcp = {
     expr = types.transport.check "tcp";
     expected = true;
   };
-  transport-check-udp = {
+  testTransportCheckUdp = {
     expr = types.transport.check "udp";
     expected = true;
   };
-  transport-check-sctp = {
+  testTransportCheckSctp = {
     expr = types.transport.check "sctp";
     expected = true;
   };
-  transport-check-bad = {
+  testTransportCheckBad = {
     expr = types.transport.check "icmp";
     expected = false;
   };
-  transport-check-upper = {
+  testTransportCheckUpper = {
     expr = types.transport.check "TCP";
     expected = false;
   };
-  transport-check-int = {
+  testTransportCheckInt = {
     expr = types.transport.check 6;
     expected = false;
   };
-  transport-mk-ok = {
+  testTransportMkOk = {
     expr = types.transport.mk "tcp";
     expected = "tcp";
   };
-  transport-mk-bad = {
+  testTransportMkBad = {
     expr = throws (types.transport.mk "icmp");
     expected = true;
   };
-  transport-desc = {
+  testTransportDescription = {
     expr = builtins.isString types.transport.description;
     expected = true;
   };
 
   # ===== hostname =====
-  hostname-check-ok = {
+  testHostnameCheckOk = {
     expr = types.hostname.check "nas";
     expected = true;
   };
-  hostname-check-hyphen = {
+  testHostnameCheckHyphen = {
     expr = types.hostname.check "my-server";
     expected = true;
   };
-  hostname-check-leading-digit = {
+  testHostnameCheckLeadingDigit = {
     expr = types.hostname.check "3com";
     expected = true;
   };
-  hostname-check-underscore = {
+  testHostnameCheckUnderscore = {
     expr = types.hostname.check "host_name";
     expected = false;
   };
-  hostname-check-dot = {
+  testHostnameCheckDot = {
     expr = types.hostname.check "host.example.com";
     expected = false;
   };
-  hostname-check-empty = {
+  testHostnameCheckEmpty = {
     expr = types.hostname.check "";
     expected = false;
   };
-  hostname-check-int = {
+  testHostnameCheckInt = {
     expr = types.hostname.check 42;
     expected = false;
   };
-  hostname-mk-ok = {
+  testHostnameMkOk = {
     expr = types.hostname.mk "MyHost";
     expected = "MyHost";
   };
-  hostname-mk-bad = {
+  testHostnameMkBad = {
     expr = throws (types.hostname.mk "host_name");
     expected = true;
   };
-  hostname-desc = {
+  testHostnameDescription = {
     expr = builtins.isString types.hostname.description;
     expected = true;
   };
 
   # ===== domain =====
-  domain-check-ok = {
+  testDomainCheckOk = {
     expr = types.domain.check "example.com";
     expected = true;
   };
-  domain-check-three-labels = {
+  testDomainCheckThreeLabels = {
     expr = types.domain.check "foo.example.com";
     expected = true;
   };
-  domain-check-mixed-case = {
+  testDomainCheckMixedCase = {
     expr = types.domain.check "Example.COM";
     expected = true;
   };
-  domain-check-single-label = {
+  testDomainCheckSingleLabel = {
     expr = types.domain.check "example";
     expected = false;
   };
-  domain-check-trailing-dot = {
+  testDomainCheckTrailingDot = {
     expr = types.domain.check "example.com.";
     expected = false;
   };
-  domain-check-underscore = {
+  testDomainCheckUnderscore = {
     expr = types.domain.check "host_name.com";
     expected = false;
   };
-  domain-check-int = {
+  testDomainCheckInt = {
     expr = types.domain.check 42;
     expected = false;
   };
-  domain-mk-ok = {
+  testDomainMkOk = {
     expr = types.domain.mk "example.com";
     expected = "example.com";
   };
-  domain-mk-bad = {
+  testDomainMkBad = {
     expr = throws (types.domain.mk "example");
     expected = true;
   };
-  domain-desc = {
+  testDomainDescription = {
     expr = builtins.isString types.domain.description;
     expected = true;
   };
 
   # ===== dnsName =====
-  dnsName-check-hostname = {
+  testDnsNameCheckHostname = {
     expr = types.dnsName.check "nas";
     expected = true;
   };
-  dnsName-check-domain = {
+  testDnsNameCheckDomain = {
     expr = types.dnsName.check "example.com";
     expected = true;
   };
-  dnsName-check-ip-rejected = {
+  testDnsNameCheckIpRejected = {
     expr = types.dnsName.check "192.0.2.1";
     expected = false;
   };
-  dnsName-check-bad = {
+  testDnsNameCheckBad = {
     expr = types.dnsName.check "host_name";
     expected = false;
   };
-  dnsName-check-int = {
+  testDnsNameCheckInt = {
     expr = types.dnsName.check 42;
     expected = false;
   };
-  dnsName-mk-ok = {
+  testDnsNameMkOk = {
     expr = types.dnsName.mk "pool.ntp.org";
     expected = "pool.ntp.org";
   };
-  dnsName-mk-ip-throws = {
+  testDnsNameMkIpThrows = {
     expr = throws (types.dnsName.mk "192.0.2.1");
     expected = true;
   };
-  dnsName-desc = {
+  testDnsNameDescription = {
     expr = builtins.isString types.dnsName.description;
     expected = true;
   };
 
   # ===== host =====
-  host-check-ip = {
+  testHostCheckIp = {
     expr = types.host.check "192.168.1.1";
     expected = true;
   };
-  host-check-ipv6 = {
+  testHostCheckIpv6 = {
     expr = types.host.check "::1";
     expected = true;
   };
-  host-check-hostname = {
+  testHostCheckHostname = {
     expr = types.host.check "nas";
     expected = true;
   };
-  host-check-domain = {
+  testHostCheckDomain = {
     expr = types.host.check "example.com";
     expected = true;
   };
-  host-check-bad = {
+  testHostCheckBad = {
     expr = types.host.check "host_name";
     expected = false;
   };
-  host-check-empty = {
+  testHostCheckEmpty = {
     expr = types.host.check "";
     expected = false;
   };
-  host-check-int = {
+  testHostCheckInt = {
     expr = types.host.check 42;
     expected = false;
   };
-  host-mk-ip = {
+  testHostMkIp = {
     expr = types.host.mk "192.168.1.1";
     expected = "192.168.1.1";
   };
-  host-mk-hostname = {
+  testHostMkHostname = {
     expr = types.host.mk "nas";
     expected = "nas";
   };
-  host-mk-bad = {
+  testHostMkBad = {
     expr = throws (types.host.mk "host_name");
     expected = true;
   };
-  host-desc = {
+  testHostDescription = {
     expr = builtins.isString types.host.description;
     expected = true;
   };
 
   # ===== vlanId =====
-  vlanId-check-typical = {
+  testVlanIdCheckTypical = {
     expr = types.vlanId.check 100;
     expected = true;
   };
-  vlanId-check-min = {
+  testVlanIdCheckMin = {
     expr = types.vlanId.check 1;
     expected = true;
   };
-  vlanId-check-max = {
+  testVlanIdCheckMax = {
     expr = types.vlanId.check 4094;
     expected = true;
   };
-  vlanId-check-zero = {
+  testVlanIdCheckZero = {
     expr = types.vlanId.check 0;
     expected = false;
   };
-  vlanId-check-4095 = {
+  testVlanIdCheck4095 = {
     expr = types.vlanId.check 4095;
     expected = false;
   };
-  vlanId-check-negative = {
+  testVlanIdCheckNegative = {
     expr = types.vlanId.check (-1);
     expected = false;
   };
-  vlanId-check-string = {
+  testVlanIdCheckString = {
     expr = types.vlanId.check "100";
     expected = false;
   };
-  vlanId-check-rejects-non-ints = {
+  testVlanIdCheckRejectsNonInts = {
     expr = builtins.any types.vlanId.check [
       null
       true
@@ -947,8 +950,8 @@ in
     ];
     expected = false;
   };
-  vlanId-mk-rejects-non-ints = {
-    expr = builtins.all (v: throws (types.vlanId.mk v)) [
+  testVlanIdMkRejectsNonInts = {
+    expr = builtins.all (value: throws (types.vlanId.mk value)) [
       null
       true
       100.0
@@ -960,69 +963,69 @@ in
     ];
     expected = true;
   };
-  vlanId-mk-ok = {
+  testVlanIdMkOk = {
     expr = types.vlanId.mk 100;
     expected = 100;
   };
-  vlanId-mk-min = {
+  testVlanIdMkMin = {
     expr = types.vlanId.mk 1;
     expected = 1;
   };
-  vlanId-mk-max = {
+  testVlanIdMkMax = {
     expr = types.vlanId.mk 4094;
     expected = 4094;
   };
-  vlanId-mk-zero-throws = {
+  testVlanIdMkZeroThrows = {
     expr = throws (types.vlanId.mk 0);
     expected = true;
   };
-  vlanId-mk-4095-throws = {
+  testVlanIdMk4095Throws = {
     expr = throws (types.vlanId.mk 4095);
     expected = true;
   };
-  vlanId-mk-string-throws = {
+  testVlanIdMkStringThrows = {
     expr = throws (types.vlanId.mk "100");
     expected = true;
   };
-  vlanId-desc = {
+  testVlanIdDescription = {
     expr = builtins.isString types.vlanId.description;
     expected = true;
   };
 
   # ===== mtu =====
-  mtu-check-ethernet = {
+  testMtuCheckEthernet = {
     expr = types.mtu.check 1500;
     expected = true;
   };
-  mtu-check-jumbo = {
+  testMtuCheckJumbo = {
     expr = types.mtu.check 9000;
     expected = true;
   };
-  mtu-check-min = {
+  testMtuCheckMin = {
     expr = types.mtu.check 68;
     expected = true;
   };
-  mtu-check-max = {
+  testMtuCheckMax = {
     expr = types.mtu.check 65535;
     expected = true;
   };
-  mtu-check-below-min = {
+  testMtuCheckBelowMin = {
     expr = types.mtu.check 67;
     expected = false;
   };
-  mtu-check-above-max = {
+  testMtuCheckAboveMax = {
     expr = types.mtu.check 65536;
     expected = false;
   };
-  mtu-check-zero = {
+  testMtuCheckZero = {
     expr = types.mtu.check 0;
     expected = false;
   };
-  mtu-check-string = {
+  testMtuCheckString = {
     expr = types.mtu.check "1500";
     expected = false;
   };
-  mtu-check-rejects-non-ints = {
+  testMtuCheckRejectsNonInts = {
     expr = builtins.any types.mtu.check [
       null
       true
@@ -1035,8 +1038,8 @@ in
     ];
     expected = false;
   };
-  mtu-mk-rejects-non-ints = {
-    expr = builtins.all (v: throws (types.mtu.mk v)) [
+  testMtuMkRejectsNonInts = {
+    expr = builtins.all (value: throws (types.mtu.mk value)) [
       null
       true
       1500.0
@@ -1048,61 +1051,61 @@ in
     ];
     expected = true;
   };
-  mtu-mk-ok = {
+  testMtuMkOk = {
     expr = types.mtu.mk 1500;
     expected = 1500;
   };
-  mtu-mk-min = {
+  testMtuMkMin = {
     expr = types.mtu.mk 68;
     expected = 68;
   };
-  mtu-mk-max = {
+  testMtuMkMax = {
     expr = types.mtu.mk 65535;
     expected = 65535;
   };
-  mtu-mk-below-throws = {
+  testMtuMkBelowThrows = {
     expr = throws (types.mtu.mk 67);
     expected = true;
   };
-  mtu-mk-above-throws = {
+  testMtuMkAboveThrows = {
     expr = throws (types.mtu.mk 65536);
     expected = true;
   };
-  mtu-mk-string-throws = {
+  testMtuMkStringThrows = {
     expr = throws (types.mtu.mk "1500");
     expected = true;
   };
-  mtu-desc = {
+  testMtuDescription = {
     expr = builtins.isString types.mtu.description;
     expected = true;
   };
 
   # ===== icmpType =====
-  icmpType-check-typical = {
+  testIcmpTypeCheckTypical = {
     expr = types.icmpType.check 8;
     expected = true;
   };
-  icmpType-check-min = {
+  testIcmpTypeCheckMin = {
     expr = types.icmpType.check 0;
     expected = true;
   };
-  icmpType-check-max = {
+  testIcmpTypeCheckMax = {
     expr = types.icmpType.check 255;
     expected = true;
   };
-  icmpType-check-256 = {
+  testIcmpTypeCheck256 = {
     expr = types.icmpType.check 256;
     expected = false;
   };
-  icmpType-check-negative = {
+  testIcmpTypeCheckNegative = {
     expr = types.icmpType.check (-1);
     expected = false;
   };
-  icmpType-check-string = {
+  testIcmpTypeCheckString = {
     expr = types.icmpType.check "8";
     expected = false;
   };
-  icmpType-check-rejects-non-ints = {
+  testIcmpTypeCheckRejectsNonInts = {
     expr = builtins.any types.icmpType.check [
       null
       true
@@ -1115,8 +1118,8 @@ in
     ];
     expected = false;
   };
-  icmpType-mk-rejects-non-ints = {
-    expr = builtins.all (v: throws (types.icmpType.mk v)) [
+  testIcmpTypeMkRejectsNonInts = {
+    expr = builtins.all (value: throws (types.icmpType.mk value)) [
       null
       true
       8.0
@@ -1128,53 +1131,54 @@ in
     ];
     expected = true;
   };
-  icmpType-mk-ok = {
+  testIcmpTypeMkOk = {
     expr = types.icmpType.mk 8;
     expected = 8;
   };
-  icmpType-mk-min = {
+  testIcmpTypeMkMin = {
     expr = types.icmpType.mk 0;
     expected = 0;
   };
-  icmpType-mk-max = {
+  testIcmpTypeMkMax = {
     expr = types.icmpType.mk 255;
     expected = 255;
   };
-  icmpType-mk-256-throws = {
+  testIcmpTypeMk256Throws = {
     expr = throws (types.icmpType.mk 256);
     expected = true;
   };
-  icmpType-mk-negative-throws = {
+  testIcmpTypeMkNegativeThrows = {
     expr = throws (types.icmpType.mk (-1));
     expected = true;
   };
-  icmpType-mk-string-throws = {
+  testIcmpTypeMkStringThrows = {
     expr = throws (types.icmpType.mk "8");
     expected = true;
   };
-  icmpType-desc = {
+  testIcmpTypeDescription = {
     expr = builtins.isString types.icmpType.description;
     expected = true;
   };
-  icmpType-registry-v4 = {
+  testIcmpTypeRegistryV4 = {
     expr = allIcmpTypesCheck registry.icmpTypes.ipv4;
     expected = true;
   };
-  icmpType-registry-v6 = {
+  testIcmpTypeRegistryV6 = {
     expr = allIcmpTypesCheck registry.icmpTypes.ipv6;
     expected = true;
   };
 
   # ===== .mk smart constructors =====
-  mk-preserves-case = {
+  # `mk` returns its input as written, without normalizing it.
+  testMkPreservesCase = {
     expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
     expected = "AA:BB:CC:DD:EE:FF";
-  }; # not normalized
-  mk-cidr-throws-bad = {
+  };
+  testMkCidrThrowsBad = {
     expr = throws (types.cidr.mk "bad");
     expected = true;
   };
-  mk-cidr-wrong-fam = {
+  testMkCidrWrongFamily = {
     expr = throws (types.ipv4Cidr.mk "::/0");
     expected = true;
   };

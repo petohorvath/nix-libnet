@@ -31,7 +31,7 @@ nix build --print-build-logs ".#checks.${SYSTEM}.core"
 nix build --print-build-logs ".#checks.${SYSTEM}.full"
 ```
 
-CI runs the `core` and `full` commands for both `x86_64-linux` and `aarch64-linux`. It also runs the full suite against both supported nixpkgs channels:
+CI runs the `core` and `full` commands for both `x86_64-linux` and `aarch64-linux`. It also runs the full suite against both supported nixpkgs branches:
 
 ```sh
 nix build --print-build-logs --override-input nixpkgs github:NixOS/nixpkgs/nixos-25.11 .#checks.x86_64-linux.full

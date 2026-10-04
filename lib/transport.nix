@@ -23,39 +23,103 @@ let
     "sctp"
   ];
 
-  mk = v: {
+  mk = value: {
     _type = "transport";
-    value = v;
+    inherit value;
   };
 
   # ===== Parsing =====
 
+  /*
+    Parse a transport protocol name without throwing, for callers that
+    want to report or recover from invalid input.
+
+    `input`: protocol name, one of "tcp", "udp", or "sctp"
+    (case-sensitive).
+
+    Returns a tryResult: `{ success = true; value; }` with a transport
+    value, or `{ success = false; error; }` describing the problem.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.transport.parse: input must be a string"
-    else if !(builtins.elem s values) then
-      types.tryErr "libnet.transport.parse: unknown protocol \"${s}\" (expected one of: tcp, udp, sctp)"
+    else if !(builtins.elem input values) then
+      types.tryErr "libnet.transport.parse: unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
     else
-      types.tryOk (mk s);
+      types.tryOk (mk input);
 
+  /*
+    Parse a transport protocol name.
+
+    `input`: protocol name, one of "tcp", "udp", or "sctp"
+    (case-sensitive).
+
+    Returns a transport value; throws on a non-string or unknown name.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
-  toString = p: p.value;
+  /*
+    Render a transport as its protocol name.
+
+    `transport`: transport value.
+
+    Returns "tcp", "udp", or "sctp".
+  */
+  toString = transport: transport.value;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isTransport;
+  /*
+    Check whether a protocol name parses, without throwing.
 
-  isTcp = p: p.value == "tcp";
-  isUdp = p: p.value == "udp";
-  isSctp = p: p.value == "sctp";
+    `input`: value to check.
+
+    Returns true when `parse` would succeed.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a transport value.
+
+    `value`: any value; non-attrsets are accepted and yield false.
+
+    Returns true for an attrset tagged `_type = "transport"`, false
+    otherwise; other fields are not checked.
+  */
+  is = value: types.isTransport value;
+
+  /*
+    Check whether a transport is TCP.
+
+    `transport`: transport value.
+
+    Returns true for `tcp`.
+  */
+  isTcp = transport: transport.value == "tcp";
+
+  /*
+    Check whether a transport is UDP.
+
+    `transport`: transport value.
+
+    Returns true for `udp`.
+  */
+  isUdp = transport: transport.value == "udp";
+
+  /*
+    Check whether a transport is SCTP.
+
+    `transport`: transport value.
+
+    Returns true for `sctp`.
+  */
+  isSctp = transport: transport.value == "sctp";
 
   # ===== Comparison =====
   #
@@ -63,6 +127,13 @@ let
   # so `lt` / `compare` / `min` / `max` would have to invent one. Users
   # who need to sort a list of transports can sort on `.value` directly.
 
+  /*
+    Compare two transports for equality.
+
+    `a`, `b`: transport values.
+
+    Returns true when both carry the same type tag and protocol.
+  */
   eq = a: b: a._type == b._type && a.value == b.value;
 
   # ===== Constants =====
@@ -73,22 +144,18 @@ let
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    ;
-  inherit
-    isValid
+    eq
     is
+    isSctp
     isTcp
     isUdp
-    isSctp
-    ;
-  inherit eq;
-  inherit
-    tcp
-    udp
+    isValid
+    parse
     sctp
+    tcp
+    toString
+    tryParse
+    udp
     values
     ;
 }

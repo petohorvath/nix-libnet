@@ -23,53 +23,123 @@ let
 
   # ===== Parsing =====
 
-  # Dispatch order: ip first (so dotted-quad strings parse as IPs
-  # rather than as multi-label domains), then dnsName (hostname or
-  # domain). dnsName rejects IP literals, but since ip is tried first
-  # that branch is only reached for non-IP strings.
+  /*
+    Parse a host without throwing, for callers that branch on validity
+    or report the error themselves. IPs are tried first so dotted-quad
+    strings classify as IPs rather than as four-label domains.
+
+    `input`: candidate IP, hostname, or domain string.
+
+    Returns a tryResult `{ success, value, error }` holding the ipv4,
+    ipv6, hostname, or domain value on success, or an error message.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.host.parse: input must be a string"
     else
       let
-        ipR = ip.tryParse s;
+        ipResult = ip.tryParse input;
       in
-      if ipR.success then
-        ipR
+      if ipResult.success then
+        ipResult
       else
         let
-          nR = dnsName.tryParse s;
+          nameResult = dnsName.tryParse input;
         in
-        if nR.success then
-          nR
+        if nameResult.success then
+          nameResult
         else
-          types.tryErr "libnet.host.parse: \"${s}\" is not a valid IP, hostname, or domain";
+          types.tryErr "libnet.host.parse: \"${input}\" is not a valid IP, hostname, or domain";
 
+  /*
+    Parse an address a service consumer might connect to.
+
+    `input`: IPv4, IPv6, hostname, or domain string.
+
+    Returns the ipv4, ipv6, hostname, or domain value; throws when no
+    family matches.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Render a host as a string using its family's formatting.
+
+    `host`: ipv4, ipv6, hostname, or domain value.
+
+    Returns the family's string form; throws for any other value.
+  */
   toString =
-    h:
-    if types.isIp h then
-      ip.toString h
-    else if dnsName.is h then
-      dnsName.toString h
+    host:
+    if types.isIp host then
+      ip.toString host
+    else if dnsName.is host then
+      dnsName.toString host
     else
-      builtins.throw "libnet.host.toString: expected ip, hostname, or domain value";
+      throw "libnet.host.toString: expected ip, hostname, or domain value";
 
   # ===== Predicates =====
 
-  isIp = types.isIp;
-  isHostname = types.isHostname;
-  isDomain = types.isDomain;
-  isName = dnsName.is;
-  is = v: types.isIp v || dnsName.is v;
-  isValid = s: (tryParse s).success;
+  /*
+    Recognize a tagged IP value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `ipv4` or `ipv6` tag.
+  */
+  isIp = value: types.isIp value;
+
+  /*
+    Recognize a tagged hostname value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `hostname` tag.
+  */
+  isHostname = value: types.isHostname value;
+
+  /*
+    Recognize a tagged domain value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `domain` tag.
+  */
+  isDomain = value: types.isDomain value;
+
+  /*
+    Recognize a DNS name, the common "not an IP" branch in
+    configuration code.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `hostname` or `domain` tag.
+  */
+  isName = value: dnsName.is value;
+
+  /*
+    Recognize a tagged host value.
+
+    `value`: any value.
+
+    Returns true when `value` is a tagged ipv4, ipv6, hostname, or
+    domain value.
+  */
+  is = value: types.isIp value || dnsName.is value;
+
+  /*
+    Check whether a value parses as a host.
+
+    `input`: any value; non-strings are invalid.
+
+    Returns true when `parse` would succeed.
+  */
+  isValid = input: (tryParse input).success;
 
   # ===== Comparison =====
   #
@@ -77,8 +147,16 @@ let
   # Within the IP family, ipv4 < ipv6 (delegated to ip.compare); among
   # names, delegated to dnsName.compare (case-insensitive per DNS).
 
-  rank = v: if types.isIp v then 0 else 1;
+  rank = value: if types.isIp value then 0 else 1;
 
+  /*
+    Test two hosts for equality within the same family.
+
+    `a`, `b`: values to compare.
+
+    Returns true when both are IPs equal under `ip.eq` or both are DNS
+    names equal under `dnsName.eq`; false across families.
+  */
   eq =
     a: b:
     if types.isIp a && types.isIp b then
@@ -88,50 +166,101 @@ let
     else
       false;
 
+  /*
+    Order two hosts for sorting: ipv4 < ipv6 < hostname < domain, then
+    within each family by that family's comparison.
+
+    `a`, `b`: ipv4, ipv6, hostname, or domain values.
+
+    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
+  */
   compare =
     a: b:
     let
-      ra = rank a;
-      rb = rank b;
+      rankA = rank a;
+      rankB = rank b;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
-    else if ra == 0 then
+    else if rankA == 0 then
       ip.compare a b
     else
       dnsName.compare a b;
 
+  /*
+    Test whether one host sorts strictly before another.
+
+    `a`, `b`: host values.
+
+    Returns true when `compare a b` is -1.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether one host sorts before or equal to another.
+
+    `a`, `b`: host values.
+
+    Returns true when `compare a b` is -1 or 0.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether one host sorts strictly after another.
+
+    `a`, `b`: host values.
+
+    Returns true when `compare a b` is 1.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether one host sorts after or equal to another.
+
+    `a`, `b`: host values.
+
+    Returns true when `compare a b` is 1 or 0.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the host that sorts first.
+
+    `a`, `b`: host values.
+
+    Returns `a` when `le a b`, otherwise `b`.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the host that sorts last.
+
+    `a`, `b`: host values.
+
+    Returns `a` when `ge a b`, otherwise `b`.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    ;
-  inherit
-    isValid
-    is
-    isIp
-    isHostname
-    isDomain
-    isName
-    ;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
     compare
-    min
+    eq
+    ge
+    gt
+    is
+    isDomain
+    isHostname
+    isIp
+    isName
+    isValid
+    le
+    lt
     max
+    min
+    parse
+    toString
+    tryParse
     ;
 }

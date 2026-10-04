@@ -28,7 +28,7 @@ let
     proxyUrl = "proxyUrl";
   };
 
-  hasTag = tag: v: builtins.isAttrs v && v ? _type && v._type == tag;
+  hasTag = tag: value: builtins.isAttrs value && value ? _type && value._type == tag;
 
   isIpv4 = hasTag tags.ipv4;
   isIpv6 = hasTag tags.ipv6;
@@ -56,7 +56,7 @@ let
   isUrlHost = hasTag tags.urlHost;
   isAuthority = hasTag tags.authority;
   isProxyUrl = hasTag tags.proxyUrl;
-  isIp = v: isIpv4 v || isIpv6 v;
+  isIp = value: isIpv4 value || isIpv6 value;
 
   tryOk = value: {
     success = true;
@@ -70,44 +70,47 @@ let
   };
 
   ensureTag =
-    tag: ctx: v:
-    if hasTag tag v then
-      v
+    tag: context: value:
+    if hasTag tag value then
+      value
     else
-      builtins.throw "libnet: ${ctx}: expected ${tag} value, got ${
-        if builtins.isAttrs v && v ? _type then "${v._type} value" else builtins.typeOf v
+      throw "libnet: ${context}: expected ${tag} value, got ${
+        if builtins.isAttrs value && value ? _type then "${value._type} value" else builtins.typeOf value
       }";
 in
 {
-  inherit tags hasTag;
   inherit
+    ensureTag
+    hasTag
+    isAuthority
+    isBindUrl
+    isCidr
+    isDnsEndpoint
+    isDomain
+    isHostname
+    isIcmpType
+    isInterfaceAddress
+    isInterfaceName
+    isIp
+    isIpBindpoint
+    isIpEndpoint
+    isIpRange
     isIpv4
     isIpv6
     isMac
-    isCidr
+    isMtu
     isPort
     isPortRange
-    isIpEndpoint
-    isDnsEndpoint
-    isIpBindpoint
-    isIpRange
-    isInterfaceAddress
-    isInterfaceName
-    isTransport
-    isHostname
-    isDomain
-    isVlanId
-    isMtu
-    isIcmpType
-    isUnixSocket
-    isSocketUrl
-    isBindUrl
+    isProxyUrl
     isSecureSocketUrl
+    isSocketUrl
+    isTransport
+    isUnixSocket
     isUrl
     isUrlHost
-    isAuthority
-    isProxyUrl
-    isIp
+    isVlanId
+    tags
+    tryErr
+    tryOk
     ;
-  inherit tryOk tryErr ensureTag;
 }

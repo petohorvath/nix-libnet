@@ -1,8 +1,10 @@
 let
+  # Nix integers are signed 64-bit, so 2^62 is the largest power of two
+  # that fits.
   pow2Table = builtins.genList (
     n:
     let
-      go = i: acc: if i == 0 then acc else go (i - 1) (acc * 2);
+      go = remaining: power: if remaining == 0 then power else go (remaining - 1) (power * 2);
     in
     go n 1
   ) 63;
@@ -10,9 +12,9 @@ let
   pow2 =
     n:
     if n < 0 then
-      builtins.throw "libnet: bits.pow2: negative exponent: ${toString n}"
+      throw "libnet: bits.pow2: negative exponent: ${toString n}"
     else if n > 62 then
-      builtins.throw "libnet: bits.pow2: exponent out of range (0..62): ${toString n}"
+      throw "libnet: bits.pow2: exponent out of range (0..62): ${toString n}"
     else
       builtins.elemAt pow2Table n;
 
@@ -25,7 +27,7 @@ let
     if n == 0 then
       0
     else if n < 0 || n > 62 then
-      builtins.throw "libnet: bits.mask: n out of range (0..62): ${toString n}"
+      throw "libnet: bits.mask: n out of range (0..62): ${toString n}"
     else
       (pow2 n) - 1;
 
@@ -41,30 +43,28 @@ let
   pow2_32 = 4294967296;
   pow2_48 = 281474976710656;
 
+  # Extract `width` bits of `x`, starting `offset` bits from the least
+  # significant end.
   bits =
-    lo: width: x:
-    builtins.bitAnd (shr lo x) (mask width);
+    offset: width: x:
+    builtins.bitAnd (shr offset x) (mask width);
 in
 {
   inherit
-    pow2
-    shl
-    shr
-    mask
     bits
-    ;
-  inherit
-    mask8
+    mask
     mask16
     mask24
     mask32
     mask48
-    ;
-  inherit
-    pow2_8
+    mask8
+    pow2
     pow2_16
     pow2_24
     pow2_32
     pow2_48
+    pow2_8
+    shl
+    shr
     ;
 }

@@ -4,223 +4,223 @@ let
   hostname = import ../lib/hostname.nix;
   domain = import ../lib/domain.nix;
   inherit (harness) throws;
-  p = dnsName.parse;
+  parse = dnsName.parse;
 in
 {
   # ===== Dispatch =====
-  parse-hostname-tagged = {
-    expr = (p "nas")._type;
+  testParseHostnameTagged = {
+    expr = (parse "nas")._type;
     expected = "hostname";
   };
-  parse-domain-tagged = {
-    expr = (p "pool.ntp.org")._type;
+  testParseDomainTagged = {
+    expr = (parse "pool.ntp.org")._type;
     expected = "domain";
   };
-  parse-hostname-value = {
-    expr = (p "nas").value;
+  testParseHostnameValue = {
+    expr = (parse "nas").value;
     expected = "nas";
   };
-  parse-domain-value = {
-    expr = (p "example.com").value;
+  testParseDomainValue = {
+    expr = (parse "example.com").value;
     expected = "example.com";
   };
-  parse-mixed-case = {
-    expr = (p "MyHost").value;
+  testParseMixedCase = {
+    expr = (parse "MyHost").value;
     expected = "MyHost";
   };
 
   # ===== IP literals rejected =====
-  reject-ipv4 = {
-    expr = throws (p "192.0.2.1");
+  testRejectIpv4 = {
+    expr = throws (parse "192.0.2.1");
     expected = true;
   };
-  reject-ipv6 = {
-    expr = throws (p "::1");
+  testRejectIpv6 = {
+    expr = throws (parse "::1");
     expected = true;
   };
-  reject-ipv4-via-tryParse = {
+  testRejectIpv4ViaTryParse = {
     expr = (dnsName.tryParse "10.0.0.1").success;
     expected = false;
   };
   # A 4-numeric-label string that is NOT a valid IP is still a domain.
-  parse-numeric-not-ip = {
-    expr = (p "192.0.2.300")._type;
+  testParseNumericNotIp = {
+    expr = (parse "192.0.2.300")._type;
     expected = "domain";
   };
 
   # ===== Other rejects =====
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-underscore = {
-    expr = throws (p "host_name");
+  testRejectUnderscore = {
+    expr = throws (parse "host_name");
     expected = true;
   };
-  reject-trailing-dot = {
-    expr = throws (p "example.com.");
+  testRejectTrailingDot = {
+    expr = throws (parse "example.com.");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (dnsName.parse 42);
     expected = true;
   };
 
-  tryParse-ok-hostname = {
+  testTryParseOkHostname = {
     expr = (dnsName.tryParse "nas").success;
     expected = true;
   };
-  tryParse-ok-domain = {
+  testTryParseOkDomain = {
     expr = (dnsName.tryParse "example.com").success;
     expected = true;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (dnsName.tryParse "192.0.2.1").error;
     expected = true;
   };
 
   # ===== toString =====
-  toString-hostname = {
-    expr = dnsName.toString (p "nas");
+  testToStringHostname = {
+    expr = dnsName.toString (parse "nas");
     expected = "nas";
   };
-  toString-domain = {
-    expr = dnsName.toString (p "example.com");
+  testToStringDomain = {
+    expr = dnsName.toString (parse "example.com");
     expected = "example.com";
   };
-  toString-preserves-case = {
-    expr = dnsName.toString (p "Example.COM");
+  testToStringPreservesCase = {
+    expr = dnsName.toString (parse "Example.COM");
     expected = "Example.COM";
   };
 
   # ===== Predicates =====
-  is-hostname = {
-    expr = dnsName.is (p "nas");
+  testIsHostname = {
+    expr = dnsName.is (parse "nas");
     expected = true;
   };
-  is-domain = {
-    expr = dnsName.is (p "example.com");
+  testIsDomain = {
+    expr = dnsName.is (parse "example.com");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = dnsName.is "nas";
     expected = false;
   };
-  isHostname-yes = {
-    expr = dnsName.isHostname (p "nas");
+  testIsHostnameYes = {
+    expr = dnsName.isHostname (parse "nas");
     expected = true;
   };
-  isHostname-no = {
-    expr = dnsName.isHostname (p "example.com");
+  testIsHostnameNo = {
+    expr = dnsName.isHostname (parse "example.com");
     expected = false;
   };
-  isDomain-yes = {
-    expr = dnsName.isDomain (p "example.com");
+  testIsDomainYes = {
+    expr = dnsName.isDomain (parse "example.com");
     expected = true;
   };
-  isDomain-no = {
-    expr = dnsName.isDomain (p "nas");
+  testIsDomainNo = {
+    expr = dnsName.isDomain (parse "nas");
     expected = false;
   };
-  isValid-hostname = {
+  testIsValidHostname = {
     expr = dnsName.isValid "nas";
     expected = true;
   };
-  isValid-domain = {
+  testIsValidDomain = {
     expr = dnsName.isValid "example.com";
     expected = true;
   };
-  isValid-ip = {
+  testIsValidIp = {
     expr = dnsName.isValid "192.0.2.1";
     expected = false;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = dnsName.isValid "host_name";
     expected = false;
   };
 
   # ===== Normalize =====
-  normalize-hostname = {
-    expr = (dnsName.normalize (p "MyHost")).value;
+  testNormalizeHostname = {
+    expr = (dnsName.normalize (parse "MyHost")).value;
     expected = "myhost";
   };
-  normalize-domain = {
-    expr = (dnsName.normalize (p "Example.COM")).value;
+  testNormalizeDomain = {
+    expr = (dnsName.normalize (parse "Example.COM")).value;
     expected = "example.com";
   };
 
-  # ===== eq =====
   # ===== Comparison helpers =====
-  cmp-lt = {
+  testLt = {
     expr = dnsName.lt (dnsName.parse "alpha") (dnsName.parse "beta");
     expected = true;
   };
-  cmp-le = {
+  testLe = {
     expr = dnsName.le (dnsName.parse "alpha") (dnsName.parse "beta");
     expected = true;
   };
-  cmp-gt = {
+  testGt = {
     expr = dnsName.gt (dnsName.parse "beta") (dnsName.parse "alpha");
     expected = true;
   };
-  cmp-ge = {
+  testGe = {
     expr = dnsName.ge (dnsName.parse "beta") (dnsName.parse "alpha");
     expected = true;
   };
-  cmp-min = {
+  testMin = {
     expr = dnsName.toString (dnsName.min (dnsName.parse "alpha") (dnsName.parse "beta"));
     expected = "alpha";
   };
-  cmp-max = {
+  testMax = {
     expr = dnsName.toString (dnsName.max (dnsName.parse "alpha") (dnsName.parse "beta"));
     expected = "beta";
   };
 
-  eq-same-hostname = {
-    expr = dnsName.eq (p "nas") (p "nas");
+  # ===== eq =====
+  testEqSameHostname = {
+    expr = dnsName.eq (parse "nas") (parse "nas");
     expected = true;
   };
-  eq-hostname-case = {
-    expr = dnsName.eq (p "NAS") (p "nas");
+  testEqHostnameCase = {
+    expr = dnsName.eq (parse "NAS") (parse "nas");
     expected = true;
   };
-  eq-domain-case = {
-    expr = dnsName.eq (p "EXAMPLE.COM") (p "example.com");
+  testEqDomainCase = {
+    expr = dnsName.eq (parse "EXAMPLE.COM") (parse "example.com");
     expected = true;
   };
-  eq-hostname-vs-domain = {
-    expr = dnsName.eq (p "nas") (p "example.com");
+  testEqHostnameVsDomain = {
+    expr = dnsName.eq (parse "nas") (parse "example.com");
     expected = false;
   };
 
   # ===== compare =====
-  compare-hostname-before-domain = {
-    expr = dnsName.compare (p "zzz") (p "a.com");
+  testCompareHostnameBeforeDomain = {
+    expr = dnsName.compare (parse "zzz") (parse "a.com");
     expected = -1;
   };
-  compare-domain-after-hostname = {
-    expr = dnsName.compare (p "a.com") (p "zzz");
+  testCompareDomainAfterHostname = {
+    expr = dnsName.compare (parse "a.com") (parse "zzz");
     expected = 1;
   };
-  compare-within-hostname = {
-    expr = dnsName.compare (p "alpha") (p "beta");
+  testCompareWithinHostname = {
+    expr = dnsName.compare (parse "alpha") (parse "beta");
     expected = -1;
   };
-  compare-within-domain = {
-    expr = dnsName.compare (p "alpha.com") (p "beta.com");
+  testCompareWithinDomain = {
+    expr = dnsName.compare (parse "alpha.com") (parse "beta.com");
     expected = -1;
   };
-  compare-equal-case = {
-    expr = dnsName.compare (p "NAS") (p "nas");
+  testCompareEqualCase = {
+    expr = dnsName.compare (parse "NAS") (parse "nas");
     expected = 0;
   };
 
   # Sanity: recognises values from each underlying module
-  is-from-hostname-module = {
+  testIsFromHostnameModule = {
     expr = dnsName.is (hostname.parse "nas");
     expected = true;
   };
-  is-from-domain-module = {
+  testIsFromDomainModule = {
     expr = dnsName.is (domain.parse "example.com");
     expected = true;
   };

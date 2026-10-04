@@ -3,133 +3,133 @@ let
   domain = import ../lib/domain.nix;
   hostname = import ../lib/hostname.nix;
   inherit (harness) throws;
-  p = domain.parse;
+  parse = domain.parse;
 
   # 62 copies of "abc." = 248 chars; plus a 5/6-char final label.
   longPrefix = builtins.concatStringsSep "" (builtins.genList (_: "abc.") 62);
-  len253 = longPrefix + "abcde"; # 248 + 5
-  len254 = longPrefix + "abcdef"; # 248 + 6
+  name253Chars = longPrefix + "abcde"; # 248 + 5
+  name254Chars = longPrefix + "abcdef"; # 248 + 6
 in
 {
   # ===== Parse =====
-  parse-simple = {
-    expr = (p "example.com").value;
+  testParseSimple = {
+    expr = (parse "example.com").value;
     expected = "example.com";
   };
-  parse-three-labels = {
-    expr = (p "foo.example.com").value;
+  testParseThreeLabels = {
+    expr = (parse "foo.example.com").value;
     expected = "foo.example.com";
   };
-  parse-deep = {
-    expr = (p "a.b.c.d.e.f.example.com").value;
+  testParseDeep = {
+    expr = (parse "a.b.c.d.e.f.example.com").value;
     expected = "a.b.c.d.e.f.example.com";
   };
-  parse-two-single-char = {
-    expr = (p "a.b").value;
+  testParseTwoSingleChar = {
+    expr = (parse "a.b").value;
     expected = "a.b";
   };
-  parse-mixed-case = {
-    expr = (p "MyHost.Example.COM").value;
+  testParseMixedCase = {
+    expr = (parse "MyHost.Example.COM").value;
     expected = "MyHost.Example.COM";
   };
-  parse-leading-digit = {
-    expr = (p "3com.example.com").value;
+  testParseLeadingDigit = {
+    expr = (parse "3com.example.com").value;
     expected = "3com.example.com";
   };
-  parse-with-hyphen = {
-    expr = (p "my-server.example.com").value;
+  testParseWithHyphen = {
+    expr = (parse "my-server.example.com").value;
     expected = "my-server.example.com";
   };
-  parse-max-len = {
-    expr = (p len253).value;
-    expected = len253;
+  testParseMaxLength = {
+    expr = (parse name253Chars).value;
+    expected = name253Chars;
   };
-  parse-tagged = {
-    expr = (p "example.com")._type;
+  testParseTagged = {
+    expr = (parse "example.com")._type;
     expected = "domain";
   };
 
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-single-label = {
-    expr = throws (p "example");
+  testRejectSingleLabel = {
+    expr = throws (parse "example");
     expected = true;
   };
-  reject-leading-dot = {
-    expr = throws (p ".example.com");
+  testRejectLeadingDot = {
+    expr = throws (parse ".example.com");
     expected = true;
   };
-  reject-trailing-dot = {
-    expr = throws (p "example.com.");
+  testRejectTrailingDot = {
+    expr = throws (parse "example.com.");
     expected = true;
   };
-  reject-consecutive-dots = {
-    expr = throws (p "a..b");
+  testRejectConsecutiveDots = {
+    expr = throws (parse "a..b");
     expected = true;
   };
-  reject-underscore = {
-    expr = throws (p "host_name.com");
+  testRejectUnderscore = {
+    expr = throws (parse "host_name.com");
     expected = true;
   };
-  reject-leading-hyphen-label = {
-    expr = throws (p "-foo.com");
+  testRejectLeadingHyphenLabel = {
+    expr = throws (parse "-foo.com");
     expected = true;
   };
-  reject-trailing-hyphen-label = {
-    expr = throws (p "foo-.com");
+  testRejectTrailingHyphenLabel = {
+    expr = throws (parse "foo-.com");
     expected = true;
   };
-  reject-long-label = {
+  testRejectLongLabel = {
     # 64-char first label
-    expr = throws (p "a123456789-123456789-123456789-123456789-123456789-123456789-xyz.com");
+    expr = throws (parse "a123456789-123456789-123456789-123456789-123456789-123456789-xyz.com");
     expected = true;
   };
-  reject-too-long-total = {
-    expr = throws (p len254);
+  testRejectTooLongTotal = {
+    expr = throws (parse name254Chars);
     expected = true;
   };
-  reject-whitespace-leading = {
-    expr = throws (p " example.com");
+  testRejectWhitespaceLeading = {
+    expr = throws (parse " example.com");
     expected = true;
   };
-  reject-whitespace-middle = {
-    expr = throws (p "ex ample.com");
+  testRejectWhitespaceMiddle = {
+    expr = throws (parse "ex ample.com");
     expected = true;
   };
-  reject-non-ascii = {
-    expr = throws (p "café.com");
+  testRejectNonAscii = {
+    expr = throws (parse "café.com");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (domain.parse 42);
     expected = true;
   };
-  reject-slash = {
-    expr = throws (p "foo/bar.com");
+  testRejectSlash = {
+    expr = throws (parse "foo/bar.com");
     expected = true;
   };
 
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (domain.tryParse "example.com").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (domain.tryParse "single").success;
     expected = false;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (domain.tryParse "single").error;
     expected = true;
   };
-  tryParse-not-string = {
+  testTryParseNotString = {
     expr = (domain.tryParse 42).success;
     expected = false;
   };
 
   # ===== fromLabels =====
-  fromLabels-three = {
+  testFromLabelsThree = {
     expr =
       (domain.fromLabels [
         "foo"
@@ -138,7 +138,7 @@ in
       ]).value;
     expected = "foo.example.com";
   };
-  fromLabels-two = {
+  testFromLabelsTwo = {
     expr =
       (domain.fromLabels [
         "example"
@@ -146,15 +146,15 @@ in
       ]).value;
     expected = "example.com";
   };
-  fromLabels-single-throws = {
+  testFromLabelsSingleThrows = {
     expr = throws (domain.fromLabels [ "example" ]);
     expected = true;
   };
-  fromLabels-empty-throws = {
+  testFromLabelsEmptyThrows = {
     expr = throws (domain.fromLabels [ ]);
     expected = true;
   };
-  fromLabels-bad-label-throws = {
+  testFromLabelsBadLabelThrows = {
     expr = throws (
       domain.fromLabels [
         "host_name"
@@ -163,223 +163,223 @@ in
     );
     expected = true;
   };
-  fromLabels-not-list-throws = {
+  testFromLabelsNotListThrows = {
     expr = throws (domain.fromLabels "example.com");
     expected = true;
   };
 
   # ===== Round-trip =====
-  rt-toString = {
-    expr = domain.toString (p "foo.example.com");
+  testRoundTripToString = {
+    expr = domain.toString (parse "foo.example.com");
     expected = "foo.example.com";
   };
-  rt-preserves-case = {
-    expr = domain.toString (p "Example.COM");
+  testRoundTripPreservesCase = {
+    expr = domain.toString (parse "Example.COM");
     expected = "Example.COM";
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = domain.is (p "example.com");
+  testIsParsed = {
+    expr = domain.is (parse "example.com");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = domain.is "example.com";
     expected = false;
   };
-  is-hostname-value = {
+  testIsHostnameValue = {
     expr = domain.is (hostname.parse "nas");
     expected = false;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = domain.isValid "example.com";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = domain.isValid "example";
     expected = false;
   };
-  isValid-not-string = {
+  testIsValidNotString = {
     expr = domain.isValid 42;
     expected = false;
   };
 
   # ===== Accessors =====
-  labels-three = {
-    expr = domain.labels (p "foo.example.com");
+  testLabelsThree = {
+    expr = domain.labels (parse "foo.example.com");
     expected = [
       "foo"
       "example"
       "com"
     ];
   };
-  labels-two = {
-    expr = domain.labels (p "example.com");
+  testLabelsTwo = {
+    expr = domain.labels (parse "example.com");
     expected = [
       "example"
       "com"
     ];
   };
-  labelCount-three = {
-    expr = domain.labelCount (p "foo.example.com");
+  testLabelCountThree = {
+    expr = domain.labelCount (parse "foo.example.com");
     expected = 3;
   };
-  labelCount-two = {
-    expr = domain.labelCount (p "example.com");
+  testLabelCountTwo = {
+    expr = domain.labelCount (parse "example.com");
     expected = 2;
   };
 
   # ===== parent =====
-  parent-three = {
-    expr = (domain.parent (p "foo.example.com")).value;
+  testParentThree = {
+    expr = (domain.parent (parse "foo.example.com")).value;
     expected = "example.com";
   };
-  parent-deep = {
-    expr = (domain.parent (p "a.b.c.example.com")).value;
+  testParentDeep = {
+    expr = (domain.parent (parse "a.b.c.example.com")).value;
     expected = "b.c.example.com";
   };
-  parent-two-is-null = {
-    expr = domain.parent (p "example.com");
+  testParentTwoIsNull = {
+    expr = domain.parent (parse "example.com");
     expected = null;
   };
-  parent-preserves-tag = {
-    expr = (domain.parent (p "foo.example.com"))._type;
+  testParentPreservesTag = {
+    expr = (domain.parent (parse "foo.example.com"))._type;
     expected = "domain";
   };
 
   # ===== isSubdomainOf =====
-  subdomain-direct = {
-    expr = domain.isSubdomainOf (p "foo.example.com") (p "example.com");
+  testSubdomainDirect = {
+    expr = domain.isSubdomainOf (parse "foo.example.com") (parse "example.com");
     expected = true;
   };
-  subdomain-deep = {
-    expr = domain.isSubdomainOf (p "a.b.c.example.com") (p "example.com");
+  testSubdomainDeep = {
+    expr = domain.isSubdomainOf (parse "a.b.c.example.com") (parse "example.com");
     expected = true;
   };
-  subdomain-self = {
-    expr = domain.isSubdomainOf (p "example.com") (p "example.com");
+  testSubdomainSelf = {
+    expr = domain.isSubdomainOf (parse "example.com") (parse "example.com");
     expected = true;
   };
-  subdomain-not-suffix = {
-    expr = domain.isSubdomainOf (p "evil.foo.com") (p "example.com");
+  testSubdomainNotSuffix = {
+    expr = domain.isSubdomainOf (parse "evil.foo.com") (parse "example.com");
     expected = false;
   };
-  subdomain-shorter = {
-    expr = domain.isSubdomainOf (p "example.com") (p "foo.example.com");
+  testSubdomainShorter = {
+    expr = domain.isSubdomainOf (parse "example.com") (parse "foo.example.com");
     expected = false;
   };
-  subdomain-different-tld = {
-    expr = domain.isSubdomainOf (p "foo.example.org") (p "example.com");
+  testSubdomainDifferentTld = {
+    expr = domain.isSubdomainOf (parse "foo.example.org") (parse "example.com");
     expected = false;
   };
-  subdomain-case-insens = {
-    expr = domain.isSubdomainOf (p "Foo.Example.COM") (p "EXAMPLE.com");
+  testSubdomainCaseInsensitive = {
+    expr = domain.isSubdomainOf (parse "Foo.Example.COM") (parse "EXAMPLE.com");
     expected = true;
   };
   # "example.com.foo" is NOT a subdomain of "example.com" — the suffix
   # has to align at the trailing edge.
-  subdomain-not-prefix-match = {
-    expr = domain.isSubdomainOf (p "example.com.foo") (p "example.com");
+  testSubdomainNotPrefixMatch = {
+    expr = domain.isSubdomainOf (parse "example.com.foo") (parse "example.com");
     expected = false;
   };
 
   # ===== toHostname =====
-  toHostname-extracts-leftmost = {
-    expr = (domain.toHostname (p "foo.example.com")).value;
+  testToHostnameExtractsLeftmost = {
+    expr = (domain.toHostname (parse "foo.example.com")).value;
     expected = "foo";
   };
-  toHostname-two-labels = {
-    expr = (domain.toHostname (p "example.com")).value;
+  testToHostnameTwoLabels = {
+    expr = (domain.toHostname (parse "example.com")).value;
     expected = "example";
   };
-  toHostname-tagged-as-hostname = {
-    expr = (domain.toHostname (p "foo.example.com"))._type;
+  testToHostnameTaggedAsHostname = {
+    expr = (domain.toHostname (parse "foo.example.com"))._type;
     expected = "hostname";
   };
-  toHostname-preserves-case = {
-    expr = (domain.toHostname (p "Foo.example.com")).value;
+  testToHostnamePreservesCase = {
+    expr = (domain.toHostname (parse "Foo.example.com")).value;
     expected = "Foo";
   };
 
   # ===== Normalize =====
-  normalize-upper = {
-    expr = (domain.normalize (p "FOO.EXAMPLE.COM")).value;
+  testNormalizeUpper = {
+    expr = (domain.normalize (parse "FOO.EXAMPLE.COM")).value;
     expected = "foo.example.com";
   };
-  normalize-already-lower = {
-    expr = (domain.normalize (p "foo.example.com")).value;
+  testNormalizeAlreadyLower = {
+    expr = (domain.normalize (parse "foo.example.com")).value;
     expected = "foo.example.com";
   };
-  normalize-mixed = {
-    expr = (domain.normalize (p "MyHost.Example.com")).value;
+  testNormalizeMixed = {
+    expr = (domain.normalize (parse "MyHost.Example.com")).value;
     expected = "myhost.example.com";
   };
-  normalize-preserves-tag = {
-    expr = domain.is (domain.normalize (p "FOO.EXAMPLE.COM"));
+  testNormalizePreservesTag = {
+    expr = domain.is (domain.normalize (parse "FOO.EXAMPLE.COM"));
     expected = true;
   };
 
   # ===== Equality (case-insensitive) =====
-  eq-same = {
-    expr = domain.eq (p "example.com") (p "example.com");
+  testEqSame = {
+    expr = domain.eq (parse "example.com") (parse "example.com");
     expected = true;
   };
-  eq-case-upper = {
-    expr = domain.eq (p "EXAMPLE.COM") (p "example.com");
+  testEqCaseUpper = {
+    expr = domain.eq (parse "EXAMPLE.COM") (parse "example.com");
     expected = true;
   };
-  eq-case-mixed = {
-    expr = domain.eq (p "MyHost.example.COM") (p "myhost.EXAMPLE.com");
+  testEqCaseMixed = {
+    expr = domain.eq (parse "MyHost.example.COM") (parse "myhost.EXAMPLE.com");
     expected = true;
   };
-  eq-diff = {
-    expr = domain.eq (p "example.com") (p "example.org");
+  testEqDifferent = {
+    expr = domain.eq (parse "example.com") (parse "example.org");
     expected = false;
   };
 
   # ===== Comparison (case-insensitive) =====
-  cmp-gt = {
-    expr = domain.gt (p "beta.com") (p "alpha.com");
+  testGtYes = {
+    expr = domain.gt (parse "beta.com") (parse "alpha.com");
     expected = true;
   };
-  lt-yes = {
-    expr = domain.lt (p "alpha.com") (p "beta.com");
+  testLtYes = {
+    expr = domain.lt (parse "alpha.com") (parse "beta.com");
     expected = true;
   };
-  lt-no = {
-    expr = domain.lt (p "beta.com") (p "alpha.com");
+  testLtNo = {
+    expr = domain.lt (parse "beta.com") (parse "alpha.com");
     expected = false;
   };
-  lt-case-insens = {
-    expr = domain.lt (p "Alpha.com") (p "beta.com");
+  testLtCaseInsensitive = {
+    expr = domain.lt (parse "Alpha.com") (parse "beta.com");
     expected = true;
   };
-  compare-lt = {
-    expr = domain.compare (p "alpha.com") (p "beta.com");
+  testCompareLt = {
+    expr = domain.compare (parse "alpha.com") (parse "beta.com");
     expected = -1;
   };
-  compare-eq-case = {
-    expr = domain.compare (p "EXAMPLE.COM") (p "example.com");
+  testCompareEqCase = {
+    expr = domain.compare (parse "EXAMPLE.COM") (parse "example.com");
     expected = 0;
   };
-  compare-gt = {
-    expr = domain.compare (p "z.com") (p "a.com");
+  testCompareGt = {
+    expr = domain.compare (parse "z.com") (parse "a.com");
     expected = 1;
   };
-  le-equal = {
-    expr = domain.le (p "example.com") (p "example.com");
+  testLeEqual = {
+    expr = domain.le (parse "example.com") (parse "example.com");
     expected = true;
   };
-  ge-equal = {
-    expr = domain.ge (p "example.com") (p "example.com");
+  testGeEqual = {
+    expr = domain.ge (parse "example.com") (parse "example.com");
     expected = true;
   };
-  min-pick = {
-    expr = (domain.min (p "beta.com") (p "alpha.com")).value;
+  testMinPick = {
+    expr = (domain.min (parse "beta.com") (parse "alpha.com")).value;
     expected = "alpha.com";
   };
-  max-pick = {
-    expr = (domain.max (p "beta.com") (p "alpha.com")).value;
+  testMaxPick = {
+    expr = (domain.max (parse "beta.com") (parse "alpha.com")).value;
     expected = "beta.com";
   };
 }

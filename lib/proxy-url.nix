@@ -20,7 +20,7 @@
 */
 let
   types = import ./internal/types.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
   authority = import ./authority.nix;
 
@@ -37,80 +37,146 @@ let
 
   schemeHint = "expected http, https, socks4, socks4a, socks5, or socks5h";
 
-  mk = scheme: auth: {
+  mk = schemeValue: authorityValue: {
     _type = "proxyUrl";
-    inherit scheme;
-    authority = auth;
+    scheme = schemeValue;
+    authority = authorityValue;
   };
 
   # ===== Parsing =====
 
+  /*
+    Parse a proxy URL without throwing, for callers that branch on
+    validity.
+
+    `input`: `<scheme>://[userinfo@]host:port` text; the scheme is matched
+    case-insensitively and nothing may follow the authority.
+
+    Returns a tryResult: `{ success = true; value = <proxyUrl>; }` or
+    `{ success = false; error = <string>; }` for an unknown scheme, an
+    invalid authority, or a missing port. Never throws.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.proxyUrl.parse: input must be a string"
     else
       let
-        parts = parse'.splitOn "://" s;
+        parts = parsing.splitOn "://" input;
       in
       if builtins.length parts < 2 then
-        types.tryErr "libnet.proxyUrl.parse: missing '<scheme>://': \"${s}\""
+        types.tryErr "libnet.proxyUrl.parse: missing '<scheme>://': \"${input}\""
       else
         let
           rawScheme = builtins.elemAt parts 0;
-          scheme = lowerAscii rawScheme;
+          lowerScheme = lowerAscii rawScheme;
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
         in
-        if !(builtins.elem scheme schemes) then
+        if !(builtins.elem lowerScheme schemes) then
           types.tryErr "libnet.proxyUrl.parse: unknown scheme \"${rawScheme}\" (${schemeHint})"
         else
           let
-            authR = authority.tryParse rest;
+            authorityResult = authority.tryParse rest;
           in
-          if !authR.success then
-            types.tryErr "libnet.proxyUrl.parse: invalid authority in \"${s}\""
-          else if authority.port authR.value == null then
-            types.tryErr "libnet.proxyUrl.parse: a proxy URL requires an explicit port: \"${s}\""
+          if !authorityResult.success then
+            types.tryErr "libnet.proxyUrl.parse: invalid authority in \"${input}\""
+          else if authority.port authorityResult.value == null then
+            types.tryErr "libnet.proxyUrl.parse: a proxy URL requires an explicit port: \"${input}\""
           else
-            types.tryOk (mk scheme authR.value);
+            types.tryOk (mk lowerScheme authorityResult.value);
 
+  /*
+    Parse a proxy URL, for values that must be valid.
+
+    `input`: proxy URL text as accepted by `tryParse`.
+
+    Returns a proxyUrl value; throws on invalid input.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
-  toString = pu: "${pu.scheme}://${authority.toString pu.authority}";
+  /*
+    Render a proxy URL as `<scheme>://<authority>`.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the text with the lowercase scheme.
+  */
+  toString = proxyUrl: "${proxyUrl.scheme}://${authority.toString proxyUrl.authority}";
 
   # ===== Construction =====
 
+  /*
+    Build a proxy URL from a scheme and an existing authority value.
+
+    `schemeName`: one of `schemes`, matched case-insensitively.
+    `authorityValue`: an authority value that carries an explicit port.
+
+    Returns a proxyUrl value with the scheme lowercased; throws on a
+    non-string or unknown scheme, a non-authority value, or a missing port.
+  */
   make =
-    scheme: auth:
-    if !(builtins.isString scheme) then
-      builtins.throw "libnet.proxyUrl.make: scheme must be a string"
+    schemeName: authorityValue:
+    if !(builtins.isString schemeName) then
+      throw "libnet.proxyUrl.make: scheme must be a string"
     else
       let
-        sch = lowerAscii scheme;
+        lowerScheme = lowerAscii schemeName;
       in
-      if !(builtins.elem sch schemes) then
-        builtins.throw "libnet.proxyUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
-      else if !(authority.is auth) then
-        builtins.throw "libnet.proxyUrl.make: expected an authority value"
-      else if authority.port auth == null then
-        builtins.throw "libnet.proxyUrl.make: a proxy URL requires an explicit port"
+      if !(builtins.elem lowerScheme schemes) then
+        throw "libnet.proxyUrl.make: unknown scheme \"${schemeName}\" (${schemeHint})"
+      else if !(authority.is authorityValue) then
+        throw "libnet.proxyUrl.make: expected an authority value"
+      else if authority.port authorityValue == null then
+        throw "libnet.proxyUrl.make: a proxy URL requires an explicit port"
       else
-        mk sch auth;
+        mk lowerScheme authorityValue;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isProxyUrl;
-  # Only an `https` proxy wraps the client↔proxy hop in TLS; `http` and
-  # every SOCKS scheme (incl. `socks5h` — the `h` is remote DNS, not TLS)
-  # reach the proxy in plaintext. Mirrors `url.isSecure` (scheme implies
-  # TLS) and the `secureSocketUrl` peer (always true).
-  isSecure = pu: pu.scheme == "https";
+  /*
+    Check whether a string parses as a proxy URL.
+
+    `input`: candidate proxy URL text.
+
+    Returns true when `tryParse` succeeds.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a proxyUrl value.
+
+    `value`: any value.
+
+    Returns true for a proxyUrl-tagged attrset.
+  */
+  is = value: types.isProxyUrl value;
+
+  /*
+    Check whether the client-to-proxy hop uses TLS. Only `https` does;
+    `http` and every SOCKS scheme (including `socks5h`, whose `h` means
+    remote DNS) reach the proxy in plaintext.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns true only for the `https` scheme.
+  */
+  isSecure = proxyUrl: proxyUrl.scheme == "https";
+
+  # ===== Accessors =====
+
+  /*
+    Get the scheme of a proxy URL.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the lowercase scheme string.
+  */
+  scheme = proxyUrl: proxyUrl.scheme;
 
   # ===== Comparison =====
   #
@@ -118,63 +184,135 @@ let
   # socks5h), then by authority.
 
   schemeRank =
-    scheme:
-    if scheme == "http" then
+    schemeValue:
+    if schemeValue == "http" then
       0
-    else if scheme == "https" then
+    else if schemeValue == "https" then
       1
-    else if scheme == "socks4" then
+    else if schemeValue == "socks4" then
       2
-    else if scheme == "socks4a" then
+    else if schemeValue == "socks4a" then
       3
-    else if scheme == "socks5" then
+    else if schemeValue == "socks5" then
       4
     else
       5;
 
+  /*
+    Test two proxy URLs for equality.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns true when the schemes match exactly (`socks5` differs from
+    `socks5h`) and the authorities are equal, including userinfo.
+  */
   eq = a: b: a._type == b._type && a.scheme == b.scheme && authority.eq a.authority b.authority;
 
+  /*
+    Order two proxy URLs by scheme rank (http < https < socks4 < socks4a <
+    socks5 < socks5h), then by authority.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns -1, 0, or 1.
+  */
   compare =
     a: b:
     let
-      ra = schemeRank a.scheme;
-      rb = schemeRank b.scheme;
+      rankA = schemeRank a.scheme;
+      rankB = schemeRank b.scheme;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
     else
       authority.compare a.authority b.authority;
 
+  /*
+    Check whether one proxy URL sorts before another.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns true when `compare a b` is -1.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Check whether one proxy URL sorts before or equal to another.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns true when `compare a b` is -1 or 0.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Check whether one proxy URL sorts after another.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns true when `compare a b` is 1.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Check whether one proxy URL sorts after or equal to another.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns true when `compare a b` is 1 or 0.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lesser of two proxy URLs by `compare`.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns `a` when it sorts first or equal, otherwise `b`.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the greater of two proxy URLs by `compare`.
+
+    `a`, `b`: proxyUrl values.
+
+    Returns `a` when it sorts last or equal, otherwise `b`.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    make
-    ;
-  inherit isValid is isSecure;
-  # `scheme` / `authority` accessors declared inline to avoid shadowing
-  # the imported module of the same name.
-  scheme = pu: pu.scheme;
-  authority = pu: pu.authority;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
     compare
-    min
+    eq
+    ge
+    gt
+    is
+    isSecure
+    isValid
+    le
+    lt
+    make
     max
+    min
+    parse
+    scheme
+    schemes
+    toString
+    tryParse
     ;
-  inherit schemes;
+
+  # Defined here rather than in `let`, where `authority` names the
+  # authority module.
+  /*
+    Get the authority of a proxy URL; reach the host, userinfo, and port
+    through it.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the authority value.
+  */
+  authority = proxyUrl: proxyUrl.authority;
 }

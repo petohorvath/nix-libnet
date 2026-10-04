@@ -37,132 +37,143 @@ let
     "F" = 15;
   };
 
+  # Parsers return null on malformed input so callers can build tryParse
+  # results without catching errors.
   decimal =
-    s:
-    if s == "" then
+    input:
+    if input == "" then
       null
-    else if builtins.match "[0-9]+" s == null then
+    else if builtins.match "[0-9]+" input == null then
       null
     else
       let
-        len = builtins.stringLength s;
+        length = builtins.stringLength input;
         go =
-          i: acc: if i >= len then acc else go (i + 1) (acc * 10 + digitValues.${builtins.substring i 1 s});
+          i: total:
+          if i >= length then
+            total
+          else
+            go (i + 1) (total * 10 + digitValues.${builtins.substring i 1 input});
       in
       go 0 0;
 
   hexInt =
-    s:
-    if s == "" then
+    input:
+    if input == "" then
       null
-    else if builtins.match "[0-9a-fA-F]+" s == null then
+    else if builtins.match "[0-9a-fA-F]+" input == null then
       null
     else
       let
-        len = builtins.stringLength s;
+        length = builtins.stringLength input;
         go =
-          i: acc: if i >= len then acc else go (i + 1) (acc * 16 + hexValues.${builtins.substring i 1 s});
+          i: total:
+          if i >= length then total else go (i + 1) (total * 16 + hexValues.${builtins.substring i 1 input});
       in
       go 0 0;
 
+  # Dotted-quad octet: 1 to 3 digits, no leading zero, at most 255.
   octet =
-    s:
-    if s == "" then
+    input:
+    if input == "" then
       null
-    else if builtins.stringLength s > 3 then
+    else if builtins.stringLength input > 3 then
       null
-    else if builtins.stringLength s > 1 && builtins.substring 0 1 s == "0" then
+    else if builtins.stringLength input > 1 && builtins.substring 0 1 input == "0" then
       null
     else
       let
-        r = decimal s;
+        value = decimal input;
       in
-      if r == null || r > 255 then null else r;
+      if value == null || value > 255 then null else value;
 
+  # IPv6 group: 1 to 4 hex digits.
   hexGroup =
-    s:
-    if s == "" then
+    input:
+    if input == "" then
       null
-    else if builtins.stringLength s > 4 then
+    else if builtins.stringLength input > 4 then
       null
     else
-      hexInt s;
+      hexInt input;
 
+  # Byte: exactly 2 hex digits.
   hexByte =
-    s:
-    if s == "" then
+    input:
+    if input == "" then
       null
-    else if builtins.stringLength s != 2 then
+    else if builtins.stringLength input != 2 then
       null
     else
-      hexInt s;
+      hexInt input;
 
   splitOn =
-    delim: s:
+    delimiter: input:
     let
-      dlen = builtins.stringLength delim;
-      slen = builtins.stringLength s;
+      delimiterLength = builtins.stringLength delimiter;
+      inputLength = builtins.stringLength input;
       go =
-        start: i: acc:
-        if i > slen - dlen then
-          acc ++ [ (builtins.substring start (slen - start) s) ]
-        else if builtins.substring i dlen s == delim then
-          go (i + dlen) (i + dlen) (acc ++ [ (builtins.substring start (i - start) s) ])
+        start: i: parts:
+        if i > inputLength - delimiterLength then
+          parts ++ [ (builtins.substring start (inputLength - start) input) ]
+        else if builtins.substring i delimiterLength input == delimiter then
+          go (i + delimiterLength) (i + delimiterLength) (
+            parts ++ [ (builtins.substring start (i - start) input) ]
+          )
         else
-          go start (i + 1) acc;
+          go start (i + 1) parts;
     in
-    if slen == 0 then
+    if inputLength == 0 then
       [ "" ]
-    else if dlen == 0 then
-      [ s ]
+    else if delimiterLength == 0 then
+      [ input ]
     else
       go 0 0 [ ];
 
-  countOccurrences = sub: s: builtins.length (splitOn sub s) - 1;
+  countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
 
   startsWith =
-    prefix: s:
+    prefix: input:
     let
-      plen = builtins.stringLength prefix;
+      prefixLength = builtins.stringLength prefix;
     in
-    builtins.stringLength s >= plen && builtins.substring 0 plen s == prefix;
+    builtins.stringLength input >= prefixLength && builtins.substring 0 prefixLength input == prefix;
 
   endsWith =
-    suffix: s:
+    suffix: input:
     let
-      slen = builtins.stringLength suffix;
-      total = builtins.stringLength s;
+      suffixLength = builtins.stringLength suffix;
+      inputLength = builtins.stringLength input;
     in
-    total >= slen && builtins.substring (total - slen) slen s == suffix;
+    inputLength >= suffixLength
+    && builtins.substring (inputLength - suffixLength) suffixLength input == suffix;
 
   stripPrefix =
-    prefix: s:
+    prefix: input:
     let
-      plen = builtins.stringLength prefix;
+      prefixLength = builtins.stringLength prefix;
     in
-    builtins.substring plen (builtins.stringLength s - plen) s;
+    builtins.substring prefixLength (builtins.stringLength input - prefixLength) input;
 
   stripSuffix =
-    suffix: s:
+    suffix: input:
     let
-      slen = builtins.stringLength suffix;
-      total = builtins.stringLength s;
+      suffixLength = builtins.stringLength suffix;
+      inputLength = builtins.stringLength input;
     in
-    builtins.substring 0 (total - slen) s;
+    builtins.substring 0 (inputLength - suffixLength) input;
 in
 {
   inherit
+    countOccurrences
     decimal
+    endsWith
+    hexByte
+    hexGroup
     hexInt
     octet
-    hexGroup
-    hexByte
-    ;
-  inherit
     splitOn
-    countOccurrences
     startsWith
-    endsWith
     stripPrefix
     stripSuffix
     ;

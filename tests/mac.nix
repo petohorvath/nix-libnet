@@ -2,115 +2,115 @@
 let
   mac = import ../lib/mac.nix;
   inherit (harness) throws;
-  p = mac.parse;
+  inherit (mac) parse;
 in
 {
   # ===== Parse: four formats =====
-  parse-colon = {
-    expr = mac.toInt (p "aa:bb:cc:dd:ee:ff");
+  testParseColon = {
+    expr = mac.toInt (parse "aa:bb:cc:dd:ee:ff");
     expected = 187723572702975;
   };
-  parse-hyphen = {
-    expr = mac.toInt (p "aa-bb-cc-dd-ee-ff");
+  testParseHyphen = {
+    expr = mac.toInt (parse "aa-bb-cc-dd-ee-ff");
     expected = 187723572702975;
   };
-  parse-cisco = {
-    expr = mac.toInt (p "aabb.ccdd.eeff");
+  testParseCisco = {
+    expr = mac.toInt (parse "aabb.ccdd.eeff");
     expected = 187723572702975;
   };
-  parse-bare = {
-    expr = mac.toInt (p "aabbccddeeff");
+  testParseBare = {
+    expr = mac.toInt (parse "aabbccddeeff");
     expected = 187723572702975;
   };
-  parse-zero = {
-    expr = mac.toInt (p "00:00:00:00:00:00");
+  testParseZero = {
+    expr = mac.toInt (parse "00:00:00:00:00:00");
     expected = 0;
   };
-  parse-max = {
-    expr = mac.toInt (p "ff:ff:ff:ff:ff:ff");
+  testParseMax = {
+    expr = mac.toInt (parse "ff:ff:ff:ff:ff:ff");
     expected = 281474976710655;
   };
 
   # ===== Case insensitive =====
-  parse-upper = {
-    expr = mac.toString (p "AA:BB:CC:DD:EE:FF");
+  testParseUpper = {
+    expr = mac.toString (parse "AA:BB:CC:DD:EE:FF");
     expected = "aa:bb:cc:dd:ee:ff";
   };
-  parse-mixed = {
-    expr = mac.toString (p "Aa:bB:cC:Dd:eE:Ff");
+  testParseMixedCase = {
+    expr = mac.toString (parse "Aa:bB:cC:Dd:eE:Ff");
     expected = "aa:bb:cc:dd:ee:ff";
   };
-  parse-cisco-upper = {
-    expr = mac.toString (p "AABB.CCDD.EEFF");
+  testParseCiscoUpper = {
+    expr = mac.toString (parse "AABB.CCDD.EEFF");
     expected = "aa:bb:cc:dd:ee:ff";
   };
-  parse-bare-upper = {
-    expr = mac.toString (p "AABBCCDDEEFF");
+  testParseBareUpper = {
+    expr = mac.toString (parse "AABBCCDDEEFF");
     expected = "aa:bb:cc:dd:ee:ff";
   };
 
   # ===== Parse: negative =====
-  parse-5-octets = {
-    expr = throws (p "aa:bb:cc:dd:ee");
+  testParse5Octets = {
+    expr = throws (parse "aa:bb:cc:dd:ee");
     expected = true;
   };
-  parse-7-octets = {
-    expr = throws (p "aa:bb:cc:dd:ee:ff:11");
+  testParse7Octets = {
+    expr = throws (parse "aa:bb:cc:dd:ee:ff:11");
     expected = true;
   };
-  parse-non-hex = {
-    expr = throws (p "gg:hh:ii:jj:kk:ll");
+  testParseNonHex = {
+    expr = throws (parse "gg:hh:ii:jj:kk:ll");
     expected = true;
   };
-  parse-wrong-sep = {
-    expr = throws (p "aa/bb/cc/dd/ee/ff");
+  testParseWrongSeparator = {
+    expr = throws (parse "aa/bb/cc/dd/ee/ff");
     expected = true;
   };
-  parse-mixed-sep = {
-    expr = throws (p "aa:bb-cc:dd-ee:ff");
+  testParseMixedSeparators = {
+    expr = throws (parse "aa:bb-cc:dd-ee:ff");
     expected = true;
   };
-  parse-whitespace = {
-    expr = throws (p " aa:bb:cc:dd:ee:ff");
+  testParseWhitespace = {
+    expr = throws (parse " aa:bb:cc:dd:ee:ff");
     expected = true;
   };
-  parse-short-octet = {
-    expr = throws (p "a:b:c:d:e:f");
+  testParseShortOctet = {
+    expr = throws (parse "a:b:c:d:e:f");
     expected = true;
   };
-  parse-long-octet = {
-    expr = throws (p "aaa:bb:cc:dd:ee:ff");
+  testParseLongOctet = {
+    expr = throws (parse "aaa:bb:cc:dd:ee:ff");
     expected = true;
   };
-  parse-empty = {
-    expr = throws (p "");
+  testParseEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  parse-not-string = {
+  testParseNotString = {
     expr = throws (mac.parse 123);
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (mac.tryParse "aa:bb:cc:dd:ee:ff").success;
     expected = true;
   };
-  tryParse-fail = {
+  testTryParseFail = {
     expr = (mac.tryParse "bad").success;
     expected = false;
   };
 
   # ===== Round-trip =====
-  rt-string = {
-    expr = mac.toString (p "aa:bb:cc:dd:ee:ff");
+  testRoundTripString = {
+    expr = mac.toString (parse "aa:bb:cc:dd:ee:ff");
     expected = "aa:bb:cc:dd:ee:ff";
   };
-  rt-int = {
+  testRoundTripInt = {
     expr = mac.toInt (mac.fromInt 187723572702975);
     expected = 187723572702975;
   };
-  rt-bytes = {
+  testRoundTripBytes = {
     expr = mac.toBytes (
       mac.fromBytes [
         170
@@ -132,33 +132,33 @@ in
   };
 
   # ===== Formatting =====
-  fmt-string = {
-    expr = mac.toString (p "aabbccddeeff");
+  testFormatString = {
+    expr = mac.toString (parse "aabbccddeeff");
     expected = "aa:bb:cc:dd:ee:ff";
   };
-  fmt-hyphen = {
-    expr = mac.toStringHyphen (p "aabbccddeeff");
+  testFormatHyphen = {
+    expr = mac.toStringHyphen (parse "aabbccddeeff");
     expected = "aa-bb-cc-dd-ee-ff";
   };
-  fmt-cisco = {
-    expr = mac.toStringCisco (p "aabbccddeeff");
+  testFormatCisco = {
+    expr = mac.toStringCisco (parse "aabbccddeeff");
     expected = "aabb.ccdd.eeff";
   };
-  fmt-bare = {
-    expr = mac.toStringBare (p "aabbccddeeff");
+  testFormatBare = {
+    expr = mac.toStringBare (parse "aabbccddeeff");
     expected = "aabbccddeeff";
   };
 
   # ===== fromInt / fromBytes =====
-  fromInt-over = {
+  testFromIntOverflow = {
     expr = throws (mac.fromInt 281474976710656);
     expected = true;
   };
-  fromInt-neg = {
+  testFromIntNegative = {
     expr = throws (mac.fromInt (-1));
     expected = true;
   };
-  fromBytes-short = {
+  testFromBytesShort = {
     expr = throws (
       mac.fromBytes [
         1
@@ -168,7 +168,7 @@ in
     );
     expected = true;
   };
-  fromBytes-over = {
+  testFromBytesByteOverflow = {
     expr = throws (
       mac.fromBytes [
         1
@@ -183,129 +183,129 @@ in
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = mac.is (p "aa:bb:cc:dd:ee:ff");
+  testIsParsed = {
+    expr = mac.is (parse "aa:bb:cc:dd:ee:ff");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = mac.is "aa:bb:cc:dd:ee:ff";
     expected = false;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = mac.isValid "aa:bb:cc:dd:ee:ff";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = mac.isValid "zz:zz:zz:zz:zz:zz";
     expected = false;
   };
 
   # unicast vs multicast: bit 0 of first octet
-  unicast-pos = {
-    expr = mac.isUnicast (p "02:bb:cc:dd:ee:ff");
+  testIsUnicastTrue = {
+    expr = mac.isUnicast (parse "02:bb:cc:dd:ee:ff");
     expected = true;
   }; # bit 0 = 0
-  unicast-neg = {
-    expr = mac.isUnicast (p "01:bb:cc:dd:ee:ff");
+  testIsUnicastFalse = {
+    expr = mac.isUnicast (parse "01:bb:cc:dd:ee:ff");
     expected = false;
   }; # bit 0 = 1
-  multicast-pos = {
-    expr = mac.isMulticast (p "01:bb:cc:dd:ee:ff");
+  testIsMulticastTrue = {
+    expr = mac.isMulticast (parse "01:bb:cc:dd:ee:ff");
     expected = true;
   };
-  multicast-neg = {
-    expr = mac.isMulticast (p "02:bb:cc:dd:ee:ff");
+  testIsMulticastFalse = {
+    expr = mac.isMulticast (parse "02:bb:cc:dd:ee:ff");
     expected = false;
   };
 
   # universal vs local: bit 1 of first octet
-  universal-pos = {
-    expr = mac.isUniversal (p "00:bb:cc:dd:ee:ff");
+  testIsUniversalTrue = {
+    expr = mac.isUniversal (parse "00:bb:cc:dd:ee:ff");
     expected = true;
   };
-  universal-neg = {
-    expr = mac.isUniversal (p "02:bb:cc:dd:ee:ff");
+  testIsUniversalFalse = {
+    expr = mac.isUniversal (parse "02:bb:cc:dd:ee:ff");
     expected = false;
   };
-  local-pos = {
-    expr = mac.isLocal (p "02:bb:cc:dd:ee:ff");
+  testIsLocalTrue = {
+    expr = mac.isLocal (parse "02:bb:cc:dd:ee:ff");
     expected = true;
   };
-  local-neg = {
-    expr = mac.isLocal (p "00:bb:cc:dd:ee:ff");
+  testIsLocalFalse = {
+    expr = mac.isLocal (parse "00:bb:cc:dd:ee:ff");
     expected = false;
   };
 
-  broadcast-pos = {
-    expr = mac.isBroadcast (p "ff:ff:ff:ff:ff:ff");
+  testIsBroadcastTrue = {
+    expr = mac.isBroadcast (parse "ff:ff:ff:ff:ff:ff");
     expected = true;
   };
-  broadcast-neg = {
-    expr = mac.isBroadcast (p "ff:ff:ff:ff:ff:fe");
+  testIsBroadcastFalse = {
+    expr = mac.isBroadcast (parse "ff:ff:ff:ff:ff:fe");
     expected = false;
   };
-  unspecified-pos = {
-    expr = mac.isUnspecified (p "00:00:00:00:00:00");
+  testIsUnspecifiedTrue = {
+    expr = mac.isUnspecified (parse "00:00:00:00:00:00");
     expected = true;
   };
-  unspecified-neg = {
-    expr = mac.isUnspecified (p "00:00:00:00:00:01");
+  testIsUnspecifiedFalse = {
+    expr = mac.isUnspecified (parse "00:00:00:00:00:01");
     expected = false;
   };
 
   # ===== Bit setters =====
-  setLocal-flips = {
-    expr = mac.toString (mac.setLocal (p "00:bb:cc:dd:ee:ff"));
+  testSetLocalSetsBit = {
+    expr = mac.toString (mac.setLocal (parse "00:bb:cc:dd:ee:ff"));
     expected = "02:bb:cc:dd:ee:ff";
   };
-  setLocal-idem = {
-    expr = mac.toString (mac.setLocal (p "02:bb:cc:dd:ee:ff"));
+  testSetLocalIdempotent = {
+    expr = mac.toString (mac.setLocal (parse "02:bb:cc:dd:ee:ff"));
     expected = "02:bb:cc:dd:ee:ff";
   };
-  setUniversal-flip = {
-    expr = mac.toString (mac.setUniversal (p "02:bb:cc:dd:ee:ff"));
+  testSetUniversalClearsBit = {
+    expr = mac.toString (mac.setUniversal (parse "02:bb:cc:dd:ee:ff"));
     expected = "00:bb:cc:dd:ee:ff";
   };
-  setUniversal-idem = {
-    expr = mac.toString (mac.setUniversal (p "00:bb:cc:dd:ee:ff"));
+  testSetUniversalIdempotent = {
+    expr = mac.toString (mac.setUniversal (parse "00:bb:cc:dd:ee:ff"));
     expected = "00:bb:cc:dd:ee:ff";
   };
-  setMulticast-flip = {
-    expr = mac.toString (mac.setMulticast (p "00:bb:cc:dd:ee:ff"));
+  testSetMulticastSetsBit = {
+    expr = mac.toString (mac.setMulticast (parse "00:bb:cc:dd:ee:ff"));
     expected = "01:bb:cc:dd:ee:ff";
   };
-  setUnicast-flip = {
-    expr = mac.toString (mac.setUnicast (p "01:bb:cc:dd:ee:ff"));
+  testSetUnicastClearsBit = {
+    expr = mac.toString (mac.setUnicast (parse "01:bb:cc:dd:ee:ff"));
     expected = "00:bb:cc:dd:ee:ff";
   };
 
   # ===== OUI / NIC =====
   # 11:22:33:44:55:66 → OUI = 0x112233 = 1122867, NIC = 0x445566 = 4478310
-  oui-extract = {
-    expr = mac.oui (p "11:22:33:44:55:66");
+  testOuiExtract = {
+    expr = mac.oui (parse "11:22:33:44:55:66");
     expected = 1122867;
   };
-  nic-extract = {
-    expr = mac.nic (p "11:22:33:44:55:66");
+  testNicExtract = {
+    expr = mac.nic (parse "11:22:33:44:55:66");
     expected = 4478310;
   };
-  fromOuiNic-build = {
+  testFromOuiNicBuild = {
     expr = mac.toString (mac.fromOuiNic 1122867 4478310);
     expected = "11:22:33:44:55:66";
   };
-  ouiToString-fmt = {
+  testOuiToStringFormat = {
     expr = mac.ouiToString 1122867;
     expected = "11:22:33";
   };
-  fromOuiNic-oob = {
+  testFromOuiNicOutOfRange = {
     expr = throws (mac.fromOuiNic 16777216 0);
     expected = true;
   };
 
   # ===== EUI-64 (RFC 4291 § 2.5.1) =====
   # aa:bb:cc:dd:ee:ff → [0xa8, 0xbb, 0xcc, 0xff, 0xfe, 0xdd, 0xee, 0xff]
-  eui64-spec-vector = {
-    expr = mac.toEui64 (p "aa:bb:cc:dd:ee:ff");
+  testEui64SpecVector = {
+    expr = mac.toEui64 (parse "aa:bb:cc:dd:ee:ff");
     expected = [
       168
       187
@@ -318,8 +318,8 @@ in
     ];
   };
   # Flip u/l bit: 00:11:22:33:44:55 → first octet 0x00 XOR 2 = 0x02
-  eui64-zero-ul = {
-    expr = mac.toEui64 (p "00:11:22:33:44:55");
+  testEui64FlipsUniversalLocalBit = {
+    expr = mac.toEui64 (parse "00:11:22:33:44:55");
     expected = [
       2
       17
@@ -333,111 +333,111 @@ in
   };
 
   # ===== Arithmetic =====
-  add-one = {
-    expr = mac.toString (mac.add 1 (p "00:00:00:00:00:00"));
+  testAddOne = {
+    expr = mac.toString (mac.add 1 (parse "00:00:00:00:00:00"));
     expected = "00:00:00:00:00:01";
   };
-  add-carry = {
-    expr = mac.toString (mac.add 1 (p "00:00:00:00:00:ff"));
+  testAddCarry = {
+    expr = mac.toString (mac.add 1 (parse "00:00:00:00:00:ff"));
     expected = "00:00:00:00:01:00";
   };
-  add-overflow = {
-    expr = throws (mac.add 1 (p "ff:ff:ff:ff:ff:ff"));
+  testAddOverflow = {
+    expr = throws (mac.add 1 (parse "ff:ff:ff:ff:ff:ff"));
     expected = true;
   };
-  sub-borrow = {
-    expr = mac.toString (mac.sub 1 (p "00:00:00:00:01:00"));
+  testSubBorrow = {
+    expr = mac.toString (mac.sub 1 (parse "00:00:00:00:01:00"));
     expected = "00:00:00:00:00:ff";
   };
-  sub-underflow = {
-    expr = throws (mac.sub 1 (p "00:00:00:00:00:00"));
+  testSubUnderflow = {
+    expr = throws (mac.sub 1 (parse "00:00:00:00:00:00"));
     expected = true;
   };
-  next-ok = {
-    expr = mac.toString (mac.next (p "00:00:00:00:00:01"));
+  testNextOk = {
+    expr = mac.toString (mac.next (parse "00:00:00:00:00:01"));
     expected = "00:00:00:00:00:02";
   };
-  prev-ok = {
-    expr = mac.toString (mac.prev (p "00:00:00:00:00:02"));
+  testPrevOk = {
+    expr = mac.toString (mac.prev (parse "00:00:00:00:00:02"));
     expected = "00:00:00:00:00:01";
   };
-  diff-pos = {
-    expr = mac.diff (p "00:00:00:00:00:01") (p "00:00:00:00:00:05");
+  testDiffPositive = {
+    expr = mac.diff (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:05");
     expected = 4;
   };
-  diff-neg = {
-    expr = mac.diff (p "00:00:00:00:00:05") (p "00:00:00:00:00:01");
+  testDiffNegative = {
+    expr = mac.diff (parse "00:00:00:00:00:05") (parse "00:00:00:00:00:01");
     expected = -4;
   };
-  diff-zero = {
-    expr = mac.diff (p "00:00:00:00:00:05") (p "00:00:00:00:00:05");
+  testDiffZero = {
+    expr = mac.diff (parse "00:00:00:00:00:05") (parse "00:00:00:00:00:05");
     expected = 0;
   };
 
   # ===== Comparison helpers =====
-  cmp-le = {
-    expr = mac.le (p "00:00:00:00:00:01") (p "00:00:00:00:00:02");
+  testComparisonLe = {
+    expr = mac.le (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:02");
     expected = true;
   };
-  cmp-gt = {
-    expr = mac.gt (p "00:00:00:00:00:02") (p "00:00:00:00:00:01");
+  testComparisonGt = {
+    expr = mac.gt (parse "00:00:00:00:00:02") (parse "00:00:00:00:00:01");
     expected = true;
   };
-  cmp-ge = {
-    expr = mac.ge (p "00:00:00:00:00:02") (p "00:00:00:00:00:01");
+  testComparisonGe = {
+    expr = mac.ge (parse "00:00:00:00:00:02") (parse "00:00:00:00:00:01");
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = mac.eq (p "aa:bb:cc:dd:ee:ff") (p "aa:bb:cc:dd:ee:ff");
+  testEqSame = {
+    expr = mac.eq (parse "aa:bb:cc:dd:ee:ff") (parse "aa:bb:cc:dd:ee:ff");
     expected = true;
   };
-  eq-diff = {
-    expr = mac.eq (p "aa:bb:cc:dd:ee:ff") (p "aa:bb:cc:dd:ee:fe");
+  testEqDifferent = {
+    expr = mac.eq (parse "aa:bb:cc:dd:ee:ff") (parse "aa:bb:cc:dd:ee:fe");
     expected = false;
   };
-  lt-yes = {
-    expr = mac.lt (p "00:00:00:00:00:01") (p "00:00:00:00:00:02");
+  testLtTrue = {
+    expr = mac.lt (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:02");
     expected = true;
   };
-  compare-lt = {
-    expr = mac.compare (p "00:00:00:00:00:01") (p "00:00:00:00:00:02");
+  testCompareLt = {
+    expr = mac.compare (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:02");
     expected = -1;
   };
-  compare-eq = {
-    expr = mac.compare (p "00:00:00:00:00:01") (p "00:00:00:00:00:01");
+  testCompareEq = {
+    expr = mac.compare (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:01");
     expected = 0;
   };
-  compare-gt = {
-    expr = mac.compare (p "00:00:00:00:00:02") (p "00:00:00:00:00:01");
+  testCompareGt = {
+    expr = mac.compare (parse "00:00:00:00:00:02") (parse "00:00:00:00:00:01");
     expected = 1;
   };
-  min-smaller = {
-    expr = mac.toString (mac.min (p "00:00:00:00:00:01") (p "00:00:00:00:00:02"));
+  testMinSmaller = {
+    expr = mac.toString (mac.min (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:02"));
     expected = "00:00:00:00:00:01";
   };
-  max-larger = {
-    expr = mac.toString (mac.max (p "00:00:00:00:00:01") (p "00:00:00:00:00:02"));
+  testMaxLarger = {
+    expr = mac.toString (mac.max (parse "00:00:00:00:00:01") (parse "00:00:00:00:00:02"));
     expected = "00:00:00:00:00:02";
   };
 
   # ===== Constants =====
-  const-unspecified = {
+  testConstantUnspecified = {
     expr = mac.toString mac.unspecified;
     expected = "00:00:00:00:00:00";
   };
-  const-broadcast = {
+  testConstantBroadcast = {
     expr = mac.toString mac.broadcast;
     expected = "ff:ff:ff:ff:ff:ff";
   };
 
   # ===== Curry =====
-  curry-add = {
+  testCurriedAdd = {
     expr = map mac.toString (
       map (mac.add 1) [
-        (p "00:00:00:00:00:00")
-        (p "00:00:00:00:00:10")
+        (parse "00:00:00:00:00:00")
+        (parse "00:00:00:00:00:10")
       ]
     );
     expected = [

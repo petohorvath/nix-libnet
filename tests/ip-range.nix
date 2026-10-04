@@ -5,208 +5,208 @@ let
   ipv6 = import ../lib/ipv6.nix;
   cidr = import ../lib/cidr.nix;
   inherit (harness) throws;
-  p = ipRange.parse;
+  parse = ipRange.parse;
 in
 {
   # ===== Parse =====
-  parse-v4 = {
-    expr = ipRange.toString (p "1.2.3.4-1.2.3.10");
+  testParseV4 = {
+    expr = ipRange.toString (parse "1.2.3.4-1.2.3.10");
     expected = "1.2.3.4-1.2.3.10";
   };
-  parse-v4-same = {
-    expr = ipRange.toString (p "1.2.3.4-1.2.3.4");
+  testParseV4Singleton = {
+    expr = ipRange.toString (parse "1.2.3.4-1.2.3.4");
     expected = "1.2.3.4-1.2.3.4";
   };
-  parse-v6 = {
-    expr = ipRange.toString (p "2001:db8::1-2001:db8::ff");
+  testParseV6 = {
+    expr = ipRange.toString (parse "2001:db8::1-2001:db8::ff");
     expected = "2001:db8::1-2001:db8::ff";
   };
-  reject-mixed-fam = {
-    expr = throws (p "1.2.3.4-::1");
+  testRejectMixedFamilies = {
+    expr = throws (parse "1.2.3.4-::1");
     expected = true;
   };
-  reject-reversed = {
-    expr = throws (p "1.2.3.10-1.2.3.4");
+  testRejectReversed = {
+    expr = throws (parse "1.2.3.10-1.2.3.4");
     expected = true;
   };
-  reject-no-dash = {
-    expr = throws (p "1.2.3.4");
+  testRejectNoDash = {
+    expr = throws (parse "1.2.3.4");
     expected = true;
   };
-  reject-bad-from = {
-    expr = throws (p "bad-1.2.3.4");
+  testRejectBadFrom = {
+    expr = throws (parse "bad-1.2.3.4");
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (ipRange.tryParse "1.2.3.4-1.2.3.10").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (ipRange.tryParse "bad").success;
     expected = false;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = ipRange.is (p "1.2.3.4-1.2.3.10");
+  testIsParsed = {
+    expr = ipRange.is (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = ipRange.is "1.2.3.4-1.2.3.10";
     expected = false;
   };
-  isIpv4-v4 = {
-    expr = ipRange.isIpv4 (p "1.2.3.4-1.2.3.10");
+  testIsIpv4V4 = {
+    expr = ipRange.isIpv4 (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  isIpv6-v6 = {
-    expr = ipRange.isIpv6 (p "::1-::ff");
+  testIsIpv6V6 = {
+    expr = ipRange.isIpv6 (parse "::1-::ff");
     expected = true;
   };
-  isSingleton-yes = {
-    expr = ipRange.isSingleton (p "1.2.3.4-1.2.3.4");
+  testIsSingletonYes = {
+    expr = ipRange.isSingleton (parse "1.2.3.4-1.2.3.4");
     expected = true;
   };
-  isSingleton-no = {
-    expr = ipRange.isSingleton (p "1.2.3.4-1.2.3.5");
+  testIsSingletonNo = {
+    expr = ipRange.isSingleton (parse "1.2.3.4-1.2.3.5");
     expected = false;
   };
 
   # ===== Size =====
-  size-v4 = {
-    expr = ipRange.size (p "1.2.3.4-1.2.3.10");
+  testSizeV4 = {
+    expr = ipRange.size (parse "1.2.3.4-1.2.3.10");
     expected = 7;
   };
-  size-v4-single = {
-    expr = ipRange.size (p "1.2.3.4-1.2.3.4");
+  testSizeV4Singleton = {
+    expr = ipRange.size (parse "1.2.3.4-1.2.3.4");
     expected = 1;
   };
-  size-v6 = {
-    expr = ipRange.size (p "::1-::10");
+  testSizeV6 = {
+    expr = ipRange.size (parse "::1-::10");
     expected = 16;
   };
-  size-v6-overflow = {
-    expr = throws (ipRange.size (p "::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+  testSizeV6Overflow = {
+    expr = throws (ipRange.size (parse "::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
     expected = true;
   };
 
   # ===== Containment =====
-  contains-in = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.5");
+  testContainsInside = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.5");
     expected = true;
   };
-  contains-from = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.4");
+  testContainsFrom = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.4");
     expected = true;
   };
-  contains-to = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.10");
+  testContainsTo = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.10");
     expected = true;
   };
-  contains-out-lo = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.3");
+  testContainsBelowFrom = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.3");
     expected = false;
   };
-  contains-out-hi = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.11");
+  testContainsAboveTo = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.11");
     expected = false;
   };
-  contains-cross = {
-    expr = ipRange.contains (p "1.2.3.4-1.2.3.10") (ipv6.parse "::1");
+  testContainsCrossFamily = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv6.parse "::1");
     expected = false;
   };
 
   # ===== Overlaps / subrange =====
-  overlaps-yes = {
-    expr = ipRange.overlaps (p "1.2.3.4-1.2.3.10") (p "1.2.3.8-1.2.3.15");
+  testOverlapsYes = {
+    expr = ipRange.overlaps (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.8-1.2.3.15");
     expected = true;
   };
-  overlaps-no = {
-    expr = ipRange.overlaps (p "1.2.3.4-1.2.3.10") (p "1.2.3.11-1.2.3.20");
+  testOverlapsNo = {
+    expr = ipRange.overlaps (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.11-1.2.3.20");
     expected = false;
   };
-  overlaps-same = {
-    expr = ipRange.overlaps (p "1.2.3.4-1.2.3.10") (p "1.2.3.4-1.2.3.10");
+  testOverlapsSame = {
+    expr = ipRange.overlaps (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  overlaps-cross = {
-    expr = ipRange.overlaps (p "1.2.3.4-1.2.3.10") (p "::1-::ff");
+  testOverlapsCrossFamily = {
+    expr = ipRange.overlaps (parse "1.2.3.4-1.2.3.10") (parse "::1-::ff");
     expected = false;
   };
-  isSubrange-yes = {
-    expr = ipRange.isSubrangeOf (p "1.2.3.5-1.2.3.8") (p "1.2.3.4-1.2.3.10");
+  testIsSubrangeYes = {
+    expr = ipRange.isSubrangeOf (parse "1.2.3.5-1.2.3.8") (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  isSubrange-no = {
-    expr = ipRange.isSubrangeOf (p "1.2.3.4-1.2.3.10") (p "1.2.3.5-1.2.3.8");
+  testIsSubrangeNo = {
+    expr = ipRange.isSubrangeOf (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.5-1.2.3.8");
     expected = false;
   };
-  isSuperrange-yes = {
-    expr = ipRange.isSuperrangeOf (p "1.2.3.4-1.2.3.10") (p "1.2.3.5-1.2.3.8");
+  testIsSuperrangeYes = {
+    expr = ipRange.isSuperrangeOf (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.5-1.2.3.8");
     expected = true;
   };
 
   # ===== Merge =====
-  merge-overlap = {
-    expr = ipRange.toString (ipRange.merge (p "1.2.3.4-1.2.3.10") (p "1.2.3.8-1.2.3.15"));
+  testMergeOverlap = {
+    expr = ipRange.toString (ipRange.merge (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.8-1.2.3.15"));
     expected = "1.2.3.4-1.2.3.15";
   };
-  merge-adjacent = {
-    expr = ipRange.toString (ipRange.merge (p "1.2.3.4-1.2.3.10") (p "1.2.3.11-1.2.3.15"));
+  testMergeAdjacent = {
+    expr = ipRange.toString (ipRange.merge (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.11-1.2.3.15"));
     expected = "1.2.3.4-1.2.3.15";
   };
-  merge-disjoint = {
-    expr = ipRange.merge (p "1.2.3.4-1.2.3.10") (p "1.2.3.20-1.2.3.30");
+  testMergeDisjoint = {
+    expr = ipRange.merge (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.20-1.2.3.30");
     expected = null;
   };
-  merge-cross = {
-    expr = ipRange.merge (p "1.2.3.4-1.2.3.10") (p "::1-::ff");
+  testMergeCrossFamily = {
+    expr = ipRange.merge (parse "1.2.3.4-1.2.3.10") (parse "::1-::ff");
     expected = null;
   };
-  merge-contains = {
-    expr = ipRange.toString (ipRange.merge (p "1.2.3.0-1.2.3.255") (p "1.2.3.10-1.2.3.50"));
+  testMergeContained = {
+    expr = ipRange.toString (ipRange.merge (parse "1.2.3.0-1.2.3.255") (parse "1.2.3.10-1.2.3.50"));
     expected = "1.2.3.0-1.2.3.255";
   };
 
   # ===== Enumeration =====
-  addresses-small = {
-    expr = map ipv4.toString (ipRange.addresses (p "1.2.3.4-1.2.3.6"));
+  testAddressesSmall = {
+    expr = map ipv4.toString (ipRange.addresses (parse "1.2.3.4-1.2.3.6"));
     expected = [
       "1.2.3.4"
       "1.2.3.5"
       "1.2.3.6"
     ];
   };
-  addresses-huge = {
-    expr = throws (ipRange.addresses (p "1.0.0.0-2.0.0.0"));
+  testAddressesTooLarge = {
+    expr = throws (ipRange.addresses (parse "1.0.0.0-2.0.0.0"));
     expected = true;
   };
-  addressAt-first = {
-    expr = ipv4.toString (ipRange.addressAt 0 (p "1.2.3.4-1.2.3.6"));
+  testAddressAtFirst = {
+    expr = ipv4.toString (ipRange.addressAt 0 (parse "1.2.3.4-1.2.3.6"));
     expected = "1.2.3.4";
   };
-  addressAt-neg = {
-    expr = ipv4.toString (ipRange.addressAt (-1) (p "1.2.3.4-1.2.3.6"));
+  testAddressAtNegative = {
+    expr = ipv4.toString (ipRange.addressAt (-1) (parse "1.2.3.4-1.2.3.6"));
     expected = "1.2.3.6";
   };
-  addressAt-v6 = {
-    expr = ipv6.toString (ipRange.addressAt 2 (p "::1-::5"));
+  testAddressAtV6 = {
+    expr = ipv6.toString (ipRange.addressAt 2 (parse "::1-::5"));
     expected = "::3";
   };
-  addressAt-oob = {
-    expr = throws (ipRange.addressAt 3 (p "1.2.3.4-1.2.3.6"));
+  testAddressAtOutOfBounds = {
+    expr = throws (ipRange.addressAt 3 (parse "1.2.3.4-1.2.3.6"));
     expected = true;
   };
 
   # ===== toCidrs =====
-  toCidrs-aligned = {
-    expr = map cidr.toString (ipRange.toCidrs (p "10.0.0.0-10.0.0.255"));
+  testToCidrsAligned = {
+    expr = map cidr.toString (ipRange.toCidrs (parse "10.0.0.0-10.0.0.255"));
     expected = [ "10.0.0.0/24" ];
   };
-  toCidrs-unaligned = {
-    expr = map cidr.toString (ipRange.toCidrs (p "10.0.0.1-10.0.0.6"));
+  testToCidrsUnaligned = {
+    expr = map cidr.toString (ipRange.toCidrs (parse "10.0.0.1-10.0.0.6"));
     expected = [
       "10.0.0.1/32"
       "10.0.0.2/31"
@@ -214,103 +214,103 @@ in
       "10.0.0.6/32"
     ];
   };
-  toCidrs-single = {
-    expr = map cidr.toString (ipRange.toCidrs (p "1.2.3.4-1.2.3.4"));
+  testToCidrsSingle = {
+    expr = map cidr.toString (ipRange.toCidrs (parse "1.2.3.4-1.2.3.4"));
     expected = [ "1.2.3.4/32" ];
   };
-  toCidrs-v6 = {
-    expr = map cidr.toString (ipRange.toCidrs (p "2001:db8::-2001:db8::ff"));
+  testToCidrsV6 = {
+    expr = map cidr.toString (ipRange.toCidrs (parse "2001:db8::-2001:db8::ff"));
     expected = [ "2001:db8::/120" ];
   };
-  toCidrs-at-max = {
-    expr = map cidr.toString (ipRange.toCidrs (p "255.255.255.254-255.255.255.255"));
+  testToCidrsAtMax = {
+    expr = map cidr.toString (ipRange.toCidrs (parse "255.255.255.254-255.255.255.255"));
     expected = [ "255.255.255.254/31" ];
   };
 
-  fromCidr-v4 = {
+  testFromCidrV4 = {
     expr = ipRange.toString (ipRange.fromCidr (cidr.parse "10.0.0.0/24"));
     expected = "10.0.0.0-10.0.0.255";
   };
-  fromCidr-v6 = {
+  testFromCidrV6 = {
     expr = ipRange.toString (ipRange.fromCidr (cidr.parse "2001:db8::/120"));
     expected = "2001:db8::-2001:db8::ff";
   };
 
   # ===== isValid / make / fromAddress / version / accessors =====
-  isValid-ok = {
+  testIsValidOk = {
     expr = ipRange.isValid "1.2.3.4-1.2.3.10";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = ipRange.isValid "nope";
     expected = false;
   };
-  make-ok = {
+  testMakeOk = {
     expr = ipRange.toString (ipRange.make (ipv4.parse "1.2.3.4") (ipv4.parse "1.2.3.10"));
     expected = "1.2.3.4-1.2.3.10";
   };
-  make-reversed = {
+  testMakeReversed = {
     expr = throws (ipRange.make (ipv4.parse "1.2.3.10") (ipv4.parse "1.2.3.4"));
     expected = true;
   };
-  make-mixed = {
+  testMakeMixed = {
     expr = throws (ipRange.make (ipv4.parse "1.2.3.4") (ipv6.parse "::1"));
     expected = true;
   };
-  fromAddress-ok = {
+  testFromAddressOk = {
     expr = ipRange.toString (ipRange.fromAddress (ipv4.parse "1.2.3.4"));
     expected = "1.2.3.4-1.2.3.4";
   };
-  fromAddress-bad = {
+  testFromAddressBad = {
     expr = throws (ipRange.fromAddress "1.2.3.4");
     expected = true;
   };
-  version-v4 = {
-    expr = ipRange.version (p "1.2.3.4-1.2.3.10");
+  testVersionV4 = {
+    expr = ipRange.version (parse "1.2.3.4-1.2.3.10");
     expected = 4;
   };
-  version-v6 = {
-    expr = ipRange.version (p "::1-::ff");
+  testVersionV6 = {
+    expr = ipRange.version (parse "::1-::ff");
     expected = 6;
   };
-  from-accessor = {
-    expr = ipv4.toString (ipRange.from (p "1.2.3.4-1.2.3.10"));
+  testFromAccessor = {
+    expr = ipv4.toString (ipRange.from (parse "1.2.3.4-1.2.3.10"));
     expected = "1.2.3.4";
   };
-  to-accessor = {
-    expr = ipv4.toString (ipRange.to (p "1.2.3.4-1.2.3.10"));
+  testToAccessor = {
+    expr = ipv4.toString (ipRange.to (parse "1.2.3.4-1.2.3.10"));
     expected = "1.2.3.10";
   };
-  isAdjacent-yes = {
-    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.11-1.2.3.15");
+  testIsAdjacentYes = {
+    expr = ipRange.isAdjacent (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.11-1.2.3.15");
     expected = true;
   };
-  isAdjacent-reversed = {
-    expr = ipRange.isAdjacent (p "1.2.3.11-1.2.3.15") (p "1.2.3.4-1.2.3.10");
+  testIsAdjacentReversed = {
+    expr = ipRange.isAdjacent (parse "1.2.3.11-1.2.3.15") (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  isAdjacent-gap = {
-    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.12-1.2.3.15");
+  testIsAdjacentGap = {
+    expr = ipRange.isAdjacent (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.12-1.2.3.15");
     expected = false;
   };
-  isAdjacent-overlap = {
-    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "1.2.3.8-1.2.3.15");
+  testIsAdjacentOverlap = {
+    expr = ipRange.isAdjacent (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.8-1.2.3.15");
     expected = false;
   };
-  isAdjacent-cross-fam = {
-    expr = ipRange.isAdjacent (p "1.2.3.4-1.2.3.10") (p "::1-::ff");
+  testIsAdjacentCrossFamily = {
+    expr = ipRange.isAdjacent (parse "1.2.3.4-1.2.3.10") (parse "::1-::ff");
     expected = false;
   };
-  isAdjacent-at-max = {
-    expr = ipRange.isAdjacent (p "255.255.255.254-255.255.255.255") (p "1.0.0.0-2.0.0.0");
+  testIsAdjacentAtMax = {
+    expr = ipRange.isAdjacent (parse "255.255.255.254-255.255.255.255") (parse "1.0.0.0-2.0.0.0");
     expected = false;
   };
-  addressesUnbounded-len = {
-    expr = builtins.length (ipRange.addressesUnbounded (p "1.0.0.0-1.0.255.255"));
+  testAddressesUnboundedLength = {
+    expr = builtins.length (ipRange.addressesUnbounded (parse "1.0.0.0-1.0.255.255"));
     expected = 65536;
   };
-  addressesUnbounded-v6 = {
-    expr = map ipv6.toString (ipRange.addressesUnbounded (p "::1-::3"));
+  testAddressesUnboundedV6 = {
+    expr = map ipv6.toString (ipRange.addressesUnbounded (parse "::1-::3"));
     expected = [
       "::1"
       "::2"
@@ -319,46 +319,46 @@ in
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = ipRange.lt (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10");
+  testLt = {
+    expr = ipRange.lt (parse "1.0.0.0-1.0.0.10") (parse "2.0.0.0-2.0.0.10");
     expected = true;
   };
-  cmp-le = {
-    expr = ipRange.le (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10");
+  testLe = {
+    expr = ipRange.le (parse "1.0.0.0-1.0.0.10") (parse "2.0.0.0-2.0.0.10");
     expected = true;
   };
-  cmp-gt = {
-    expr = ipRange.gt (p "2.0.0.0-2.0.0.10") (p "1.0.0.0-1.0.0.10");
+  testGt = {
+    expr = ipRange.gt (parse "2.0.0.0-2.0.0.10") (parse "1.0.0.0-1.0.0.10");
     expected = true;
   };
-  cmp-ge = {
-    expr = ipRange.ge (p "2.0.0.0-2.0.0.10") (p "1.0.0.0-1.0.0.10");
+  testGe = {
+    expr = ipRange.ge (parse "2.0.0.0-2.0.0.10") (parse "1.0.0.0-1.0.0.10");
     expected = true;
   };
-  cmp-min = {
-    expr = ipRange.toString (ipRange.min (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10"));
+  testMin = {
+    expr = ipRange.toString (ipRange.min (parse "1.0.0.0-1.0.0.10") (parse "2.0.0.0-2.0.0.10"));
     expected = "1.0.0.0-1.0.0.10";
   };
-  cmp-max = {
-    expr = ipRange.toString (ipRange.max (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10"));
+  testMax = {
+    expr = ipRange.toString (ipRange.max (parse "1.0.0.0-1.0.0.10") (parse "2.0.0.0-2.0.0.10"));
     expected = "2.0.0.0-2.0.0.10";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = ipRange.eq (p "1.2.3.4-1.2.3.10") (p "1.2.3.4-1.2.3.10");
+  testEqSame = {
+    expr = ipRange.eq (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.4-1.2.3.10");
     expected = true;
   };
-  eq-diff = {
-    expr = ipRange.eq (p "1.2.3.4-1.2.3.10") (p "1.2.3.4-1.2.3.11");
+  testEqDifferent = {
+    expr = ipRange.eq (parse "1.2.3.4-1.2.3.10") (parse "1.2.3.4-1.2.3.11");
     expected = false;
   };
-  compare-lt = {
-    expr = ipRange.compare (p "1.0.0.0-1.0.0.10") (p "2.0.0.0-2.0.0.10");
+  testCompareLt = {
+    expr = ipRange.compare (parse "1.0.0.0-1.0.0.10") (parse "2.0.0.0-2.0.0.10");
     expected = -1;
   };
-  compare-v4-v6 = {
-    expr = ipRange.compare (p "1.2.3.4-1.2.3.10") (p "::1-::ff");
+  testCompareV4V6 = {
+    expr = ipRange.compare (parse "1.2.3.4-1.2.3.10") (parse "::1-::ff");
     expected = -1;
   };
 }
