@@ -36,8 +36,6 @@
 let
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
-  # Suffixed so the exported `transport` / `bindpoint` accessors can keep
-  # their names in this scope.
   transport = import ./transport.nix;
   bindpoint = import ./bindpoint.nix;
 
@@ -329,6 +327,8 @@ in
     tryParse
     ;
 
+  # Defined here rather than in `let`, where `transport` and `bindpoint` name
+  # the imported modules.
   /*
     Get the transport of a bind URL.
 

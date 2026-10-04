@@ -31,8 +31,6 @@
 let
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
-  # Suffixed so the exported `transport` / `endpoint` accessors can keep
-  # their names in this scope.
   transport = import ./transport.nix;
   endpoint = import ./endpoint.nix;
 
@@ -325,6 +323,8 @@ in
     tryParse
     ;
 
+  # Defined here rather than in `let`, where `transport` and `endpoint` name
+  # the imported modules.
   /*
     Get the transport of a socket URL.
 

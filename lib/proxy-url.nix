@@ -304,6 +304,8 @@ in
     tryParse
     ;
 
+  # Defined here rather than in `let`, where `authority` names the
+  # authority module.
   /*
     Get the authority of a proxy URL; reach the host, userinfo, and port
     through it.

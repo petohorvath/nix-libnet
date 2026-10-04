@@ -380,6 +380,8 @@ in
     userinfo
     ;
 
+  # Defined here rather than in `let`, where `port` names the
+  # port module.
   /*
     Get the explicit port of an authority.
 

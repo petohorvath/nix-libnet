@@ -530,6 +530,8 @@ in
     userinfo
     ;
 
+  # Defined here rather than in `let`, where `port` and `transport` name
+  # the imported modules.
   /*
     Get the explicit port of a URL; see `effectivePort` for the port in use.
 

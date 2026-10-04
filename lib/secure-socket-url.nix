@@ -32,8 +32,6 @@ let
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
-  # Suffixed so the exported `endpoint` / `transport` accessors can keep
-  # their names in this scope.
   endpoint = import ./endpoint.nix;
   transport = import ./transport.nix;
 
@@ -337,6 +335,8 @@ in
     tryParse
     ;
 
+  # Defined here rather than in `let`, where `endpoint` and `transport` name
+  # the imported modules.
   /*
     Get the endpoint of a secure socket URL.
 
