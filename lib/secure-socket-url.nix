@@ -30,8 +30,10 @@
 */
 let
   types = import ./internal/types.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
+  # Suffixed so the exported `endpoint` / `transport` accessors can keep
+  # their names in this scope.
   endpoint = import ./endpoint.nix;
   transport = import ./transport.nix;
 
@@ -58,83 +60,161 @@ let
     ssl = "tls";
   };
 
-  canonical = s: aliases.${s} or s;
+  canonicalizeScheme = schemeName: aliases.${schemeName} or schemeName;
 
   schemeHint = "expected tls/ssl, dtls, or quic";
 
-  mk = scheme: ep: {
+  mk = canonicalScheme: endpointValue: {
     _type = "secureSocketUrl";
-    inherit scheme;
-    endpoint = ep;
+    scheme = canonicalScheme;
+    endpoint = endpointValue;
   };
 
   # ===== Parsing =====
 
+  /*
+    Parse a secure socket URL without throwing, for callers that want to
+    report or recover from invalid input.
+
+    `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
+    `ssl` (alias of `tls`), `dtls`, or `quic`, matched
+    case-insensitively; the port is required.
+
+    Returns a tryResult: `{ success = true; value; }` with a
+    secureSocketUrl value, or `{ success = false; error; }` describing
+    the problem.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.secureSocketUrl.parse: input must be a string"
     else
       let
-        parts = parse'.splitOn "://" s;
+        parts = parsing.splitOn "://" input;
       in
       if builtins.length parts < 2 then
-        types.tryErr "libnet.secureSocketUrl.parse: missing '<scheme>://': \"${s}\""
+        types.tryErr "libnet.secureSocketUrl.parse: missing '<scheme>://': \"${input}\""
       else
         let
           rawScheme = builtins.elemAt parts 0;
-          scheme = canonical (lowerAscii rawScheme);
+          canonicalScheme = canonicalizeScheme (lowerAscii rawScheme);
           # Rejoin the remainder so a stray '://' is kept (and then
           # rejected by the endpoint parser).
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
         in
-        if !(builtins.hasAttr scheme schemes) then
+        if !(builtins.hasAttr canonicalScheme schemes) then
           types.tryErr "libnet.secureSocketUrl.parse: unknown scheme \"${rawScheme}\" (${schemeHint})"
         else
           let
-            epRes = endpoint.tryParse rest;
+            endpointResult = endpoint.tryParse rest;
           in
-          if !epRes.success then
-            types.tryErr "libnet.secureSocketUrl.parse: invalid address in \"${s}\""
-          else if types.isUnixSocket epRes.value then
-            types.tryErr "libnet.secureSocketUrl.parse: '${scheme}://' needs host:port, not a socket path: \"${s}\""
+          if !endpointResult.success then
+            types.tryErr "libnet.secureSocketUrl.parse: invalid address in \"${input}\""
+          else if types.isUnixSocket endpointResult.value then
+            types.tryErr "libnet.secureSocketUrl.parse: '${canonicalScheme}://' needs host:port, not a socket path: \"${input}\""
           else
-            types.tryOk (mk scheme epRes.value);
+            types.tryOk (mk canonicalScheme endpointResult.value);
 
+  /*
+    Parse a secure socket URL.
+
+    `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
+    `ssl` (alias of `tls`), `dtls`, or `quic`, matched
+    case-insensitively; the port is required.
+
+    Returns a secureSocketUrl value with the canonical scheme; throws on
+    malformed input, an unknown scheme, or a socket path.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
-  toString = ssu: "${ssu.scheme}://${endpoint.toString ssu.endpoint}";
+  /*
+    Render a secure socket URL in canonical text form.
+
+    `secureSocketUrl`: secureSocketUrl value.
+
+    Returns `<scheme>://<endpoint>` with the canonical scheme, such as
+    "tls://1.2.3.4:443".
+  */
+  toString =
+    secureSocketUrl: "${secureSocketUrl.scheme}://${endpoint.toString secureSocketUrl.endpoint}";
 
   # ===== Construction =====
 
+  /*
+    Build a secure socket URL from a scheme and an already-parsed
+    endpoint.
+
+    `inputScheme`: `tls`, `ssl`, `dtls`, or `quic`, matched
+    case-insensitively and canonicalized.
+    `endpointValue`: ipEndpoint or dnsEndpoint value.
+
+    Returns a secureSocketUrl value; throws on a non-string or unknown
+    scheme, a non-endpoint value, or a unixSocket endpoint.
+  */
   make =
-    scheme: ep:
-    if !(builtins.isString scheme) then
-      builtins.throw "libnet.secureSocketUrl.make: scheme must be a string"
+    inputScheme: endpointValue:
+    if !(builtins.isString inputScheme) then
+      throw "libnet.secureSocketUrl.make: scheme must be a string"
     else
       let
-        sch = canonical (lowerAscii scheme);
+        canonicalScheme = canonicalizeScheme (lowerAscii inputScheme);
       in
-      if !(builtins.hasAttr sch schemes) then
-        builtins.throw "libnet.secureSocketUrl.make: unknown scheme \"${scheme}\" (${schemeHint})"
-      else if !(endpoint.is ep) then
-        builtins.throw "libnet.secureSocketUrl.make: expected an endpoint value"
-      else if types.isUnixSocket ep then
-        builtins.throw "libnet.secureSocketUrl.make: a secure socket needs host:port, not a unix socket"
+      if !(builtins.hasAttr canonicalScheme schemes) then
+        throw "libnet.secureSocketUrl.make: unknown scheme \"${inputScheme}\" (${schemeHint})"
+      else if !(endpoint.is endpointValue) then
+        throw "libnet.secureSocketUrl.make: expected an endpoint value"
+      else if types.isUnixSocket endpointValue then
+        throw "libnet.secureSocketUrl.make: a secure socket needs host:port, not a unix socket"
       else
-        mk sch ep;
+        mk canonicalScheme endpointValue;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isSecureSocketUrl;
-  # Every scheme in the registry is TLS-secured.
-  isSecure = _ssu: true;
+  /*
+    Check whether a string parses as a secure socket URL, without
+    throwing.
+
+    `input`: value to check.
+
+    Returns true when `parse` would succeed.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a secureSocketUrl value.
+
+    `value`: any value; non-attrsets are accepted and yield false.
+
+    Returns true for an attrset tagged `_type = "secureSocketUrl"`, false
+    otherwise; other fields are not checked.
+  */
+  is = value: types.isSecureSocketUrl value;
+
+  /*
+    Report whether a secure socket URL is TLS-secured, for code that
+    handles it alongside other socket types.
+
+    `_`: secureSocketUrl value (ignored).
+
+    Returns true; every scheme in the registry is TLS-secured.
+  */
+  isSecure = _: true;
+
+  # ===== Accessors =====
+
+  /*
+    Get the canonical scheme of a secure socket URL.
+
+    `secureSocketUrl`: secureSocketUrl value.
+
+    Returns "tls", "dtls", or "quic".
+  */
+  scheme = secureSocketUrl: secureSocketUrl.scheme;
 
   # ===== Comparison =====
   #
@@ -143,63 +223,136 @@ let
   # `quic` — both UDP — distinct.
 
   schemeRank =
-    scheme:
-    if scheme == "tls" then
+    canonicalScheme:
+    if canonicalScheme == "tls" then
       0
-    else if scheme == "dtls" then
+    else if canonicalScheme == "dtls" then
       1
     else
       2;
 
+  /*
+    Compare two secure socket URLs for equality.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns true when the type tags, schemes, and endpoints match.
+  */
   eq = a: b: a._type == b._type && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
 
+  /*
+    Order two secure socket URLs by scheme (tls < dtls < quic), then by
+    endpoint.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns -1, 0, or 1 when `a` sorts before, equal to, or after `b`.
+  */
   compare =
     a: b:
     let
-      ra = schemeRank a.scheme;
-      rb = schemeRank b.scheme;
+      rankA = schemeRank a.scheme;
+      rankB = schemeRank b.scheme;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
     else
       endpoint.compare a.endpoint b.endpoint;
 
+  /*
+    Test whether `a` sorts strictly before `b`.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns a Boolean.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether `a` sorts before or equal to `b`.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns a Boolean.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether `a` sorts strictly after `b`.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns a Boolean.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether `a` sorts after or equal to `b`.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns a Boolean.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lesser of two secure socket URLs.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns the one that sorts first; `a` when they are equal.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the greater of two secure socket URLs.
+
+    `a`, `b`: secureSocketUrl values.
+
+    Returns the one that sorts last; `a` when they are equal.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    make
-    ;
-  inherit
-    isValid
+    aliases
+    compare
+    eq
+    ge
+    gt
     is
     isSecure
-    ;
-  # `scheme` / `endpoint` / `transport` accessors declared inline to
-  # avoid shadowing the imported modules of the same name. `transport`
-  # is derived from the scheme via the registry.
-  scheme = ssu: ssu.scheme;
-  endpoint = ssu: ssu.endpoint;
-  transport = ssu: transport.parse schemes.${ssu.scheme}.transport;
-  inherit
-    eq
-    lt
+    isValid
     le
-    gt
-    ge
-    compare
-    min
+    lt
+    make
     max
+    min
+    parse
+    scheme
+    schemes
+    toString
+    tryParse
     ;
-  inherit schemes aliases;
+
+  /*
+    Get the endpoint of a secure socket URL.
+
+    `secureSocketUrl`: secureSocketUrl value.
+
+    Returns the ipEndpoint or dnsEndpoint value.
+  */
+  endpoint = secureSocketUrl: secureSocketUrl.endpoint;
+
+  /*
+    Get the transport a secure socket URL runs over, derived from its
+    scheme.
+
+    `secureSocketUrl`: secureSocketUrl value.
+
+    Returns the `tcp` transport for `tls`, `udp` for `dtls` and `quic`.
+  */
+  transport = secureSocketUrl: transport.parse schemes.${secureSocketUrl.scheme}.transport;
 }

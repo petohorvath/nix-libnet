@@ -5,99 +5,99 @@ let
 in
 {
   # ===== valid range =====
-  isValid-min = {
+  testIsValidMin = {
     expr = vlanId.isValid 1;
     expected = true;
   };
-  isValid-low = {
+  testIsValidLow = {
     expr = vlanId.isValid 2;
     expected = true;
   };
-  isValid-typical = {
+  testIsValidTypical = {
     expr = vlanId.isValid 100;
     expected = true;
   };
-  isValid-mid = {
+  testIsValidMid = {
     expr = vlanId.isValid 2000;
     expected = true;
   };
-  isValid-max = {
+  testIsValidMax = {
     expr = vlanId.isValid 4094;
     expected = true;
   };
 
   # ===== boundary rejects =====
-  isValid-zero = {
+  testIsValidZero = {
     expr = vlanId.isValid 0;
     expected = false;
   };
-  isValid-4095 = {
+  testIsValid4095 = {
     expr = vlanId.isValid 4095;
     expected = false;
   };
-  isValid-negative = {
+  testIsValidNegative = {
     expr = vlanId.isValid (-1);
     expected = false;
   };
-  isValid-large = {
+  testIsValidLarge = {
     expr = vlanId.isValid 65535;
     expected = false;
   };
 
   # ===== type rejects =====
-  isValid-string = {
+  testIsValidString = {
     expr = vlanId.isValid "100";
     expected = false;
   };
-  isValid-null = {
+  testIsValidNull = {
     expr = vlanId.isValid null;
     expected = false;
   };
-  isValid-float = {
+  testIsValidFloat = {
     expr = vlanId.isValid 100.5;
     expected = false;
   };
-  isValid-bool = {
+  testIsValidBool = {
     expr = vlanId.isValid true;
     expected = false;
   };
-  isValid-list = {
+  testIsValidList = {
     expr = vlanId.isValid [ 100 ];
     expected = false;
   };
 
   # ===== Constants =====
-  lowestValue = {
+  testLowestValue = {
     expr = vlanId.lowestValue;
     expected = 1;
   };
-  highestValue = {
+  testHighestValue = {
     expr = vlanId.highestValue;
     expected = 4094;
   };
 
   # ===== Tagged value =====
-  fromInt-tagged = {
+  testFromIntTagged = {
     expr = (vlanId.fromInt 100)._type;
     expected = "vlanId";
   };
-  fromInt-value = {
+  testFromIntValue = {
     expr = (vlanId.fromInt 100).value;
     expected = 100;
   };
-  fromInt-roundtrip = {
+  testFromIntRoundTrip = {
     expr = vlanId.toInt (vlanId.fromInt 4094);
     expected = 4094;
   };
-  fromInt-min = {
+  testFromIntMin = {
     expr = vlanId.fromInt 1;
     expected = {
       _type = "vlanId";
       value = 1;
     };
   };
-  fromInt-rejects-non-ints = {
-    expr = builtins.all (v: throws (vlanId.fromInt v)) [
+  testFromIntRejectsNonInts = {
+    expr = builtins.all (value: throws (vlanId.fromInt value)) [
       "100"
       100.0
       null
@@ -106,153 +106,153 @@ in
     ];
     expected = true;
   };
-  fromInt-zero-throws = {
+  testFromIntZeroThrows = {
     expr = throws (vlanId.fromInt 0);
     expected = true;
   };
-  fromInt-4095-throws = {
+  testFromInt4095Throws = {
     expr = throws (vlanId.fromInt 4095);
     expected = true;
   };
-  toString-renders = {
+  testToStringRenders = {
     expr = vlanId.toString (vlanId.fromInt 100);
     expected = "100";
   };
 
   # ===== is (structural) =====
-  is-tagged = {
+  testIsTagged = {
     expr = vlanId.is (vlanId.fromInt 100);
     expected = true;
   };
-  is-bare-int = {
+  testIsBareInt = {
     expr = vlanId.is 100;
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = vlanId.is { value = 100; };
     expected = false;
   };
-  is-tag-only = {
+  testIsTagOnly = {
     expr = vlanId.is { _type = "vlanId"; };
     expected = true;
   };
-  is-does-not-force-value = {
+  testIsDoesNotForceValue = {
     expr = vlanId.is {
       _type = "vlanId";
-      value = builtins.throw "is must only inspect the tag";
+      value = throw "is must only inspect the tag";
     };
     expected = true;
   };
-  eq-foreign-does-not-force-value = {
+  testEqForeignDoesNotForceValue = {
     expr = vlanId.eq {
       _type = "vlanId";
-      value = builtins.throw "eq must compare tags before values";
+      value = throw "eq must compare tags before values";
     } { _type = "foreign"; };
     expected = false;
   };
 
   # ===== Arithmetic =====
-  add-ok = {
+  testAddOk = {
     expr = vlanId.toInt (vlanId.add 5 (vlanId.fromInt 100));
     expected = 105;
   };
-  sub-ok = {
+  testSubOk = {
     expr = vlanId.toInt (vlanId.sub 5 (vlanId.fromInt 100));
     expected = 95;
   };
-  add-negative-to-min = {
+  testAddNegativeToMin = {
     expr = vlanId.toInt (vlanId.add (-99) (vlanId.fromInt 100));
     expected = 1;
   };
-  sub-negative-to-max = {
+  testSubNegativeToMax = {
     expr = vlanId.toInt (vlanId.sub (-3994) (vlanId.fromInt 100));
     expected = 4094;
   };
-  add-float-throws = {
+  testAddFloatThrows = {
     expr = throws (vlanId.add 1.0 (vlanId.fromInt 100));
     expected = true;
   };
-  sub-below-min-throws = {
+  testSubBelowMinThrows = {
     expr = throws (vlanId.sub 100 (vlanId.fromInt 100));
     expected = true;
   };
-  next-ok = {
+  testNextOk = {
     expr = vlanId.toInt (vlanId.next (vlanId.fromInt 100));
     expected = 101;
   };
-  prev-ok = {
+  testPrevOk = {
     expr = vlanId.toInt (vlanId.prev (vlanId.fromInt 100));
     expected = 99;
   };
-  diff-ok = {
+  testDiffOk = {
     expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 150);
     expected = 50;
   };
-  diff-neg = {
+  testDiffNegative = {
     expr = vlanId.diff (vlanId.fromInt 150) (vlanId.fromInt 100);
     expected = -50;
   };
-  diff-zero = {
+  testDiffZero = {
     expr = vlanId.diff (vlanId.fromInt 100) (vlanId.fromInt 100);
     expected = 0;
   };
-  next-at-max-throws = {
+  testNextAtMaxThrows = {
     expr = throws (vlanId.next (vlanId.fromInt 4094));
     expected = true;
   };
-  prev-at-min-throws = {
+  testPrevAtMinThrows = {
     expr = throws (vlanId.prev (vlanId.fromInt 1));
     expected = true;
   };
-  add-over-throws = {
+  testAddOverThrows = {
     expr = throws (vlanId.add 1 (vlanId.fromInt 4094));
     expected = true;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
+  testLt = {
     expr = vlanId.lt (vlanId.fromInt 100) (vlanId.fromInt 200);
     expected = true;
   };
-  cmp-le = {
+  testLe = {
     expr = vlanId.le (vlanId.fromInt 100) (vlanId.fromInt 200);
     expected = true;
   };
-  cmp-gt = {
+  testGt = {
     expr = vlanId.gt (vlanId.fromInt 200) (vlanId.fromInt 100);
     expected = true;
   };
-  cmp-ge = {
+  testGe = {
     expr = vlanId.ge (vlanId.fromInt 200) (vlanId.fromInt 100);
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
+  testEqSame = {
     expr = vlanId.eq (vlanId.fromInt 100) (vlanId.fromInt 100);
     expected = true;
   };
-  eq-diff = {
+  testEqDifferent = {
     expr = vlanId.eq (vlanId.fromInt 100) (vlanId.fromInt 200);
     expected = false;
   };
-  compare-lt = {
+  testCompareLt = {
     expr = vlanId.compare (vlanId.fromInt 100) (vlanId.fromInt 200);
     expected = -1;
   };
-  compare-gt = {
+  testCompareGt = {
     expr = vlanId.compare (vlanId.fromInt 200) (vlanId.fromInt 100);
     expected = 1;
   };
-  compare-eq = {
+  testCompareEq = {
     expr = vlanId.compare (vlanId.fromInt 100) (vlanId.fromInt 100);
     expected = 0;
   };
-  min-pick = {
+  testMinPick = {
     expr = vlanId.toInt (vlanId.min (vlanId.fromInt 200) (vlanId.fromInt 100));
     expected = 100;
   };
-  max-pick = {
+  testMaxPick = {
     expr = vlanId.toInt (vlanId.max (vlanId.fromInt 200) (vlanId.fromInt 100));
     expected = 200;
   };

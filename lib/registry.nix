@@ -11,7 +11,7 @@
     => 443
 
     builtins.head libnet.registry.bogons.ipv4
-    => "0.0.0.0/32"
+    => "0.0.0.0/8"
 */
 {
   bogons = {

@@ -15,7 +15,8 @@
 
   Stored as the underlying `transport` + `endpoint` pair:
 
-    { _type = "socketUrl"; transport = <transport | null>; endpoint = <endpoint>; }
+    { _type = "socketUrl"; transport = <transport | null>;
+      endpoint = <endpoint>; }
 
   Invariant: `transport == null` iff `endpoint` is a `unixSocket` — a
   Unix socket has no L4 transport, its scheme is the literal `unix`.
@@ -29,96 +30,162 @@
 */
 let
   types = import ./internal/types.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
+  # Suffixed so the exported `transport` / `endpoint` accessors can keep
+  # their names in this scope.
   transport = import ./transport.nix;
   endpoint = import ./endpoint.nix;
 
   unixScheme = "unix";
 
-  mk = tr: ep: {
+  mk = transportValue: endpointValue: {
     _type = "socketUrl";
-    transport = tr;
-    endpoint = ep;
+    transport = transportValue;
+    endpoint = endpointValue;
   };
 
   # ===== Parsing =====
 
+  /*
+    Parse a socket URL without throwing, for callers that want to report
+    or recover from invalid input.
+
+    `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
+    take `host:port`, `unix` takes a socket path.
+
+    Returns a tryResult: `{ success = true; value; }` with a socketUrl
+    value, or `{ success = false; error; }` describing the problem.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.socketUrl.parse: input must be a string"
     else
       let
-        parts = parse'.splitOn "://" s;
+        parts = parsing.splitOn "://" input;
       in
       if builtins.length parts < 2 then
-        types.tryErr "libnet.socketUrl.parse: missing '<scheme>://': \"${s}\""
+        types.tryErr "libnet.socketUrl.parse: missing '<scheme>://': \"${input}\""
       else
         let
           scheme = builtins.elemAt parts 0;
           # Rejoin the remainder so a stray '://' inside a path is kept.
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
-          epRes = endpoint.tryParse rest;
+          endpointResult = endpoint.tryParse rest;
         in
-        if !epRes.success then
-          types.tryErr "libnet.socketUrl.parse: invalid address in \"${s}\""
+        if !endpointResult.success then
+          types.tryErr "libnet.socketUrl.parse: invalid address in \"${input}\""
         else
           let
-            ep = epRes.value;
+            endpointValue = endpointResult.value;
           in
           if scheme == unixScheme then
-            if types.isUnixSocket ep then
-              types.tryOk (mk null ep)
+            if types.isUnixSocket endpointValue then
+              types.tryOk (mk null endpointValue)
             else
-              types.tryErr "libnet.socketUrl.parse: 'unix://' requires a socket path: \"${s}\""
+              types.tryErr "libnet.socketUrl.parse: 'unix://' requires a socket path: \"${input}\""
           else
             let
-              trRes = transport.tryParse scheme;
+              transportResult = transport.tryParse scheme;
             in
-            if !trRes.success then
+            if !transportResult.success then
               types.tryErr "libnet.socketUrl.parse: unknown scheme \"${scheme}\" (expected tcp, udp, sctp, or unix)"
-            else if types.isUnixSocket ep then
-              types.tryErr "libnet.socketUrl.parse: '${scheme}://' requires host:port, not a socket path: \"${s}\""
+            else if types.isUnixSocket endpointValue then
+              types.tryErr "libnet.socketUrl.parse: '${scheme}://' requires host:port, not a socket path: \"${input}\""
             else
-              types.tryOk (mk trRes.value ep);
+              types.tryOk (mk transportResult.value endpointValue);
 
+  /*
+    Parse a socket URL.
+
+    `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
+    take `host:port`, `unix` takes a socket path.
+
+    Returns a socketUrl value; throws on malformed input, an unknown
+    scheme, or a scheme that does not match the address kind.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Render a socket URL in canonical text form.
+
+    `socketUrl`: socketUrl value.
+
+    Returns `<scheme>://<endpoint>`, such as "tcp://1.2.3.4:80" or
+    "unix:///run/foo.sock".
+  */
   toString =
-    su:
+    socketUrl:
     let
-      scheme = if su.transport == null then unixScheme else transport.toString su.transport;
+      scheme = if socketUrl.transport == null then unixScheme else transport.toString socketUrl.transport;
     in
-    "${scheme}://${endpoint.toString su.endpoint}";
+    "${scheme}://${endpoint.toString socketUrl.endpoint}";
 
   # ===== Construction =====
 
+  /*
+    Build a socket URL from already-parsed parts.
+
+    `transportValue`: transport value, or null for a Unix socket.
+    `endpointValue`: endpoint value (ipEndpoint, dnsEndpoint, or
+    unixSocket).
+
+    Returns a socketUrl value; throws when `endpointValue` is not an
+    endpoint, or when the transport is not null exactly for a Unix
+    socket.
+  */
   make =
-    tr: ep:
-    if !(endpoint.is ep) then
-      builtins.throw "libnet.socketUrl.make: expected an endpoint value"
-    else if types.isUnixSocket ep then
+    transportValue: endpointValue:
+    if !(endpoint.is endpointValue) then
+      throw "libnet.socketUrl.make: expected an endpoint value"
+    else if types.isUnixSocket endpointValue then
       (
-        if tr != null then
-          builtins.throw "libnet.socketUrl.make: a unix socket takes no transport (pass null)"
+        if transportValue != null then
+          throw "libnet.socketUrl.make: a unix socket takes no transport (pass null)"
         else
-          mk null ep
+          mk null endpointValue
       )
-    else if !(types.isTransport tr) then
-      builtins.throw "libnet.socketUrl.make: expected a transport value for an IP/DNS endpoint"
+    else if !(types.isTransport transportValue) then
+      throw "libnet.socketUrl.make: expected a transport value for an IP/DNS endpoint"
     else
-      mk tr ep;
+      mk transportValue endpointValue;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isSocketUrl;
-  isUnix = su: su.transport == null;
+  /*
+    Check whether a string parses as a socket URL, without throwing.
+
+    `input`: value to check.
+
+    Returns true when `parse` would succeed.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a socketUrl value.
+
+    `value`: any value; non-attrsets are accepted and yield false.
+
+    Returns true for an attrset tagged `_type = "socketUrl"`, false
+    otherwise; other fields are not checked.
+  */
+  is = value: types.isSocketUrl value;
+
+  /*
+    Check whether a socket URL addresses a Unix socket.
+
+    `socketUrl`: socketUrl value.
+
+    Returns true for the `unix` scheme.
+  */
+  isUnix = socketUrl: socketUrl.transport == null;
+
+  # ===== Accessors =====
 
   # ===== Comparison =====
   #
@@ -126,12 +193,12 @@ let
   # fixed scheme rank (tcp < udp < sctp < unix), then by endpoint.
 
   schemeRank =
-    tr:
-    if tr == null then
+    transportValue:
+    if transportValue == null then
       3
-    else if transport.isTcp tr then
+    else if transport.isTcp transportValue then
       0
-    else if transport.isUdp tr then
+    else if transport.isUdp transportValue then
       1
     else
       2;
@@ -145,28 +212,90 @@ let
     else
       transport.eq a b;
 
+  /*
+    Compare two socket URLs for equality.
+
+    `a`, `b`: socketUrl values.
+
+    Returns true when the type tags, transports, and endpoints match.
+  */
   eq =
     a: b:
     a._type == b._type && transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
 
+  /*
+    Order two socket URLs by scheme (tcp < udp < sctp < unix), then by
+    endpoint.
+
+    `a`, `b`: socketUrl values.
+
+    Returns -1, 0, or 1 when `a` sorts before, equal to, or after `b`.
+  */
   compare =
     a: b:
     let
-      ra = schemeRank a.transport;
-      rb = schemeRank b.transport;
+      rankA = schemeRank a.transport;
+      rankB = schemeRank b.transport;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
     else
       endpoint.compare a.endpoint b.endpoint;
 
+  /*
+    Test whether `a` sorts strictly before `b`.
+
+    `a`, `b`: socketUrl values.
+
+    Returns a Boolean.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether `a` sorts before or equal to `b`.
+
+    `a`, `b`: socketUrl values.
+
+    Returns a Boolean.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether `a` sorts strictly after `b`.
+
+    `a`, `b`: socketUrl values.
+
+    Returns a Boolean.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether `a` sorts after or equal to `b`.
+
+    `a`, `b`: socketUrl values.
+
+    Returns a Boolean.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lesser of two socket URLs.
+
+    `a`, `b`: socketUrl values.
+
+    Returns the one that sorts first; `a` when they are equal.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the greater of two socket URLs.
+
+    `a`, `b`: socketUrl values.
+
+    Returns the one that sorts last; `a` when they are equal.
+  */
   max = a: b: if ge a b then a else b;
 
   schemes = [
@@ -178,29 +307,39 @@ let
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    make
-    ;
-  inherit
-    isValid
+    compare
+    eq
+    ge
+    gt
     is
     isUnix
-    ;
-  # `transport` / `endpoint` accessors declared inline to avoid
-  # shadowing the imported modules of the same name.
-  transport = su: su.transport;
-  endpoint = su: su.endpoint;
-  inherit
-    eq
-    lt
+    isValid
     le
-    gt
-    ge
-    compare
-    min
+    lt
+    make
     max
+    min
+    parse
+    schemes
+    toString
+    tryParse
     ;
-  inherit schemes;
+
+  /*
+    Get the transport of a socket URL.
+
+    `socketUrl`: socketUrl value.
+
+    Returns the transport value, or null for a Unix socket.
+  */
+  transport = socketUrl: socketUrl.transport;
+
+  /*
+    Get the endpoint of a socket URL.
+
+    `socketUrl`: socketUrl value.
+
+    Returns the endpoint value (ipEndpoint, dnsEndpoint, or unixSocket).
+  */
+  endpoint = socketUrl: socketUrl.endpoint;
 }

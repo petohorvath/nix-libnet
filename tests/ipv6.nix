@@ -5,12 +5,12 @@ let
   mac = import ../lib/mac.nix;
   inherit (harness) throws;
 
-  p = ipv6.parse;
+  parse = ipv6.parse;
 in
 {
   # ===== Parse: positive (compression) =====
-  parse-all-zero = {
-    expr = ipv6.toWords (p "::");
+  testParseAllZero = {
+    expr = ipv6.toWords (parse "::");
     expected = [
       0
       0
@@ -18,8 +18,8 @@ in
       0
     ];
   };
-  parse-loopback = {
-    expr = ipv6.toWords (p "::1");
+  testParseLoopback = {
+    expr = ipv6.toWords (parse "::1");
     expected = [
       0
       0
@@ -27,8 +27,8 @@ in
       1
     ];
   };
-  parse-one-tail = {
-    expr = ipv6.toWords (p "1::");
+  testParseTrailingCompression = {
+    expr = ipv6.toWords (parse "1::");
     expected = [
       65536
       0
@@ -36,8 +36,8 @@ in
       0
     ];
   };
-  parse-one-double = {
-    expr = ipv6.toWords (p "1::2");
+  testParseCompressionBetweenSingleGroups = {
+    expr = ipv6.toWords (parse "1::2");
     expected = [
       65536
       0
@@ -45,8 +45,8 @@ in
       2
     ];
   };
-  parse-middle-comp = {
-    expr = ipv6.toWords (p "1:2::3:4");
+  testParseMiddleCompression = {
+    expr = ipv6.toWords (parse "1:2::3:4");
     expected = [
       65538
       0
@@ -54,8 +54,8 @@ in
       196612
     ];
   };
-  parse-doc = {
-    expr = ipv6.toWords (p "2001:db8::1");
+  testParseDocumentation = {
+    expr = ipv6.toWords (parse "2001:db8::1");
     expected = [
       536939960
       0
@@ -63,8 +63,8 @@ in
       1
     ];
   };
-  parse-full-expanded = {
-    expr = ipv6.toWords (p "2001:0db8:0000:0000:0000:0000:0000:0001");
+  testParseFullExpanded = {
+    expr = ipv6.toWords (parse "2001:0db8:0000:0000:0000:0000:0000:0001");
     expected = [
       536939960
       0
@@ -74,8 +74,8 @@ in
   };
 
   # ===== Parse: uncompressed =====
-  parse-all-explicit = {
-    expr = ipv6.toWords (p "1:2:3:4:5:6:7:8");
+  testParseAllExplicit = {
+    expr = ipv6.toWords (parse "1:2:3:4:5:6:7:8");
     expected = [
       65538
       196612
@@ -85,9 +85,9 @@ in
   };
 
   # ===== Parse: IPv4-mapped / compatible =====
-  # ::ffff:1.2.3.4 → [0, 0, 0xffff, 1*2^24+2*2^16+3*2^8+4] = [0, 0, 65535, 16909060]
-  parse-v4-mapped = {
-    expr = ipv6.toWords (p "::ffff:1.2.3.4");
+  # 0xffff is 65535 and 1.2.3.4 is 1*2^24 + 2*2^16 + 3*2^8 + 4 = 16909060.
+  testParseV4Mapped = {
+    expr = ipv6.toWords (parse "::ffff:1.2.3.4");
     expected = [
       0
       0
@@ -96,8 +96,8 @@ in
     ];
   };
   # ::1.2.3.4 (IPv4-compatible, deprecated)
-  parse-v4-compat = {
-    expr = ipv6.toWords (p "::1.2.3.4");
+  testParseV4Compatible = {
+    expr = ipv6.toWords (parse "::1.2.3.4");
     expected = [
       0
       0
@@ -105,8 +105,8 @@ in
       16909060
     ];
   };
-  parse-full-v4-embed = {
-    expr = ipv6.toWords (p "1:2:3:4:5:6:1.2.3.4");
+  testParseFullV4Embedded = {
+    expr = ipv6.toWords (parse "1:2:3:4:5:6:1.2.3.4");
     expected = [
       65538
       196612
@@ -116,8 +116,8 @@ in
   };
 
   # ===== Parse: case insensitive =====
-  parse-upper = {
-    expr = ipv6.toWords (p "2001:DB8::1");
+  testParseUppercase = {
+    expr = ipv6.toWords (parse "2001:DB8::1");
     expected = [
       536939960
       0
@@ -125,8 +125,8 @@ in
       1
     ];
   };
-  parse-mixed = {
-    expr = ipv6.toWords (p "2001:Db8::AbCd");
+  testParseMixedCase = {
+    expr = ipv6.toWords (parse "2001:Db8::AbCd");
     expected = [
       536939960
       0
@@ -136,121 +136,121 @@ in
   };
 
   # ===== Parse: negative =====
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-triple-colon = {
-    expr = throws (p ":::");
+  testRejectTripleColon = {
+    expr = throws (parse ":::");
     expected = true;
   };
-  reject-two-compress = {
-    expr = throws (p "::1::");
+  testRejectTwoCompressions = {
+    expr = throws (parse "::1::");
     expected = true;
   };
-  reject-nine-groups = {
-    expr = throws (p "1:2:3:4:5:6:7:8:9");
+  testRejectNineGroups = {
+    expr = throws (parse "1:2:3:4:5:6:7:8:9");
     expected = true;
   };
-  reject-oversize-grp = {
-    expr = throws (p "12345::");
+  testRejectOversizeGroup = {
+    expr = throws (parse "12345::");
     expected = true;
   };
-  reject-non-hex = {
-    expr = throws (p "gggg::");
+  testRejectNonHex = {
+    expr = throws (parse "gggg::");
     expected = true;
   };
-  reject-v4-in-left = {
-    expr = throws (p "1.2.3.4::1");
+  testRejectV4InLeft = {
+    expr = throws (parse "1.2.3.4::1");
     expected = true;
   };
-  reject-whitespace = {
-    expr = throws (p " ::1");
+  testRejectWhitespace = {
+    expr = throws (parse " ::1");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (ipv6.parse 123);
     expected = true;
   };
-  reject-compress-full = {
-    expr = throws (p "1:2:3:4::5:6:7:8");
+  testRejectCompressionWithEightGroups = {
+    expr = throws (parse "1:2:3:4::5:6:7:8");
     expected = true;
   }; # 8 groups + :: invalid
 
   # ===== tryParse =====
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (ipv6.tryParse "::1").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (ipv6.tryParse "bad").success;
     expected = false;
   };
 
   # ===== toString (RFC 5952) =====
-  fmt-loopback = {
-    expr = ipv6.toString (p "::1");
+  testFormatLoopback = {
+    expr = ipv6.toString (parse "::1");
     expected = "::1";
   };
-  fmt-any = {
-    expr = ipv6.toString (p "::");
+  testFormatUnspecified = {
+    expr = ipv6.toString (parse "::");
     expected = "::";
   };
-  fmt-one-tail = {
-    expr = ipv6.toString (p "1::");
+  testFormatTrailingCompression = {
+    expr = ipv6.toString (parse "1::");
     expected = "1::";
   };
-  fmt-middle = {
-    expr = ipv6.toString (p "1:2::3:4");
+  testFormatMiddleCompression = {
+    expr = ipv6.toString (parse "1:2::3:4");
     expected = "1:2::3:4";
   };
-  fmt-doc = {
-    expr = ipv6.toString (p "2001:0db8:0000:0000:0000:0000:0000:0001");
+  testFormatDocumentation = {
+    expr = ipv6.toString (parse "2001:0db8:0000:0000:0000:0000:0000:0001");
     expected = "2001:db8::1";
   };
-  fmt-no-compress = {
-    expr = ipv6.toString (p "1:2:3:4:5:6:7:8");
+  testFormatNoCompression = {
+    expr = ipv6.toString (parse "1:2:3:4:5:6:7:8");
     expected = "1:2:3:4:5:6:7:8";
   };
-  fmt-first-run-wins = {
-    expr = ipv6.toString (p "1:0:0:2:3:0:0:4");
+  testFormatFirstRunWins = {
+    expr = ipv6.toString (parse "1:0:0:2:3:0:0:4");
     expected = "1::2:3:0:0:4";
   }; # first tied run wins
-  fmt-single-zero = {
-    expr = ipv6.toString (p "1:0:2:0:3:0:4:5");
+  testFormatSingleZero = {
+    expr = ipv6.toString (parse "1:0:2:0:3:0:4:5");
     expected = "1:0:2:0:3:0:4:5";
   }; # no run of >=2, no compression
 
   # ===== toStringCompressed / Expanded / Bracketed =====
-  fmt-compressed = {
-    expr = ipv6.toStringCompressed (p "2001:db8:0:0:0:0:0:1");
+  testFormatCompressed = {
+    expr = ipv6.toStringCompressed (parse "2001:db8:0:0:0:0:0:1");
     expected = "2001:db8::1";
   };
-  fmt-expanded = {
-    expr = ipv6.toStringExpanded (p "::1");
+  testFormatExpanded = {
+    expr = ipv6.toStringExpanded (parse "::1");
     expected = "0000:0000:0000:0000:0000:0000:0000:0001";
   };
-  fmt-bracket = {
-    expr = ipv6.toStringBracketed (p "::1");
+  testFormatBracketed = {
+    expr = ipv6.toStringBracketed (parse "::1");
     expected = "[::1]";
   };
-  fmt-bracket-doc = {
-    expr = ipv6.toStringBracketed (p "2001:db8::1");
+  testFormatBracketedDocumentation = {
+    expr = ipv6.toStringBracketed (parse "2001:db8::1");
     expected = "[2001:db8::1]";
   };
 
   # ===== toArpa =====
-  arpa-doc = {
-    expr = ipv6.toArpa (p "2001:db8::1");
+  testArpaDocumentation = {
+    expr = ipv6.toArpa (parse "2001:db8::1");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa";
   };
-  arpa-loopback = {
-    expr = ipv6.toArpa (p "::1");
+  testArpaLoopback = {
+    expr = ipv6.toArpa (parse "::1");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
 
   # ===== Round-trip =====
-  rt-words = {
+  testRoundTripWords = {
     expr = ipv6.toWords (
       ipv6.fromWords [
         1
@@ -266,7 +266,7 @@ in
       4
     ];
   };
-  rt-groups = {
+  testRoundTripGroups = {
     expr = ipv6.toGroups (
       ipv6.fromGroups [
         1
@@ -290,7 +290,7 @@ in
       8
     ];
   };
-  rt-bytes = {
+  testRoundTripBytes = {
     expr = ipv6.toBytes (
       ipv6.fromBytes [
         0
@@ -330,13 +330,13 @@ in
       8
     ];
   };
-  rt-string = {
-    expr = ipv6.toString (p (ipv6.toString (p "2001:db8::1")));
+  testRoundTripString = {
+    expr = ipv6.toString (parse (ipv6.toString (parse "2001:db8::1")));
     expected = "2001:db8::1";
   };
 
   # ===== fromWords / fromGroups / fromBytes errors =====
-  fromWords-short = {
+  testFromWordsShort = {
     expr = throws (
       ipv6.fromWords [
         1
@@ -346,7 +346,7 @@ in
     );
     expected = true;
   };
-  fromWords-over = {
+  testFromWordsOverflow = {
     expr = throws (
       ipv6.fromWords [
         4294967296
@@ -357,7 +357,7 @@ in
     );
     expected = true;
   };
-  fromGroups-short = {
+  testFromGroupsShort = {
     expr = throws (
       ipv6.fromGroups [
         1
@@ -368,7 +368,7 @@ in
     );
     expected = true;
   };
-  fromGroups-over = {
+  testFromGroupsOverflow = {
     expr = throws (
       ipv6.fromGroups [
         65536
@@ -383,373 +383,375 @@ in
     );
     expected = true;
   };
-  fromBytes-short = {
+  testFromBytesShort = {
     expr = throws (ipv6.fromBytes [ 0 ]);
     expected = true;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = ipv6.is (p "::1");
+  testIsParsed = {
+    expr = ipv6.is (parse "::1");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = ipv6.is "::1";
     expected = false;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = ipv6.isValid "::1";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = ipv6.isValid "bad";
     expected = false;
   };
 
-  loopback-pos = {
-    expr = ipv6.isLoopback (p "::1");
+  testLoopbackPositive = {
+    expr = ipv6.isLoopback (parse "::1");
     expected = true;
   };
-  loopback-neg = {
-    expr = ipv6.isLoopback (p "::2");
+  testLoopbackNegative = {
+    expr = ipv6.isLoopback (parse "::2");
     expected = false;
   };
-  unspec-pos = {
-    expr = ipv6.isUnspecified (p "::");
+  testUnspecifiedPositive = {
+    expr = ipv6.isUnspecified (parse "::");
     expected = true;
   };
-  unspec-neg = {
-    expr = ipv6.isUnspecified (p "::1");
+  testUnspecifiedNegative = {
+    expr = ipv6.isUnspecified (parse "::1");
     expected = false;
   };
-  link-local-pos = {
-    expr = ipv6.isLinkLocal (p "fe80::1");
+  testLinkLocalPositive = {
+    expr = ipv6.isLinkLocal (parse "fe80::1");
     expected = true;
   };
-  link-local-pos-hi = {
-    expr = ipv6.isLinkLocal (p "febf:ffff::1");
+  testLinkLocalPositiveHigh = {
+    expr = ipv6.isLinkLocal (parse "febf:ffff::1");
     expected = true;
   };
-  link-local-neg = {
-    expr = ipv6.isLinkLocal (p "fec0::1");
+  testLinkLocalNegative = {
+    expr = ipv6.isLinkLocal (parse "fec0::1");
     expected = false;
   };
-  unique-local-pos = {
-    expr = ipv6.isUniqueLocal (p "fc00::1");
+  testUniqueLocalPositive = {
+    expr = ipv6.isUniqueLocal (parse "fc00::1");
     expected = true;
   };
-  unique-local-pos-fd = {
-    expr = ipv6.isUniqueLocal (p "fd00::1");
+  testUniqueLocalPositiveFd = {
+    expr = ipv6.isUniqueLocal (parse "fd00::1");
     expected = true;
   };
-  unique-local-neg = {
-    expr = ipv6.isUniqueLocal (p "fe00::1");
+  testUniqueLocalNegative = {
+    expr = ipv6.isUniqueLocal (parse "fe00::1");
     expected = false;
   };
-  multicast-pos = {
-    expr = ipv6.isMulticast (p "ff00::1");
+  testMulticastPositive = {
+    expr = ipv6.isMulticast (parse "ff00::1");
     expected = true;
   };
-  multicast-neg = {
-    expr = ipv6.isMulticast (p "fe00::1");
+  testMulticastNegative = {
+    expr = ipv6.isMulticast (parse "fe00::1");
     expected = false;
   };
-  doc-pos = {
-    expr = ipv6.isDocumentation (p "2001:db8::1");
+  testDocumentationPositive = {
+    expr = ipv6.isDocumentation (parse "2001:db8::1");
     expected = true;
   };
-  doc-3fff-pos = {
-    expr = ipv6.isDocumentation (p "3fff::1");
+  testDocumentation3fffPositive = {
+    expr = ipv6.isDocumentation (parse "3fff::1");
     expected = true;
   };
-  doc-neg = {
-    expr = ipv6.isDocumentation (p "2001:db9::1");
+  testDocumentationNegative = {
+    expr = ipv6.isDocumentation (parse "2001:db9::1");
     expected = false;
   };
-  v4mapped-pos = {
-    expr = ipv6.isIpv4Mapped (p "::ffff:1.2.3.4");
+  testV4MappedPositive = {
+    expr = ipv6.isIpv4Mapped (parse "::ffff:1.2.3.4");
     expected = true;
   };
-  v4mapped-neg = {
-    expr = ipv6.isIpv4Mapped (p "::1");
+  testV4MappedNegative = {
+    expr = ipv6.isIpv4Mapped (parse "::1");
     expected = false;
   };
-  v4compat-pos = {
-    expr = ipv6.isIpv4Compatible (p "::1.2.3.4");
+  testV4CompatiblePositive = {
+    expr = ipv6.isIpv4Compatible (parse "::1.2.3.4");
     expected = true;
   };
-  v4compat-loopback = {
-    expr = ipv6.isIpv4Compatible (p "::1");
+  testV4CompatibleLoopback = {
+    expr = ipv6.isIpv4Compatible (parse "::1");
     expected = true;
   }; # loopback is also in ::/96
-  v4compat-neg = {
-    expr = ipv6.isIpv4Compatible (p "1::");
+  testV4CompatibleNegative = {
+    expr = ipv6.isIpv4Compatible (parse "1::");
     expected = false;
   };
-  sixtofour-pos = {
-    expr = ipv6.is6to4 (p "2002::1");
+  test6to4Positive = {
+    expr = ipv6.is6to4 (parse "2002::1");
     expected = true;
   };
-  sixtofour-neg = {
-    expr = ipv6.is6to4 (p "2001::1");
+  test6to4Negative = {
+    expr = ipv6.is6to4 (parse "2001::1");
     expected = false;
   };
 
   # ===== Predicates: special-use (discard / deprecated) =====
-  discard-pos = {
-    expr = ipv6.isDiscard (p "100::1");
+  testDiscardPositive = {
+    expr = ipv6.isDiscard (parse "100::1");
     expected = true;
   };
-  discard-neg = {
-    expr = ipv6.isDiscard (p "100:0:0:1::");
+  testDiscardNegative = {
+    expr = ipv6.isDiscard (parse "100:0:0:1::");
     expected = false;
   };
-  orchid-pos = {
-    expr = ipv6.isOrchid (p "2001:10::1");
+  testOrchidPositive = {
+    expr = ipv6.isOrchid (parse "2001:10::1");
     expected = true;
   };
-  orchid-neg = {
-    expr = ipv6.isOrchid (p "2001:20::1");
+  testOrchidNegative = {
+    expr = ipv6.isOrchid (parse "2001:20::1");
     expected = false;
   };
-  site-local-pos = {
-    expr = ipv6.isSiteLocal (p "fec0::1");
+  testSiteLocalPositive = {
+    expr = ipv6.isSiteLocal (parse "fec0::1");
     expected = true;
   };
-  site-local-pos-hi = {
-    expr = ipv6.isSiteLocal (p "feff:ffff::1");
+  testSiteLocalPositiveHigh = {
+    expr = ipv6.isSiteLocal (parse "feff:ffff::1");
     expected = true;
   };
-  site-local-neg = {
-    expr = ipv6.isSiteLocal (p "fe80::1");
+  testSiteLocalNegative = {
+    expr = ipv6.isSiteLocal (parse "fe80::1");
     expected = false;
   };
-  bogon-discard = {
-    expr = ipv6.isBogon (p "100::1");
+  testBogonDiscard = {
+    expr = ipv6.isBogon (parse "100::1");
     expected = true;
   };
-  bogon-orchid = {
-    expr = ipv6.isBogon (p "2001:10::1");
+  testBogonOrchid = {
+    expr = ipv6.isBogon (parse "2001:10::1");
     expected = true;
   };
-  bogon-site-local = {
-    expr = ipv6.isBogon (p "fec0::1");
+  testBogonSiteLocal = {
+    expr = ipv6.isBogon (parse "fec0::1");
     expected = true;
   };
 
-  global-pos = {
-    expr = ipv6.isGlobal (p "2606:4700:4700::1111");
+  testGlobalPositive = {
+    expr = ipv6.isGlobal (parse "2606:4700:4700::1111");
     expected = true;
   };
-  global-neg-loop = {
-    expr = ipv6.isGlobal (p "::1");
+  testGlobalNegativeLoopback = {
+    expr = ipv6.isGlobal (parse "::1");
     expected = false;
   };
-  # isGlobal is stricter than !isBogon: v4-mapped / v4-compat / 6to4 are also not global
-  global-neg-v4mapped = {
-    expr = ipv6.isGlobal (p "::ffff:8.8.8.8");
+  # isGlobal is stricter than !isBogon: IPv4-mapped, IPv4-compatible, and
+  # 6to4 addresses are also not global.
+  testGlobalNegativeV4Mapped = {
+    expr = ipv6.isGlobal (parse "::ffff:8.8.8.8");
     expected = false;
   };
-  global-neg-v4compat = {
-    expr = ipv6.isGlobal (p "::1.2.3.4");
+  testGlobalNegativeV4Compatible = {
+    expr = ipv6.isGlobal (parse "::1.2.3.4");
     expected = false;
   };
-  global-neg-6to4 = {
-    expr = ipv6.isGlobal (p "2002::1");
+  testGlobalNegative6to4 = {
+    expr = ipv6.isGlobal (parse "2002::1");
     expected = false;
   };
-  # isBogon stays narrower (6 items) — is6to4 / v4-mapped are NOT bogon
-  bogon-excludes-6to4 = {
-    expr = ipv6.isBogon (p "2002::1");
+  # isBogon stays narrower: 6to4 and IPv4-mapped addresses are not bogons.
+  testBogonExcludes6to4 = {
+    expr = ipv6.isBogon (parse "2002::1");
     expected = false;
   };
-  bogon-pos = {
-    expr = ipv6.isBogon (p "::1");
+  testBogonPositive = {
+    expr = ipv6.isBogon (parse "::1");
     expected = true;
   };
-  bogon-neg = {
-    expr = ipv6.isBogon (p "2606:4700:4700::1111");
+  testBogonNegative = {
+    expr = ipv6.isBogon (parse "2606:4700:4700::1111");
     expected = false;
   };
 
   # ===== IPv4 interop =====
-  v4-mapped-from-v4 = {
+  testFromIpv4Mapped = {
     expr = ipv6.toString (ipv6.fromIpv4Mapped (ipv4.parse "1.2.3.4"));
     expected = "::ffff:1.2.3.4";
   };
-  v4-mapped-back = {
-    expr = ipv4.toString (ipv6.toIpv4Mapped (p "::ffff:1.2.3.4"));
+  testToIpv4Mapped = {
+    expr = ipv4.toString (ipv6.toIpv4Mapped (parse "::ffff:1.2.3.4"));
     expected = "1.2.3.4";
   };
-  v4-mapped-wrong-fam = {
-    expr = throws (ipv6.toIpv4Mapped (p "::1"));
+  testToIpv4MappedRejectsNonMapped = {
+    expr = throws (ipv6.toIpv4Mapped (parse "::1"));
     expected = true;
   };
-  v4-mapped-wrong-in = {
-    expr = throws (ipv6.fromIpv4Mapped (p "::1"));
+  testFromIpv4MappedRejectsIpv6 = {
+    expr = throws (ipv6.fromIpv4Mapped (parse "::1"));
     expected = true;
   };
 
   # ===== EUI-64 =====
   # 2001:db8::/64 + aa:bb:cc:dd:ee:ff → 2001:db8::a8bb:ccff:fedd:eeff
-  eui64-vector = {
+  testEui64Vector = {
     expr = ipv6.toString (
       ipv6.fromEui64 {
         _type = "cidr";
-        address = p "2001:db8::";
+        address = parse "2001:db8::";
         prefix = 64;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
     expected = "2001:db8::a8bb:ccff:fedd:eeff";
   };
-  eui64-prefix-too-big = {
+  testEui64PrefixTooBig = {
     expr = throws (
       ipv6.fromEui64 {
         _type = "cidr";
-        address = p "2001:db8::";
+        address = parse "2001:db8::";
         prefix = 96;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
     expected = true;
   };
-  eui64-wrong-type = {
-    expr = throws (ipv6.fromEui64 (p "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
+  testEui64WrongType = {
+    expr = throws (ipv6.fromEui64 (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
     expected = true;
   };
 
   # ===== Arithmetic =====
-  add-one = {
-    expr = ipv6.toString (ipv6.add 1 (p "::"));
+  testAddOne = {
+    expr = ipv6.toString (ipv6.add 1 (parse "::"));
     expected = "::1";
   };
-  add-one-word-carry = {
-    expr = ipv6.toString (ipv6.add 1 (p "::ffff:ffff"));
+  testAddOneWordCarry = {
+    expr = ipv6.toString (ipv6.add 1 (parse "::ffff:ffff"));
     expected = "::1:0:0";
   };
-  add-zero-identity = {
-    expr = ipv6.toString (ipv6.add 0 (p "::1"));
+  testAddZeroIdentity = {
+    expr = ipv6.toString (ipv6.add 0 (parse "::1"));
     expected = "::1";
   };
-  add-overflow = {
-    expr = throws (ipv6.add 1 (p "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+  testAddOverflow = {
+    expr = throws (ipv6.add 1 (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
     expected = true;
   };
-  sub-one = {
-    expr = ipv6.toString (ipv6.sub 1 (p "::2"));
+  testSubOne = {
+    expr = ipv6.toString (ipv6.sub 1 (parse "::2"));
     expected = "::1";
   };
-  # ::1:0:0:0 - 1 = 0x0000..0000ffffffffffff which is also within ::ffff:0:0/96 (v4-mapped)
-  sub-borrow = {
-    expr = ipv6.toString (ipv6.sub 1 (p "::1:0:0:0"));
+  # ::1:0:0:0 - 1 is ::ffff:ffff:ffff, which lies in ::ffff:0:0/96, so it
+  # formats in IPv4-mapped mixed form.
+  testSubBorrow = {
+    expr = ipv6.toString (ipv6.sub 1 (parse "::1:0:0:0"));
     expected = "::ffff:255.255.255.255";
   };
   # A borrow case that stays outside the v4-mapped range
-  sub-borrow-hex = {
-    expr = ipv6.toString (ipv6.sub 1 (p "::1:1:0:0:0"));
+  testSubBorrowHex = {
+    expr = ipv6.toString (ipv6.sub 1 (parse "::1:1:0:0:0"));
     expected = "::1:0:ffff:ffff:ffff";
   };
-  # Verify canonical mixed form for v4-mapped output
-  fmt-v4-mapped-out = {
-    expr = ipv6.toString (p "::ffff:c000:201");
+  # IPv4-mapped addresses format in mixed form.
+  testFormatV4MappedMixed = {
+    expr = ipv6.toString (parse "::ffff:c000:201");
     expected = "::ffff:192.0.2.1";
   };
-  sub-underflow = {
-    expr = throws (ipv6.sub 1 (p "::"));
+  testSubUnderflow = {
+    expr = throws (ipv6.sub 1 (parse "::"));
     expected = true;
   };
-  next = {
-    expr = ipv6.toString (ipv6.next (p "::1"));
+  testNext = {
+    expr = ipv6.toString (ipv6.next (parse "::1"));
     expected = "::2";
   };
-  prev = {
-    expr = ipv6.toString (ipv6.prev (p "::2"));
+  testPrev = {
+    expr = ipv6.toString (ipv6.prev (parse "::2"));
     expected = "::1";
   };
-  diff-pos = {
-    expr = ipv6.diff (p "::1") (p "::10");
+  testDiffPositive = {
+    expr = ipv6.diff (parse "::1") (parse "::10");
     expected = 15;
   };
-  diff-zero = {
-    expr = ipv6.diff (p "::1") (p "::1");
+  testDiffZero = {
+    expr = ipv6.diff (parse "::1") (parse "::1");
     expected = 0;
   };
-  diff-neg = {
-    expr = ipv6.diff (p "::10") (p "::1");
+  testDiffNegative = {
+    expr = ipv6.diff (parse "::10") (parse "::1");
     expected = -15;
   };
 
   # ===== Comparison helpers =====
-  cmp-le = {
-    expr = ipv6.le (p "::1") (p "::2");
+  testLeLess = {
+    expr = ipv6.le (parse "::1") (parse "::2");
     expected = true;
   };
-  cmp-gt = {
-    expr = ipv6.gt (p "::2") (p "::1");
+  testGtGreater = {
+    expr = ipv6.gt (parse "::2") (parse "::1");
     expected = true;
   };
-  cmp-ge = {
-    expr = ipv6.ge (p "::2") (p "::1");
+  testGeGreater = {
+    expr = ipv6.ge (parse "::2") (parse "::1");
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = ipv6.eq (p "::1") (p "::1");
+  testEqSame = {
+    expr = ipv6.eq (parse "::1") (parse "::1");
     expected = true;
   };
-  eq-diff = {
-    expr = ipv6.eq (p "::1") (p "::2");
+  testEqDifferent = {
+    expr = ipv6.eq (parse "::1") (parse "::2");
     expected = false;
   };
-  lt-yes = {
-    expr = ipv6.lt (p "::1") (p "::2");
+  testLtYes = {
+    expr = ipv6.lt (parse "::1") (parse "::2");
     expected = true;
   };
-  lt-no = {
-    expr = ipv6.lt (p "::2") (p "::1");
+  testLtNo = {
+    expr = ipv6.lt (parse "::2") (parse "::1");
     expected = false;
   };
-  lt-word0 = {
-    expr = ipv6.lt (p "1::") (p "2::");
+  testLtFirstWord = {
+    expr = ipv6.lt (parse "1::") (parse "2::");
     expected = true;
   };
-  compare-lt = {
-    expr = ipv6.compare (p "::1") (p "::2");
+  testCompareLess = {
+    expr = ipv6.compare (parse "::1") (parse "::2");
     expected = -1;
   };
-  compare-eq = {
-    expr = ipv6.compare (p "::1") (p "::1");
+  testCompareEqual = {
+    expr = ipv6.compare (parse "::1") (parse "::1");
     expected = 0;
   };
-  compare-gt = {
-    expr = ipv6.compare (p "::2") (p "::1");
+  testCompareGreater = {
+    expr = ipv6.compare (parse "::2") (parse "::1");
     expected = 1;
   };
-  min-smaller = {
-    expr = ipv6.toString (ipv6.min (p "::1") (p "::2"));
+  testMinSmaller = {
+    expr = ipv6.toString (ipv6.min (parse "::1") (parse "::2"));
     expected = "::1";
   };
-  max-larger = {
-    expr = ipv6.toString (ipv6.max (p "::1") (p "::2"));
+  testMaxLarger = {
+    expr = ipv6.toString (ipv6.max (parse "::1") (parse "::2"));
     expected = "::2";
   };
 
   # ===== Constants =====
-  const-unspecified = {
+  testConstantUnspecified = {
     expr = ipv6.toString ipv6.unspecified;
     expected = "::";
   };
-  const-loopback = {
+  testConstantLoopback = {
     expr = ipv6.toString ipv6.loopback;
     expected = "::1";
   };
 
   # ===== Curry =====
-  curry-add = {
+  testCurriedAdd = {
     expr = map ipv6.toString (
       map (ipv6.add 1) [
-        (p "::")
-        (p "::10")
+        (parse "::")
+        (parse "::10")
       ]
     );
     expected = [

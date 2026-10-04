@@ -154,11 +154,15 @@ nix build .#checks.x86_64-linux.core
 
 # Full suite (adds NixOS module-type tests; pulls nixpkgs.lib):
 nix build .#checks.x86_64-linux.full
+
+# Run the core suites directly from the devShell:
+nix develop --command nix-unit tests/default.nix
 ```
 
-Tests evaluate at `.drv` instantiation time — a failing test aborts the build
-with the harness's formatted diff via `builtins.throw`. A passing check
-produces an empty `$out`.
+Each check runs [nix-unit](https://github.com/nix-community/nix-unit) over
+`tests/default.nix` inside the build sandbox. A failing test fails the build
+and the log shows the expected and actual values. A passing check produces an
+empty `$out`.
 
 **Why two checks?** They encode two separate contracts:
 
@@ -169,8 +173,8 @@ produces an empty `$out`.
   against real `nixpkgs.lib`, proving `withLib` integration works.
 
 The library itself (`self.lib`) stays dep-free; `inputs.nixpkgs` is used only
-to wrap the eval harness as a derivation and to supply `nixpkgs.lib` to the
-module-type tests.
+to supply nix-unit, to wrap the test run as a derivation, and to supply
+`nixpkgs.lib` to the module-type tests.
 
 ## Requirements
 

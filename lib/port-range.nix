@@ -16,42 +16,53 @@
 */
 let
   bits = import ./internal/bits.nix;
-  parse' = import ./internal/parse.nix;
+  parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   port = import ./port.nix;
 
   portMax = 65535;
 
-  # `f` and `t` are tagged Port values, parallel to how cidr stores a
-  # tagged address and how ipRange stores tagged from/to ip values.
-  mk = f: t: {
+  # `first` and `last` are tagged Port values, parallel to how cidr stores
+  # a tagged address and how ipRange stores tagged from/to ip values.
+  mk = first: last: {
     _type = "portRange";
-    from = f;
-    to = t;
+    from = first;
+    to = last;
   };
 
   # ===== Parsing =====
 
+  # Decimal port number from one side of a range, or null when invalid.
   parsePart =
-    s:
+    input:
     let
-      n = parse'.decimal s;
+      number = parsing.decimal input;
     in
-    if n == null then
+    if number == null then
       null
-    else if n < 0 || n > portMax then
+    else if number < 0 || number > portMax then
       null
     else
-      n;
+      number;
 
+  /*
+    Parse a port range without throwing, so callers can handle invalid
+    input themselves.
+
+    `input`: "8080" (single port), "5500-6000" (canonical), or
+    "5500:6000" (iptables form); each port in [0, 65535].
+
+    Returns a tryResult: `{ success = true; value = <portRange>; }` or
+    `{ success = false; error = <message>; }`. Fails when from > to.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.portRange.parse: input must be a string"
     else
       let
-        hyphenParts = parse'.splitOn "-" s;
-        colonParts = parse'.splitOn ":" s;
+        hyphenParts = parsing.splitOn "-" input;
+        colonParts = parsing.splitOn ":" input;
         hasHyphen = builtins.length hyphenParts == 2;
         hasColon = builtins.length colonParts == 2 && !hasHyphen;
         isSingle = builtins.length hyphenParts == 1 && !hasColon;
@@ -60,15 +71,15 @@ let
         fromPair =
           parts:
           let
-            f = parsePart (builtins.elemAt parts 0);
-            t = parsePart (builtins.elemAt parts 1);
+            first = parsePart (builtins.elemAt parts 0);
+            last = parsePart (builtins.elemAt parts 1);
           in
-          if f == null || t == null then
-            types.tryErr "libnet.portRange.parse: invalid range \"${s}\""
-          else if f > t then
-            types.tryErr "libnet.portRange.parse: from > to in \"${s}\""
+          if first == null || last == null then
+            types.tryErr "libnet.portRange.parse: invalid range \"${input}\""
+          else if first > last then
+            types.tryErr "libnet.portRange.parse: from > to in \"${input}\""
           else
-            types.tryOk (mk (port.fromInt f) (port.fromInt t));
+            types.tryOk (mk (port.fromInt first) (port.fromInt last));
       in
       if hasHyphen then
         fromPair hyphenParts
@@ -76,176 +87,399 @@ let
         fromPair colonParts
       else if isSingle then
         let
-          p = parsePart s;
+          number = parsePart input;
         in
-        if p == null then
-          types.tryErr "libnet.portRange.parse: invalid port \"${s}\""
+        if number == null then
+          types.tryErr "libnet.portRange.parse: invalid port \"${input}\""
         else
           let
-            pt = port.fromInt p;
+            portValue = port.fromInt number;
           in
-          types.tryOk (mk pt pt)
+          types.tryOk (mk portValue portValue)
       else
-        types.tryErr "libnet.portRange.parse: malformed \"${s}\"";
+        types.tryErr "libnet.portRange.parse: malformed \"${input}\"";
 
+  /*
+    Parse a port range from text such as firewall or service settings.
+
+    `input`: "8080" (single port), "5500-6000" (canonical), or
+    "5500:6000" (iptables form); each port in [0, 65535].
+
+    Returns a portRange value; throws on malformed input, out-of-range
+    ports, or from > to.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Format a range in canonical hyphen form.
+
+    `range`: portRange value.
+
+    Returns "from-to", or just "from" for a single-port range.
+  */
   toString =
-    pr:
-    if port.eq pr.from pr.to then
-      port.toString pr.from
+    range:
+    if port.eq range.from range.to then
+      port.toString range.from
     else
-      "${port.toString pr.from}-${port.toString pr.to}";
+      "${port.toString range.from}-${port.toString range.to}";
 
+  /*
+    Format a range in iptables colon form.
+
+    `range`: portRange value.
+
+    Returns "from:to", or just "from" for a single-port range.
+  */
   toStringColon =
-    pr:
-    if port.eq pr.from pr.to then
-      port.toString pr.from
+    range:
+    if port.eq range.from range.to then
+      port.toString range.from
     else
-      "${port.toString pr.from}:${port.toString pr.to}";
+      "${port.toString range.from}:${port.toString range.to}";
 
-  # `make` takes raw ints, not tagged `port` values: a port is just an
-  # int, so `make 80 100` is the ergonomic primitive — parallel to
-  # `port.fromInt` / `mtu.fromInt`, not to `ipRange.make` (IPs aren't
-  # primitives). Build from a tagged port with `fromPort` (singleton).
+  /*
+    Build a range from raw integers. A port is just an int, so this
+    parallels `port.fromInt` rather than `ipRange.make`; use `fromPort`
+    to build from a tagged port.
+
+    `first`: lowest port number, in [0, 65535].
+    `last`: highest port number, in [first, 65535].
+
+    Returns a portRange value; throws on non-integers, out-of-range
+    numbers, or first > last.
+  */
   make =
-    f: t:
-    if !(builtins.isInt f) || !(builtins.isInt t) then
-      builtins.throw "libnet.portRange.make: from and to must be ints"
-    else if f < 0 || f > portMax || t < 0 || t > portMax then
-      builtins.throw "libnet.portRange.make: out of range [0, 65535]"
-    else if f > t then
-      builtins.throw "libnet.portRange.make: from > to"
+    first: last:
+    if !(builtins.isInt first) || !(builtins.isInt last) then
+      throw "libnet.portRange.make: from and to must be ints"
+    else if first < 0 || first > portMax || last < 0 || last > portMax then
+      throw "libnet.portRange.make: out of range [0, 65535]"
+    else if first > last then
+      throw "libnet.portRange.make: from > to"
     else
-      mk (port.fromInt f) (port.fromInt t);
+      mk (port.fromInt first) (port.fromInt last);
 
+  /*
+    Build a range holding exactly one port, parallel to
+    `cidr.fromAddress` and `ipRange.fromAddress`.
+
+    `portValue`: port value.
+
+    Returns a single-port portRange; throws when given a non-port.
+  */
   fromPort =
-    pt:
-    if !(types.isPort pt) then
-      builtins.throw "libnet.portRange.fromPort: expected a port value"
+    portValue:
+    if !(types.isPort portValue) then
+      throw "libnet.portRange.fromPort: expected a port value"
     else
-      mk pt pt;
+      mk portValue portValue;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isPortRange;
-  isSingleton = pr: port.eq pr.from pr.to;
+  /*
+    Check whether a string parses as a port range.
+
+    `input`: candidate string.
+
+    Returns true when `tryParse input` succeeds.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a portRange value.
+
+    `value`: any value.
+
+    Returns true when `value` is tagged `_type = "portRange"`.
+  */
+  is = value: types.isPortRange value;
+
+  /*
+    Check whether a range holds a single port.
+
+    `range`: portRange value.
+
+    Returns true when from equals to.
+  */
+  isSingleton = range: port.eq range.from range.to;
 
   # ===== Accessors =====
 
-  from = pr: pr.from;
-  to = pr: pr.to;
-  size = pr: port.toInt pr.to - port.toInt pr.from + 1;
+  /*
+    Get the lowest port of a range.
+
+    `range`: portRange value.
+
+    Returns the tagged `from` port.
+  */
+  from = range: range.from;
+
+  /*
+    Get the highest port of a range.
+
+    `range`: portRange value.
+
+    Returns the tagged `to` port.
+  */
+  to = range: range.to;
+
+  /*
+    Count the ports in a range.
+
+    `range`: portRange value.
+
+    Returns `toInt to - toInt from + 1`.
+  */
+  size = range: port.toInt range.to - port.toInt range.from + 1;
 
   # ===== Containment =====
 
-  contains = pr: pt: if !(types.isPort pt) then false else port.le pr.from pt && port.le pt pr.to;
+  /*
+    Check whether a port lies inside a range.
 
+    `range`: portRange value.
+    `portValue`: value to test.
+
+    Returns true when `portValue` is a port within [from, to]; false for
+    non-port values.
+  */
+  contains =
+    range: portValue:
+    if !(types.isPort portValue) then
+      false
+    else
+      port.le range.from portValue && port.le portValue range.to;
+
+  /*
+    Check whether two ranges share at least one port. Symmetric.
+
+    `a`, `b`: portRange values.
+
+    Returns true when the ranges intersect.
+  */
   overlaps = a: b: port.le a.from b.to && port.le b.from a.to;
 
+  /*
+    Check whether one range lies within another, subject first like
+    `cidr.isSubnetOf`.
+
+    `a`: candidate inner range.
+    `b`: candidate outer range.
+
+    Returns true when `a` is a subset of `b` (including equal ranges).
+  */
   isSubrangeOf = a: b: port.le b.from a.from && port.le a.to b.to;
 
+  /*
+    Check whether one range encloses another; inverse of `isSubrangeOf`.
+
+    `a`: candidate outer range.
+    `b`: candidate inner range.
+
+    Returns true when `b` is a subset of `a` (including equal ranges).
+  */
   isSuperrangeOf = a: b: isSubrangeOf b a;
 
-  # Touching with no gap and no overlap: a.to + 1 == b.from OR
-  # b.to + 1 == a.from. Plain-int comparison, so a range ending at 65535
-  # simply isn't adjacent upward (no overflow).
+  /*
+    Check whether two ranges touch with no gap and no overlap. Compares
+    plain ints, so a range ending at 65535 has no upward neighbour and
+    nothing overflows.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `a.to + 1 == b.from` or `b.to + 1 == a.from`.
+  */
   isAdjacent =
     a: b:
     let
-      aToI = port.toInt a.to;
-      bToI = port.toInt b.to;
-      aFromI = port.toInt a.from;
-      bFromI = port.toInt b.from;
+      aTo = port.toInt a.to;
+      bTo = port.toInt b.to;
+      aFrom = port.toInt a.from;
+      bFrom = port.toInt b.from;
     in
-    aToI + 1 == bFromI || bToI + 1 == aFromI;
+    aTo + 1 == bFrom || bTo + 1 == aFrom;
 
+  /*
+    Combine two ranges into one when they overlap or touch.
+
+    `a`, `b`: portRange values.
+
+    Returns the spanning portRange, or null when a gap separates them.
+  */
   merge =
     a: b:
     if overlaps a b || isAdjacent a b then mk (port.min a.from b.from) (port.max a.to b.to) else null;
 
   # ===== Enumeration =====
 
+  /*
+    List every port in a range with no size guard; the caller bounds the
+    cost.
+
+    `range`: portRange value.
+
+    Returns the ports from `from` to `to` in ascending order.
+  */
   portsUnbounded =
-    pr:
+    range:
     let
-      base = port.toInt pr.from;
+      base = port.toInt range.from;
     in
-    builtins.genList (i: port.fromInt (base + i)) (size pr);
+    builtins.genList (i: port.fromInt (base + i)) (size range);
 
+  /*
+    List every port in a range, guarding against accidentally huge lists.
+
+    `range`: portRange value.
+
+    Returns the ports from `from` to `to` in ascending order; throws when
+    the range holds more than 4096 ports (use `portsUnbounded`).
+  */
   ports =
-    pr:
+    range:
     let
-      sz = size pr;
+      rangeSize = size range;
     in
-    if sz > bits.pow2 12 then
-      builtins.throw "libnet.portRange.ports: range too large (${builtins.toString sz} > 4096); use portsUnbounded"
+    if rangeSize > bits.pow2 12 then
+      throw "libnet.portRange.ports: range too large (${builtins.toString rangeSize} > 4096); use portsUnbounded"
     else
-      portsUnbounded pr;
+      portsUnbounded range;
 
-  # n-th port (0-indexed) from `from`; negative n counts from the end.
-  # Parallels cidr.hostAt / ipBindpoint.endpointAt.
+  /*
+    Index into a range, parallel to `cidr.hostAt` and
+    `ipBindpoint.endpointAt`.
+
+    `n`: 0-based offset from `from`; negative values count from the end.
+    `range`: portRange value.
+
+    Returns the selected port; throws when `n` falls outside the range.
+  */
   portAt =
-    n: pr:
+    n: range:
     let
-      sz = size pr;
-      idx = if n < 0 then sz + n else n;
+      rangeSize = size range;
+      index = if n < 0 then rangeSize + n else n;
     in
-    if idx < 0 || idx >= sz then
-      builtins.throw "libnet.portRange.portAt: index out of range [0, ${builtins.toString sz})"
+    if index < 0 || index >= rangeSize then
+      throw "libnet.portRange.portAt: index out of range [0, ${builtins.toString rangeSize})"
     else
-      port.add idx pr.from;
+      port.add index range.from;
 
   # ===== Comparison =====
 
+  /*
+    Test two port ranges for equality.
+
+    `a`, `b`: portRange values.
+
+    Returns true when both have the same type tag, `from`, and `to`.
+  */
   eq = a: b: a._type == b._type && port.eq a.from b.from && port.eq a.to b.to;
+
+  /*
+    Order two ranges lexicographically on (from, to).
+
+    `a`, `b`: portRange values.
+
+    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
+  */
   compare =
     a: b:
     let
-      c = port.compare a.from b.from;
+      fromOrder = port.compare a.from b.from;
     in
-    if c != 0 then c else port.compare a.to b.to;
+    if fromOrder != 0 then fromOrder else port.compare a.to b.to;
+
+  /*
+    Test whether one range sorts before another.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `compare a b == -1`.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether one range sorts before or equal to another.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `compare a b <= 0`.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether one range sorts after another.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `compare a b == 1`.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether one range sorts after or equal to another.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `compare a b >= 0`.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the earlier of two ranges in sort order.
+
+    `a`, `b`: portRange values.
+
+    Returns the lesser range; `a` when they compare equal.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the later of two ranges in sort order.
+
+    `a`, `b`: portRange values.
+
+    Returns the greater range; `a` when they compare equal.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    toStringColon
-    make
-    fromPort
-    ;
-  inherit isValid is isSingleton;
-  inherit from to size;
-  inherit
+    compare
     contains
-    overlaps
+    eq
+    from
+    fromPort
+    ge
+    gt
+    is
+    isAdjacent
+    isSingleton
     isSubrangeOf
     isSuperrangeOf
-    isAdjacent
-    merge
-    ;
-  inherit ports portsUnbounded portAt;
-  inherit
-    eq
-    lt
+    isValid
     le
-    gt
-    ge
-    compare
-    min
+    lt
+    make
     max
+    merge
+    min
+    overlaps
+    parse
+    portAt
+    ports
+    portsUnbounded
+    size
+    to
+    toString
+    toStringColon
+    tryParse
     ;
 }

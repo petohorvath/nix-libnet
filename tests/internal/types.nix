@@ -144,337 +144,337 @@ let
 in
 {
   # ===== tags =====
-  tags-ipv4 = {
+  testTagsIpv4 = {
     expr = types.tags.ipv4;
     expected = "ipv4";
   };
-  tags-ipv6 = {
+  testTagsIpv6 = {
     expr = types.tags.ipv6;
     expected = "ipv6";
   };
-  tags-mac = {
+  testTagsMac = {
     expr = types.tags.mac;
     expected = "mac";
   };
-  tags-cidr = {
+  testTagsCidr = {
     expr = types.tags.cidr;
     expected = "cidr";
   };
-  tags-port = {
+  testTagsPort = {
     expr = types.tags.port;
     expected = "port";
   };
-  tags-portRange = {
+  testTagsPortRange = {
     expr = types.tags.portRange;
     expected = "portRange";
   };
-  tags-ipEndpoint = {
+  testTagsIpEndpoint = {
     expr = types.tags.ipEndpoint;
     expected = "ipEndpoint";
   };
-  tags-dnsEndpoint = {
+  testTagsDnsEndpoint = {
     expr = types.tags.dnsEndpoint;
     expected = "dnsEndpoint";
   };
-  tags-ipBindpoint = {
+  testTagsIpBindpoint = {
     expr = types.tags.ipBindpoint;
     expected = "ipBindpoint";
   };
-  tags-ipRange = {
+  testTagsIpRange = {
     expr = types.tags.ipRange;
     expected = "ipRange";
   };
-  tags-interfaceAddress = {
+  testTagsInterfaceAddress = {
     expr = types.tags.interfaceAddress;
     expected = "interfaceAddress";
   };
-  tags-interfaceName = {
+  testTagsInterfaceName = {
     expr = types.tags.interfaceName;
     expected = "interfaceName";
   };
-  tags-transport = {
+  testTagsTransport = {
     expr = types.tags.transport;
     expected = "transport";
   };
-  tags-hostname = {
+  testTagsHostname = {
     expr = types.tags.hostname;
     expected = "hostname";
   };
-  tags-domain = {
+  testTagsDomain = {
     expr = types.tags.domain;
     expected = "domain";
   };
-  tags-vlanId = {
+  testTagsVlanId = {
     expr = types.tags.vlanId;
     expected = "vlanId";
   };
-  tags-mtu = {
+  testTagsMtu = {
     expr = types.tags.mtu;
     expected = "mtu";
   };
-  tags-icmpType = {
+  testTagsIcmpType = {
     expr = types.tags.icmpType;
     expected = "icmpType";
   };
-  tags-unixSocket = {
+  testTagsUnixSocket = {
     expr = types.tags.unixSocket;
     expected = "unixSocket";
   };
-  tags-socketUrl = {
+  testTagsSocketUrl = {
     expr = types.tags.socketUrl;
     expected = "socketUrl";
   };
-  tags-bindUrl = {
+  testTagsBindUrl = {
     expr = types.tags.bindUrl;
     expected = "bindUrl";
   };
-  tags-secureSocketUrl = {
+  testTagsSecureSocketUrl = {
     expr = types.tags.secureSocketUrl;
     expected = "secureSocketUrl";
   };
-  tags-url = {
+  testTagsUrl = {
     expr = types.tags.url;
     expected = "url";
   };
-  tags-urlHost = {
+  testTagsUrlHost = {
     expr = types.tags.urlHost;
     expected = "urlHost";
   };
-  tags-authority = {
+  testTagsAuthority = {
     expr = types.tags.authority;
     expected = "authority";
   };
-  tags-proxyUrl = {
+  testTagsProxyUrl = {
     expr = types.tags.proxyUrl;
     expected = "proxyUrl";
   };
 
   # ===== hasTag =====
-  hasTag-match = {
+  testHasTagMatch = {
     expr = types.hasTag "ipv4" ipv4;
     expected = true;
   };
-  hasTag-mismatch = {
+  testHasTagMismatch = {
     expr = types.hasTag "ipv6" ipv4;
     expected = false;
   };
-  hasTag-untagged = {
+  testHasTagUntagged = {
     expr = types.hasTag "ipv4" untagged;
     expected = false;
   };
-  hasTag-string = {
+  testHasTagString = {
     expr = types.hasTag "ipv4" "1.2.3.4";
     expected = false;
   };
-  hasTag-int = {
+  testHasTagInt = {
     expr = types.hasTag "ipv4" 42;
     expected = false;
   };
-  hasTag-null = {
+  testHasTagNull = {
     expr = types.hasTag "ipv4" null;
     expected = false;
   };
 
   # ===== is* predicates: positive =====
-  isIpv4-yes = {
+  testIsIpv4Yes = {
     expr = types.isIpv4 ipv4;
     expected = true;
   };
-  isIpv6-yes = {
+  testIsIpv6Yes = {
     expr = types.isIpv6 ipv6;
     expected = true;
   };
-  isMac-yes = {
+  testIsMacYes = {
     expr = types.isMac mac;
     expected = true;
   };
-  isCidr-yes = {
+  testIsCidrYes = {
     expr = types.isCidr cidr;
     expected = true;
   };
-  isPort-yes = {
+  testIsPortYes = {
     expr = types.isPort port;
     expected = true;
   };
-  isPortRange-yes = {
+  testIsPortRangeYes = {
     expr = types.isPortRange portRange;
     expected = true;
   };
-  isIpEndpoint-yes = {
+  testIsIpEndpointYes = {
     expr = types.isIpEndpoint ipEndpoint;
     expected = true;
   };
-  isDnsEndpoint-yes = {
+  testIsDnsEndpointYes = {
     expr = types.isDnsEndpoint dnsEndpoint;
     expected = true;
   };
-  isIpBindpoint-yes = {
+  testIsIpBindpointYes = {
     expr = types.isIpBindpoint ipBindpoint;
     expected = true;
   };
-  isIpRange-yes = {
+  testIsIpRangeYes = {
     expr = types.isIpRange ipRange;
     expected = true;
   };
-  isInterfaceAddress-yes = {
+  testIsInterfaceAddressYes = {
     expr = types.isInterfaceAddress interfaceAddress;
     expected = true;
   };
-  isInterfaceName-yes = {
+  testIsInterfaceNameYes = {
     expr = types.isInterfaceName interfaceName;
     expected = true;
   };
-  isTransport-yes = {
+  testIsTransportYes = {
     expr = types.isTransport transport;
     expected = true;
   };
-  isHostname-yes = {
+  testIsHostnameYes = {
     expr = types.isHostname hostname;
     expected = true;
   };
-  isDomain-yes = {
+  testIsDomainYes = {
     expr = types.isDomain domain;
     expected = true;
   };
-  isVlanId-yes = {
+  testIsVlanIdYes = {
     expr = types.isVlanId vlanId;
     expected = true;
   };
-  isMtu-yes = {
+  testIsMtuYes = {
     expr = types.isMtu mtu;
     expected = true;
   };
-  isIcmpType-yes = {
+  testIsIcmpTypeYes = {
     expr = types.isIcmpType icmpType;
     expected = true;
   };
-  isUnixSocket-yes = {
+  testIsUnixSocketYes = {
     expr = types.isUnixSocket unixSocket;
     expected = true;
   };
-  isSocketUrl-yes = {
+  testIsSocketUrlYes = {
     expr = types.isSocketUrl socketUrl;
     expected = true;
   };
-  isBindUrl-yes = {
+  testIsBindUrlYes = {
     expr = types.isBindUrl bindUrl;
     expected = true;
   };
-  isSecureSocketUrl-yes = {
+  testIsSecureSocketUrlYes = {
     expr = types.isSecureSocketUrl secureSocketUrl;
     expected = true;
   };
-  isUrl-yes = {
+  testIsUrlYes = {
     expr = types.isUrl url;
     expected = true;
   };
-  isUrlHost-yes = {
+  testIsUrlHostYes = {
     expr = types.isUrlHost urlHost;
     expected = true;
   };
-  isAuthority-yes = {
+  testIsAuthorityYes = {
     expr = types.isAuthority authority;
     expected = true;
   };
-  isProxyUrl-yes = {
+  testIsProxyUrlYes = {
     expr = types.isProxyUrl proxyUrl;
     expected = true;
   };
 
   # ===== is* predicates: cross-tag negative =====
-  isIpv4-not-v6 = {
+  testIsIpv4NotV6 = {
     expr = types.isIpv4 ipv6;
     expected = false;
   };
-  isIpv6-not-v4 = {
+  testIsIpv6NotV4 = {
     expr = types.isIpv6 ipv4;
     expected = false;
   };
-  isCidr-not-range = {
+  testIsCidrNotRange = {
     expr = types.isCidr ipRange;
     expected = false;
   };
 
   # ===== is* predicates: non-attrs =====
-  isIpv4-string = {
+  testIsIpv4String = {
     expr = types.isIpv4 "1.2.3.4";
     expected = false;
   };
-  isMac-int = {
+  testIsMacInt = {
     expr = types.isMac 42;
     expected = false;
   };
-  isPort-null = {
+  testIsPortNull = {
     expr = types.isPort null;
     expected = false;
   };
-  isIpEndpoint-untagged = {
+  testIsIpEndpointUntagged = {
     expr = types.isIpEndpoint untagged;
     expected = false;
   };
 
   # ===== isIp (union) =====
-  isIp-v4 = {
+  testIsIpV4 = {
     expr = types.isIp ipv4;
     expected = true;
   };
-  isIp-v6 = {
+  testIsIpV6 = {
     expr = types.isIp ipv6;
     expected = true;
   };
-  isIp-mac = {
+  testIsIpMac = {
     expr = types.isIp mac;
     expected = false;
   };
-  isIp-string = {
+  testIsIpString = {
     expr = types.isIp "1.2.3.4";
     expected = false;
   };
 
   # ===== tryOk / tryErr =====
-  tryOk-success = {
+  testTryOkSuccess = {
     expr = (types.tryOk 42).success;
     expected = true;
   };
-  tryOk-value = {
+  testTryOkValue = {
     expr = (types.tryOk 42).value;
     expected = 42;
   };
-  tryOk-error = {
+  testTryOkError = {
     expr = (types.tryOk 42).error;
     expected = null;
   };
-  tryErr-success = {
+  testTryErrSuccess = {
     expr = (types.tryErr "boom").success;
     expected = false;
   };
-  tryErr-value = {
+  testTryErrValue = {
     expr = (types.tryErr "boom").value;
     expected = null;
   };
-  tryErr-error = {
+  testTryErrError = {
     expr = (types.tryErr "boom").error;
     expected = "boom";
   };
 
   # ===== ensureTag =====
-  ensureTag-returns-input = {
+  testEnsureTagReturnsInput = {
     expr = types.ensureTag "ipv4" "libnet.test" ipv4 == ipv4;
     expected = true;
   };
-  ensureTag-wrong-tag-throws = {
+  testEnsureTagWrongTagThrows = {
     expr = throws (types.ensureTag "ipv4" "libnet.test" ipv6);
     expected = true;
   };
-  ensureTag-untagged-throws = {
+  testEnsureTagUntaggedThrows = {
     expr = throws (types.ensureTag "ipv4" "libnet.test" untagged);
     expected = true;
   };
-  ensureTag-non-attrs-throws = {
+  testEnsureTagNonAttrsThrows = {
     expr = throws (types.ensureTag "ipv4" "libnet.test" 42);
     expected = true;
   };
-  ensureTag-string-throws = {
+  testEnsureTagStringThrows = {
     expr = throws (types.ensureTag "ipv4" "libnet.test" "1.2.3.4");
     expected = true;
   };

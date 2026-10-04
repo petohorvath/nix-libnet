@@ -4,11 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    /*
-      Build-time only: drives the pre-commit / pre-push git hooks
-      the devShell installs. Not a runtime dependency of the
-      library — consumers of `lib` never pull this in.
-    */
+    # Build-time only: drives the pre-commit / pre-push git hooks the
+    # devShell installs. Not a runtime dependency of the library —
+    # consumers of `lib` never pull this in.
     git-hooks.url = "github:cachix/git-hooks.nix";
     git-hooks.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -83,15 +81,20 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          runEval =
-            name: args:
-            pkgs.runCommand name {
-              passed = (import ./tests/default.nix args).passed;
-            } "touch $out";
+          testsPath = "${./.}/tests/default.nix";
+          # nix-unit evaluates inside the build sandbox, so it needs a
+          # writable eval store; `extraArgs` passes Nix function arguments.
+          runUnitTests =
+            name: extraArgs:
+            pkgs.runCommand name { nativeBuildInputs = [ pkgs.nix-unit ]; } ''
+              export HOME="$TMPDIR"
+              nix-unit --quiet --eval-store "$HOME" ${extraArgs} ${testsPath}
+              touch "$out"
+            '';
         in
         {
-          core = runEval "libnet-core-tests" { lib = null; };
-          full = runEval "libnet-full-tests" { lib = pkgs.lib; };
+          core = runUnitTests "libnet-core-tests" "";
+          full = runUnitTests "libnet-full-tests" "--arg lib 'import ${nixpkgs}/lib'";
           pre-commit = gitHooksBySystem.${system};
         }
       );
@@ -106,12 +109,14 @@
             /*
               Tools a contributor reaches for on this repo: nix to
               pin the flake CLI itself (so checks/builds run a known
-              version rather than the ambient one), nixfmt-tree for
-              formatting (matches `nix fmt`), and statix + deadnix
-              for ad-hoc linting of anti-patterns and dead code.
+              version rather than the ambient one), nix-unit to run
+              the test suites directly, nixfmt-tree for formatting
+              (matches `nix fmt`), and statix + deadnix for ad-hoc
+              linting of anti-patterns and dead code.
             */
             packages = [
               pkgs.nix
+              pkgs.nix-unit
               pkgs.nixfmt-tree
               pkgs.statix
               pkgs.deadnix

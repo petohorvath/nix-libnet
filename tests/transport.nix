@@ -2,198 +2,198 @@
 let
   transport = import ../lib/transport.nix;
   inherit (harness) throws;
-  p = transport.parse;
+  inherit (transport) parse;
 in
 {
   # ===== Parse =====
-  parse-tcp = {
-    expr = (p "tcp").value;
+  testParseTcp = {
+    expr = (parse "tcp").value;
     expected = "tcp";
   };
-  parse-udp = {
-    expr = (p "udp").value;
+  testParseUdp = {
+    expr = (parse "udp").value;
     expected = "udp";
   };
-  parse-sctp = {
-    expr = (p "sctp").value;
+  testParseSctp = {
+    expr = (parse "sctp").value;
     expected = "sctp";
   };
-  parse-tagged = {
-    expr = (p "tcp")._type;
+  testParseTagged = {
+    expr = (parse "tcp")._type;
     expected = "transport";
   };
 
-  reject-upper = {
-    expr = throws (p "TCP");
+  testRejectUppercase = {
+    expr = throws (parse "TCP");
     expected = true;
   };
-  reject-mixed-case = {
-    expr = throws (p "Tcp");
+  testRejectMixedCase = {
+    expr = throws (parse "Tcp");
     expected = true;
   };
-  reject-unknown = {
-    expr = throws (p "icmp");
+  testRejectUnknown = {
+    expr = throws (parse "icmp");
     expected = true;
   };
-  reject-quic = {
-    expr = throws (p "quic");
+  testRejectQuic = {
+    expr = throws (parse "quic");
     expected = true;
   };
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-whitespace = {
-    expr = throws (p " tcp");
+  testRejectWhitespace = {
+    expr = throws (parse " tcp");
     expected = true;
   };
-  reject-trailing = {
-    expr = throws (p "tcp ");
+  testRejectTrailing = {
+    expr = throws (parse "tcp ");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (transport.parse 6);
     expected = true;
   };
 
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (transport.tryParse "tcp").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (transport.tryParse "icmp").success;
     expected = false;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (transport.tryParse "icmp").error;
     expected = true;
   };
-  tryParse-not-string = {
+  testTryParseNotString = {
     expr = (transport.tryParse 6).success;
     expected = false;
   };
 
   # ===== Round-trip =====
-  rt-tcp = {
-    expr = transport.toString (p "tcp");
+  testRoundTripTcp = {
+    expr = transport.toString (parse "tcp");
     expected = "tcp";
   };
-  rt-udp = {
-    expr = transport.toString (p "udp");
+  testRoundTripUdp = {
+    expr = transport.toString (parse "udp");
     expected = "udp";
   };
-  rt-sctp = {
-    expr = transport.toString (p "sctp");
+  testRoundTripSctp = {
+    expr = transport.toString (parse "sctp");
     expected = "sctp";
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = transport.is (p "tcp");
+  testIsParsed = {
+    expr = transport.is (parse "tcp");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = transport.is "tcp";
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = transport.is { value = "tcp"; };
     expected = false;
   };
-  isValid-tcp = {
+  testIsValidTcp = {
     expr = transport.isValid "tcp";
     expected = true;
   };
-  isValid-udp = {
+  testIsValidUdp = {
     expr = transport.isValid "udp";
     expected = true;
   };
-  isValid-sctp = {
+  testIsValidSctp = {
     expr = transport.isValid "sctp";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = transport.isValid "icmp";
     expected = false;
   };
-  isValid-not-string = {
+  testIsValidNotString = {
     expr = transport.isValid 6;
     expected = false;
   };
 
-  isTcp-tcp = {
-    expr = transport.isTcp (p "tcp");
+  testIsTcpTcp = {
+    expr = transport.isTcp (parse "tcp");
     expected = true;
   };
-  isTcp-udp = {
-    expr = transport.isTcp (p "udp");
+  testIsTcpUdp = {
+    expr = transport.isTcp (parse "udp");
     expected = false;
   };
-  isTcp-sctp = {
-    expr = transport.isTcp (p "sctp");
+  testIsTcpSctp = {
+    expr = transport.isTcp (parse "sctp");
     expected = false;
   };
-  isUdp-udp = {
-    expr = transport.isUdp (p "udp");
+  testIsUdpUdp = {
+    expr = transport.isUdp (parse "udp");
     expected = true;
   };
-  isUdp-tcp = {
-    expr = transport.isUdp (p "tcp");
+  testIsUdpTcp = {
+    expr = transport.isUdp (parse "tcp");
     expected = false;
   };
-  isUdp-sctp = {
-    expr = transport.isUdp (p "sctp");
+  testIsUdpSctp = {
+    expr = transport.isUdp (parse "sctp");
     expected = false;
   };
-  isSctp-sctp = {
-    expr = transport.isSctp (p "sctp");
+  testIsSctpSctp = {
+    expr = transport.isSctp (parse "sctp");
     expected = true;
   };
-  isSctp-tcp = {
-    expr = transport.isSctp (p "tcp");
+  testIsSctpTcp = {
+    expr = transport.isSctp (parse "tcp");
     expected = false;
   };
-  isSctp-udp = {
-    expr = transport.isSctp (p "udp");
+  testIsSctpUdp = {
+    expr = transport.isSctp (parse "udp");
     expected = false;
   };
 
   # ===== Equality =====
-  eq-same-tcp = {
-    expr = transport.eq (p "tcp") (p "tcp");
+  testEqSameTcp = {
+    expr = transport.eq (parse "tcp") (parse "tcp");
     expected = true;
   };
-  eq-same-udp = {
-    expr = transport.eq (p "udp") (p "udp");
+  testEqSameUdp = {
+    expr = transport.eq (parse "udp") (parse "udp");
     expected = true;
   };
-  eq-tcp-udp = {
-    expr = transport.eq (p "tcp") (p "udp");
+  testEqTcpUdp = {
+    expr = transport.eq (parse "tcp") (parse "udp");
     expected = false;
   };
-  eq-tcp-sctp = {
-    expr = transport.eq (p "tcp") (p "sctp");
+  testEqTcpSctp = {
+    expr = transport.eq (parse "tcp") (parse "sctp");
     expected = false;
   };
 
   # ===== Constants =====
-  const-tcp = {
-    expr = transport.eq transport.tcp (p "tcp");
+  testConstantTcp = {
+    expr = transport.eq transport.tcp (parse "tcp");
     expected = true;
   };
-  const-udp = {
-    expr = transport.eq transport.udp (p "udp");
+  testConstantUdp = {
+    expr = transport.eq transport.udp (parse "udp");
     expected = true;
   };
-  const-sctp = {
-    expr = transport.eq transport.sctp (p "sctp");
+  testConstantSctp = {
+    expr = transport.eq transport.sctp (parse "sctp");
     expected = true;
   };
-  const-tcp-tagged = {
+  testConstantTcpTagged = {
     expr = transport.is transport.tcp;
     expected = true;
   };
-  values-list = {
+  testValuesList = {
     expr = transport.values;
     expected = [
       "tcp"

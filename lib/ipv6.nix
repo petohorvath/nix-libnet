@@ -18,48 +18,67 @@
 */
 let
   bits = import ./internal/bits.nix;
-  parse' = import ./internal/parse.nix;
-  fmt = import ./internal/format.nix;
   carry = import ./internal/carry.nix;
-  types = import ./internal/types.nix;
+  formatting = import ./internal/format.nix;
   mac = import ./mac.nix;
+  parsing = import ./internal/parse.nix;
+  types = import ./internal/types.nix;
 
-  mk = ws: {
+  mk = words: {
     _type = "ipv6";
-    words = ws;
+    inherit words;
   };
 
   # ===== Conversion =====
 
+  /*
+    Build an address from four 32-bit words, most significant first.
+
+    `words`: list of exactly 4 integers, each in [0, 2^32 - 1].
+
+    Returns an IPv6 value; throws on a wrong length or an invalid word.
+  */
   fromWords =
-    ws:
-    if !(builtins.isList ws) || builtins.length ws != 4 then
-      builtins.throw "libnet.ipv6.fromWords: expected list of 4 u32 ints"
+    words:
+    if !(builtins.isList words) || builtins.length words != 4 then
+      throw "libnet.ipv6.fromWords: expected list of 4 u32 ints"
     else
       let
-        invalid = builtins.any (w: !(builtins.isInt w) || w < 0 || w > bits.mask32) ws;
+        invalid = builtins.any (word: !(builtins.isInt word) || word < 0 || word > bits.mask32) words;
       in
-      if invalid then
-        builtins.throw "libnet.ipv6.fromWords: each word must be int in [0, 2^32 - 1]"
-      else
-        mk ws;
+      if invalid then throw "libnet.ipv6.fromWords: each word must be int in [0, 2^32 - 1]" else mk words;
 
+  /*
+    Get the four 32-bit words of an address.
+
+    `ip`: IPv6 value.
+
+    Returns a list of 4 integers in [0, 2^32 - 1], most significant first.
+  */
   toWords = ip: ip.words;
 
+  /*
+    Build an address from its eight 16-bit groups, in the order they
+    appear in hex notation.
+
+    `groups`: list of exactly 8 integers, each in [0, 65535].
+
+    Returns an IPv6 value; throws on a wrong length or an invalid group.
+  */
   fromGroups =
-    gs:
-    if !(builtins.isList gs) || builtins.length gs != 8 then
-      builtins.throw "libnet.ipv6.fromGroups: expected list of 8 u16 ints"
+    groups:
+    if !(builtins.isList groups) || builtins.length groups != 8 then
+      throw "libnet.ipv6.fromGroups: expected list of 8 u16 ints"
     else
       let
-        invalid = builtins.any (g: !(builtins.isInt g) || g < 0 || g > bits.mask16) gs;
+        invalid = builtins.any (group: !(builtins.isInt group) || group < 0 || group > bits.mask16) groups;
       in
       if invalid then
-        builtins.throw "libnet.ipv6.fromGroups: each group must be int in [0, 65535]"
+        throw "libnet.ipv6.fromGroups: each group must be int in [0, 65535]"
       else
         let
-          g = i: builtins.elemAt gs i;
-          pair = i: j: (g i) * bits.pow2_16 + (g j);
+          groupAt = i: builtins.elemAt groups i;
+          pair = i: j: (groupAt i) * bits.pow2_16 + (groupAt j);
         in
         mk [
           (pair 0 1)
@@ -68,32 +87,49 @@ let
           (pair 6 7)
         ];
 
+  /*
+    Split an address into its eight 16-bit groups.
+
+    `ip`: IPv6 value.
+
+    Returns a list of 8 integers in [0, 65535], most significant first.
+  */
   toGroups =
     ip:
     let
-      ws = ip.words;
-      wordToGroups = w: [
-        (bits.shr 16 w)
-        (builtins.bitAnd w bits.mask16)
+      wordToGroups = word: [
+        (bits.shr 16 word)
+        (builtins.bitAnd word bits.mask16)
       ];
     in
-    builtins.concatMap wordToGroups ws;
+    builtins.concatMap wordToGroups ip.words;
 
+  /*
+    Build an address from its sixteen bytes, most significant first.
+
+    `bytes`: list of exactly 16 integers, each in [0, 255].
+
+    Returns an IPv6 value; throws on a wrong length or an invalid byte.
+  */
   fromBytes =
-    bs:
-    if !(builtins.isList bs) || builtins.length bs != 16 then
-      builtins.throw "libnet.ipv6.fromBytes: expected list of 16 u8 ints"
+    bytes:
+    if !(builtins.isList bytes) || builtins.length bytes != 16 then
+      throw "libnet.ipv6.fromBytes: expected list of 16 u8 ints"
     else
       let
-        invalid = builtins.any (b: !(builtins.isInt b) || b < 0 || b > 255) bs;
+        invalid = builtins.any (byte: !(builtins.isInt byte) || byte < 0 || byte > 255) bytes;
       in
       if invalid then
-        builtins.throw "libnet.ipv6.fromBytes: each byte must be int in [0, 255]"
+        throw "libnet.ipv6.fromBytes: each byte must be int in [0, 255]"
       else
         let
-          b = i: builtins.elemAt bs i;
+          byteAt = i: builtins.elemAt bytes i;
           quad =
-            i: (b i) * bits.pow2_24 + (b (i + 1)) * bits.pow2_16 + (b (i + 2)) * bits.pow2_8 + (b (i + 3));
+            i:
+            (byteAt i) * bits.pow2_24
+            + (byteAt (i + 1)) * bits.pow2_16
+            + (byteAt (i + 2)) * bits.pow2_8
+            + (byteAt (i + 3));
         in
         mk [
           (quad 0)
@@ -102,35 +138,41 @@ let
           (quad 12)
         ];
 
+  /*
+    Split an address into its sixteen bytes.
+
+    `ip`: IPv6 value.
+
+    Returns a list of 16 integers in [0, 255], most significant first.
+  */
   toBytes =
     ip:
     let
-      ws = ip.words;
-      wordToBytes = w: [
-        (bits.bits 24 8 w)
-        (bits.bits 16 8 w)
-        (bits.bits 8 8 w)
-        (bits.bits 0 8 w)
+      wordToBytes = word: [
+        (bits.bits 24 8 word)
+        (bits.bits 16 8 word)
+        (bits.bits 8 8 word)
+        (bits.bits 0 8 word)
       ];
     in
-    builtins.concatMap wordToBytes ws;
+    builtins.concatMap wordToBytes ip.words;
 
   # ===== Parsing =====
 
   # Parse a list of hex-group strings into ints. null on failure.
   parseHexGroups =
-    strs:
+    groupTexts:
     let
-      results = map parse'.hexGroup strs;
+      results = map parsing.hexGroup groupTexts;
     in
-    if builtins.any (v: v == null) results then null else results;
+    if builtins.any (group: group == null) results then null else results;
 
   # Check that no element contains "." except the last.
-  v4OnlyLast =
+  hasDotOnlyInLast =
     parts:
     let
       n = builtins.length parts;
-      hasDot = p: parse'.countOccurrences "." p > 0;
+      hasDot = part: parsing.countOccurrences "." part > 0;
     in
     if n <= 1 then
       true
@@ -149,31 +191,28 @@ let
     in
     if n == 0 then
       [ ]
-    else if !(v4OnlyLast parts) then
+    else if !(hasDotOnlyInLast parts) then
       null
     else
       let
-        last = builtins.elemAt parts (n - 1);
-        hasDot = parse'.countOccurrences "." last > 0;
+        lastPart = builtins.elemAt parts (n - 1);
+        hasDot = parsing.countOccurrences "." lastPart > 0;
       in
       if !hasDot then
         parseHexGroups parts
       else
         let
-          v4parts = parse'.splitOn "." last;
-          octs = if builtins.length v4parts == 4 then map parse'.octet v4parts else null;
-          v4Ok = octs != null && !(builtins.any (o: o == null) octs);
+          ipv4Parts = parsing.splitOn "." lastPart;
+          octets = if builtins.length ipv4Parts == 4 then map parsing.octet ipv4Parts else null;
+          ipv4Valid = octets != null && !(builtins.any (octet: octet == null) octets);
         in
-        if !v4Ok then
+        if !ipv4Valid then
           null
         else
           let
-            a = builtins.elemAt octs 0;
-            b = builtins.elemAt octs 1;
-            c = builtins.elemAt octs 2;
-            d = builtins.elemAt octs 3;
-            g0 = a * 256 + b;
-            g1 = c * 256 + d;
+            octetAt = i: builtins.elemAt octets i;
+            highGroup = octetAt 0 * 256 + octetAt 1;
+            lowGroup = octetAt 2 * 256 + octetAt 3;
             prefixParts = if n == 1 then [ ] else builtins.genList (i: builtins.elemAt parts i) (n - 1);
             prefixGroups = parseHexGroups prefixParts;
           in
@@ -182,131 +221,115 @@ let
           else
             prefixGroups
             ++ [
-              g0
-              g1
+              highGroup
+              lowGroup
             ];
 
+  /*
+    Parse an IPv6 address without throwing, for validating untrusted
+    input. Accepts any RFC 4291 text form, including `::` compression,
+    mixed case, and a trailing dotted-quad IPv4 part.
+
+    `input`: string such as "2001:db8::1".
+
+    Returns a tryParse result: `{ success, value, error }`, where `value`
+    is the IPv6 value on success and `error` describes the failure.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.ipv6.parse: input must be a string"
-    else if s == "" then
+    else if input == "" then
       types.tryErr "libnet.ipv6.parse: empty string"
     else
       let
-        dcCount = parse'.countOccurrences "::" s;
+        doubleColonCount = parsing.countOccurrences "::" input;
       in
-      if dcCount > 1 then
-        types.tryErr "libnet.ipv6.parse: more than one \"::\" in \"${s}\""
+      if doubleColonCount > 1 then
+        types.tryErr "libnet.ipv6.parse: more than one \"::\" in \"${input}\""
       else
         let
           groups =
-            if dcCount == 0 then
+            if doubleColonCount == 0 then
               let
-                parts = parse'.splitOn ":" s;
-                g = expandPartsToGroups parts;
+                expanded = expandPartsToGroups (parsing.splitOn ":" input);
               in
-              if g == null || builtins.length g != 8 then null else g
+              if expanded == null || builtins.length expanded != 8 then null else expanded
             else
               let
-                halves = parse'.splitOn "::" s;
-                leftStr = builtins.elemAt halves 0;
-                rightStr = builtins.elemAt halves 1;
-                leftParts = if leftStr == "" then [ ] else parse'.splitOn ":" leftStr;
-                rightParts = if rightStr == "" then [ ] else parse'.splitOn ":" rightStr;
-                # v4 in left half is invalid (must be at absolute end)
-                leftHasDot = builtins.any (p: parse'.countOccurrences "." p > 0) leftParts;
-                leftG = if leftHasDot then null else parseHexGroups leftParts;
-                rightG = expandPartsToGroups rightParts;
+                halves = parsing.splitOn "::" input;
+                leftText = builtins.elemAt halves 0;
+                rightText = builtins.elemAt halves 1;
+                leftParts = if leftText == "" then [ ] else parsing.splitOn ":" leftText;
+                rightParts = if rightText == "" then [ ] else parsing.splitOn ":" rightText;
+                # An IPv4 part is only valid at the very end of the address.
+                leftHasDot = builtins.any (part: parsing.countOccurrences "." part > 0) leftParts;
+                leftGroups = if leftHasDot then null else parseHexGroups leftParts;
+                rightGroups = expandPartsToGroups rightParts;
               in
-              if leftG == null || rightG == null then
+              if leftGroups == null || rightGroups == null then
                 null
               else
                 let
-                  total = builtins.length leftG + builtins.length rightG;
+                  groupCount = builtins.length leftGroups + builtins.length rightGroups;
                 in
-                if total > 7 then
+                if groupCount > 7 then
                   null # "::" must represent at least 1 zero group
                 else
                   let
-                    zeros = builtins.genList (_: 0) (8 - total);
+                    zeros = builtins.genList (_: 0) (8 - groupCount);
                   in
-                  leftG ++ zeros ++ rightG;
+                  leftGroups ++ zeros ++ rightGroups;
         in
         if groups == null then
-          types.tryErr "libnet.ipv6.parse: invalid \"${s}\""
+          types.tryErr "libnet.ipv6.parse: invalid \"${input}\""
         else
           types.tryOk (fromGroups groups);
 
+  /*
+    Parse an IPv6 address, for trusted configuration values.
+
+    `input`: string such as "2001:db8::1".
+
+    Returns an IPv6 value; throws on malformed input.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
-
-  # ===== Formatting =====
-
-  # RFC 5952 canonical form. IPv4-mapped addresses emit mixed form per § 5.
-  toString =
-    ip:
-    if isIpv4Mapped ip then
-      let
-        w3 = builtins.elemAt ip.words 3;
-        ipv4Part =
-          "${builtins.toString (bits.bits 24 8 w3)}"
-          + ".${builtins.toString (bits.bits 16 8 w3)}"
-          + ".${builtins.toString (bits.bits 8 8 w3)}"
-          + ".${builtins.toString (bits.bits 0 8 w3)}";
-      in
-      "::ffff:${ipv4Part}"
-    else
-      let
-        gs = toGroups ip;
-        run = fmt.longestZeroRun gs;
-        hexOf = g: fmt.hex g;
-        groupStrs = map hexOf gs;
-      in
-      if run.len == 0 then
-        builtins.concatStringsSep ":" groupStrs
-      else
-        let
-          prefix = builtins.genList (i: builtins.elemAt groupStrs i) run.start;
-          suffix = builtins.genList (i: builtins.elemAt groupStrs (run.start + run.len + i)) (
-            8 - run.start - run.len
-          );
-          prefixStr = builtins.concatStringsSep ":" prefix;
-          suffixStr = builtins.concatStringsSep ":" suffix;
-        in
-        "${prefixStr}::${suffixStr}";
-
-  toStringCompressed = toString;
-
-  toStringExpanded = ip: builtins.concatStringsSep ":" (map fmt.hex4 (toGroups ip));
-
-  toStringBracketed = ip: "[${toString ip}]";
-
-  toArpa =
-    ip:
-    let
-      bs = toBytes ip;
-      nibblesOf = b: [
-        (fmt.hex1 (bits.shr 4 b))
-        (fmt.hex1 (builtins.bitAnd b 15))
-      ];
-      nibbles = builtins.concatMap nibblesOf bs;
-      # Reverse 32 nibbles
-      reversed = builtins.genList (i: builtins.elemAt nibbles (31 - i)) 32;
-    in
-    (builtins.concatStringsSep "." reversed) + ".ip6.arpa";
+    if result.success then result.value else throw result.error;
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = types.isIpv6;
+  /*
+    Check whether a string parses as an IPv6 address.
 
-  w = i: ip: builtins.elemAt ip.words i;
+    `input`: value to check; non-strings yield false.
 
+    Returns a Boolean.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Check whether a value is a parsed IPv6 value by its `_type` tag, as
+    opposed to `isValid`, which checks whether a string parses.
+
+    `value`: any value.
+
+    Returns a Boolean; raw strings yield false.
+  */
+  is = value: types.isIpv6 value;
+
+  wordAt = i: ip: builtins.elemAt ip.words i;
+
+  /*
+    Check whether an address is the unspecified address `::`.
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
   isUnspecified =
     ip:
     ip.words == [
@@ -315,6 +338,14 @@ let
       0
       0
     ];
+
+  /*
+    Check whether an address is the loopback address `::1`.
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
   isLoopback =
     ip:
     ip.words == [
@@ -324,37 +355,133 @@ let
       1
     ];
 
-  # fe80::/10 — first 10 bits = 0b1111111010 = 1018
-  isLinkLocal = ip: bits.shr 22 (w 0 ip) == 1018;
+  /*
+    Check whether an address is link-local (fe80::/10).
 
-  # fc00::/7 — first 7 bits = 0b1111110 = 126
-  isUniqueLocal = ip: bits.shr 25 (w 0 ip) == 126;
+    `ip`: IPv6 value.
 
-  # ff00::/8 — first 8 bits = 0xff = 255
-  isMulticast = ip: bits.shr 24 (w 0 ip) == 255;
+    Returns a Boolean.
+  */
+  isLinkLocal =
+    ip:
+    # The first 10 bits are 0b1111111010.
+    bits.shr 22 (wordAt 0 ip) == 1018;
 
-  # 2001:db8::/32 — entire first word = 0x20010db8 = 536939960
-  # 3fff::/20 — first 20 bits = 0x3fff0 = 262128
-  isDocumentation = ip: w 0 ip == 536939960 || bits.shr 12 (w 0 ip) == 262128;
+  /*
+    Check whether an address is unique local (fc00::/7), the IPv6
+    counterpart of IPv4 private space.
 
-  # ::ffff:0:0/96 — w0==0, w1==0, w2==0xffff (65535)
-  isIpv4Mapped = ip: w 0 ip == 0 && w 1 ip == 0 && w 2 ip == 65535;
+    `ip`: IPv6 value.
 
-  # ::/96 — w0==0, w1==0, w2==0
-  isIpv4Compatible = ip: w 0 ip == 0 && w 1 ip == 0 && w 2 ip == 0;
+    Returns a Boolean.
+  */
+  isUniqueLocal =
+    ip:
+    # The first 7 bits are 0b1111110.
+    bits.shr 25 (wordAt 0 ip) == 126;
 
-  # 2002::/16 — upper 16 bits of w0 = 0x2002 = 8194
-  is6to4 = ip: bits.shr 16 (w 0 ip) == 8194;
+  /*
+    Check whether an address is multicast (ff00::/8).
 
-  # 100::/64 — discard-only address block (RFC 6666). w0 = 0x01000000.
-  isDiscard = ip: w 0 ip == 16777216 && w 1 ip == 0;
+    `ip`: IPv6 value.
 
-  # 2001:10::/28 — ORCHID, deprecated (RFC 4843). Top 28 bits = 0x2001001.
-  isOrchid = ip: bits.shr 4 (w 0 ip) == 33558529;
+    Returns a Boolean.
+  */
+  isMulticast = ip: bits.shr 24 (wordAt 0 ip) == 255;
 
-  # fec0::/10 — site-local, deprecated (RFC 3879). First 10 bits = 1019.
-  isSiteLocal = ip: bits.shr 22 (w 0 ip) == 1019;
+  /*
+    Check whether an address is in a documentation block (2001:db8::/32,
+    3fff::/20).
 
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isDocumentation =
+    ip:
+    # 536939960 is 0x20010db8, the whole first word; 262128 is 0x3fff0,
+    # the first 20 bits.
+    wordAt 0 ip == 536939960 || bits.shr 12 (wordAt 0 ip) == 262128;
+
+  /*
+    Check whether an address is IPv4-mapped (::ffff:0:0/96).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isIpv4Mapped = ip: wordAt 0 ip == 0 && wordAt 1 ip == 0 && wordAt 2 ip == 65535;
+
+  /*
+    Check whether an address is in the deprecated IPv4-compatible form
+    (::/96). This includes `::` and `::1`.
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isIpv4Compatible = ip: wordAt 0 ip == 0 && wordAt 1 ip == 0 && wordAt 2 ip == 0;
+
+  /*
+    Check whether an address is a 6to4 address (2002::/16).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  is6to4 =
+    ip:
+    # The first 16 bits are 0x2002.
+    bits.shr 16 (wordAt 0 ip) == 8194;
+
+  /*
+    Check whether an address is in the discard-only block (100::/64,
+    RFC 6666).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isDiscard =
+    ip:
+    # The first word is 0x01000000.
+    wordAt 0 ip == 16777216 && wordAt 1 ip == 0;
+
+  /*
+    Check whether an address is in the deprecated ORCHID block
+    (2001:10::/28, RFC 4843).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isOrchid =
+    ip:
+    # The first 28 bits are 0x2001001.
+    bits.shr 4 (wordAt 0 ip) == 33558529;
+
+  /*
+    Check whether an address is in the deprecated site-local block
+    (fec0::/10, RFC 3879).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isSiteLocal =
+    ip:
+    # The first 10 bits are 0b1111111011.
+    bits.shr 22 (wordAt 0 ip) == 1019;
+
+  /*
+    Check whether an address is not globally routable: unspecified,
+    loopback, link-local, unique local, multicast, documentation,
+    discard, ORCHID, or site-local. IPv4 transition forms are not bogons.
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
   isBogon =
     ip:
     isUnspecified ip
@@ -367,142 +494,260 @@ let
     || isOrchid ip
     || isSiteLocal ip;
 
-  # Stricter than !isBogon: also excludes the IPv4 transition/interop
-  # forms (IPv4-mapped, IPv4-compatible, 6to4). Those addresses are
-  # technically routable in v6 space but don't represent native v6
-  # global unicast, so isGlobal rules them out while isBogon does not.
-  # IPv4 has no such forms, so ipv4.isGlobal is simply !isBogon — this
-  # family asymmetry is intentional and documented in SPEC.md.
+  /*
+    Check whether an address is native global unicast. Stricter than
+    `!isBogon`: it also excludes the IPv4-mapped, IPv4-compatible, and
+    6to4 forms, which are routable but not native IPv6. `ipv4.isGlobal`
+    has no such forms, so this asymmetry is intentional (see SPEC.md).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
   isGlobal = ip: !(isBogon ip || isIpv4Mapped ip || isIpv4Compatible ip || is6to4 ip);
+
+  # ===== Formatting =====
+
+  /*
+    Format an address in RFC 5952 canonical form: lowercase, leading
+    zeros dropped, and the longest run of zero groups compressed to `::`.
+    IPv4-mapped addresses use the mixed form `::ffff:a.b.c.d` (§ 5).
+
+    `ip`: IPv6 value.
+
+    Returns a string such as "2001:db8::1".
+  */
+  toString =
+    ip:
+    if isIpv4Mapped ip then
+      let
+        lowWord = wordAt 3 ip;
+        octetText = shift: builtins.toString (bits.bits shift 8 lowWord);
+      in
+      "::ffff:${octetText 24}.${octetText 16}.${octetText 8}.${octetText 0}"
+    else
+      let
+        groups = toGroups ip;
+        zeroRun = formatting.longestZeroRun groups;
+        groupTexts = map formatting.hex groups;
+      in
+      if zeroRun.len == 0 then
+        builtins.concatStringsSep ":" groupTexts
+      else
+        let
+          prefix = builtins.genList (i: builtins.elemAt groupTexts i) zeroRun.start;
+          suffix = builtins.genList (i: builtins.elemAt groupTexts (zeroRun.start + zeroRun.len + i)) (
+            8 - zeroRun.start - zeroRun.len
+          );
+          prefixText = builtins.concatStringsSep ":" prefix;
+          suffixText = builtins.concatStringsSep ":" suffix;
+        in
+        "${prefixText}::${suffixText}";
+
+  /*
+    Alias of `toString`, named to contrast with `toStringExpanded` when
+    both forms appear in the same code.
+
+    `ip`: IPv6 value.
+
+    Returns the RFC 5952 canonical string.
+  */
+  toStringCompressed = ip: toString ip;
+
+  /*
+    Format an address with all eight groups as four hex digits and no
+    compression.
+
+    `ip`: IPv6 value.
+
+    Returns a string such as "2001:0db8:0000:0000:0000:0000:0000:0001".
+  */
+  toStringExpanded = ip: builtins.concatStringsSep ":" (map formatting.hex4 (toGroups ip));
+
+  /*
+    Format an address in brackets for URL and endpoint contexts.
+
+    `ip`: IPv6 value.
+
+    Returns a string such as "[2001:db8::1]".
+  */
+  toStringBracketed = ip: "[${toString ip}]";
+
+  /*
+    Format an address as its reverse-DNS name: the 32 nibbles in reverse
+    order under ip6.arpa.
+
+    `ip`: IPv6 value.
+
+    Returns a string such as "1.0.0.0.<...>.8.b.d.0.1.0.0.2.ip6.arpa".
+  */
+  toArpa =
+    ip:
+    let
+      nibblesOf = byte: [
+        (formatting.hex1 (bits.shr 4 byte))
+        (formatting.hex1 (builtins.bitAnd byte 15))
+      ];
+      nibbles = builtins.concatMap nibblesOf (toBytes ip);
+      reversed = builtins.genList (i: builtins.elemAt nibbles (31 - i)) 32;
+    in
+    (builtins.concatStringsSep "." reversed) + ".ip6.arpa";
 
   # ===== IPv4 interop =====
 
-  # Requires access to ipv4 module for construction on fromIpv4Mapped side.
-  # To keep dependency one-way (cidr depends on ipv4+ipv6; ipv6 shouldn't import ipv4
-  # to avoid cross-pollination), we emit only raw ipv4 values via ipv4.fromInt-compatible
-  # shape: { _type = "ipv4"; value = <int>; }.
+  # To keep dependencies one-way (cidr imports ipv4 and ipv6), this module
+  # does not import ipv4; it builds IPv4 values directly in the shape
+  # `ipv4.fromInt` returns: { _type = "ipv4"; value = <int>; }.
 
+  /*
+    Embed an IPv4 address in the IPv4-mapped block, e.g. 1.2.3.4 becomes
+    ::ffff:1.2.3.4.
+
+    `ipv4`: IPv4 value.
+
+    Returns an IPv6 value; throws if `ipv4` is not an IPv4 value.
+  */
   fromIpv4Mapped =
-    v4:
-    if !(types.isIpv4 v4) then
-      builtins.throw "libnet.ipv6.fromIpv4Mapped: expected ipv4 value"
+    ipv4:
+    if !(types.isIpv4 ipv4) then
+      throw "libnet.ipv6.fromIpv4Mapped: expected ipv4 value"
     else
       mk [
         0
         0
         65535
-        v4.value
+        ipv4.value
       ];
 
+  /*
+    Extract the IPv4 address embedded in an IPv4-mapped address.
+
+    `ip`: IPv6 value in ::ffff:0:0/96.
+
+    Returns an IPv4 value; throws if `ip` is not IPv4-mapped.
+  */
   toIpv4Mapped =
     ip:
     if !(isIpv4Mapped ip) then
-      builtins.throw "libnet.ipv6.toIpv4Mapped: address is not in ::ffff:0:0/96"
+      throw "libnet.ipv6.toIpv4Mapped: address is not in ::ffff:0:0/96"
     else
       {
         _type = "ipv4";
-        value = w 3 ip;
+        value = wordAt 3 ip;
       };
 
   # ===== EUI-64 =====
 
-  # Takes an IPv6 cidr value (with prefix <= 64) and a mac value.
-  # Produces an IPv6 address with the cidr's network in the upper bits and
-  # modified EUI-64 in the lower 64 bits.
+  /*
+    Build a SLAAC-style address from a network prefix and a MAC address.
+
+    `cidrValue`: IPv6 CIDR value with a prefix length of at most 64; its
+    network bits form the upper 64 bits.
+    `macValue`: MAC value; its modified EUI-64 form (RFC 4291) becomes
+    the lower 64 bits.
+
+    Returns an IPv6 value; throws if `cidrValue` is not an IPv6 CIDR,
+    `macValue` is not a MAC, or the prefix length exceeds 64.
+  */
   fromEui64 =
-    cidrVal: macVal:
+    cidrValue: macValue:
     let
-      isValidCidr = types.isCidr cidrVal && cidrVal.address._type == "ipv6";
+      isValidCidr = types.isCidr cidrValue && cidrValue.address._type == "ipv6";
     in
     if !isValidCidr then
-      builtins.throw "libnet.ipv6.fromEui64: first argument must be an IPv6 cidr"
-    else if !(types.isMac macVal) then
-      builtins.throw "libnet.ipv6.fromEui64: second argument must be a mac"
-    else if cidrVal.prefix > 64 then
-      builtins.throw "libnet.ipv6.fromEui64: CIDR prefix must be <= 64, got /${builtins.toString cidrVal.prefix}"
+      throw "libnet.ipv6.fromEui64: first argument must be an IPv6 cidr"
+    else if !(types.isMac macValue) then
+      throw "libnet.ipv6.fromEui64: second argument must be a mac"
+    else if cidrValue.prefix > 64 then
+      throw "libnet.ipv6.fromEui64: CIDR prefix must be <= 64, got /${builtins.toString cidrValue.prefix}"
     else
       let
-        addrWords = cidrVal.address.words;
-        w0 = builtins.elemAt addrWords 0;
-        w1 = builtins.elemAt addrWords 1;
-        prefix = cidrVal.prefix;
+        addressWords = cidrValue.address.words;
+        inherit (cidrValue) prefix;
+        # Keep the top `keep` bits of `word` and zero the rest.
         applyMask =
-          wv: keep:
+          word: keep:
           if keep <= 0 then
             0
           else if keep >= 32 then
-            wv
+            word
           else
-            bits.shl (32 - keep) (bits.shr (32 - keep) wv);
-        netW0 = applyMask w0 prefix;
-        netW1 = applyMask w1 (prefix - 32);
-        eui = mac.toEui64 macVal;
-        b = i: builtins.elemAt eui i;
-        newW2 = (b 0) * bits.pow2_24 + (b 1) * bits.pow2_16 + (b 2) * bits.pow2_8 + (b 3);
-        newW3 = (b 4) * bits.pow2_24 + (b 5) * bits.pow2_16 + (b 6) * bits.pow2_8 + (b 7);
+            bits.shl (32 - keep) (bits.shr (32 - keep) word);
+        networkWord0 = applyMask (builtins.elemAt addressWords 0) prefix;
+        networkWord1 = applyMask (builtins.elemAt addressWords 1) (prefix - 32);
+        euiBytes = mac.toEui64 macValue;
+        euiByteAt = i: builtins.elemAt euiBytes i;
+        interfaceWord =
+          i:
+          (euiByteAt i) * bits.pow2_24
+          + (euiByteAt (i + 1)) * bits.pow2_16
+          + (euiByteAt (i + 2)) * bits.pow2_8
+          + (euiByteAt (i + 3));
       in
       mk [
-        netW0
-        netW1
-        newW2
-        newW3
+        networkWord0
+        networkWord1
+        (interfaceWord 0)
+        (interfaceWord 4)
       ];
 
   # ===== Arithmetic =====
 
-  # Add a non-negative int n (must fit in signed 63-bit) to the 128-bit value.
-  # Splits n into nHigh (u32) and nLow (u32).
-  # Throws on overflow past 2^128.
+  # Add a non-negative int `n` (which fits in signed 63 bits) to the
+  # 128-bit value by splitting it into two u32 halves. Throws on overflow
+  # past 2^128.
   addU63 =
     n: ip:
     let
-      nLow = builtins.bitAnd n bits.mask32;
-      nHigh = bits.shr 32 n;
-      ws = ip.words;
-      w0 = builtins.elemAt ws 0;
-      w1 = builtins.elemAt ws 1;
-      w2 = builtins.elemAt ws 2;
-      w3 = builtins.elemAt ws 3;
-      r3 = carry.add32 w3 nLow 0;
-      r2 = carry.add32 w2 nHigh r3.carry;
-      r1 = carry.add32 w1 0 r2.carry;
-      r0 = carry.add32 w0 0 r1.carry;
+      lowOffset = builtins.bitAnd n bits.mask32;
+      highOffset = bits.shr 32 n;
+      result3 = carry.add32 (wordAt 3 ip) lowOffset 0;
+      result2 = carry.add32 (wordAt 2 ip) highOffset result3.carry;
+      result1 = carry.add32 (wordAt 1 ip) 0 result2.carry;
+      result0 = carry.add32 (wordAt 0 ip) 0 result1.carry;
     in
-    if r0.carry == 1 then
-      builtins.throw "libnet.ipv6.add: overflow beyond 2^128"
+    if result0.carry == 1 then
+      throw "libnet.ipv6.add: overflow beyond 2^128"
     else
       mk [
-        r0.sum
-        r1.sum
-        r2.sum
-        r3.sum
+        result0.sum
+        result1.sum
+        result2.sum
+        result3.sum
       ];
 
+  # Subtract a non-negative int `n` (which fits in signed 63 bits) from
+  # the 128-bit value. Throws on underflow below 0.
   subU63 =
     n: ip:
     let
-      nLow = builtins.bitAnd n bits.mask32;
-      nHigh = bits.shr 32 n;
-      ws = ip.words;
-      w0 = builtins.elemAt ws 0;
-      w1 = builtins.elemAt ws 1;
-      w2 = builtins.elemAt ws 2;
-      w3 = builtins.elemAt ws 3;
-      r3 = carry.sub32 w3 nLow 0;
-      r2 = carry.sub32 w2 nHigh r3.borrow;
-      r1 = carry.sub32 w1 0 r2.borrow;
-      r0 = carry.sub32 w0 0 r1.borrow;
+      lowOffset = builtins.bitAnd n bits.mask32;
+      highOffset = bits.shr 32 n;
+      result3 = carry.sub32 (wordAt 3 ip) lowOffset 0;
+      result2 = carry.sub32 (wordAt 2 ip) highOffset result3.borrow;
+      result1 = carry.sub32 (wordAt 1 ip) 0 result2.borrow;
+      result0 = carry.sub32 (wordAt 0 ip) 0 result1.borrow;
     in
-    if r0.borrow == 1 then
-      builtins.throw "libnet.ipv6.sub: underflow below 0"
+    if result0.borrow == 1 then
+      throw "libnet.ipv6.sub: underflow below 0"
     else
       mk [
-        r0.diff
-        r1.diff
-        r2.diff
-        r3.diff
+        result0.diff
+        result1.diff
+        result2.diff
+        result3.diff
       ];
 
+  /*
+    Offset an address by an integer, carrying across the four words;
+    curried so `add n` can be mapped.
+
+    `n`: integer offset; may be negative.
+    `ip`: IPv6 value.
+
+    Returns an IPv6 value; throws on overflow past
+    ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff or underflow below `::`.
+  */
   add =
     n: ip:
     if n == 0 then
@@ -512,99 +757,197 @@ let
     else
       subU63 (0 - n) ip;
 
+  /*
+    Offset an address downwards by an integer.
+
+    `n`: integer to subtract; may be negative.
+    `ip`: IPv6 value.
+
+    Returns an IPv6 value; throws if the result leaves the address space.
+  */
   sub = n: ip: add (0 - n) ip;
 
-  next = add 1;
-  prev = sub 1;
+  /*
+    Get the address one above `ip`. Equivalent to `add 1`, so it can be
+    mapped over a list of addresses.
 
-  # Multi-word unsigned subtract: xa - xb (both lists of 4 u32 MSB-first).
+    `ip`: IPv6 value.
+
+    Returns an IPv6 value; throws at the highest address,
+    ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff.
+  */
+  next = ip: add 1 ip;
+
+  /*
+    Get the address one below `ip`. Equivalent to `sub 1`, so it can be
+    mapped over a list of addresses.
+
+    `ip`: IPv6 value.
+
+    Returns an IPv6 value; throws at `::`.
+  */
+  prev = ip: sub 1 ip;
+
+  # Multi-word unsigned subtract of two lists of 4 u32 words, MSB first.
   # Returns { words = [...]; finalBorrow = 0 or 1 }.
   subMultiWord =
-    xa: xb:
+    minuend: subtrahend:
     let
-      s3 = carry.sub32 (builtins.elemAt xa 3) (builtins.elemAt xb 3) 0;
-      s2 = carry.sub32 (builtins.elemAt xa 2) (builtins.elemAt xb 2) s3.borrow;
-      s1 = carry.sub32 (builtins.elemAt xa 1) (builtins.elemAt xb 1) s2.borrow;
-      s0 = carry.sub32 (builtins.elemAt xa 0) (builtins.elemAt xb 0) s1.borrow;
+      subtractWord =
+        i: borrow: carry.sub32 (builtins.elemAt minuend i) (builtins.elemAt subtrahend i) borrow;
+      result3 = subtractWord 3 0;
+      result2 = subtractWord 2 result3.borrow;
+      result1 = subtractWord 1 result2.borrow;
+      result0 = subtractWord 0 result1.borrow;
     in
     {
       words = [
-        s0.diff
-        s1.diff
-        s2.diff
-        s3.diff
+        result0.diff
+        result1.diff
+        result2.diff
+        result3.diff
       ];
-      finalBorrow = s0.borrow;
+      finalBorrow = result0.borrow;
     };
 
-  # Pack the low 64 bits of a 4-word unsigned number into a signed-63-bit int, or throw.
+  # Pack the low 64 bits of a 4-word unsigned number into a signed 63-bit
+  # int, or throw when it does not fit.
   lower64OrThrow =
-    ws:
+    words:
     let
-      w0 = builtins.elemAt ws 0;
-      w1 = builtins.elemAt ws 1;
-      w2 = builtins.elemAt ws 2;
-      w3 = builtins.elemAt ws 3;
+      word2 = builtins.elemAt words 2;
+      word3 = builtins.elemAt words 3;
     in
-    if w0 != 0 || w1 != 0 then
-      builtins.throw "libnet.ipv6.diff: result exceeds signed 63-bit int range"
+    if builtins.elemAt words 0 != 0 || builtins.elemAt words 1 != 0 then
+      throw "libnet.ipv6.diff: result exceeds signed 63-bit int range"
     else if
-      w2 >= 2147483648 # 2^31
+      word2 >= 2147483648 # 2^31
     then
-      builtins.throw "libnet.ipv6.diff: result exceeds signed 63-bit int range"
+      throw "libnet.ipv6.diff: result exceeds signed 63-bit int range"
     else
-      w2 * bits.pow2_32 + w3;
+      word2 * bits.pow2_32 + word3;
 
-  # diff b - a, expressed as Int. Throws if difference exceeds signed 63-bit int range.
+  /*
+    Measure the distance between two addresses.
+
+    `a`: IPv6 value to measure from.
+    `b`: IPv6 value to measure to.
+
+    Returns `b - a` as an integer, negative when `b` precedes `a`; throws
+    if the difference does not fit in a signed 63-bit integer.
+  */
   diff =
     a: b:
     let
-      r = subMultiWord b.words a.words;
+      forward = subMultiWord b.words a.words;
     in
-    if r.finalBorrow == 0 then
-      lower64OrThrow r.words
+    if forward.finalBorrow == 0 then
+      lower64OrThrow forward.words
     else
       let
-        r2 = subMultiWord a.words b.words;
+        backward = subMultiWord a.words b.words;
       in
-      0 - (lower64OrThrow r2.words);
+      0 - (lower64OrThrow backward.words);
 
   # ===== Comparison =====
 
-  # Lexicographic on words (MSB first).
+  /*
+    Order two addresses numerically, comparing words most significant
+    first.
+
+    `a`, `b`: IPv6 values.
+
+    Returns -1 if `a < b`, 0 if equal, 1 if `a > b`.
+  */
   compare =
     a: b:
     let
-      cmpWord =
+      compareWord =
         i:
         let
-          aw = builtins.elemAt a.words i;
-          bw = builtins.elemAt b.words i;
+          wordA = builtins.elemAt a.words i;
+          wordB = builtins.elemAt b.words i;
         in
-        if aw < bw then
+        if wordA < wordB then
           -1
-        else if aw > bw then
+        else if wordA > wordB then
           1
         else
           0;
-      go =
+      compareFrom =
         i:
         if i == 4 then
           0
         else
           let
-            c = cmpWord i;
+            wordOrder = compareWord i;
           in
-          if c != 0 then c else go (i + 1);
+          if wordOrder != 0 then wordOrder else compareFrom (i + 1);
     in
-    go 0;
+    compareFrom 0;
 
+  /*
+    Check whether two values are the same address. Never throws for
+    values of a different `_type`.
+
+    `a`, `b`: IPv6 values.
+
+    Returns true when both tag and words match.
+  */
   eq = a: b: a._type == b._type && a.words == b.words;
+
+  /*
+    Check whether `a` sorts before `b`.
+
+    `a`, `b`: IPv6 values.
+
+    Returns a Boolean.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Check whether `a` sorts before or equal to `b`.
+
+    `a`, `b`: IPv6 values.
+
+    Returns a Boolean.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Check whether `a` sorts after `b`.
+
+    `a`, `b`: IPv6 values.
+
+    Returns a Boolean.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Check whether `a` sorts after or equal to `b`.
+
+    `a`, `b`: IPv6 values.
+
+    Returns a Boolean.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the lower of two addresses.
+
+    `a`, `b`: IPv6 values.
+
+    Returns `a` when the two are equal.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the higher of two addresses.
+
+    `a`, `b`: IPv6 values.
+
+    Returns `a` when the two are equal.
+  */
   max = a: b: if ge a b then a else b;
 
   # ===== Constants =====
@@ -624,58 +967,52 @@ let
 in
 {
   inherit
-    fromWords
-    toWords
-    fromGroups
-    toGroups
+    add
+    compare
+    diff
+    eq
     fromBytes
-    toBytes
-    ;
-  inherit
-    parse
-    tryParse
-    toString
-    toStringCompressed
-    toStringExpanded
-    toStringBracketed
-    toArpa
-    ;
-  inherit isValid is;
-  inherit
-    isUnspecified
-    isLoopback
-    isLinkLocal
-    isUniqueLocal
-    isMulticast
-    ;
-  inherit
-    isDocumentation
-    isIpv4Mapped
-    isIpv4Compatible
+    fromEui64
+    fromGroups
+    fromIpv4Mapped
+    fromWords
+    ge
+    gt
+    is
     is6to4
+    isBogon
     isDiscard
+    isDocumentation
+    isGlobal
+    isIpv4Compatible
+    isIpv4Mapped
+    isLinkLocal
+    isLoopback
+    isMulticast
     isOrchid
     isSiteLocal
-    isGlobal
-    isBogon
-    ;
-  inherit fromIpv4Mapped toIpv4Mapped fromEui64;
-  inherit
-    add
-    sub
-    diff
-    next
-    prev
-    ;
-  inherit
-    eq
-    lt
+    isUniqueLocal
+    isUnspecified
+    isValid
     le
-    gt
-    ge
-    compare
-    min
+    loopback
+    lt
     max
+    min
+    next
+    parse
+    prev
+    sub
+    toArpa
+    toBytes
+    toGroups
+    toIpv4Mapped
+    toString
+    toStringBracketed
+    toStringCompressed
+    toStringExpanded
+    toWords
+    tryParse
+    unspecified
     ;
-  inherit unspecified loopback;
 }

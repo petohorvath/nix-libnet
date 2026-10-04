@@ -48,235 +48,269 @@ let
   mtu = import ./mtu.nix;
   icmpType = import ./icmp-type.nix;
 
-  # Factory for string-typed module types.
-  mkStrType =
+  /*
+    Build a string option type whose values a libnet validator accepts.
+    Values stay strings after merge; consumers parse them when they need
+    structure.
+
+    `typeName`: option type name, also used in `mk` error messages.
+    `description`: noun phrase for generated option documentation.
+    `validator`: predicate on a string, such as a module's `isValid`.
+
+    Returns a nixpkgs option type extended with `mk`.
+  */
+  mkStringType =
     {
       typeName,
       description,
       validator,
     }:
-    let
-      t = lib.types.mkOptionType {
-        name = typeName;
-        inherit description;
-        descriptionClass = "noun";
-        check = v: builtins.isString v && validator v;
-        merge = lib.options.mergeEqualOption;
-      };
-    in
-    t
+    lib.types.mkOptionType {
+      name = typeName;
+      inherit description;
+      descriptionClass = "noun";
+      check = value: builtins.isString value && validator value;
+      merge = lib.options.mergeEqualOption;
+    }
     // {
+      /*
+        Validate a string against this option type, so `default` and
+        `example` values fail early instead of during module evaluation.
+
+        `input`: candidate string.
+
+        Returns `input` unchanged; throws when it is not a string or the
+        validator rejects it.
+      */
       mk =
-        s:
-        if !(builtins.isString s) then
-          builtins.throw "libnet.types.${typeName}.mk: expected string, got ${builtins.typeOf s}"
-        else if !(validator s) then
-          builtins.throw "libnet.types.${typeName}.mk: invalid value \"${s}\""
+        input:
+        if !(builtins.isString input) then
+          throw "libnet.types.${typeName}.mk: expected string, got ${builtins.typeOf input}"
+        else if !(validator input) then
+          throw "libnet.types.${typeName}.mk: invalid value \"${input}\""
         else
-          s;
+          input;
     };
 
-  # Keep nixpkgs' integer type metadata and merge behavior, with validation
-  # delegated to the same domain rules used by the core constructors.
+  /*
+    Build an integer option type for a bounded libnet scalar. It keeps
+    nixpkgs' integer type metadata and merge behavior, but delegates
+    validation to the same domain rules the core constructors use.
+
+    `typeName`: option type name, used in `mk` error messages.
+    `scalar`: bounded scalar module providing `lowestValue`,
+    `highestValue`, and `isValid`, such as `libnet.vlanId`.
+
+    Returns a nixpkgs option type extended with `mk`.
+  */
   mkIntType =
     typeName: scalar:
-    let
-      t = lib.types.ints.between scalar.lowestValue scalar.highestValue;
-    in
-    t
+    lib.types.ints.between scalar.lowestValue scalar.highestValue
     // {
       check = scalar.isValid;
+
+      /*
+        Validate an integer against this option type, so `default` and
+        `example` values fail early instead of during module evaluation.
+
+        `value`: candidate integer.
+
+        Returns `value` unchanged; throws when it is not an integer or
+        lies outside the scalar's inclusive bounds.
+      */
       mk =
-        v:
-        if !(builtins.isInt v) then
-          builtins.throw "libnet.types.${typeName}.mk: expected int, got ${builtins.typeOf v}"
-        else if !(scalar.isValid v) then
-          builtins.throw "libnet.types.${typeName}.mk: out of range [${builtins.toString scalar.lowestValue}, ${builtins.toString scalar.highestValue}]: ${builtins.toString v}"
+        value:
+        if !(builtins.isInt value) then
+          throw "libnet.types.${typeName}.mk: expected int, got ${builtins.typeOf value}"
+        else if !(scalar.isValid value) then
+          throw "libnet.types.${typeName}.mk: out of range [${toString scalar.lowestValue}, ${toString scalar.highestValue}]: ${toString value}"
         else
-          v;
+          value;
     };
 
-  ipv4Type = mkStrType {
+  ipv4Type = mkStringType {
     typeName = "ipv4";
     description = "an IPv4 address (dotted-quad)";
     validator = ipv4.isValid;
   };
 
-  ipv6Type = mkStrType {
+  ipv6Type = mkStringType {
     typeName = "ipv6";
     description = "an IPv6 address";
     validator = ipv6.isValid;
   };
 
-  ipType = mkStrType {
+  ipType = mkStringType {
     typeName = "ip";
     description = "an IPv4 or IPv6 address";
     validator = ip.isValid;
   };
 
-  macType = mkStrType {
+  macType = mkStringType {
     typeName = "mac";
     description = "a MAC address (EUI-48, colon/hyphen/dot/bare)";
     validator = mac.isValid;
   };
 
-  cidrType = mkStrType {
+  cidrType = mkStringType {
     typeName = "cidr";
     description = "a CIDR block (address/prefix)";
     validator = cidr.isValid;
   };
 
-  ipv4CidrType = mkStrType {
+  ipv4CidrType = mkStringType {
     typeName = "ipv4Cidr";
     description = "an IPv4 CIDR block";
-    validator = s: cidr.isValid s && cidr.isIpv4 (cidr.parse s);
+    validator = input: cidr.isValid input && cidr.isIpv4 (cidr.parse input);
   };
 
-  ipv6CidrType = mkStrType {
+  ipv6CidrType = mkStringType {
     typeName = "ipv6Cidr";
     description = "an IPv6 CIDR block";
-    validator = s: cidr.isValid s && cidr.isIpv6 (cidr.parse s);
+    validator = input: cidr.isValid input && cidr.isIpv6 (cidr.parse input);
   };
 
-  portRangeType = mkStrType {
+  portRangeType = mkStringType {
     typeName = "portRange";
     description = "a port or port range (80 or 5500-6000)";
     validator = portRange.isValid;
   };
 
-  ipEndpointType = mkStrType {
+  ipEndpointType = mkStringType {
     typeName = "ipEndpoint";
     description = "an IP endpoint (addr:port or [ipv6]:port)";
     validator = ipEndpoint.isValid;
   };
 
-  dnsEndpointType = mkStrType {
+  dnsEndpointType = mkStringType {
     typeName = "dnsEndpoint";
     description = "a DNS-name endpoint (name:port; not an IP literal)";
     validator = dnsEndpoint.isValid;
   };
 
-  endpointType = mkStrType {
+  endpointType = mkStringType {
     typeName = "endpoint";
     description = "an endpoint (IP or DNS name : port)";
     validator = endpoint.isValid;
   };
 
-  unixSocketType = mkStrType {
+  unixSocketType = mkStringType {
     typeName = "unixSocket";
     description = "a Unix domain socket (absolute path or @abstract name)";
     validator = unixSocket.isValid;
   };
 
-  socketUrlType = mkStrType {
+  socketUrlType = mkStringType {
     typeName = "socketUrl";
     description = "a socket URL (<scheme>://<endpoint>; scheme tcp/udp/sctp/unix)";
     validator = socketUrl.isValid;
   };
 
-  bindUrlType = mkStrType {
+  bindUrlType = mkStringType {
     typeName = "bindUrl";
     description = "a bind URL (<scheme>://<bindpoint>; scheme tcp/udp/sctp/unix)";
     validator = bindUrl.isValid;
   };
 
-  secureSocketUrlType = mkStrType {
+  secureSocketUrlType = mkStringType {
     typeName = "secureSocketUrl";
     description = "a TLS-secured socket URL (<scheme>://<endpoint>; scheme tls/ssl/dtls/quic)";
     validator = secureSocketUrl.isValid;
   };
 
-  urlType = mkStrType {
+  urlType = mkStringType {
     typeName = "url";
     description = "a URL (<scheme>://<host>[:port][/path][?query][#fragment])";
     validator = url.isValid;
   };
 
-  urlHostType = mkStrType {
+  urlHostType = mkStringType {
     typeName = "urlHost";
     description = "a URL-authority host (RFC 3986 IP-literal or reg-name; looser than host)";
     validator = urlHost.isValid;
   };
 
-  authorityType = mkStrType {
+  authorityType = mkStringType {
     typeName = "authority";
     description = "a URL authority ([userinfo@]host[:port])";
     validator = authority.isValid;
   };
 
-  proxyUrlType = mkStrType {
+  proxyUrlType = mkStringType {
     typeName = "proxyUrl";
     description = "a proxy URL (<scheme>://[user@]host:port; http/https/socks4/4a/5/5h)";
     validator = proxyUrl.isValid;
   };
 
-  ipBindpointType = mkStrType {
+  ipBindpointType = mkStringType {
     typeName = "ipBindpoint";
     description = "an IP bind target ([addr]:port[-end])";
     validator = ipBindpoint.isValid;
   };
 
-  bindpointType = mkStrType {
+  bindpointType = mkStringType {
     typeName = "bindpoint";
     description = "a bind target (IP [addr]:port[-end] or unix socket path)";
     validator = bindpoint.isValid;
   };
 
-  ipRangeType = mkStrType {
+  ipRangeType = mkStringType {
     typeName = "ipRange";
     description = "an IP address range (from-to)";
     validator = ipRange.isValid;
   };
 
-  interfaceAddressType = mkStrType {
+  interfaceAddressType = mkStringType {
     typeName = "interfaceAddress";
     description = "an address-on-subnet descriptor (address/prefix)";
     validator = interfaceAddress.isValid;
   };
 
-  ipv4InterfaceAddressType = mkStrType {
+  ipv4InterfaceAddressType = mkStringType {
     typeName = "ipv4InterfaceAddress";
     description = "an IPv4 address-on-subnet descriptor";
-    validator = s: interfaceAddress.isValid s && interfaceAddress.isIpv4 (interfaceAddress.parse s);
+    validator =
+      input: interfaceAddress.isValid input && interfaceAddress.isIpv4 (interfaceAddress.parse input);
   };
 
-  ipv6InterfaceAddressType = mkStrType {
+  ipv6InterfaceAddressType = mkStringType {
     typeName = "ipv6InterfaceAddress";
     description = "an IPv6 address-on-subnet descriptor";
-    validator = s: interfaceAddress.isValid s && interfaceAddress.isIpv6 (interfaceAddress.parse s);
+    validator =
+      input: interfaceAddress.isValid input && interfaceAddress.isIpv6 (interfaceAddress.parse input);
   };
 
-  interfaceNameType = mkStrType {
+  interfaceNameType = mkStringType {
     typeName = "interfaceName";
     description = "a Linux interface name (ifname; kernel dev_valid_name parity)";
     validator = interfaceName.isValid;
   };
 
-  transportType = mkStrType {
+  transportType = mkStringType {
     typeName = "transport";
     description = "a transport protocol (tcp, udp, sctp)";
     validator = transport.isValid;
   };
 
-  hostnameType = mkStrType {
+  hostnameType = mkStringType {
     typeName = "hostname";
     description = "an RFC 1123 hostname (single label, 1-63 chars)";
     validator = hostname.isValid;
   };
 
-  domainType = mkStrType {
+  domainType = mkStringType {
     typeName = "domain";
     description = "a DNS domain name (>=2 labels, RFC 1123 syntax, total <=253 chars)";
     validator = domain.isValid;
   };
 
-  dnsNameType = mkStrType {
+  dnsNameType = mkStringType {
     typeName = "dnsName";
     description = "a DNS name (hostname or domain; not an IP literal)";
     validator = dnsName.isValid;
   };
 
-  hostType = mkStrType {
+  hostType = mkStringType {
     typeName = "host";
     description = "an IP address, hostname, or domain";
     validator = host.isValid;
@@ -286,27 +320,34 @@ let
   mtuType = mkIntType "mtu" mtu;
   icmpTypeType = mkIntType "icmpType" icmpType;
 
+  # Ports merge as integers, so string definitions are coerced to ints.
   portType =
-    let
-      t = lib.types.coercedTo (lib.types.strMatching "[0-9]+") (s: lib.toInt s) (
-        lib.types.ints.between 0 65535
-      );
-    in
-    t
+    lib.types.coercedTo (lib.types.strMatching "[0-9]+") lib.toInt (lib.types.ints.between 0 65535)
     // {
+      /*
+        Validate a port for this option type, so `default` and `example`
+        values fail early instead of during module evaluation.
+
+        `value`: integer in [0, 65535], or its decimal string form.
+
+        Returns the port as an integer; throws on any other type or on an
+        invalid or out-of-range value.
+      */
       mk =
-        v:
-        if builtins.isInt v then
+        value:
+        if builtins.isInt value then
           (
-            if v >= 0 && v <= 65535 then
-              v
+            if value >= 0 && value <= 65535 then
+              value
             else
-              builtins.throw "libnet.types.port.mk: out of range: ${builtins.toString v}"
+              throw "libnet.types.port.mk: out of range: ${toString value}"
           )
-        else if builtins.isString v then
-          (if port.isValid v then lib.toInt v else builtins.throw "libnet.types.port.mk: invalid: \"${v}\"")
+        else if builtins.isString value then
+          (
+            if port.isValid value then lib.toInt value else throw "libnet.types.port.mk: invalid: \"${value}\""
+          )
         else
-          builtins.throw "libnet.types.port.mk: expected int or string";
+          throw "libnet.types.port.mk: expected int or string";
     };
 in
 {

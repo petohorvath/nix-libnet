@@ -1,335 +1,339 @@
 { harness }:
 let
-  ifAddr = import ../lib/interface-address.nix;
+  interfaceAddress = import ../lib/interface-address.nix;
   cidr = import ../lib/cidr.nix;
   ipv4 = import ../lib/ipv4.nix;
   ipv6 = import ../lib/ipv6.nix;
   inherit (harness) throws;
-  p = ifAddr.parse;
+  parse = interfaceAddress.parse;
 in
 {
   # ===== Parse =====
-  parse-v4 = {
-    expr = ifAddr.toString (p "192.168.1.5/24");
+  testParseV4 = {
+    expr = interfaceAddress.toString (parse "192.168.1.5/24");
     expected = "192.168.1.5/24";
   };
-  parse-v4-zero-host = {
-    expr = ifAddr.toString (p "192.168.1.0/24");
+  testParseV4ZeroHost = {
+    expr = interfaceAddress.toString (parse "192.168.1.0/24");
     expected = "192.168.1.0/24";
   };
-  parse-v6 = {
-    expr = ifAddr.toString (p "2001:db8::5/64");
+  testParseV6 = {
+    expr = interfaceAddress.toString (parse "2001:db8::5/64");
     expected = "2001:db8::5/64";
   };
-  parse-v4-32 = {
-    expr = ifAddr.toString (p "1.2.3.4/32");
+  testParseV4Prefix32 = {
+    expr = interfaceAddress.toString (parse "1.2.3.4/32");
     expected = "1.2.3.4/32";
   };
 
-  reject-no-slash = {
-    expr = throws (p "10.0.0.0");
+  testRejectNoSlash = {
+    expr = throws (parse "10.0.0.0");
     expected = true;
   };
-  reject-v4-33 = {
-    expr = throws (p "10.0.0.0/33");
+  testRejectV4Prefix33 = {
+    expr = throws (parse "10.0.0.0/33");
     expected = true;
   };
-  reject-v6-129 = {
-    expr = throws (p "::/129");
+  testRejectV6Prefix129 = {
+    expr = throws (parse "::/129");
     expected = true;
   };
-  reject-bad-prefix = {
-    expr = throws (p "10.0.0.0/a");
+  testRejectBadPrefix = {
+    expr = throws (parse "10.0.0.0/a");
     expected = true;
   };
-  reject-not-string = {
-    expr = throws (p 42);
+  testRejectNotString = {
+    expr = throws (parse 42);
     expected = true;
   };
 
   # A bare ifname is not an interfaceAddress (it has no `/prefix`).
-  parse-bare-name-throws = {
-    expr = throws (p "eth0");
+  testParseBareNameThrows = {
+    expr = throws (parse "eth0");
     expected = true;
   };
-  isValid-bare-name-false = {
-    expr = ifAddr.isValid "eth0";
+  testIsValidBareNameFalse = {
+    expr = interfaceAddress.isValid "eth0";
     expected = false;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
-    expr = (ifAddr.tryParse "10.0.0.1/24").success;
+  testTryParseOk = {
+    expr = (interfaceAddress.tryParse "10.0.0.1/24").success;
     expected = true;
   };
-  tryParse-bad = {
-    expr = (ifAddr.tryParse "nope").success;
+  testTryParseBad = {
+    expr = (interfaceAddress.tryParse "nope").success;
     expected = false;
   };
 
   # ===== Preserves host bits (distinguishes from cidr) =====
-  preserves-host = {
-    expr = (p "192.168.1.5/24").address.value;
+  testParsePreservesHost = {
+    expr = (parse "192.168.1.5/24").address.value;
     expected = (ipv4.parse "192.168.1.5").value;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = ifAddr.is (p "192.168.1.5/24");
+  testIsParsed = {
+    expr = interfaceAddress.is (parse "192.168.1.5/24");
     expected = true;
   };
-  is-cidr = {
-    expr = ifAddr.is (cidr.parse "192.168.1.0/24");
+  testIsCidrValue = {
+    expr = interfaceAddress.is (cidr.parse "192.168.1.0/24");
     expected = false;
   };
-  is-string = {
-    expr = ifAddr.is "192.168.1.5/24";
+  testIsString = {
+    expr = interfaceAddress.is "192.168.1.5/24";
     expected = false;
   };
-  isIpv4-v4 = {
-    expr = ifAddr.isIpv4 (p "192.168.1.5/24");
+  testIsIpv4V4 = {
+    expr = interfaceAddress.isIpv4 (parse "192.168.1.5/24");
     expected = true;
   };
-  isIpv6-v6 = {
-    expr = ifAddr.isIpv6 (p "::1/64");
+  testIsIpv6V6 = {
+    expr = interfaceAddress.isIpv6 (parse "::1/64");
     expected = true;
   };
-  isValid-ok = {
-    expr = ifAddr.isValid "192.168.1.5/24";
+  testIsValidOk = {
+    expr = interfaceAddress.isValid "192.168.1.5/24";
     expected = true;
   };
 
   # ===== Accessors =====
-  prefix-v4 = {
-    expr = ifAddr.prefix (p "192.168.1.5/24");
+  testPrefixV4 = {
+    expr = interfaceAddress.prefix (parse "192.168.1.5/24");
     expected = 24;
   };
-  address-accessor = {
-    expr = (ifAddr.address (p "192.168.1.5/24")).value;
+  testAddressAccessor = {
+    expr = (interfaceAddress.address (parse "192.168.1.5/24")).value;
     expected = (ipv4.parse "192.168.1.5").value;
   };
-  version-v4 = {
-    expr = ifAddr.version (p "192.168.1.5/24");
+  testVersionV4 = {
+    expr = interfaceAddress.version (parse "192.168.1.5/24");
     expected = 4;
   };
-  version-v6 = {
-    expr = ifAddr.version (p "::1/64");
+  testVersionV6 = {
+    expr = interfaceAddress.version (parse "::1/64");
     expected = 6;
   };
 
   # ===== Derived =====
-  network-v4 = {
-    expr = cidr.toString (ifAddr.network (p "192.168.1.5/24"));
+  testNetworkV4 = {
+    expr = cidr.toString (interfaceAddress.network (parse "192.168.1.5/24"));
     expected = "192.168.1.0/24";
   };
-  network-v6 = {
-    expr = cidr.toString (ifAddr.network (p "2001:db8::5/64"));
+  testNetworkV6 = {
+    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/64"));
     expected = "2001:db8::/64";
   };
-  netmask-v4 = {
-    expr = ipv4.toString (ifAddr.netmask (p "192.168.1.5/24"));
+  testNetmaskV4 = {
+    expr = ipv4.toString (interfaceAddress.netmask (parse "192.168.1.5/24"));
     expected = "255.255.255.0";
   };
-  hostmask-v4 = {
-    expr = ipv4.toString (ifAddr.hostmask (p "192.168.1.5/24"));
+  testHostmaskV4 = {
+    expr = ipv4.toString (interfaceAddress.hostmask (parse "192.168.1.5/24"));
     expected = "0.0.0.255";
   };
-  broadcast-v4 = {
-    expr = ipv4.toString (ifAddr.broadcast (p "192.168.1.5/24"));
+  testBroadcastV4 = {
+    expr = ipv4.toString (interfaceAddress.broadcast (parse "192.168.1.5/24"));
     expected = "192.168.1.255";
   };
-  broadcast-v6-throws = {
-    expr = throws (ifAddr.broadcast (p "::1/64"));
+  testBroadcastV6Throws = {
+    expr = throws (interfaceAddress.broadcast (parse "::1/64"));
     expected = true;
   };
 
   # ===== Conversions =====
   # toCidr preserves host bits; network returns the canonical block.
-  toCidr-preserves-host = {
-    expr = cidr.toString (ifAddr.toCidr (p "192.168.1.5/24"));
+  testToCidrPreservesHost = {
+    expr = cidr.toString (interfaceAddress.toCidr (parse "192.168.1.5/24"));
     expected = "192.168.1.5/24";
   };
-  toCidr-v6-preserves-host = {
-    expr = cidr.toString (ifAddr.toCidr (p "2001:db8::5/64"));
+  testToCidrV6PreservesHost = {
+    expr = cidr.toString (interfaceAddress.toCidr (parse "2001:db8::5/64"));
     expected = "2001:db8::5/64";
   };
-  network-vs-toCidr = {
-    expr = cidr.toString (ifAddr.network (p "192.168.1.5/24"));
+  testNetworkVsToCidr = {
+    expr = cidr.toString (interfaceAddress.network (parse "192.168.1.5/24"));
     expected = "192.168.1.0/24";
   };
-  toRange = {
-    expr = (ifAddr.toRange (p "192.168.1.5/24")).to.value;
+  testToRange = {
+    expr = (interfaceAddress.toRange (parse "192.168.1.5/24")).to.value;
     expected = (ipv4.parse "192.168.1.255").value;
   };
 
   # ===== Constructors =====
-  make-ok = {
-    expr = ifAddr.toString (ifAddr.make (ipv4.parse "10.0.0.1") 24);
+  testMakeOk = {
+    expr = interfaceAddress.toString (interfaceAddress.make (ipv4.parse "10.0.0.1") 24);
     expected = "10.0.0.1/24";
   };
-  make-bad-prefix-throws = {
-    expr = throws (ifAddr.make (ipv4.parse "10.0.0.1") 33);
+  testMakeBadPrefixThrows = {
+    expr = throws (interfaceAddress.make (ipv4.parse "10.0.0.1") 33);
     expected = true;
   };
-  make-non-ip-throws = {
-    expr = throws (ifAddr.make "10.0.0.1" 24);
+  testMakeNonIpThrows = {
+    expr = throws (interfaceAddress.make "10.0.0.1" 24);
     expected = true;
   };
 
   # ===== fromAddress =====
-  fromAddress-v4 = {
-    expr = ifAddr.toString (ifAddr.fromAddress (ipv4.parse "10.0.0.1"));
+  testFromAddressV4 = {
+    expr = interfaceAddress.toString (interfaceAddress.fromAddress (ipv4.parse "10.0.0.1"));
     expected = "10.0.0.1/32";
   };
-  fromAddress-v6 = {
-    expr = ifAddr.toString (ifAddr.fromAddress (ipv6.parse "2001:db8::1"));
+  testFromAddressV6 = {
+    expr = interfaceAddress.toString (interfaceAddress.fromAddress (ipv6.parse "2001:db8::1"));
     expected = "2001:db8::1/128";
   };
-  fromAddress-non-ip-throws = {
-    expr = throws (ifAddr.fromAddress "10.0.0.1");
+  testFromAddressNonIpThrows = {
+    expr = throws (interfaceAddress.fromAddress "10.0.0.1");
     expected = true;
   };
 
   # ===== fromAddressAndNetwork =====
-  fromAddrNet-ok = {
-    expr = ifAddr.toString (
-      ifAddr.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "192.168.1.0/24")
+  testFromAddressAndNetworkOk = {
+    expr = interfaceAddress.toString (
+      interfaceAddress.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "192.168.1.0/24")
     );
     expected = "192.168.1.5/24";
   };
-  fromAddrNet-out = {
-    expr = throws (ifAddr.fromAddressAndNetwork (ipv4.parse "10.0.0.1") (cidr.parse "192.168.1.0/24"));
+  testFromAddressAndNetworkOutside = {
+    expr = throws (
+      interfaceAddress.fromAddressAndNetwork (ipv4.parse "10.0.0.1") (cidr.parse "192.168.1.0/24")
+    );
     expected = true;
   };
-  fromAddrNet-mix = {
-    expr = throws (ifAddr.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "::/0"));
+  testFromAddressAndNetworkMixedFamilies = {
+    expr = throws (
+      interfaceAddress.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "::/0")
+    );
     expected = true;
   };
 
   # ===== Distinction from CIDR =====
   # interfaceAddress vs cidr with same text representation must NOT be equal.
-  ifaddr-vs-cidr = {
-    expr = (p "192.168.1.5/24")._type != (cidr.parse "192.168.1.5/24")._type;
+  testTypeDiffersFromCidr = {
+    expr = (parse "192.168.1.5/24")._type != (cidr.parse "192.168.1.5/24")._type;
     expected = true;
   };
-  ifaddr-tagged = {
-    expr = (p "192.168.1.5/24")._type;
+  testTypeTag = {
+    expr = (parse "192.168.1.5/24")._type;
     expected = "interfaceAddress";
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = ifAddr.lt (p "10.0.0.1/24") (p "10.0.0.2/24");
+  testLt = {
+    expr = interfaceAddress.lt (parse "10.0.0.1/24") (parse "10.0.0.2/24");
     expected = true;
   };
-  cmp-le = {
-    expr = ifAddr.le (p "10.0.0.1/24") (p "10.0.0.2/24");
+  testLe = {
+    expr = interfaceAddress.le (parse "10.0.0.1/24") (parse "10.0.0.2/24");
     expected = true;
   };
-  cmp-gt = {
-    expr = ifAddr.gt (p "10.0.0.2/24") (p "10.0.0.1/24");
+  testGt = {
+    expr = interfaceAddress.gt (parse "10.0.0.2/24") (parse "10.0.0.1/24");
     expected = true;
   };
-  cmp-ge = {
-    expr = ifAddr.ge (p "10.0.0.2/24") (p "10.0.0.1/24");
+  testGe = {
+    expr = interfaceAddress.ge (parse "10.0.0.2/24") (parse "10.0.0.1/24");
     expected = true;
   };
-  cmp-min = {
-    expr = ifAddr.toString (ifAddr.min (p "10.0.0.1/24") (p "10.0.0.2/24"));
+  testMin = {
+    expr = interfaceAddress.toString (interfaceAddress.min (parse "10.0.0.1/24") (parse "10.0.0.2/24"));
     expected = "10.0.0.1/24";
   };
-  cmp-max = {
-    expr = ifAddr.toString (ifAddr.max (p "10.0.0.1/24") (p "10.0.0.2/24"));
+  testMax = {
+    expr = interfaceAddress.toString (interfaceAddress.max (parse "10.0.0.1/24") (parse "10.0.0.2/24"));
     expected = "10.0.0.2/24";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = ifAddr.eq (p "10.0.0.1/24") (p "10.0.0.1/24");
+  testEqSame = {
+    expr = interfaceAddress.eq (parse "10.0.0.1/24") (parse "10.0.0.1/24");
     expected = true;
   };
-  eq-diff-addr = {
-    expr = ifAddr.eq (p "10.0.0.1/24") (p "10.0.0.2/24");
+  testEqDifferentAddress = {
+    expr = interfaceAddress.eq (parse "10.0.0.1/24") (parse "10.0.0.2/24");
     expected = false;
   };
-  eq-diff-prefix = {
-    expr = ifAddr.eq (p "10.0.0.1/24") (p "10.0.0.1/25");
+  testEqDifferentPrefix = {
+    expr = interfaceAddress.eq (parse "10.0.0.1/24") (parse "10.0.0.1/25");
     expected = false;
   };
-  compare-cross-fam = {
-    expr = ifAddr.compare (p "10.0.0.1/24") (p "::1/64");
+  testCompareCrossFamily = {
+    expr = interfaceAddress.compare (parse "10.0.0.1/24") (parse "::1/64");
     expected = -1;
   };
-  compare-same = {
-    expr = ifAddr.compare (p "10.0.0.1/24") (p "10.0.0.1/24");
+  testCompareSame = {
+    expr = interfaceAddress.compare (parse "10.0.0.1/24") (parse "10.0.0.1/24");
     expected = 0;
   };
-  compare-addr-lt = {
-    expr = ifAddr.compare (p "10.0.0.1/24") (p "10.0.0.2/24");
+  testCompareByAddress = {
+    expr = interfaceAddress.compare (parse "10.0.0.1/24") (parse "10.0.0.2/24");
     expected = -1;
   };
-  compare-prefix-lt = {
-    expr = ifAddr.compare (p "10.0.0.1/24") (p "10.0.0.1/25");
+  testCompareByPrefix = {
+    expr = interfaceAddress.compare (parse "10.0.0.1/24") (parse "10.0.0.1/25");
     expected = -1;
   };
 
   # ===== Forwarded predicates (apply to the address) =====
-  fwd-loopback-v4 = {
-    expr = ifAddr.isLoopback (p "127.0.0.1/8");
+  testForwardedLoopbackV4 = {
+    expr = interfaceAddress.isLoopback (parse "127.0.0.1/8");
     expected = true;
   };
-  fwd-loopback-v6 = {
-    expr = ifAddr.isLoopback (p "::1/128");
+  testForwardedLoopbackV6 = {
+    expr = interfaceAddress.isLoopback (parse "::1/128");
     expected = true;
   };
-  fwd-loopback-no = {
-    expr = ifAddr.isLoopback (p "8.8.8.8/32");
+  testForwardedLoopbackNo = {
+    expr = interfaceAddress.isLoopback (parse "8.8.8.8/32");
     expected = false;
   };
-  fwd-unspecified-v6 = {
-    expr = ifAddr.isUnspecified (p "::/128");
+  testForwardedUnspecifiedV6 = {
+    expr = interfaceAddress.isUnspecified (parse "::/128");
     expected = true;
   };
-  fwd-unspecified-no = {
-    expr = ifAddr.isUnspecified (p "192.0.2.1/24");
+  testForwardedUnspecifiedNo = {
+    expr = interfaceAddress.isUnspecified (parse "192.0.2.1/24");
     expected = false;
   };
-  fwd-linkLocal-v6 = {
-    expr = ifAddr.isLinkLocal (p "fe80::1/64");
+  testForwardedLinkLocalV6 = {
+    expr = interfaceAddress.isLinkLocal (parse "fe80::1/64");
     expected = true;
   };
-  fwd-multicast-v4 = {
-    expr = ifAddr.isMulticast (p "224.0.0.1/32");
+  testForwardedMulticastV4 = {
+    expr = interfaceAddress.isMulticast (parse "224.0.0.1/32");
     expected = true;
   };
-  fwd-documentation-v4 = {
-    expr = ifAddr.isDocumentation (p "192.0.2.1/24");
+  testForwardedDocumentationV4 = {
+    expr = interfaceAddress.isDocumentation (parse "192.0.2.1/24");
     expected = true;
   };
-  fwd-global-v4 = {
-    expr = ifAddr.isGlobal (p "8.8.8.8/32");
+  testForwardedGlobalV4 = {
+    expr = interfaceAddress.isGlobal (parse "8.8.8.8/32");
     expected = true;
   };
-  fwd-bogon-v4 = {
-    expr = ifAddr.isBogon (p "10.0.0.1/24");
+  testForwardedBogonV4 = {
+    expr = interfaceAddress.isBogon (parse "10.0.0.1/24");
     expected = true;
   };
-  fwd-bogon-v6 = {
-    expr = ifAddr.isBogon (p "fc00::1/64");
+  testForwardedBogonV6 = {
+    expr = interfaceAddress.isBogon (parse "fc00::1/64");
     expected = true;
   };
-  fwd-toArpa-v4 = {
-    expr = ifAddr.toArpa (p "1.2.3.4/32");
+  testForwardedToArpaV4 = {
+    expr = interfaceAddress.toArpa (parse "1.2.3.4/32");
     expected = "4.3.2.1.in-addr.arpa";
   };
-  fwd-toArpa-v6 = {
-    expr = ifAddr.toArpa (p "::1/128");
+  testForwardedToArpaV6 = {
+    expr = interfaceAddress.toArpa (parse "::1/128");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
 
   # ===== Round-trip =====
-  roundtrip = {
-    expr = ifAddr.toString (p "192.168.1.5/24");
+  testRoundTrip = {
+    expr = interfaceAddress.toString (parse "192.168.1.5/24");
     expected = "192.168.1.5/24";
   };
 }

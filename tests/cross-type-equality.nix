@@ -129,10 +129,11 @@ let
     };
   };
 
+  # Every tagged type's `eq` must reject a foreign `_type`, whether the
+  # foreign value mirrors the case's fields or carries only the tag.
   mkTests =
-    name:
+    case:
     let
-      case = cases.${name};
       foreignClone = case.value // {
         _type = "foreign";
       };
@@ -140,28 +141,19 @@ let
         _type = "foreign";
       };
     in
-    [
-      {
-        name = "${name}-foreign-clone";
-        value = {
-          expr = case.module.eq case.value foreignClone;
-          expected = false;
-        };
-      }
-      {
-        name = "${name}-sparse-foreign-right";
-        value = {
-          expr = case.module.eq case.value sparseForeign;
-          expected = false;
-        };
-      }
-      {
-        name = "${name}-sparse-foreign-left";
-        value = {
-          expr = case.module.eq sparseForeign case.value;
-          expected = false;
-        };
-      }
-    ];
+    {
+      testForeignClone = {
+        expr = case.module.eq case.value foreignClone;
+        expected = false;
+      };
+      testSparseForeignRight = {
+        expr = case.module.eq case.value sparseForeign;
+        expected = false;
+      };
+      testSparseForeignLeft = {
+        expr = case.module.eq sparseForeign case.value;
+        expected = false;
+      };
+    };
 in
-builtins.listToAttrs (builtins.concatLists (map mkTests (builtins.attrNames cases)))
+builtins.mapAttrs (_: mkTests) cases

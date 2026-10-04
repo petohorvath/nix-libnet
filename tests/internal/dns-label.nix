@@ -5,93 +5,93 @@ let
 in
 {
   # ===== positive =====
-  simple = {
+  testSimple = {
     expr = isValidLabel "nas";
     expected = true;
   };
-  single-char = {
+  testSingleChar = {
     expr = isValidLabel "a";
     expected = true;
   };
-  digits = {
+  testDigits = {
     expr = isValidLabel "host01";
     expected = true;
   };
-  leading-digit = {
+  testLeadingDigit = {
     expr = isValidLabel "3com";
     expected = true;
   };
-  with-hyphen = {
+  testWithHyphen = {
     expr = isValidLabel "my-server";
     expected = true;
   };
-  mixed-case = {
+  testMixedCase = {
     expr = isValidLabel "MyHost";
     expected = true;
   };
-  all-digits = {
+  testAllDigits = {
     expr = isValidLabel "12345";
     expected = true;
   };
   # 1 + 60 ("123456789-" × 6) + 2 = 63 chars (maximum)
-  max-len = {
+  testMaxLength = {
     expr = isValidLabel "a123456789-123456789-123456789-123456789-123456789-123456789-xy";
     expected = true;
   };
 
   # ===== negative =====
-  empty = {
+  testEmpty = {
     expr = isValidLabel "";
     expected = false;
   };
-  underscore = {
+  testUnderscore = {
     expr = isValidLabel "host_name";
     expected = false;
   };
-  dot = {
+  testDot = {
     expr = isValidLabel "host.example";
     expected = false;
   };
-  leading-hyphen = {
+  testLeadingHyphen = {
     expr = isValidLabel "-foo";
     expected = false;
   };
-  trailing-hyphen = {
+  testTrailingHyphen = {
     expr = isValidLabel "foo-";
     expected = false;
   };
-  single-hyphen = {
+  testSingleHyphen = {
     expr = isValidLabel "-";
     expected = false;
   };
   # 64 chars (one over)
-  too-long = {
+  testTooLong = {
     expr = isValidLabel "a123456789-123456789-123456789-123456789-123456789-123456789-xyz";
     expected = false;
   };
-  whitespace = {
+  testWhitespace = {
     expr = isValidLabel "my host";
     expected = false;
   };
-  non-ascii = {
+  testNonAscii = {
     expr = isValidLabel "café";
     expected = false;
   };
-  slash = {
+  testSlash = {
     expr = isValidLabel "foo/bar";
     expected = false;
   };
-  not-string-int = {
+  testNotStringInt = {
     expr = isValidLabel 42;
     expected = false;
   };
-  not-string-null = {
+  testNotStringNull = {
     expr = isValidLabel null;
     expected = false;
   };
 
   # ===== pattern is exposed =====
-  pattern-exists = {
+  testPatternExists = {
     expr = builtins.isString dnsLabel.labelPattern;
     expected = true;
   };

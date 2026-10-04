@@ -25,60 +25,125 @@ let
 
   # ===== Parsing =====
 
+  /*
+    Parse a DNS name without throwing, for callers that branch on
+    validity or report the error themselves.
+
+    `input`: candidate hostname or domain string.
+
+    Returns a tryResult `{ success, value, error }` holding the
+    hostname or domain value on success, or an error message for IP
+    literals and invalid names.
+  */
   tryParse =
-    s:
-    if !(builtins.isString s) then
+    input:
+    if !(builtins.isString input) then
       types.tryErr "libnet.dnsName.parse: input must be a string"
-    else if ip.isValid s then
-      types.tryErr "libnet.dnsName.parse: \"${s}\" is an IP address, not a DNS name"
+    else if ip.isValid input then
+      types.tryErr "libnet.dnsName.parse: \"${input}\" is an IP address, not a DNS name"
     else
       let
-        hnR = hostname.tryParse s;
+        hostnameResult = hostname.tryParse input;
       in
-      if hnR.success then
-        hnR
+      if hostnameResult.success then
+        hostnameResult
       else
         let
-          dR = domain.tryParse s;
+          domainResult = domain.tryParse input;
         in
-        if dR.success then
-          dR
+        if domainResult.success then
+          domainResult
         else
-          types.tryErr "libnet.dnsName.parse: \"${s}\" is not a valid hostname or domain";
+          types.tryErr "libnet.dnsName.parse: \"${input}\" is not a valid hostname or domain";
 
+  /*
+    Parse a DNS name that is not an IP literal.
+
+    `input`: single-label hostname or multi-label domain string.
+
+    Returns a hostname value for one label or a domain value for
+    several; throws on IP literals and invalid names.
+  */
   parse =
-    s:
+    input:
     let
-      r = tryParse s;
+      result = tryParse input;
     in
-    if r.success then r.value else builtins.throw r.error;
+    if result.success then result.value else throw result.error;
 
+  /*
+    Render a DNS name as a string.
+
+    `name`: hostname or domain value.
+
+    Returns the name exactly as parsed, preserving case; throws for
+    any other value.
+  */
   toString =
-    n:
-    if types.isHostname n then
-      hostname.toString n
-    else if types.isDomain n then
-      domain.toString n
+    name:
+    if types.isHostname name then
+      hostname.toString name
+    else if types.isDomain name then
+      domain.toString name
     else
-      builtins.throw "libnet.dnsName.toString: expected hostname or domain value";
+      throw "libnet.dnsName.toString: expected hostname or domain value";
 
   # ===== Predicates =====
 
-  isValid = s: (tryParse s).success;
-  is = v: types.isHostname v || types.isDomain v;
-  isHostname = types.isHostname;
-  isDomain = types.isDomain;
+  /*
+    Check whether a value parses as a DNS name.
+
+    `input`: any value; non-strings are invalid.
+
+    Returns true when `parse` would succeed.
+  */
+  isValid = input: (tryParse input).success;
+
+  /*
+    Recognize a tagged DNS name value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `hostname` or `domain` tag.
+  */
+  is = value: types.isHostname value || types.isDomain value;
+
+  /*
+    Recognize a tagged hostname value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `hostname` tag.
+  */
+  isHostname = value: types.isHostname value;
+
+  /*
+    Recognize a tagged domain value.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `domain` tag.
+  */
+  isDomain = value: types.isDomain value;
 
   # ===== Normalization =====
 
+  /*
+    Lowercase a DNS name so equal names share one spelling.
+
+    `name`: hostname or domain value.
+
+    Returns a value of the same type with an ASCII-lowercased `value`;
+    throws for any other value.
+  */
   normalize =
-    n:
-    if types.isHostname n then
-      hostname.normalize n
-    else if types.isDomain n then
-      domain.normalize n
+    name:
+    if types.isHostname name then
+      hostname.normalize name
+    else if types.isDomain name then
+      domain.normalize name
     else
-      builtins.throw "libnet.dnsName.normalize: expected hostname or domain value";
+      throw "libnet.dnsName.normalize: expected hostname or domain value";
 
   # ===== Comparison =====
   #
@@ -87,14 +152,22 @@ let
   # case-insensitive comparison.
 
   familyRank =
-    v:
-    if types.isHostname v then
+    value:
+    if types.isHostname value then
       0
-    else if types.isDomain v then
+    else if types.isDomain value then
       1
     else
-      builtins.throw "libnet.dnsName.compare: expected hostname or domain value";
+      throw "libnet.dnsName.compare: expected hostname or domain value";
 
+  /*
+    Test two DNS names for equality, ignoring case.
+
+    `a`, `b`: values to compare.
+
+    Returns true when both are hostnames or both are domains and they
+    match case-insensitively; false otherwise, without throwing.
+  */
   eq =
     a: b:
     if types.isHostname a && types.isHostname b then
@@ -104,49 +177,101 @@ let
     else
       false;
 
+  /*
+    Order two DNS names for sorting: hostnames before domains, then
+    case-insensitively within a family.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`;
+    throws when either is not a hostname or domain.
+  */
   compare =
     a: b:
     let
-      ra = familyRank a;
-      rb = familyRank b;
+      rankA = familyRank a;
+      rankB = familyRank b;
     in
-    if ra < rb then
+    if rankA < rankB then
       -1
-    else if ra > rb then
+    else if rankA > rankB then
       1
-    else if ra == 0 then
+    else if rankA == 0 then
       hostname.compare a b
     else
       domain.compare a b;
 
+  /*
+    Test whether one DNS name sorts strictly before another.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns true when `compare a b` is -1.
+  */
   lt = a: b: compare a b == -1;
+
+  /*
+    Test whether one DNS name sorts before or equal to another.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns true when `compare a b` is -1 or 0.
+  */
   le = a: b: compare a b <= 0;
+
+  /*
+    Test whether one DNS name sorts strictly after another.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns true when `compare a b` is 1.
+  */
   gt = a: b: compare a b == 1;
+
+  /*
+    Test whether one DNS name sorts after or equal to another.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns true when `compare a b` is 1 or 0.
+  */
   ge = a: b: compare a b >= 0;
+
+  /*
+    Pick the DNS name that sorts first.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns `a` when `le a b`, otherwise `b`.
+  */
   min = a: b: if le a b then a else b;
+
+  /*
+    Pick the DNS name that sorts last.
+
+    `a`, `b`: hostname or domain values.
+
+    Returns `a` when `ge a b`, otherwise `b`.
+  */
   max = a: b: if ge a b then a else b;
 in
 {
   inherit
-    parse
-    tryParse
-    toString
-    ;
-  inherit
-    isValid
-    is
-    isHostname
-    isDomain
-    ;
-  inherit normalize;
-  inherit
-    eq
-    lt
-    le
-    gt
-    ge
     compare
-    min
+    eq
+    ge
+    gt
+    is
+    isDomain
+    isHostname
+    isValid
+    le
+    lt
     max
+    min
+    normalize
+    parse
+    toString
+    tryParse
     ;
 }

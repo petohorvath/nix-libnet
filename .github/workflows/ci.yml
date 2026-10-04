@@ -24,8 +24,8 @@ concurrency:
   cancel-in-progress: true
 
 # Each job caches /nix/store via nix-community/cache-nix-action so
-# subsequent runs don't have to re-fetch the nixpkgs derivations
-# the harness wraps tests in. The cache key is
+# subsequent runs don't have to re-fetch nix-unit and the nixpkgs
+# derivations the checks run tests in. The cache key is
 # `(os, arch, job, flake.lock)` so a lockfile bump cleanly retires
 # stale stores; restore-prefix lets a near-miss warm-restore from
 # any earlier same-job cache. Purge keeps the GHA cache budget
@@ -97,16 +97,16 @@ jobs:
       - name: Build full check (module types against nixpkgs.lib)
         run: nix build --print-build-logs .#checks.${{ matrix.system }}.full
 
-  # Compatibility matrix across nixpkgs channels. The `full` check
+  # Compatibility matrix across nixpkgs branches. The `full` check
   # exercises `libnet.types.*` against `nixpkgs.lib`, so downstream
-  # consumers on different channels effectively run a different
+  # consumers on different branches effectively run a different
   # version of that suite. This job catches upstream `lib`
   # regressions (option-type internals, `mkOptionType` signature
   # changes, default flips) before they hit users.
   #
   # `--override-input` swaps just the nixpkgs input without touching
   # flake.lock. `core` is intentionally not matrixed here — it has
-  # no nixpkgs dependency by construction, so the channel axis adds
+  # no nixpkgs dependency by construction, so the branch axis adds
   # no signal. The pinned lock is omitted too: the `tests` job
   # already builds `full` against it, so a row here would only
   # duplicate that derivation. Runs on x86_64-linux only; the

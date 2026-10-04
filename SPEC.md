@@ -21,7 +21,7 @@ This specification defines **libnet**, a pure-Nix library with zero nixpkgs depe
 
 ## Goals
 
-1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Even the test harness is hand-rolled.
+1. **Zero dependencies** — pure Nix builtins only. No `nixpkgs.lib`. Tests run under nix-unit, a check-time tool; the core suites still evaluate without `nixpkgs.lib`.
 2. **Clean, orthogonal API** — parallel function names across families (`ipv4.parse`, `ipv6.parse`, `mac.parse`); consistent arithmetic (`add`/`sub`/`diff`/`next`/`prev`); consistent comparison (`eq`/`lt`/`compare`).
 3. **Tagged structured values** — every parsed value carries a `_type` discriminator (one of `"ipv4"`, `"ipv6"`, `"mac"`, `"cidr"`, `"port"`, `"portRange"`, `"ipEndpoint"`, `"dnsEndpoint"`, `"ipBindpoint"`, `"ipRange"`, `"interfaceAddress"`, `"interfaceName"`, `"transport"`, `"hostname"`, `"domain"`, `"vlanId"`, `"mtu"`, `"icmpType"`, `"unixSocket"`, `"socketUrl"`, `"bindUrl"`, `"secureSocketUrl"`, `"url"`, `"urlHost"`, `"authority"`, `"proxyUrl"`) so runtime dispatch is safe and cheap. No raw strings as the canonical form.
 4. **Both throwing and recoverable parsing** — `parse` throws on bad input; `tryParse` returns a tagged result.
@@ -1623,7 +1623,7 @@ Static lookup tables shipped as plain Nix literals (no parsed values — lift in
 - IPv4 `255.255.255.255` is covered by the registry entry `240.0.0.0/4`; the predicate matches it via `isBroadcast` (with `isReserved` covering `240.0.0.0/4 \ broadcast` separately).
 - IPv4 `0.0.0.0` falls in the registry entry `0.0.0.0/8`; the predicate matches it via `isUnspecified` (and `isThisNetwork`).
 
-Both lists are kept in lock-step by `tests/registry.nix` (`v4-isBogon-network`/`v4-isBogon-broadcast`, `v6-isBogon-network`/`v6-isBogon-top`): every registry entry's first and last address must satisfy the corresponding `isBogon` predicate. Adding a new bogon requires touching both the registry and the predicate.
+Both lists are kept in lock-step by `tests/registry.nix` (`testV4IsBogonNetwork`/`testV4IsBogonBroadcast`, `testV6IsBogonNetwork`/`testV6IsBogonTop`): every registry entry's first and last address must satisfy the corresponding `isBogon` predicate. Adding a new bogon requires touching both the registry and the predicate.
 
 ### `libnet.withLib` (opt-in NixOS module types)
 
@@ -1769,10 +1769,8 @@ nix-libnet/
 │       ├── dns-label.nix    # RFC 1123 single-label syntax shared by hostname/domain
 │       └── types.nix        # _type tags, predicates, tryResult constructor
 ├── tests/
-│   ├── default.nix          # Imports every test file, runs the harness
-│   ├── harness.nix          # Hand-rolled test runner (no nixpkgs dep)
-│   ├── bits.nix
-│   ├── carry.nix
+│   ├── default.nix          # nix-unit entry point; imports every suite
+│   ├── harness.nix          # Assertion helpers shared by suites (no nixpkgs dep)
 │   ├── ipv4.nix
 │   ├── ipv6.nix
 │   ├── mac.nix
@@ -1807,6 +1805,8 @@ nix-libnet/
 │   ├── registry.nix
 │   ├── types.nix            # Module-type tests; opt-in, require `lib` as arg
 │   └── internal/
+│       ├── bits.nix
+│       ├── carry.nix
 │       ├── dns-label.nix
 │       ├── format.nix
 │       ├── parse.nix
@@ -1818,24 +1818,7 @@ nix-libnet/
 
 ## Testing Strategy
 
-**Harness** (`tests/harness.nix`) reimplements the essentials of `lib.runTests` without a nixpkgs dependency. Shape:
-
-```nix
-# Input: attrset of { testName = { expr; expected; }; ... }
-# Output: attrset of failures only, or {} on success.
-# If any failure: builtins.throw with a readable diff.
-
-runTests = tests: let
-  results = builtins.mapAttrs (name: t:
-    if t.expr == t.expected
-    then null
-    else { inherit name; expected = t.expected; actual = t.expr; }
-  ) tests;
-  failures = builtins.filter (v: v != null) (builtins.attrValues results);
-in
-  if failures == [] then { passed = builtins.length (builtins.attrNames tests); }
-  else builtins.throw (formatFailures failures);
-```
+**Runner**: [nix-unit](https://github.com/nix-community/nix-unit) runs `tests/default.nix`, which returns nested suites, one per module (`internal.*` for `lib/internal/`). Each suite is an attrset of `{ testName = { expr; expected; }; }` cases with camelCase names starting with `test`. `tests/harness.nix` holds assertion helpers such as `throws`; it has no nixpkgs dependency.
 
 **Coverage targets**:
 - IPv4 parse: valid forms, leading-zero rejection, >255 rejection, wrong-count rejection, empty, whitespace.
@@ -1859,7 +1842,7 @@ in
 - Bogon: `ip.isBogon (ipv4.parse "127.0.0.1") == true`, `ip.isBogon (ipv4.parse "8.8.8.8") == false`, parallel IPv6 cases.
 - Module types (via `withLib`): each `types.*` accepts valid strings unchanged, rejects malformed input with a useful error pointing at the offending option path, and merges last-wins. Mixed-family rejection for `types.ipv4Cidr`/`types.ipv6Cidr`. Smart constructor `types.*.mk` validates and fails loudly on bad input. These tests are exercised by the `full` flake check, which injects `nixpkgs.lib`; the `core` check runs with `lib = null` and skips them, proving the core stays dep-free.
 
-**Invocation**: `nix flake check` must build both `checks.<system>.core` and `checks.<system>.full` successfully. A failing test aborts `.drv` instantiation via `builtins.throw` with the harness's formatted diff.
+**Invocation**: `nix flake check` must build both `checks.<system>.core` and `checks.<system>.full` successfully. Each check runs nix-unit inside the build sandbox; a failing test fails the build and reports the expected and actual values.
 
 ## Test Coverage Matrix (100% target)
 
@@ -1987,7 +1970,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 
 ### Coverage verification
 
-The test harness's `runTests` output includes `{ passed = N }`. The implementer is expected to match N against a golden count per module (e.g., `tests/ipv4.nix` must report ≥ 60 passing cases). Coverage omissions are caught by code review of the test files against this matrix.
+nix-unit reports the number of passing cases per run and names each case by suite (`ipv4.testParseZero`). The implementer is expected to match the per-suite count against a golden count per module (e.g., the `ipv4` suite must report ≥ 60 passing cases). Coverage omissions are caught by code review of the test files against this matrix.
 
 ## Implementation Phasing (post-spec)
 
@@ -1996,7 +1979,7 @@ Once the spec is approved, implementation proceeds in dependency order:
 1. **`lib/internal/bits.nix`** + tests — shift emulation, mask generation. No dependencies.
 2. **`lib/internal/types.nix`** — `_type` tags, `tryResult` constructor.
 3. **`lib/internal/parse.nix`** + **`lib/internal/format.nix`** — reusable primitives.
-4. **`lib/ipv4.nix`** + tests — simplest family, validates harness and primitives.
+4. **`lib/ipv4.nix`** + tests — simplest family, validates the test setup and primitives.
 5. **`lib/mac.nix`** + tests — parallel to ipv4, exercises parse-format variants.
 6. **`lib/internal/carry.nix`** + tests — needed for ipv6 arithmetic.
 7. **`lib/ipv6.nix`** + tests — largest module; parsing is the hardest piece.
@@ -2027,7 +2010,7 @@ The spec is ready to implement when:
 - [x] Internal representation is fixed for each family.
 - [x] Repo layout is fixed.
 - [x] Minimum Nix version is fixed.
-- [x] Test harness approach is fixed.
+- [x] Test runner approach is fixed.
 - [x] Non-goals are explicit.
 - [x] Module-type integration path (`libnet.withLib`) is specified, including exported type set and coercion behavior.
 - [x] Test coverage matrix is exhaustive: every public function, every `throws` branch, every predicate (positive and negative), every parse dialect, every arithmetic carry/borrow case, every CIDR prefix boundary (`/0`, `/31`, `/32`, `/127`, `/128`, out-of-range rejects), every enumeration size guard, every cross-family behavior.

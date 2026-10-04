@@ -1,237 +1,237 @@
 { harness }:
 let
-  pr = import ../lib/port-range.nix;
+  portRange = import ../lib/port-range.nix;
   port = import ../lib/port.nix;
   inherit (harness) throws;
-  p = pr.parse;
+  parse = portRange.parse;
 in
 {
   # ===== Parse =====
-  parse-single = {
-    expr = pr.toString (p "8080");
+  testParseSingle = {
+    expr = portRange.toString (parse "8080");
     expected = "8080";
   };
-  parse-hyphen = {
-    expr = pr.toString (p "5500-6000");
+  testParseHyphen = {
+    expr = portRange.toString (parse "5500-6000");
     expected = "5500-6000";
   };
-  parse-colon = {
-    expr = pr.toString (p "5500:6000");
+  testParseColon = {
+    expr = portRange.toString (parse "5500:6000");
     expected = "5500-6000";
   }; # canonical is hyphen
-  parse-same = {
-    expr = pr.toString (p "80-80");
+  testParseEqualBounds = {
+    expr = portRange.toString (parse "80-80");
     expected = "80";
   }; # singleton canonical
 
-  reject-reversed = {
-    expr = throws (p "6000-5500");
+  testRejectReversed = {
+    expr = throws (parse "6000-5500");
     expected = true;
   };
-  reject-neg = {
-    expr = throws (p "-1-10");
+  testRejectNegative = {
+    expr = throws (parse "-1-10");
     expected = true;
   };
-  reject-over = {
-    expr = throws (p "0-65536");
+  testRejectAboveMax = {
+    expr = throws (parse "0-65536");
     expected = true;
   };
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
 
   # ===== tryParse =====
-  tryParse-ok = {
-    expr = (pr.tryParse "80-90").success;
+  testTryParseOk = {
+    expr = (portRange.tryParse "80-90").success;
     expected = true;
   };
-  tryParse-bad = {
-    expr = (pr.tryParse "nope").success;
+  testTryParseBad = {
+    expr = (portRange.tryParse "nope").success;
     expected = false;
   };
 
   # ===== Formatting =====
-  fmt-colon = {
-    expr = pr.toStringColon (p "5500-6000");
+  testToStringColon = {
+    expr = portRange.toStringColon (parse "5500-6000");
     expected = "5500:6000";
   };
-  fmt-colon-single = {
-    expr = pr.toStringColon (p "80");
+  testToStringColonSingle = {
+    expr = portRange.toStringColon (parse "80");
     expected = "80";
   };
 
   # ===== make / fromPort =====
-  make-ok = {
-    expr = pr.toString (pr.make 100 200);
+  testMakeOk = {
+    expr = portRange.toString (portRange.make 100 200);
     expected = "100-200";
   };
-  make-single = {
-    expr = pr.toString (pr.make 80 80);
+  testMakeSingle = {
+    expr = portRange.toString (portRange.make 80 80);
     expected = "80";
   };
-  make-reverse = {
-    expr = throws (pr.make 200 100);
+  testMakeReversed = {
+    expr = throws (portRange.make 200 100);
     expected = true;
   };
-  make-over = {
-    expr = throws (pr.make 0 65536);
+  testMakeAboveMax = {
+    expr = throws (portRange.make 0 65536);
     expected = true;
   };
-  make-non-int = {
-    expr = throws (pr.make "80" 100);
+  testMakeNonInt = {
+    expr = throws (portRange.make "80" 100);
     expected = true;
   };
-  fromPort-ok = {
-    expr = pr.toString (pr.fromPort (port.fromInt 80));
+  testFromPortOk = {
+    expr = portRange.toString (portRange.fromPort (port.fromInt 80));
     expected = "80";
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = pr.is (p "80");
+  testIsParsed = {
+    expr = portRange.is (parse "80");
     expected = true;
   };
-  is-string = {
-    expr = pr.is "80";
+  testIsString = {
+    expr = portRange.is "80";
     expected = false;
   };
-  isValid-ok = {
-    expr = pr.isValid "80-90";
+  testIsValidOk = {
+    expr = portRange.isValid "80-90";
     expected = true;
   };
-  isSingle-yes = {
-    expr = pr.isSingleton (p "80");
+  testIsSingletonYes = {
+    expr = portRange.isSingleton (parse "80");
     expected = true;
   };
-  isSingle-no = {
-    expr = pr.isSingleton (p "80-90");
+  testIsSingletonNo = {
+    expr = portRange.isSingleton (parse "80-90");
     expected = false;
   };
 
   # ===== Accessors =====
-  from-val = {
-    expr = pr.from (p "80-90");
+  testFromValue = {
+    expr = portRange.from (parse "80-90");
     expected = port.fromInt 80;
   };
-  to-val = {
-    expr = pr.to (p "80-90");
+  testToValue = {
+    expr = portRange.to (parse "80-90");
     expected = port.fromInt 90;
   };
-  from-is-port = {
-    expr = port.is (pr.from (p "80-90"));
+  testFromIsPort = {
+    expr = port.is (portRange.from (parse "80-90"));
     expected = true;
   };
-  to-is-port = {
-    expr = port.is (pr.to (p "80-90"));
+  testToIsPort = {
+    expr = port.is (portRange.to (parse "80-90"));
     expected = true;
   };
-  size-single = {
-    expr = pr.size (p "80");
+  testSizeSingle = {
+    expr = portRange.size (parse "80");
     expected = 1;
   };
-  size-range = {
-    expr = pr.size (p "80-90");
+  testSizeRange = {
+    expr = portRange.size (parse "80-90");
     expected = 11;
   };
-  size-full = {
-    expr = pr.size (p "0-65535");
+  testSizeFull = {
+    expr = portRange.size (parse "0-65535");
     expected = 65536;
   };
 
   # ===== Containment =====
-  contains-in = {
-    expr = pr.contains (p "80-90") (port.fromInt 85);
+  testContainsInside = {
+    expr = portRange.contains (parse "80-90") (port.fromInt 85);
     expected = true;
   };
-  contains-from = {
-    expr = pr.contains (p "80-90") (port.fromInt 80);
+  testContainsFrom = {
+    expr = portRange.contains (parse "80-90") (port.fromInt 80);
     expected = true;
   };
-  contains-to = {
-    expr = pr.contains (p "80-90") (port.fromInt 90);
+  testContainsTo = {
+    expr = portRange.contains (parse "80-90") (port.fromInt 90);
     expected = true;
   };
-  contains-out = {
-    expr = pr.contains (p "80-90") (port.fromInt 91);
+  testContainsOutside = {
+    expr = portRange.contains (parse "80-90") (port.fromInt 91);
     expected = false;
   };
-  contains-non-port = {
-    expr = pr.contains (p "80-90") 85;
+  testContainsNonPort = {
+    expr = portRange.contains (parse "80-90") 85;
     expected = false;
   };
-  overlaps-yes = {
-    expr = pr.overlaps (p "80-90") (p "85-95");
+  testOverlapsYes = {
+    expr = portRange.overlaps (parse "80-90") (parse "85-95");
     expected = true;
   };
-  overlaps-touch = {
-    expr = pr.overlaps (p "80-90") (p "90-100");
+  testOverlapsTouch = {
+    expr = portRange.overlaps (parse "80-90") (parse "90-100");
     expected = true;
   };
-  overlaps-no = {
-    expr = pr.overlaps (p "80-90") (p "91-100");
+  testOverlapsNo = {
+    expr = portRange.overlaps (parse "80-90") (parse "91-100");
     expected = false;
   };
-  subrange-yes = {
-    expr = pr.isSubrangeOf (p "82-88") (p "80-90");
+  testSubrangeYes = {
+    expr = portRange.isSubrangeOf (parse "82-88") (parse "80-90");
     expected = true;
   };
-  subrange-no = {
-    expr = pr.isSubrangeOf (p "80-90") (p "82-88");
+  testSubrangeNo = {
+    expr = portRange.isSubrangeOf (parse "80-90") (parse "82-88");
     expected = false;
   };
-  superrange-yes = {
-    expr = pr.isSuperrangeOf (p "80-90") (p "82-88");
+  testSuperrangeYes = {
+    expr = portRange.isSuperrangeOf (parse "80-90") (parse "82-88");
     expected = true;
   };
 
   # ===== isAdjacent =====
-  adjacent-yes = {
-    expr = pr.isAdjacent (p "80-90") (p "91-100");
+  testAdjacentYes = {
+    expr = portRange.isAdjacent (parse "80-90") (parse "91-100");
     expected = true;
   };
-  adjacent-reversed = {
-    expr = pr.isAdjacent (p "91-100") (p "80-90");
+  testAdjacentReversed = {
+    expr = portRange.isAdjacent (parse "91-100") (parse "80-90");
     expected = true;
   };
-  adjacent-gap = {
-    expr = pr.isAdjacent (p "80-90") (p "92-100");
+  testAdjacentGap = {
+    expr = portRange.isAdjacent (parse "80-90") (parse "92-100");
     expected = false;
   };
-  adjacent-overlap = {
-    expr = pr.isAdjacent (p "80-90") (p "85-95");
+  testAdjacentOverlap = {
+    expr = portRange.isAdjacent (parse "80-90") (parse "85-95");
     expected = false;
   };
-  adjacent-singletons = {
-    expr = pr.isAdjacent (p "80") (p "81");
+  testAdjacentSingletons = {
+    expr = portRange.isAdjacent (parse "80") (parse "81");
     expected = true;
   };
-  adjacent-at-max = {
-    expr = pr.isAdjacent (p "0-65534") (p "65535");
+  testAdjacentAtMax = {
+    expr = portRange.isAdjacent (parse "0-65534") (parse "65535");
     expected = true;
   };
 
   # ===== Merge =====
-  merge-adjacent = {
-    expr = pr.toString (pr.merge (p "80-90") (p "91-100"));
+  testMergeAdjacent = {
+    expr = portRange.toString (portRange.merge (parse "80-90") (parse "91-100"));
     expected = "80-100";
   };
-  merge-overlap = {
-    expr = pr.toString (pr.merge (p "80-90") (p "85-100"));
+  testMergeOverlap = {
+    expr = portRange.toString (portRange.merge (parse "80-90") (parse "85-100"));
     expected = "80-100";
   };
-  merge-contain = {
-    expr = pr.toString (pr.merge (p "80-100") (p "85-90"));
+  testMergeContained = {
+    expr = portRange.toString (portRange.merge (parse "80-100") (parse "85-90"));
     expected = "80-100";
   };
-  merge-disjoint = {
-    expr = pr.merge (p "80-90") (p "100-110");
+  testMergeDisjoint = {
+    expr = portRange.merge (parse "80-90") (parse "100-110");
     expected = null;
   };
 
   # ===== Enumeration =====
-  ports-small = {
-    expr = map port.toInt (pr.ports (p "80-83"));
+  testPortsSmall = {
+    expr = map port.toInt (portRange.ports (parse "80-83"));
     expected = [
       80
       81
@@ -239,84 +239,84 @@ in
       83
     ];
   };
-  ports-single = {
-    expr = map port.toInt (pr.ports (p "80"));
+  testPortsSingle = {
+    expr = map port.toInt (portRange.ports (parse "80"));
     expected = [ 80 ];
   };
-  ports-4096-ok = {
-    expr = builtins.length (pr.ports (p "0-4095"));
+  testPorts4096Ok = {
+    expr = builtins.length (portRange.ports (parse "0-4095"));
     expected = 4096;
   };
-  ports-4097-throw = {
-    expr = throws (pr.ports (p "0-4096"));
+  testPorts4097Throws = {
+    expr = throws (portRange.ports (parse "0-4096"));
     expected = true;
   };
-  ports-unbounded = {
-    expr = builtins.length (pr.portsUnbounded (p "0-4096"));
+  testPortsUnbounded = {
+    expr = builtins.length (portRange.portsUnbounded (parse "0-4096"));
     expected = 4097;
   };
-  portAt-first = {
-    expr = port.toInt (pr.portAt 0 (p "80-83"));
+  testPortAtFirst = {
+    expr = port.toInt (portRange.portAt 0 (parse "80-83"));
     expected = 80;
   };
-  portAt-mid = {
-    expr = port.toInt (pr.portAt 2 (p "80-83"));
+  testPortAtMid = {
+    expr = port.toInt (portRange.portAt 2 (parse "80-83"));
     expected = 82;
   };
-  portAt-neg = {
-    expr = port.toInt (pr.portAt (-1) (p "80-83"));
+  testPortAtNegative = {
+    expr = port.toInt (portRange.portAt (-1) (parse "80-83"));
     expected = 83;
   };
-  portAt-oob = {
-    expr = throws (pr.portAt 4 (p "80-83"));
+  testPortAtOutOfBounds = {
+    expr = throws (portRange.portAt 4 (parse "80-83"));
     expected = true;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = pr.lt (p "80-90") (p "80-100");
+  testLt = {
+    expr = portRange.lt (parse "80-90") (parse "80-100");
     expected = true;
   };
-  cmp-le = {
-    expr = pr.le (p "80-90") (p "80-100");
+  testLe = {
+    expr = portRange.le (parse "80-90") (parse "80-100");
     expected = true;
   };
-  cmp-gt = {
-    expr = pr.gt (p "80-100") (p "80-90");
+  testGt = {
+    expr = portRange.gt (parse "80-100") (parse "80-90");
     expected = true;
   };
-  cmp-ge = {
-    expr = pr.ge (p "80-100") (p "80-90");
+  testGe = {
+    expr = portRange.ge (parse "80-100") (parse "80-90");
     expected = true;
   };
-  cmp-min = {
-    expr = pr.toString (pr.min (p "80-90") (p "80-100"));
+  testMin = {
+    expr = portRange.toString (portRange.min (parse "80-90") (parse "80-100"));
     expected = "80-90";
   };
-  cmp-max = {
-    expr = pr.toString (pr.max (p "80-90") (p "80-100"));
+  testMax = {
+    expr = portRange.toString (portRange.max (parse "80-90") (parse "80-100"));
     expected = "80-100";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = pr.eq (p "80-90") (p "80-90");
+  testEqSame = {
+    expr = portRange.eq (parse "80-90") (parse "80-90");
     expected = true;
   };
-  eq-diff = {
-    expr = pr.eq (p "80-90") (p "80-91");
+  testEqDifferent = {
+    expr = portRange.eq (parse "80-90") (parse "80-91");
     expected = false;
   };
-  compare-from-lt = {
-    expr = pr.compare (p "80-100") (p "81-82");
+  testCompareOrdersByFrom = {
+    expr = portRange.compare (parse "80-100") (parse "81-82");
     expected = -1;
   };
-  compare-same-from = {
-    expr = pr.compare (p "80-90") (p "80-100");
+  testCompareTieBreaksOnTo = {
+    expr = portRange.compare (parse "80-90") (parse "80-100");
     expected = -1;
   };
-  compare-eq = {
-    expr = pr.compare (p "80-90") (p "80-90");
+  testCompareEq = {
+    expr = portRange.compare (parse "80-90") (parse "80-90");
     expected = 0;
   };
 }

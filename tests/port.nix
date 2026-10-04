@@ -2,248 +2,248 @@
 let
   port = import ../lib/port.nix;
   inherit (harness) throws;
-  p = port.parse;
+  parse = port.parse;
 in
 {
   # ===== Parse =====
-  parse-zero = {
-    expr = port.toInt (p "0");
+  testParseZero = {
+    expr = port.toInt (parse "0");
     expected = 0;
   };
-  parse-one = {
-    expr = port.toInt (p "1");
+  testParseOne = {
+    expr = port.toInt (parse "1");
     expected = 1;
   };
-  parse-http = {
-    expr = port.toInt (p "80");
+  testParseHttp = {
+    expr = port.toInt (parse "80");
     expected = 80;
   };
-  parse-max = {
-    expr = port.toInt (p "65535");
+  testParseMax = {
+    expr = port.toInt (parse "65535");
     expected = 65535;
   };
 
-  reject-neg = {
-    expr = throws (p "-1");
+  testRejectNegative = {
+    expr = throws (parse "-1");
     expected = true;
   };
-  reject-plus = {
-    expr = throws (p "+80");
+  testRejectPlusSign = {
+    expr = throws (parse "+80");
     expected = true;
   };
-  reject-over = {
-    expr = throws (p "65536");
+  testRejectAboveMax = {
+    expr = throws (parse "65536");
     expected = true;
   };
-  reject-hex = {
-    expr = throws (p "0x50");
+  testRejectHex = {
+    expr = throws (parse "0x50");
     expected = true;
   };
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-whitespace = {
-    expr = throws (p " 80");
+  testRejectLeadingWhitespace = {
+    expr = throws (parse " 80");
     expected = true;
   };
-  reject-trailing = {
-    expr = throws (p "80 ");
+  testRejectTrailingWhitespace = {
+    expr = throws (parse "80 ");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (port.parse 80);
     expected = true;
   };
 
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (port.tryParse "80").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (port.tryParse "65536").success;
     expected = false;
   };
 
   # ===== Round-trip =====
-  rt-string = {
-    expr = port.toString (p "80");
+  testRoundTripString = {
+    expr = port.toString (parse "80");
     expected = "80";
   };
-  rt-int = {
+  testRoundTripInt = {
     expr = port.toInt (port.fromInt 80);
     expected = 80;
   };
 
-  fromInt-neg = {
+  testFromIntRejectNegative = {
     expr = throws (port.fromInt (-1));
     expected = true;
   };
-  fromInt-over = {
+  testFromIntRejectAboveMax = {
     expr = throws (port.fromInt 65536);
     expected = true;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = port.is (p "80");
+  testIsParsed = {
+    expr = port.is (parse "80");
     expected = true;
   };
-  is-int = {
+  testIsRawInt = {
     expr = port.is 80;
     expected = false;
   };
-  isValid-ok = {
+  testIsValidOk = {
     expr = port.isValid "80";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = port.isValid "0x50";
     expected = false;
   };
 
-  isWellKnown-22 = {
-    expr = port.isWellKnown (p "22");
+  testIsWellKnown22 = {
+    expr = port.isWellKnown (parse "22");
     expected = true;
   };
-  isWellKnown-1024 = {
-    expr = port.isWellKnown (p "1024");
+  testIsWellKnown1024 = {
+    expr = port.isWellKnown (parse "1024");
     expected = false;
   };
-  isWellKnown-0 = {
+  testIsWellKnown0 = {
     # 0 is reserved AND well-known — the classes overlap (not a partition).
-    expr = port.isWellKnown (p "0");
+    expr = port.isWellKnown (parse "0");
     expected = true;
   };
-  isRegistered-1024 = {
-    expr = port.isRegistered (p "1024");
+  testIsRegistered1024 = {
+    expr = port.isRegistered (parse "1024");
     expected = true;
   };
-  isRegistered-49152 = {
-    expr = port.isRegistered (p "49152");
+  testIsRegistered49152 = {
+    expr = port.isRegistered (parse "49152");
     expected = false;
   };
-  isDynamic-49152 = {
-    expr = port.isDynamic (p "49152");
+  testIsDynamic49152 = {
+    expr = port.isDynamic (parse "49152");
     expected = true;
   };
-  isDynamic-49151 = {
-    expr = port.isDynamic (p "49151");
+  testIsDynamic49151 = {
+    expr = port.isDynamic (parse "49151");
     expected = false;
   };
-  isReserved-0 = {
-    expr = port.isReserved (p "0");
+  testIsReserved0 = {
+    expr = port.isReserved (parse "0");
     expected = true;
   };
-  isReserved-1 = {
-    expr = port.isReserved (p "1");
+  testIsReserved1 = {
+    expr = port.isReserved (parse "1");
     expected = false;
   };
-  isEphemeral-alias = {
-    expr = port.isEphemeral (p "49152");
+  testIsEphemeralAlias = {
+    expr = port.isEphemeral (parse "49152");
     expected = true;
   };
 
   # ===== Arithmetic =====
-  add-one = {
-    expr = port.toInt (port.add 1 (p "80"));
+  testAddOne = {
+    expr = port.toInt (port.add 1 (parse "80"));
     expected = 81;
   };
-  sub-one = {
-    expr = port.toInt (port.sub 1 (p "80"));
+  testSubOne = {
+    expr = port.toInt (port.sub 1 (parse "80"));
     expected = 79;
   };
-  diff-pos = {
-    expr = port.diff (p "80") (p "90");
+  testDiffPositive = {
+    expr = port.diff (parse "80") (parse "90");
     expected = 10;
   };
-  diff-neg = {
-    expr = port.diff (p "90") (p "80");
+  testDiffNegative = {
+    expr = port.diff (parse "90") (parse "80");
     expected = -10;
   };
-  diff-zero = {
-    expr = port.diff (p "80") (p "80");
+  testDiffZero = {
+    expr = port.diff (parse "80") (parse "80");
     expected = 0;
   };
-  next-ok = {
-    expr = port.toInt (port.next (p "80"));
+  testNextOk = {
+    expr = port.toInt (port.next (parse "80"));
     expected = 81;
   };
-  prev-ok = {
-    expr = port.toInt (port.prev (p "80"));
+  testPrevOk = {
+    expr = port.toInt (port.prev (parse "80"));
     expected = 79;
   };
-  add-overflow = {
-    expr = throws (port.add 1 (p "65535"));
+  testAddOverflow = {
+    expr = throws (port.add 1 (parse "65535"));
     expected = true;
   };
-  sub-underflow = {
-    expr = throws (port.sub 1 (p "0"));
+  testSubUnderflow = {
+    expr = throws (port.sub 1 (parse "0"));
     expected = true;
   };
 
   # ===== Comparison helpers =====
-  cmp-le = {
-    expr = port.le (p "80") (p "81");
+  testLe = {
+    expr = port.le (parse "80") (parse "81");
     expected = true;
   };
-  cmp-gt = {
-    expr = port.gt (p "81") (p "80");
+  testGt = {
+    expr = port.gt (parse "81") (parse "80");
     expected = true;
   };
-  cmp-ge = {
-    expr = port.ge (p "81") (p "80");
+  testGe = {
+    expr = port.ge (parse "81") (parse "80");
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = port.eq (p "80") (p "80");
+  testEqSame = {
+    expr = port.eq (parse "80") (parse "80");
     expected = true;
   };
-  eq-diff = {
-    expr = port.eq (p "80") (p "81");
+  testEqDifferent = {
+    expr = port.eq (parse "80") (parse "81");
     expected = false;
   };
-  lt-yes = {
-    expr = port.lt (p "80") (p "81");
+  testLt = {
+    expr = port.lt (parse "80") (parse "81");
     expected = true;
   };
-  compare-lt = {
-    expr = port.compare (p "80") (p "81");
+  testCompareLt = {
+    expr = port.compare (parse "80") (parse "81");
     expected = -1;
   };
-  compare-eq = {
-    expr = port.compare (p "80") (p "80");
+  testCompareEq = {
+    expr = port.compare (parse "80") (parse "80");
     expected = 0;
   };
-  compare-gt = {
-    expr = port.compare (p "81") (p "80");
+  testCompareGt = {
+    expr = port.compare (parse "81") (parse "80");
     expected = 1;
   };
-  min-smaller = {
-    expr = port.toInt (port.min (p "80") (p "81"));
+  testMinSmaller = {
+    expr = port.toInt (port.min (parse "80") (parse "81"));
     expected = 80;
   };
-  max-larger = {
-    expr = port.toInt (port.max (p "80") (p "81"));
+  testMaxLarger = {
+    expr = port.toInt (port.max (parse "80") (parse "81"));
     expected = 81;
   };
 
   # Boundary-value ints
-  wellKnownMax = {
+  testWellKnownMax = {
     expr = port.wellKnownMax;
     expected = 1023;
   };
-  registeredMax = {
+  testRegisteredMax = {
     expr = port.registeredMax;
     expected = 49151;
   };
-  lowestValue = {
+  testLowestValue = {
     expr = port.lowestValue;
     expected = 0;
   };
-  highestValue = {
+  testHighestValue = {
     expr = port.highestValue;
     expected = 65535;
   };

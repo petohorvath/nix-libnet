@@ -1,9 +1,14 @@
 /*
   libnet.withLib
 
-  Opt-in entry point that injects `nixpkgs.lib` into the core library
-  so NixOS option types under `libnet.types.*` become available.
-  Without this call, libnet has no dependency on nixpkgs.
+  Opt-in entry point that adds NixOS option types under `libnet.types.*`.
+  The caller supplies `nixpkgs.lib`, so the core library keeps no
+  dependency on nixpkgs.
+
+  `core`: the core libnet attrset; `default.nix` binds it.
+  `lib`: the nixpkgs library, such as `pkgs.lib`.
+
+  Returns `core` extended with a `types` attrset of option types.
 
   Example:
     libnet.withLib pkgs.lib

@@ -5,222 +5,222 @@ let
   endpoint = import ../lib/endpoint.nix;
   unixSocket = import ../lib/unix-socket.nix;
   inherit (harness) throws;
-  p = socketUrl.parse;
+  inherit (socketUrl) parse;
 in
 {
   # ===== Parse: IP schemes =====
-  parse-tcp-ipv4 = {
-    expr = socketUrl.toString (p "tcp://1.2.3.4:80");
+  testParseTcpIpv4 = {
+    expr = socketUrl.toString (parse "tcp://1.2.3.4:80");
     expected = "tcp://1.2.3.4:80";
   };
-  parse-udp-ipv6 = {
-    expr = socketUrl.toString (p "udp://[::1]:53");
+  testParseUdpIpv6 = {
+    expr = socketUrl.toString (parse "udp://[::1]:53");
     expected = "udp://[::1]:53";
   };
-  parse-sctp-dns = {
-    expr = socketUrl.toString (p "sctp://pool.ntp.org:9999");
+  testParseSctpDns = {
+    expr = socketUrl.toString (parse "sctp://pool.ntp.org:9999");
     expected = "sctp://pool.ntp.org:9999";
   };
-  parse-tagged = {
-    expr = (p "tcp://1.2.3.4:80")._type;
+  testParseTagged = {
+    expr = (parse "tcp://1.2.3.4:80")._type;
     expected = "socketUrl";
   };
-  parse-transport = {
-    expr = transport.toString (socketUrl.transport (p "tcp://1.2.3.4:80"));
+  testParseTransport = {
+    expr = transport.toString (socketUrl.transport (parse "tcp://1.2.3.4:80"));
     expected = "tcp";
   };
-  parse-endpoint-kind = {
-    expr = (socketUrl.endpoint (p "tcp://1.2.3.4:80"))._type;
+  testParseEndpointKind = {
+    expr = (socketUrl.endpoint (parse "tcp://1.2.3.4:80"))._type;
     expected = "ipEndpoint";
   };
-  parse-dns-endpoint-kind = {
-    expr = (socketUrl.endpoint (p "tcp://pool.ntp.org:123"))._type;
+  testParseDnsEndpointKind = {
+    expr = (socketUrl.endpoint (parse "tcp://pool.ntp.org:123"))._type;
     expected = "dnsEndpoint";
   };
 
   # ===== Parse: unix scheme =====
-  parse-unix-pathname = {
-    expr = socketUrl.toString (p "unix:///run/foo.sock");
+  testParseUnixPathname = {
+    expr = socketUrl.toString (parse "unix:///run/foo.sock");
     expected = "unix:///run/foo.sock";
   };
-  parse-unix-abstract = {
-    expr = socketUrl.toString (p "unix://@foo");
+  testParseUnixAbstract = {
+    expr = socketUrl.toString (parse "unix://@foo");
     expected = "unix://@foo";
   };
-  parse-unix-transport-null = {
-    expr = socketUrl.transport (p "unix:///run/foo.sock");
+  testParseUnixTransportNull = {
+    expr = socketUrl.transport (parse "unix:///run/foo.sock");
     expected = null;
   };
-  parse-unix-endpoint-kind = {
-    expr = (socketUrl.endpoint (p "unix:///run/foo.sock"))._type;
+  testParseUnixEndpointKind = {
+    expr = (socketUrl.endpoint (parse "unix:///run/foo.sock"))._type;
     expected = "unixSocket";
   };
 
   # ===== Reject =====
-  reject-no-scheme = {
-    expr = throws (p "1.2.3.4:80");
+  testRejectNoScheme = {
+    expr = throws (parse "1.2.3.4:80");
     expected = true;
   };
-  reject-unknown-scheme = {
-    expr = throws (p "http://1.2.3.4:80");
+  testRejectUnknownScheme = {
+    expr = throws (parse "http://1.2.3.4:80");
     expected = true;
   };
-  reject-icmp-scheme = {
-    expr = throws (p "icmp://1.2.3.4:80");
+  testRejectIcmpScheme = {
+    expr = throws (parse "icmp://1.2.3.4:80");
     expected = true;
   };
-  reject-tcp-path = {
-    expr = throws (p "tcp:///run/foo.sock");
+  testRejectTcpPath = {
+    expr = throws (parse "tcp:///run/foo.sock");
     expected = true;
   };
-  reject-unix-host-port = {
-    expr = throws (p "unix://1.2.3.4:80");
+  testRejectUnixHostPort = {
+    expr = throws (parse "unix://1.2.3.4:80");
     expected = true;
   };
-  reject-bad-endpoint = {
-    expr = throws (p "tcp://host_name:1");
+  testRejectBadEndpoint = {
+    expr = throws (parse "tcp://host_name:1");
     expected = true;
   };
-  reject-empty = {
-    expr = throws (p "");
+  testRejectEmpty = {
+    expr = throws (parse "");
     expected = true;
   };
-  reject-not-string = {
+  testRejectNotString = {
     expr = throws (socketUrl.parse 42);
     expected = true;
   };
 
-  tryParse-ok = {
+  testTryParseOk = {
     expr = (socketUrl.tryParse "tcp://1.2.3.4:80").success;
     expected = true;
   };
-  tryParse-bad = {
+  testTryParseBad = {
     expr = (socketUrl.tryParse "1.2.3.4:80").success;
     expected = false;
   };
-  tryParse-bad-error = {
+  testTryParseBadError = {
     expr = builtins.isString (socketUrl.tryParse "http://x:1").error;
     expected = true;
   };
 
   # ===== make =====
-  make-ip = {
+  testMakeIp = {
     expr = socketUrl.toString (socketUrl.make (transport.parse "tcp") (endpoint.parse "1.2.3.4:80"));
     expected = "tcp://1.2.3.4:80";
   };
-  make-unix = {
+  testMakeUnix = {
     expr = socketUrl.toString (socketUrl.make null (unixSocket.parse "/run/foo.sock"));
     expected = "unix:///run/foo.sock";
   };
-  make-unix-with-transport-throws = {
+  testMakeUnixWithTransportThrows = {
     expr = throws (socketUrl.make (transport.parse "tcp") (unixSocket.parse "/run/foo.sock"));
     expected = true;
   };
-  make-ip-without-transport-throws = {
+  testMakeIpWithoutTransportThrows = {
     expr = throws (socketUrl.make null (endpoint.parse "1.2.3.4:80"));
     expected = true;
   };
 
   # ===== Predicates =====
-  is-parsed = {
-    expr = socketUrl.is (p "tcp://1.2.3.4:80");
+  testIsParsed = {
+    expr = socketUrl.is (parse "tcp://1.2.3.4:80");
     expected = true;
   };
-  is-string = {
+  testIsString = {
     expr = socketUrl.is "tcp://1.2.3.4:80";
     expected = false;
   };
-  isValid-ip = {
+  testIsValidIp = {
     expr = socketUrl.isValid "udp://[::]:53";
     expected = true;
   };
-  isValid-unix = {
+  testIsValidUnix = {
     expr = socketUrl.isValid "unix:///run/foo.sock";
     expected = true;
   };
-  isValid-bad = {
+  testIsValidBad = {
     expr = socketUrl.isValid "ftp://x:1";
     expected = false;
   };
-  isUnix-yes = {
-    expr = socketUrl.isUnix (p "unix:///run/foo.sock");
+  testIsUnixYes = {
+    expr = socketUrl.isUnix (parse "unix:///run/foo.sock");
     expected = true;
   };
-  isUnix-no = {
-    expr = socketUrl.isUnix (p "tcp://1.2.3.4:80");
+  testIsUnixNo = {
+    expr = socketUrl.isUnix (parse "tcp://1.2.3.4:80");
     expected = false;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
-    expr = socketUrl.lt (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+  testLtBefore = {
+    expr = socketUrl.lt (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81");
     expected = true;
   };
-  cmp-le = {
-    expr = socketUrl.le (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+  testLeBefore = {
+    expr = socketUrl.le (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81");
     expected = true;
   };
-  cmp-gt = {
-    expr = socketUrl.gt (p "tcp://1.2.3.4:81") (p "tcp://1.2.3.4:80");
+  testGtAfter = {
+    expr = socketUrl.gt (parse "tcp://1.2.3.4:81") (parse "tcp://1.2.3.4:80");
     expected = true;
   };
-  cmp-ge = {
-    expr = socketUrl.ge (p "tcp://1.2.3.4:81") (p "tcp://1.2.3.4:80");
+  testGeAfter = {
+    expr = socketUrl.ge (parse "tcp://1.2.3.4:81") (parse "tcp://1.2.3.4:80");
     expected = true;
   };
-  cmp-min = {
-    expr = socketUrl.toString (socketUrl.min (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81"));
+  testMinPicksLesser = {
+    expr = socketUrl.toString (socketUrl.min (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81"));
     expected = "tcp://1.2.3.4:80";
   };
-  cmp-max = {
-    expr = socketUrl.toString (socketUrl.max (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81"));
+  testMaxPicksGreater = {
+    expr = socketUrl.toString (socketUrl.max (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81"));
     expected = "tcp://1.2.3.4:81";
   };
 
   # ===== Comparison =====
-  eq-same = {
-    expr = socketUrl.eq (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:80");
+  testEqSame = {
+    expr = socketUrl.eq (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
     expected = true;
   };
-  eq-diff-transport = {
-    expr = socketUrl.eq (p "tcp://1.2.3.4:80") (p "udp://1.2.3.4:80");
+  testEqDifferentTransport = {
+    expr = socketUrl.eq (parse "tcp://1.2.3.4:80") (parse "udp://1.2.3.4:80");
     expected = false;
   };
-  eq-diff-endpoint = {
-    expr = socketUrl.eq (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+  testEqDifferentEndpoint = {
+    expr = socketUrl.eq (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81");
     expected = false;
   };
-  eq-dns-case-insensitive = {
-    expr = socketUrl.eq (p "tcp://Pool.NTP.org:123") (p "tcp://pool.ntp.org:123");
+  testEqDnsCaseInsensitive = {
+    expr = socketUrl.eq (parse "tcp://Pool.NTP.org:123") (parse "tcp://pool.ntp.org:123");
     expected = true;
   };
-  eq-same-unix = {
-    expr = socketUrl.eq (p "unix:///run/foo.sock") (p "unix:///run/foo.sock");
+  testEqSameUnix = {
+    expr = socketUrl.eq (parse "unix:///run/foo.sock") (parse "unix:///run/foo.sock");
     expected = true;
   };
-  eq-cross-family = {
-    expr = socketUrl.eq (p "tcp://1.2.3.4:80") (p "unix:///run/foo.sock");
+  testEqCrossFamily = {
+    expr = socketUrl.eq (parse "tcp://1.2.3.4:80") (parse "unix:///run/foo.sock");
     expected = false;
   };
-  compare-tcp-before-udp = {
-    expr = socketUrl.compare (p "tcp://1.2.3.4:80") (p "udp://1.2.3.4:80");
+  testCompareTcpBeforeUdp = {
+    expr = socketUrl.compare (parse "tcp://1.2.3.4:80") (parse "udp://1.2.3.4:80");
     expected = -1;
   };
-  compare-ip-before-unix = {
-    expr = socketUrl.compare (p "sctp://1.2.3.4:80") (p "unix:///run/foo.sock");
+  testCompareIpBeforeUnix = {
+    expr = socketUrl.compare (parse "sctp://1.2.3.4:80") (parse "unix:///run/foo.sock");
     expected = -1;
   };
-  compare-within-transport-by-endpoint = {
-    expr = socketUrl.compare (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:81");
+  testCompareWithinTransportByEndpoint = {
+    expr = socketUrl.compare (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81");
     expected = -1;
   };
-  compare-equal = {
-    expr = socketUrl.compare (p "tcp://1.2.3.4:80") (p "tcp://1.2.3.4:80");
+  testCompareEqual = {
+    expr = socketUrl.compare (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
     expected = 0;
   };
 
   # ===== Constant =====
-  schemes-list = {
+  testSchemesList = {
     expr = socketUrl.schemes;
     expected = [
       "tcp"

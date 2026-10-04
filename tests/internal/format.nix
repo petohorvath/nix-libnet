@@ -1,107 +1,107 @@
 { harness }:
 let
-  fmt = import ../../lib/internal/format.nix;
+  formatting = import ../../lib/internal/format.nix;
 in
 {
   # ===== hex1 =====
-  hex1-0 = {
-    expr = fmt.hex1 0;
+  testHex1Of0 = {
+    expr = formatting.hex1 0;
     expected = "0";
   };
-  hex1-9 = {
-    expr = fmt.hex1 9;
+  testHex1Of9 = {
+    expr = formatting.hex1 9;
     expected = "9";
   };
-  hex1-10 = {
-    expr = fmt.hex1 10;
+  testHex1Of10 = {
+    expr = formatting.hex1 10;
     expected = "a";
   };
-  hex1-15 = {
-    expr = fmt.hex1 15;
+  testHex1Of15 = {
+    expr = formatting.hex1 15;
     expected = "f";
   };
 
   # ===== hex2 =====
-  hex2-0 = {
-    expr = fmt.hex2 0;
+  testHex2Of0 = {
+    expr = formatting.hex2 0;
     expected = "00";
   };
-  hex2-1 = {
-    expr = fmt.hex2 1;
+  testHex2Of1 = {
+    expr = formatting.hex2 1;
     expected = "01";
   };
-  hex2-15 = {
-    expr = fmt.hex2 15;
+  testHex2Of15 = {
+    expr = formatting.hex2 15;
     expected = "0f";
   };
-  hex2-16 = {
-    expr = fmt.hex2 16;
+  testHex2Of16 = {
+    expr = formatting.hex2 16;
     expected = "10";
   };
-  hex2-255 = {
-    expr = fmt.hex2 255;
+  testHex2Of255 = {
+    expr = formatting.hex2 255;
     expected = "ff";
   };
 
   # ===== hex4 =====
-  hex4-0 = {
-    expr = fmt.hex4 0;
+  testHex4Of0 = {
+    expr = formatting.hex4 0;
     expected = "0000";
   };
-  hex4-1 = {
-    expr = fmt.hex4 1;
+  testHex4Of1 = {
+    expr = formatting.hex4 1;
     expected = "0001";
   };
-  hex4-255 = {
-    expr = fmt.hex4 255;
+  testHex4Of255 = {
+    expr = formatting.hex4 255;
     expected = "00ff";
   };
-  hex4-0x1234 = {
-    expr = fmt.hex4 4660;
+  testHex4Of0x1234 = {
+    expr = formatting.hex4 4660;
     expected = "1234";
   };
-  hex4-max = {
-    expr = fmt.hex4 65535;
+  testHex4Max = {
+    expr = formatting.hex4 65535;
     expected = "ffff";
   };
 
   # ===== hex (unpadded) =====
-  hex-0 = {
-    expr = fmt.hex 0;
+  testHexOf0 = {
+    expr = formatting.hex 0;
     expected = "0";
   };
-  hex-15 = {
-    expr = fmt.hex 15;
+  testHexOf15 = {
+    expr = formatting.hex 15;
     expected = "f";
   };
-  hex-16 = {
-    expr = fmt.hex 16;
+  testHexOf16 = {
+    expr = formatting.hex 16;
     expected = "10";
   };
-  hex-255 = {
-    expr = fmt.hex 255;
+  testHexOf255 = {
+    expr = formatting.hex 255;
     expected = "ff";
   };
-  hex-256 = {
-    expr = fmt.hex 256;
+  testHexOf256 = {
+    expr = formatting.hex 256;
     expected = "100";
   };
-  hex-u16-max = {
-    expr = fmt.hex 65535;
+  testHex16BitMax = {
+    expr = formatting.hex 65535;
     expected = "ffff";
   };
 
   # ===== longestZeroRun =====
   # len < 2 is not a qualifying run.
-  zeroRun-empty = {
-    expr = fmt.longestZeroRun [ ];
+  testZeroRunEmpty = {
+    expr = formatting.longestZeroRun [ ];
     expected = {
       start = -1;
       len = 0;
     };
   };
-  zeroRun-no-zeros = {
-    expr = fmt.longestZeroRun [
+  testZeroRunNoZeros = {
+    expr = formatting.longestZeroRun [
       1
       2
       3
@@ -111,8 +111,8 @@ in
       len = 0;
     };
   };
-  zeroRun-single-zero = {
-    expr = fmt.longestZeroRun [
+  testZeroRunSingleZero = {
+    expr = formatting.longestZeroRun [
       1
       0
       2
@@ -122,8 +122,8 @@ in
       len = 0;
     };
   };
-  zeroRun-two = {
-    expr = fmt.longestZeroRun [
+  testZeroRunTwo = {
+    expr = formatting.longestZeroRun [
       0
       0
     ];
@@ -132,8 +132,8 @@ in
       len = 2;
     };
   };
-  zeroRun-middle = {
-    expr = fmt.longestZeroRun [
+  testZeroRunMiddle = {
+    expr = formatting.longestZeroRun [
       1
       0
       0
@@ -144,8 +144,8 @@ in
       len = 2;
     };
   };
-  zeroRun-prefers-longer = {
-    expr = fmt.longestZeroRun [
+  testZeroRunPrefersLonger = {
+    expr = formatting.longestZeroRun [
       0
       0
       1
@@ -158,8 +158,8 @@ in
       len = 3;
     };
   };
-  zeroRun-tie-earliest = {
-    expr = fmt.longestZeroRun [
+  testZeroRunTieEarliest = {
+    expr = formatting.longestZeroRun [
       0
       0
       1
@@ -171,8 +171,8 @@ in
       len = 2;
     };
   };
-  zeroRun-leading = {
-    expr = fmt.longestZeroRun [
+  testZeroRunLeading = {
+    expr = formatting.longestZeroRun [
       0
       0
       0
@@ -183,8 +183,8 @@ in
       len = 3;
     };
   };
-  zeroRun-trailing = {
-    expr = fmt.longestZeroRun [
+  testZeroRunTrailing = {
+    expr = formatting.longestZeroRun [
       1
       0
       0
@@ -195,8 +195,8 @@ in
       len = 3;
     };
   };
-  zeroRun-all = {
-    expr = fmt.longestZeroRun [
+  testZeroRunAll = {
+    expr = formatting.longestZeroRun [
       0
       0
       0

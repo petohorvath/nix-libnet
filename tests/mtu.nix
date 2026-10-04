@@ -5,115 +5,115 @@ let
 in
 {
   # ===== valid range =====
-  isValid-min = {
+  testIsValidMin = {
     expr = mtu.isValid 68;
     expected = true;
   };
-  isValid-ethernet = {
+  testIsValidEthernet = {
     expr = mtu.isValid 1500;
     expected = true;
   };
-  isValid-ipv6-min = {
+  testIsValidIpv6Min = {
     expr = mtu.isValid 1280;
     expected = true;
   };
-  isValid-wg-typical = {
+  testIsValidWireGuardTypical = {
     expr = mtu.isValid 1420;
     expected = true;
   };
-  isValid-jumbo = {
+  testIsValidJumbo = {
     expr = mtu.isValid 9000;
     expected = true;
   };
-  isValid-loopback = {
-    expr = mtu.isValid 65536; # one above max
+  testIsValidLoopbackAboveMax = {
+    expr = mtu.isValid 65536; # Linux loopback default, one above max
     expected = false;
   };
-  isValid-max = {
+  testIsValidMax = {
     expr = mtu.isValid 65535;
     expected = true;
   };
 
   # ===== boundary rejects =====
-  isValid-below-min = {
+  testIsValidBelowMin = {
     expr = mtu.isValid 67;
     expected = false;
   };
-  isValid-tiny = {
+  testIsValidTiny = {
     expr = mtu.isValid 5;
     expected = false;
   };
-  isValid-zero = {
+  testIsValidZero = {
     expr = mtu.isValid 0;
     expected = false;
   };
-  isValid-negative = {
+  testIsValidNegative = {
     expr = mtu.isValid (-1);
     expected = false;
   };
-  isValid-huge = {
+  testIsValidHuge = {
     expr = mtu.isValid 100000;
     expected = false;
   };
 
   # ===== type rejects =====
-  isValid-string = {
+  testIsValidString = {
     expr = mtu.isValid "1500";
     expected = false;
   };
-  isValid-null = {
+  testIsValidNull = {
     expr = mtu.isValid null;
     expected = false;
   };
-  isValid-float = {
+  testIsValidFloat = {
     expr = mtu.isValid 1500.5;
     expected = false;
   };
-  isValid-bool = {
+  testIsValidBool = {
     expr = mtu.isValid true;
     expected = false;
   };
-  isValid-list = {
+  testIsValidList = {
     expr = mtu.isValid [ 1500 ];
     expected = false;
   };
 
   # ===== Constants =====
-  lowestValue = {
+  testLowestValue = {
     expr = mtu.lowestValue;
     expected = 68;
   };
-  highestValue = {
+  testHighestValue = {
     expr = mtu.highestValue;
     expected = 65535;
   };
 
   # ===== Tagged value =====
-  fromInt-tagged = {
+  testFromIntTagged = {
     expr = (mtu.fromInt 1500)._type;
     expected = "mtu";
   };
-  fromInt-value = {
+  testFromIntValue = {
     expr = (mtu.fromInt 1500).value;
     expected = 1500;
   };
-  fromInt-roundtrip = {
+  testFromIntRoundTrip = {
     expr = mtu.toInt (mtu.fromInt 9000);
     expected = 9000;
   };
-  fromInt-min = {
+  testFromIntMin = {
     expr = mtu.fromInt 68;
     expected = {
       _type = "mtu";
       value = 68;
     };
   };
-  fromInt-max = {
+  testFromIntMax = {
     expr = mtu.toInt (mtu.fromInt 65535);
     expected = 65535;
   };
-  fromInt-rejects-non-ints = {
-    expr = builtins.all (v: throws (mtu.fromInt v)) [
+  testFromIntRejectsNonInts = {
+    expr = builtins.all (value: throws (mtu.fromInt value)) [
       "1500"
       1500.0
       null
@@ -122,153 +122,153 @@ in
     ];
     expected = true;
   };
-  fromInt-below-throws = {
+  testFromIntBelowThrows = {
     expr = throws (mtu.fromInt 67);
     expected = true;
   };
-  fromInt-above-throws = {
+  testFromIntAboveThrows = {
     expr = throws (mtu.fromInt 65536);
     expected = true;
   };
-  toString-renders = {
+  testToStringRenders = {
     expr = mtu.toString (mtu.fromInt 1500);
     expected = "1500";
   };
 
   # ===== is (structural) =====
-  is-tagged = {
+  testIsTagged = {
     expr = mtu.is (mtu.fromInt 1500);
     expected = true;
   };
-  is-bare-int = {
+  testIsBareInt = {
     expr = mtu.is 1500;
     expected = false;
   };
-  is-untagged = {
+  testIsUntagged = {
     expr = mtu.is { value = 1500; };
     expected = false;
   };
-  is-tag-only = {
+  testIsTagOnly = {
     expr = mtu.is { _type = "mtu"; };
     expected = true;
   };
-  is-does-not-force-value = {
+  testIsDoesNotForceValue = {
     expr = mtu.is {
       _type = "mtu";
-      value = builtins.throw "is must only inspect the tag";
+      value = throw "is must only inspect the tag";
     };
     expected = true;
   };
-  eq-foreign-does-not-force-value = {
+  testEqForeignDoesNotForceValue = {
     expr = mtu.eq {
       _type = "mtu";
-      value = builtins.throw "eq must compare tags before values";
+      value = throw "eq must compare tags before values";
     } { _type = "foreign"; };
     expected = false;
   };
 
   # ===== Arithmetic =====
-  add-ok = {
+  testAddOk = {
     expr = mtu.toInt (mtu.add 100 (mtu.fromInt 1400));
     expected = 1500;
   };
-  sub-overhead = {
+  testSubOverhead = {
     expr = mtu.toInt (mtu.sub 80 (mtu.fromInt 1500));
     expected = 1420;
   };
-  add-negative-to-min = {
+  testAddNegativeToMin = {
     expr = mtu.toInt (mtu.add (-1432) (mtu.fromInt 1500));
     expected = 68;
   };
-  sub-negative-to-max = {
+  testSubNegativeToMax = {
     expr = mtu.toInt (mtu.sub (-64035) (mtu.fromInt 1500));
     expected = 65535;
   };
-  sub-float-throws = {
+  testSubFloatThrows = {
     expr = throws (mtu.sub 1.0 (mtu.fromInt 1500));
     expected = true;
   };
-  next-ok = {
+  testNextOk = {
     expr = mtu.toInt (mtu.next (mtu.fromInt 1500));
     expected = 1501;
   };
-  prev-ok = {
+  testPrevOk = {
     expr = mtu.toInt (mtu.prev (mtu.fromInt 1500));
     expected = 1499;
   };
-  diff-ok = {
+  testDiffOk = {
     expr = mtu.diff (mtu.fromInt 1500) (mtu.fromInt 9000);
     expected = 7500;
   };
-  diff-neg = {
+  testDiffNegative = {
     expr = mtu.diff (mtu.fromInt 9000) (mtu.fromInt 1500);
     expected = -7500;
   };
-  diff-zero = {
+  testDiffZero = {
     expr = mtu.diff (mtu.fromInt 1500) (mtu.fromInt 1500);
     expected = 0;
   };
-  sub-below-floor-throws = {
+  testSubBelowFloorThrows = {
     expr = throws (mtu.sub 1 (mtu.fromInt 68));
     expected = true;
   };
-  add-over-max-throws = {
+  testAddOverMaxThrows = {
     expr = throws (mtu.add 1 (mtu.fromInt 65535));
     expected = true;
   };
-  next-at-max-throws = {
+  testNextAtMaxThrows = {
     expr = throws (mtu.next (mtu.fromInt 65535));
     expected = true;
   };
-  prev-at-min-throws = {
+  testPrevAtMinThrows = {
     expr = throws (mtu.prev (mtu.fromInt 68));
     expected = true;
   };
 
   # ===== Comparison helpers =====
-  cmp-lt = {
+  testLt = {
     expr = mtu.lt (mtu.fromInt 1280) (mtu.fromInt 1500);
     expected = true;
   };
-  cmp-le = {
+  testLe = {
     expr = mtu.le (mtu.fromInt 1280) (mtu.fromInt 1500);
     expected = true;
   };
-  cmp-gt = {
+  testGt = {
     expr = mtu.gt (mtu.fromInt 1500) (mtu.fromInt 1280);
     expected = true;
   };
-  cmp-ge = {
+  testGe = {
     expr = mtu.ge (mtu.fromInt 1500) (mtu.fromInt 1280);
     expected = true;
   };
 
   # ===== Comparison =====
-  eq-same = {
+  testEqSame = {
     expr = mtu.eq (mtu.fromInt 1500) (mtu.fromInt 1500);
     expected = true;
   };
-  eq-diff = {
+  testEqDifferent = {
     expr = mtu.eq (mtu.fromInt 1500) (mtu.fromInt 9000);
     expected = false;
   };
-  compare-lt = {
+  testCompareLt = {
     expr = mtu.compare (mtu.fromInt 1280) (mtu.fromInt 1500);
     expected = -1;
   };
-  compare-gt = {
+  testCompareGt = {
     expr = mtu.compare (mtu.fromInt 9000) (mtu.fromInt 1500);
     expected = 1;
   };
-  compare-eq = {
+  testCompareEq = {
     expr = mtu.compare (mtu.fromInt 1500) (mtu.fromInt 1500);
     expected = 0;
   };
-  min-pick = {
+  testMinPick = {
     expr = mtu.toInt (mtu.min (mtu.fromInt 9000) (mtu.fromInt 1500));
     expected = 1500;
   };
-  max-pick = {
+  testMaxPick = {
     expr = mtu.toInt (mtu.max (mtu.fromInt 9000) (mtu.fromInt 1500));
     expected = 9000;
   };
