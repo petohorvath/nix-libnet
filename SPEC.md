@@ -242,7 +242,7 @@ Invariants:
 
 A single rule applies everywhere, so cross-type behavior is predictable:
 
-- **Equality (`eq`)**: always `false` when the two values are of different `_type` or different address family inside a composite, or when either operand is not an attribute set carrying a `_type` (for example `{ }`, `null` or `1`). Never throws.
+- **Equality (`eq`)**: always `false` when the two values are of different `_type` or different address family inside a composite, or when either operand is not an attribute set carrying a `_type` (for example `{ }`, `null` or `1`). Never throws. Values carrying a libnet `_type` must be well-formed, as built by the library; `eq` on a malformed tagged value, such as `{ _type = "cidr"; }`, is undefined.
 - **Ordering (`lt`/`le`/`gt`/`ge`/`compare`/`min`/`max`)**: lenient — cross-family values order by family (IPv4 before IPv6), so sorts on heterogeneous lists are stable and do not throw. Cross-*type* ordering (e.g., `Port` vs `Ipv4`) is undefined; callers who construct such mixed lists are responsible for the partitioning.
 - **Containment (`contains`, `isSubnetOf`, `isSupernetOf`, `overlaps`, `isSubrangeOf`, `isSuperrangeOf`)**: always `false` when the two arguments are of different address family. Never throws.
 - **Arithmetic (`add`/`sub`/`diff`/`next`/`prev`)**: throws on overflow/underflow past the type's range; `diff` on cross-family Ipv4/Ipv6 via `libnet.ip.diff` throws.

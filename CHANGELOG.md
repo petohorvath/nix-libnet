@@ -244,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `eq` threw instead of returning false when either operand lacked a `_type`,
   such as `{ }`, `null` or `1`, contradicting the SPEC's "never throws" rule.
   Every module's `eq` now returns false for untagged operands, through a
-  shared internal tag check.
+  shared internal tag check. The SPEC now states that `eq` on a malformed
+  value carrying a libnet `_type` is undefined.
 
 ### Fixed (during first-pass review)
 - `ipv6.isGlobal` previously shortcut to `!isBogon` (a 6-predicate check). The
