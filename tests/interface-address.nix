@@ -154,8 +154,14 @@ in
     expected = "2001:db8::5/64";
   };
   testNetworkVsToCidr = {
-    expr = cidr.toString (interfaceAddress.network (parse "192.168.1.5/24"));
-    expected = "192.168.1.0/24";
+    expr = map cidr.toString [
+      (interfaceAddress.network (parse "192.168.1.5/24"))
+      (interfaceAddress.toCidr (parse "192.168.1.5/24"))
+    ];
+    expected = [
+      "192.168.1.0/24"
+      "192.168.1.5/24"
+    ];
   };
   testToRange = {
     expr = (interfaceAddress.toRange (parse "192.168.1.5/24")).to.value;

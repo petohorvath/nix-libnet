@@ -206,7 +206,7 @@ let
     Returns true when the schemes match exactly (`socks5` differs from
     `socks5h`) and the authorities are equal, including userinfo.
   */
-  eq = a: b: a._type == b._type && a.scheme == b.scheme && authority.eq a.authority b.authority;
+  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && authority.eq a.authority b.authority;
 
   /*
     Order two proxy URLs by scheme rank (http < https < socks4 < socks4a <

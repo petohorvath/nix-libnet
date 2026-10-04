@@ -339,7 +339,8 @@ let
     `cidr`: cidr value.
 
     Returns `size` minus network and broadcast for IPv4 blocks wider than
-    /31, otherwise `size`; throws where `size` throws.
+    /31, `size` minus the Subnet-Router anycast address for IPv6 blocks
+    wider than /127, otherwise `size`; throws where `size` throws.
   */
   numHosts =
     cidr:
@@ -350,7 +351,7 @@ let
     if isV4 cidr.address then
       (if prefixLength >= 31 then addressCount else addressCount - 2)
     else
-      addressCount;
+      (if prefixLength >= 127 then addressCount else addressCount - 1);
 
   /*
     Find the first usable host address of a CIDR block.
@@ -676,7 +677,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type
+    types.hasSameTag a b
     && a.address._type == b.address._type
     && a.prefix == b.prefix
     && (

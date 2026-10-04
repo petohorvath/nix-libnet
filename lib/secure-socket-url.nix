@@ -236,7 +236,7 @@ let
 
     Returns true when the type tags, schemes, and endpoints match.
   */
-  eq = a: b: a._type == b._type && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
+  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
 
   /*
     Order two secure socket URLs by scheme (tls < dtls < quic), then by

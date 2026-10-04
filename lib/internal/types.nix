@@ -30,6 +30,10 @@ let
 
   hasTag = tag: value: builtins.isAttrs value && value ? _type && value._type == tag;
 
+  # Guards `eq`, which must return false rather than throw for untagged
+  # operands.
+  hasSameTag = a: b: builtins.isAttrs b && b ? _type && hasTag b._type a;
+
   isIpv4 = hasTag tags.ipv4;
   isIpv6 = hasTag tags.ipv6;
   isMac = hasTag tags.mac;
@@ -81,6 +85,7 @@ in
 {
   inherit
     ensureTag
+    hasSameTag
     hasTag
     isAuthority
     isBindUrl

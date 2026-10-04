@@ -219,7 +219,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type && transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
+    types.hasSameTag a b && transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
 
   /*
     Order two socket URLs by scheme (tcp < udp < sctp < unix), then by

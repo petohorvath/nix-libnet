@@ -534,7 +534,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type
+    types.hasSameTag a b
     && a.from._type == b.from._type
     && (
       if isV4 a.from then

@@ -270,7 +270,23 @@ in
   };
   testNumHostsV6Prefix120 = {
     expr = cidr.numHosts (parse "2001:db8::/120");
-    expected = 256;
+    expected = 255;
+  };
+  testNumHostsV6Prefix64Throws = {
+    expr = throws (cidr.numHosts (parse "2001:db8::/64"));
+    expected = true;
+  };
+  testNumHostsV6Prefix126 = {
+    expr = cidr.numHosts (parse "2001:db8::/126");
+    expected = 3;
+  };
+  testNumHostsV6Prefix127 = {
+    expr = cidr.numHosts (parse "2001:db8::/127");
+    expected = 2;
+  };
+  testNumHostsV6Prefix128 = {
+    expr = cidr.numHosts (parse "::1/128");
+    expected = 1;
   };
   testLastHostV6Prefix120 = {
     expr = formatIpv6 (cidr.lastHost (parse "2001:db8::/120"));
@@ -316,6 +332,29 @@ in
     expected = [
       "10.0.0.1"
       "10.0.0.2"
+    ];
+  };
+  testHostsV6Prefix126 = {
+    expr = map formatIpv6 (cidr.hosts (parse "2001:db8::/126"));
+    expected = [
+      "2001:db8::1"
+      "2001:db8::2"
+      "2001:db8::3"
+    ];
+  };
+  testHostsUnboundedV6Prefix126 = {
+    expr = map formatIpv6 (cidr.hostsUnbounded (parse "2001:db8::/126"));
+    expected = [
+      "2001:db8::1"
+      "2001:db8::2"
+      "2001:db8::3"
+    ];
+  };
+  testHostsV6Prefix127 = {
+    expr = map formatIpv6 (cidr.hosts (parse "2001:db8::/127"));
+    expected = [
+      "2001:db8::"
+      "2001:db8::1"
     ];
   };
   testHostsTooLargeThrows = {

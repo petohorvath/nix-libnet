@@ -134,7 +134,7 @@ let
 
     Returns true when both carry the same type tag and protocol.
   */
-  eq = a: b: a._type == b._type && a.value == b.value;
+  eq = a: b: types.hasSameTag a b && a.value == b.value;
 
   # ===== Constants =====
 

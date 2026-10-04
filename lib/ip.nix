@@ -217,12 +217,12 @@ let
   */
   eq =
     a: b:
-    if a._type != b._type then
-      false
-    else if types.isIpv4 a then
+    if types.isIpv4 a && types.isIpv4 b then
       ipv4.eq a b
+    else if types.isIpv6 a && types.isIpv6 b then
+      ipv6.eq a b
     else
-      ipv6.eq a b;
+      false;
 
   /*
     Order two addresses, placing every IPv4 address before every IPv6

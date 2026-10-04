@@ -283,7 +283,10 @@ let
   */
   eq =
     a: b:
-    a._type == b._type && a.userinfo == b.userinfo && urlHost.eq a.host b.host && portEq a.port b.port;
+    types.hasSameTag a b
+    && a.userinfo == b.userinfo
+    && urlHost.eq a.host b.host
+    && portEq a.port b.port;
 
   /*
     Order two authorities by host, then port (null first), then userinfo

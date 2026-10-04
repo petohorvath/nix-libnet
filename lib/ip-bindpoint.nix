@@ -485,7 +485,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type
+    types.hasSameTag a b
     && (
       a.address == null && b.address == null
       || (

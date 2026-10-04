@@ -302,8 +302,22 @@ in
     expected = false;
   };
   testIsAdjacentAtMax = {
-    expr = ipRange.isAdjacent (parse "255.255.255.254-255.255.255.255") (parse "1.0.0.0-2.0.0.0");
-    expected = false;
+    expr = ipRange.isAdjacent (parse "255.255.255.254-255.255.255.255") (
+      parse "255.255.255.252-255.255.255.253"
+    );
+    expected = true;
+  };
+  testIsAdjacentAtMaxReversed = {
+    expr = ipRange.isAdjacent (parse "255.255.255.252-255.255.255.253") (
+      parse "255.255.255.254-255.255.255.255"
+    );
+    expected = true;
+  };
+  testIsAdjacentAtMaxV6 = {
+    expr = ipRange.isAdjacent (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff") (
+      parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffc-ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffd"
+    );
+    expected = true;
   };
   testAddressesUnboundedLength = {
     expr = builtins.length (ipRange.addressesUnbounded (parse "1.0.0.0-1.0.255.255"));

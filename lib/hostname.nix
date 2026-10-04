@@ -120,7 +120,7 @@ let
     Returns true when both carry the same tag and their values match
     case-insensitively; false for values of different types.
   */
-  eq = a: b: a._type == b._type && dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
+  eq = a: b: types.hasSameTag a b && dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
 
   /*
     Order two hostnames case-insensitively, for sorting.

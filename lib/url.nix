@@ -403,7 +403,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type
+    types.hasSameTag a b
     && a.scheme == b.scheme
     && urlHost.eq a.host b.host
     && port.eq (effectivePort a) (effectivePort b)
