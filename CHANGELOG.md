@@ -233,19 +233,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name-and-address value in the shipped API.
 
 ### Fixed
-- `cidr.numHosts`, `cidr.hosts` and `cidr.hostsUnbounded` counted one
-  address too many for IPv6 blocks wider than /127: `hosts` on
-  `2001:db8::/126` returned `2001:db8::4`, outside the block. `numHosts`
-  now excludes the Subnet-Router anycast address (`size - 1`), so the
-  list runs from `firstHost` through `lastHost`; /127 and /128 still count
-  every address.
+- `cidr.numHosts`, `cidr.hosts` and `cidr.hostsUnbounded` counted one address
+  too many for IPv6 blocks wider than /127: `hosts` on `2001:db8::/126`
+  returned `2001:db8::4`, outside the block. `numHosts` now excludes the
+  Subnet-Router anycast address (`size - 1`), so the list runs from
+  `firstHost` through `lastHost`; /127 and /128 still count every address.
 - SPEC: `cidr.firstHost` for IPv6 /127 returns the network address, as
-  implemented (both endpoints usable per RFC 6164). The SPEC row
-  previously said `network+1` for every prefix except /128.
-- `eq` threw instead of returning false when either operand lacked a
-  `_type`, such as `{ }`, `null` or `1`, contradicting the SPEC's "never
-  throws" rule. Every module's `eq` now returns false for untagged
-  operands, through a shared internal tag check.
+  implemented (both endpoints usable per RFC 6164). The SPEC row previously
+  said `network+1` for every prefix except /128.
+- `eq` threw instead of returning false when either operand lacked a `_type`,
+  such as `{ }`, `null` or `1`, contradicting the SPEC's "never throws" rule.
+  Every module's `eq` now returns false for untagged operands, through a
+  shared internal tag check.
 
 ### Fixed (during first-pass review)
 - `ipv6.isGlobal` previously shortcut to `!isBogon` (a 6-predicate check). The

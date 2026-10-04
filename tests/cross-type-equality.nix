@@ -162,11 +162,19 @@ let
         expr = case.module.eq untaggedValue case.value;
         expected = false;
       };
-      testNonAttrsRight = {
+      testIntRight = {
         expr = case.module.eq case.value 1;
         expected = false;
       };
-      testNonAttrsLeft = {
+      testIntLeft = {
+        expr = case.module.eq 1 case.value;
+        expected = false;
+      };
+      testNullRight = {
+        expr = case.module.eq case.value null;
+        expected = false;
+      };
+      testNullLeft = {
         expr = case.module.eq null case.value;
         expected = false;
       };
