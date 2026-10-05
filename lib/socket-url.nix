@@ -4,7 +4,7 @@
   A socket address in URL form: `<scheme>://<endpoint>`. A bounded
   composition of `transport` and `endpoint`, *not* a general URL parser
   (no userinfo, query, fragment, percent-encoding, or relative
-  resolution; see `url` in SPEC Non-Goals). For the TLS-secured peer
+  resolution; see docs/adr/0011). For the TLS-secured peer
   (`tls`/`ssl`/`dtls`/`quic`), see `secureSocketUrl`.
 
   Schemes:
