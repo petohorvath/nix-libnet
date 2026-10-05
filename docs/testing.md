@@ -5,8 +5,8 @@
 `tests/types.nix` also takes `lib` and runs only when `tests/default.nix` receives one. The flake's `core` check passes `lib = null`, proving the core needs no nixpkgs; `full` passes `nixpkgs.lib` and adds the module-type suite.
 
 ```sh
-nix develop --command nix-unit tests/default.nix
-nix develop --command nix-unit --arg lib 'import <nixpkgs/lib>' tests/default.nix
+nix develop --command nix-unit tests/default.nix   # core suites
+nix build .#checks.x86_64-linux.full               # core plus module types, with the pinned nixpkgs
 ```
 
 ## Coverage rules

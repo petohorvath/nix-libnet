@@ -28,14 +28,14 @@ Suites: parsing, comparison. Comparison orders by family, network, then prefix, 
 | `netmask`, `hostmask` | `Cidr → Ip` | `/24` gives `255.255.255.0` and `0.0.0.255`. |
 | `firstHost` | `Cidr → Ip` | `network`, plus one except for IPv4 `/31`–`/32` and IPv6 `/127`–`/128` (RFC 6164). |
 | `lastHost` | `Cidr → Ip` | `topAddress`, minus one for IPv4 `/30` and wider. |
-| `size` | `Cidr → Int` | Address count. Throws at 2⁶³ or more (IPv6 prefixes below `/65`). |
+| `size` | `Cidr → Int` | Address count. Throws at 2⁶³ or more: IPv6 `/65` and shorter. |
 | `numHosts` | `Cidr → Int` | Usable hosts, `firstHost` through `lastHost`. |
 
 **Enumeration**
 
 | Function | Signature | Notes |
 | --- | --- | --- |
-| `hostAt` | `Int → Cidr → Ip` | Offset from `network`; `-1` is `topAddress`. |
+| `hostAt` | `Int → Cidr → Ip` | Offset from `network`; `-1` is `topAddress`. Throws where `size` does. |
 | `hosts` | `Cidr → [Ip]` | Usable hosts. Throws when `size` exceeds 2¹⁶. |
 | `hostsUnbounded` | `Cidr → [Ip]` | No guard. |
 
@@ -79,7 +79,7 @@ Suites: parsing, comparison (by family, `from`, then `to`).
 | `overlaps`, `isAdjacent` | `IpRange → IpRange → Bool` | Symmetric; `false` across families. |
 | `isSubrangeOf`, `isSuperrangeOf` | `IpRange → IpRange → Bool` | Subject first, as in `cidr.isSubnetOf`. |
 | `merge` | `IpRange → IpRange → IpRange or null` | Union when overlapping or adjacent, else `null`. |
-| `addressAt` | `Int → IpRange → Ip` | Offset from `from`. |
+| `addressAt` | `Int → IpRange → Ip` | Offset from `from`. Throws where `size` does. |
 | `addresses` | `IpRange → [Ip]` | Throws when `size` exceeds 2¹⁶. |
 | `addressesUnbounded` | `IpRange → [Ip]` | No guard. |
 
