@@ -4,7 +4,7 @@
   A bind address in URL form: `<scheme>://<bindpoint>`. The bind-side
   peer of `socketUrl` — a bounded composition of `transport` and
   `bindpoint`, *not* a general URL parser (no userinfo, query, fragment,
-  percent-encoding, or relative resolution; see `url` in SPEC Non-Goals).
+  percent-encoding, or relative resolution; see docs/adr/0011).
 
   Where `socketUrl` tags a connect `endpoint` (concrete host, single
   port), `bindUrl` tags a `bindpoint` — so it keeps the bind-side

@@ -498,7 +498,7 @@ let
     Check whether an address is native global unicast. Stricter than
     `!isBogon`: it also excludes the IPv4-mapped, IPv4-compatible, and
     6to4 forms, which are routable but not native IPv6. `ipv4.isGlobal`
-    has no such forms, so this asymmetry is intentional (see SPEC.md).
+    has no such forms, so this asymmetry is intentional (see docs/adr/0014).
 
     `ip`: IPv6 value.
 

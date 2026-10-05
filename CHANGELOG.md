@@ -214,6 +214,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT license.
 
 ### Changed
+- Documentation: `SPEC.md` is replaced by the API reference in
+  `docs/reference/`, the glossary in `CONTEXT.md`, design decisions in
+  `docs/adr/`, test conventions in `docs/testing.md`, and candidate features
+  in `docs/roadmap.md`. The reference now documents `cidr.topAddress`,
+  `portRange.isAdjacent` and `ipRange.isAdjacent`, and states that string
+  module types merge with `mergeEqualOption` (the SPEC said last-wins).
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
   `Port` values rather than raw ints. The accessors `portRange.from` /
   `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
