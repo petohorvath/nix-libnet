@@ -242,7 +242,7 @@ Invariants:
 
 A single rule applies everywhere, so cross-type behavior is predictable:
 
-- **Equality (`eq`)**: always `false` when the two values are of different `_type` or different address family inside a composite. Never throws.
+- **Equality (`eq`)**: always `false` when the two values are of different `_type` or different address family inside a composite, or when either operand is not an attribute set carrying a `_type` (for example `{ }`, `null` or `1`). Never throws. Values carrying a libnet `_type` must be well-formed, as built by the library; `eq` on a malformed tagged value, such as `{ _type = "cidr"; }`, is undefined.
 - **Ordering (`lt`/`le`/`gt`/`ge`/`compare`/`min`/`max`)**: lenient — cross-family values order by family (IPv4 before IPv6), so sorts on heterogeneous lists are stable and do not throw. Cross-*type* ordering (e.g., `Port` vs `Ipv4`) is undefined; callers who construct such mixed lists are responsible for the partitioning.
 - **Containment (`contains`, `isSubnetOf`, `isSupernetOf`, `overlaps`, `isSubrangeOf`, `isSuperrangeOf`)**: always `false` when the two arguments are of different address family. Never throws.
 - **Arithmetic (`add`/`sub`/`diff`/`next`/`prev`)**: throws on overflow/underflow past the type's range; `diff` on cross-family Ipv4/Ipv6 via `libnet.ip.diff` throws.
@@ -757,16 +757,16 @@ No `toInt`/`fromInt` — doesn't fit. (Consider `toBigIntParts → {hi, lo}` onl
 | `broadcast` | `Cidr → Ipv4` | IPv4 only; throws for IPv6. |
 | `netmask` | `Cidr → Ipv4 \| Ipv6` | E.g. `/24` → `255.255.255.0`. |
 | `hostmask` | `Cidr → Ipv4 \| Ipv6` | Inverse of netmask. |
-| `firstHost` | `Cidr → Ipv4 \| Ipv6` | First usable. For IPv4 `/31`,`/32` returns network; for `/30` and wider returns network+1. For IPv6: returns network+1 unless `/128`. |
+| `firstHost` | `Cidr → Ipv4 \| Ipv6` | First usable. For IPv4 `/31`,`/32` returns network; for `/30` and wider returns network+1. For IPv6 `/127`,`/128` returns network (every address is usable, RFC 6164); for `/126` and wider returns network+1, skipping the Subnet-Router anycast address. |
 | `lastHost` | `Cidr → Ipv4 \| Ipv6` | Last usable. IPv4 `/31`/`/32`: returns top; `/30` and wider: broadcast-1. IPv6: returns top unless `/128`. |
 | `size` | `Cidr → Int` | Total addresses. Throws for any block with ≥ 2⁶³ addresses (impossible for IPv4; IPv6 prefixes ≤ 65). For wider IPv6 blocks, callers can infer `size = 2^(128 - prefix)` externally or convert to a Range and use its size logic. |
-| `numHosts` | `Cidr → Int` | Usable host count. Same overflow rules. |
+| `numHosts` | `Cidr → Int` | Usable host count, so `firstHost` through `lastHost` holds `numHosts` addresses. IPv4 `/31`,`/32` and IPv6 `/127`,`/128`: `size`; IPv4 `/30` and wider: `size - 2`; IPv6 `/126` and wider: `size - 1`. Same overflow rules. |
 
 **Enumeration**
 | Function | Signature | Notes |
 |---|---|---|
 | `hostAt` | `Int → Cidr → Ipv4 \| Ipv6` | n-th host offset. Throws if n exceeds range. Negative n counts from the end. Parallels `bindpoint.endpointAt`. |
-| `hosts` | `Cidr → [Ipv4 \| Ipv6]` | List of all usable hosts. Throws if `size` > 2¹⁶ to prevent accidental memory blow-ups; users can override via `hostsUnbounded`. |
+| `hosts` | `Cidr → [Ipv4 \| Ipv6]` | List of all usable hosts, `firstHost` through `lastHost`. Throws if `size` > 2¹⁶ to prevent accidental memory blow-ups; users can override via `hostsUnbounded`. |
 | `hostsUnbounded` | `Cidr → [Ipv4 \| Ipv6]` | No size guard. Caller's responsibility. |
 
 **Containment & relationships**
@@ -1892,6 +1892,7 @@ The spec requires 100% coverage of the public API with explicit edge cases. Ever
 - Derived values for each prefix size: `network`, `broadcast` (IPv4 only — `broadcast` throws for IPv6), `netmask`, `hostmask`, `firstHost`, `lastHost`, `size`, `numHosts`.
   - `/31` and `/32` IPv4: `firstHost == network`, `lastHost == broadcast-or-top`, `numHosts ∈ {1, 2}`.
   - `/127` and `/128` IPv6: analogous.
+  - Wider IPv6 blocks: `firstHost == network+1`, `lastHost == top`, `numHosts == size - 1`; `hosts` on `/126` ends at the top address.
   - `/0` IPv4: `size == 2^32`, `/0` IPv6: `size` throws (too large).
 - `hostAt n`: positive `n`, negative `n` (from end), `n == 0`, out-of-range throws.
 - `hosts`: returns list for `/24`; throws on `/15` (> 2¹⁶); `hostsUnbounded` works.

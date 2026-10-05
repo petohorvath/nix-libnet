@@ -40,7 +40,7 @@ let
     in
     if number == null then
       null
-    else if number < 0 || number > portMax then
+    else if number > portMax then
       null
     else
       number;
@@ -380,7 +380,7 @@ let
 
     Returns true when both have the same type tag, `from`, and `to`.
   */
-  eq = a: b: a._type == b._type && port.eq a.from b.from && port.eq a.to b.to;
+  eq = a: b: types.hasSameTag a b && port.eq a.from b.from && port.eq a.to b.to;
 
   /*
     Order two ranges lexicographically on (from, to).

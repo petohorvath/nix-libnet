@@ -232,6 +232,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `types.ipv6InterfaceAddress`, and `types.interfaceName`; there is no combined
   name-and-address value in the shipped API.
 
+### Fixed
+- `cidr.numHosts`, `cidr.hosts` and `cidr.hostsUnbounded` counted one address
+  too many for IPv6 blocks wider than /127: `hosts` on `2001:db8::/126`
+  returned `2001:db8::4`, outside the block. `numHosts` now excludes the
+  Subnet-Router anycast address (`size - 1`), so the list runs from
+  `firstHost` through `lastHost`; /127 and /128 still count every address.
+- SPEC: `cidr.firstHost` for IPv6 /127 returns the network address, as
+  implemented (both endpoints usable per RFC 6164). The SPEC row previously
+  said `network+1` for every prefix except /128.
+- `eq` threw instead of returning false when either operand lacked a `_type`,
+  such as `{ }`, `null` or `1`, contradicting the SPEC's "never throws" rule.
+  Every module's `eq` now returns false for untagged operands, through a
+  shared internal tag check. The SPEC now states that `eq` on a malformed
+  value carrying a libnet `_type` is undefined.
+
 ### Fixed (during first-pass review)
 - `ipv6.isGlobal` previously shortcut to `!isBogon` (a 6-predicate check). The
   spec defines `isGlobal` as "none of the above special categories" which for
@@ -250,6 +265,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bindings and test names are spelled out, `inherit` lists are grouped by
   source and alphabetized, and the suites run under nix-unit with
   `test`-prefixed names nested by module. No public API impact.
+- Strengthened the `ipRange.isAdjacent` top-of-address-space tests and the
+  `interfaceAddress` `network` vs `toCidr` test, and dropped an unreachable
+  negative-number check from `portRange` parsing. No public API impact.
 - Removed unused internal exports: `hexLower`, `joinStrings`, `repeat` from
   `lib/internal/format.nix`; `isDigit`, `isHex`, `digitValues`, `hexValues`
   exports from `lib/internal/parse.nix`. No public API impact.
@@ -258,9 +276,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`libnet.port` dropped `min`/`max` constants** (they collided with the `min`/`max`
   comparison functions). Replaced with `lowestValue` (=0) and `highestValue` (=65535)
   as raw ints; `wellKnownMax` and `registeredMax` kept as raw ints.
-- **IPv6 `/127` firstHost** returns the network address (both endpoints usable per
-  RFC 6164 point-to-point). The spec narrative said `network+1` for /127 which
-  contradicted the "analogous to IPv4 /31" intent in the coverage matrix — the
-  implementation follows RFC 6164.
 - **IPv6 `toString` for IPv4-mapped addresses** emits the mixed form
   (`::ffff:1.2.3.4`) per RFC 5952 § 5 recommendation, instead of pure hex form.

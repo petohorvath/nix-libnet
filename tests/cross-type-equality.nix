@@ -130,7 +130,8 @@ let
   };
 
   # Every tagged type's `eq` must reject a foreign `_type`, whether the
-  # foreign value mirrors the case's fields or carries only the tag.
+  # foreign value mirrors the case's fields or carries only the tag, and
+  # must return false rather than throw for values with no `_type` at all.
   mkTests =
     case:
     let
@@ -140,8 +141,43 @@ let
       sparseForeign = {
         _type = "foreign";
       };
+      untaggedValue = {
+        value = 1;
+      };
     in
     {
+      testEmptyAttrsRight = {
+        expr = case.module.eq case.value { };
+        expected = false;
+      };
+      testEmptyAttrsLeft = {
+        expr = case.module.eq { } case.value;
+        expected = false;
+      };
+      testUntaggedRight = {
+        expr = case.module.eq case.value untaggedValue;
+        expected = false;
+      };
+      testUntaggedLeft = {
+        expr = case.module.eq untaggedValue case.value;
+        expected = false;
+      };
+      testIntRight = {
+        expr = case.module.eq case.value 1;
+        expected = false;
+      };
+      testIntLeft = {
+        expr = case.module.eq 1 case.value;
+        expected = false;
+      };
+      testNullRight = {
+        expr = case.module.eq case.value null;
+        expected = false;
+      };
+      testNullLeft = {
+        expr = case.module.eq null case.value;
+        expected = false;
+      };
       testForeignClone = {
         expr = case.module.eq case.value foreignClone;
         expected = false;

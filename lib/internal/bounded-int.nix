@@ -86,7 +86,7 @@ let
 
     Returns true when both tags and integers match.
   */
-  eq = a: b: a._type == b._type && a.value == b.value;
+  eq = a: b: types.hasSameTag a b && a.value == b.value;
 
   /*
     Order two values numerically.

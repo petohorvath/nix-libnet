@@ -158,7 +158,7 @@ let
 
     Returns true when both carry the same type tag and path.
   */
-  eq = a: b: a._type == b._type && a.path == b.path;
+  eq = a: b: types.hasSameTag a b && a.path == b.path;
 
   /*
     Order two Unix sockets byte-wise by path.

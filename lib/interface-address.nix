@@ -411,7 +411,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type
+    types.hasSameTag a b
     && a.address._type == b.address._type
     && a.prefix == b.prefix
     && (if isV4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address);

@@ -894,7 +894,7 @@ let
 
     Returns true when both tag and words match.
   */
-  eq = a: b: a._type == b._type && a.words == b.words;
+  eq = a: b: types.hasSameTag a b && a.words == b.words;
 
   /*
     Check whether `a` sorts before `b`.

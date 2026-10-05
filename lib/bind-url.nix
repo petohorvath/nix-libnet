@@ -223,7 +223,7 @@ let
   */
   eq =
     a: b:
-    a._type == b._type && transportEq a.transport b.transport && bindpoint.eq a.bindpoint b.bindpoint;
+    types.hasSameTag a b && transportEq a.transport b.transport && bindpoint.eq a.bindpoint b.bindpoint;
 
   /*
     Order two bind URLs by scheme (tcp < udp < sctp < unix), then by
