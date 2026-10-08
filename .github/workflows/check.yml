@@ -1,0 +1,16 @@
+name: Project checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    name: Policy
+    uses: petohorvath/nixos-project-policy/.github/workflows/check.yml@v0.5
