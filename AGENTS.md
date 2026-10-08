@@ -23,21 +23,20 @@
 
 ## Required checks
 
-Run formatting and the checks for the contributor's supported host system. Set `SYSTEM` to the matching `checks.<system>` value, such as `x86_64-linux`:
+Run the checks for the contributor's supported host system. `nix flake check` builds `checks.<system>.core`, `full`, and `formatting`; run `nix fmt` to fix a failing `formatting` check:
 
 ```sh
-SYSTEM=x86_64-linux
 nix fmt
-git diff --exit-code
-nix build --print-build-logs ".#checks.${SYSTEM}.core"
-nix build --print-build-logs ".#checks.${SYSTEM}.full"
+nix flake check --print-build-logs
 ```
 
-CI runs the `core` and `full` commands for both `x86_64-linux` and `aarch64-linux`. It also runs the full suite against both supported nixpkgs branches:
+CI calls the [shared project policy](https://github.com/petohorvath/nixos-project-policy/blob/v0.5/POLICY.md) from [`.github/workflows/check.yml`](.github/workflows/check.yml). On `x86_64-linux` and `aarch64-linux`, the policy checks the inputs, public outputs, development shell, and formatter, and runs `nix flake check` with the locked nixpkgs and with the policy's stable and unstable pins. To run the same checks locally from a clean checkout:
 
 ```sh
-nix build --print-build-logs --override-input nixpkgs github:NixOS/nixpkgs/nixos-25.11 .#checks.x86_64-linux.full
-nix build --print-build-logs --override-input nixpkgs github:NixOS/nixpkgs/nixos-unstable .#checks.x86_64-linux.full
+nix run github:petohorvath/nixos-project-policy/v0.5 -- check .
+nix run github:petohorvath/nixos-project-policy/v0.5 -- test . --nixpkgs locked
+nix run github:petohorvath/nixos-project-policy/v0.5 -- test . --nixpkgs stable
+nix run github:petohorvath/nixos-project-policy/v0.5 -- test . --nixpkgs unstable
 ```
 
 ## Agent skills

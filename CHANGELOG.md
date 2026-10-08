@@ -220,6 +220,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in `docs/roadmap.md`. The reference now documents `cidr.topAddress`,
   `portRange.isAdjacent` and `ipRange.isAdjacent`, and states that string
   module types merge with `mergeEqualOption` (the SPEC said last-wins).
+- CI calls the shared project policy `v0.5` instead of its own workflow. The
+  policy runs `nix flake check` on `x86_64-linux` and `aarch64-linux` with the
+  locked nixpkgs and the policy's stable and unstable pins. Require
+  `Policy / Check (<system>)` and
+  `Policy / Tests (locked|stable|unstable, <system>)` for both systems in
+  the branch protection of `main`; there are no VM tests, so `Policy / VM
+  tests` is skipped and not required.
+- A `checks.<system>.formatting` check replaces CI's `nix fmt` drift step.
+- Removed the git-hooks.nix pre-commit and pre-push hooks, the `git-hooks`
+  input, and `checks.<system>.pre-commit`.
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
   `Port` values rather than raw ints. The accessors `portRange.from` /
   `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
