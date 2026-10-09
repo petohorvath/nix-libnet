@@ -1,11 +1,13 @@
 # Testing
 
-[nix-unit](https://github.com/nix-community/nix-unit) runs `tests/default.nix`, which returns one suite per public namespace and an `internal` group for `lib/internal/`. Each suite file mirrors a `lib/` file, takes `{ harness }`, and returns cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`. `harness.throws expr` is `true` when forcing `expr` throws.
+[nix-unit](https://github.com/nix-community/nix-unit) runs `tests/unit.nix`, which returns one suite per public namespace and an `internal` group for `lib/internal/`. Each suite file mirrors a `lib/` file, takes `{ harness }`, and returns cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`. `harness.throws expr` is `true` when forcing `expr` throws.
 
-`tests/types.nix` also takes `lib` and runs only when `tests/default.nix` receives one. The flake's `core` check passes `lib = null`, proving the core needs no nixpkgs; `full` passes `nixpkgs.lib` and adds the module-type suite.
+`tests/types.nix` also takes `lib` and runs only when `tests/unit.nix` receives one.
+
+`tests/default.nix` assembles the flake's checks. The `core` check runs the suites with `lib = null`, proving the core needs no nixpkgs; `full` passes `nixpkgs.lib` and adds the module-type suite. `formatting` fails on unformatted files.
 
 ```sh
-nix develop --command nix-unit tests/default.nix   # core suites
+nix develop --command nix-unit tests/unit.nix      # core suites
 nix build .#checks.x86_64-linux.full               # core plus module types, with the pinned nixpkgs
 ```
 

@@ -1,0 +1,1 @@
+{ nixfmt-tree }: nixfmt-tree

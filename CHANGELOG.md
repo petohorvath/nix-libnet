@@ -198,7 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   network-layer / application-layer enums in the future.
 - Initial specification (`SPEC.md`) for a pure-Nix,
   zero-nixpkgs-dependency network-address API.
-- nix-unit test suites (`tests/default.nix`); the core suites evaluate
+- nix-unit test suites (`tests/unit.nix`); the core suites evaluate
   without `nixpkgs.lib`.
 - Complete public API across addresses, prefixes and ranges, endpoints and
   bindpoints, bounded URL forms, interface addresses and names, transport,
@@ -228,6 +228,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the branch protection of `main`; there are no VM tests, so `Policy / VM
   tests` is skipped and not required.
 - A `checks.<system>.formatting` check replaces CI's `nix fmt` drift step.
+- The flake is assembled with flake-parts and gains a `flake-parts` input
+  whose `nixpkgs-lib` follows `nixpkgs`. A `dev` partition in `dev/` supplies
+  `checks`, `devShells` and `formatter`, so evaluating `lib` loads no
+  development code. The nix-unit entry point moves from `tests/default.nix`
+  to `tests/unit.nix`; `tests/default.nix` now assembles the checks. The
+  development shell adds git, nil, nixfmt and actionlint. The
+  `x86_64-darwin` and `aarch64-darwin` outputs are removed; `checks`,
+  `devShells` and `formatter` cover only `x86_64-linux` and
+  `aarch64-linux`. See [ADR 0017](docs/adr/0017-flake-parts-root.md).
 - Removed the git-hooks.nix pre-commit and pre-push hooks, the `git-hooks`
   input, and `checks.<system>.pre-commit`.
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged

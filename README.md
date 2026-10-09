@@ -88,7 +88,7 @@ nix flake check                                # every check on every system
 nix build .#checks.x86_64-linux.core           # core suites, evaluated without nixpkgs
 nix build .#checks.x86_64-linux.full           # core plus module-type suites
 nix build .#checks.x86_64-linux.formatting     # fails on unformatted files; fix with nix fmt
-nix develop --command nix-unit tests/default.nix
+nix develop --command nix-unit tests/unit.nix
 ```
 
 Each check runs nix-unit in the build sandbox, and a failing case fails the build with its expected and actual values. `core` proves the library needs no nixpkgs; `full` proves the `withLib` integration. See [`docs/testing.md`](docs/testing.md).
