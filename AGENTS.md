@@ -4,12 +4,12 @@
 
 - `default.nix` defines the public `libnet` API.
 - `lib/` contains implementations; `lib/internal/` is not public API.
-- `tests/` mirrors the library modules; register new suites in `tests/default.nix`.
+- `tests/` mirrors the library modules; register new suites in `tests/unit.nix`; `tests/default.nix` assembles the flake checks.
 - `docs/reference/` is the authoritative API and behavior contract; read the page for any namespace you change.
 - `CONTEXT.md` defines the domain vocabulary, and `docs/adr/` records design decisions with their rationale.
 - `docs/testing.md` holds the test suite conventions and coverage rules.
 - `README.md` documents the user-facing overview and examples.
-- `flake.nix` defines formatting, development tooling, and CI checks.
+- `flake.nix` assembles the public outputs with flake-parts; the `dev` partition in `dev/` defines formatting, development tooling, and CI checks.
 
 ## Contribution rules
 
