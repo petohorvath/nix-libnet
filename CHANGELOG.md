@@ -215,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Documentation: `SPEC.md` is replaced by the API reference in
-  `docs/reference/`, the glossary in `CONTEXT.md`, design decisions in
+  `docs/reference/`, the glossary in `GLOSSARY.md`, design decisions in
   `docs/adr/`, test conventions in `docs/testing.md`, and candidate features
   in `docs/roadmap.md`. The reference now documents `cidr.topAddress`,
   `portRange.isAdjacent` and `ipRange.isAdjacent`, and states that string

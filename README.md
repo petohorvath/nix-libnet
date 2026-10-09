@@ -79,7 +79,7 @@ in
 - **Curry-friendly**: the parameter comes first, so `map (libnet.ipv4.add 1) addresses` works.
 - **Two parse surfaces**: `parse` throws; `tryParse` returns `{ success; value; error; }` for user-supplied input.
 
-[`CONTEXT.md`](CONTEXT.md) defines the vocabulary, [`docs/adr/`](docs/adr/) records the design decisions, and [`docs/roadmap.md`](docs/roadmap.md) lists candidate features.
+[`GLOSSARY.md`](GLOSSARY.md) defines the vocabulary, [`docs/adr/`](docs/adr/) records the design decisions, and [`docs/roadmap.md`](docs/roadmap.md) lists candidate features.
 
 ## Tests
 
