@@ -198,7 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   network-layer / application-layer enums in the future.
 - Initial specification (`SPEC.md`) for a pure-Nix,
   zero-nixpkgs-dependency network-address API.
-- nix-unit test suites (`tests/default.nix`); the core suites evaluate
+- nix-unit test suites (`tests/unit.nix`); the core suites evaluate
   without `nixpkgs.lib`.
 - Complete public API across addresses, prefixes and ranges, endpoints and
   bindpoints, bounded URL forms, interface addresses and names, transport,

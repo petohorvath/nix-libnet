@@ -21,7 +21,7 @@
 
       imports = [ flake-parts.flakeModules.partitions ];
 
-      # The library needs no nixpkgs; only the development outputs load it.
+      # Development outputs evaluate separately, so `lib` loads no dev code.
       partitions.dev.module = ./dev;
       partitionedAttrs = {
         checks = "dev";

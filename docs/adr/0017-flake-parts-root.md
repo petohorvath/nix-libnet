@@ -4,12 +4,12 @@ The flake is assembled with `flake-parts.lib.mkFlake`, following the layout the 
 
 The previous plain `outputs` function inlined the system loop, the check derivations and the development shell in `flake.nix`. With the partition, evaluating `lib` loads no development code, and each development output lives in its own file under `dev/`.
 
-`tests/default.nix` assembles the checks, as in the shared layout, so the nix-unit entry point moves to `tests/unit.nix`. `dev/checks.nix` adds the `formatting` check, which needs the formatter from the partition.
+`tests/default.nix` assembles the checks, as in the shared layout, so the nix-unit entry point moves to `tests/unit.nix`. `dev/checks.nix` passes the partition's formatter and package set to it.
 
 ## Consequences
 
 - Flake consumers gain `flake-parts` in their lock graph. Because its library follows `nixpkgs`, they gain no second nixpkgs input.
-- The core is unchanged: `import ./.` still needs only builtins ([ADR 0001](0001-pure-nix-core.md)), and non-flake users never evaluate flake-parts.
+- Evaluating the flake's `lib` output now runs `mkFlake`, which loads `nixpkgs.lib` through flake-parts. The core is unchanged: `import ./.` still needs only builtins ([ADR 0001](0001-pure-nix-core.md)), so consumers that must avoid nixpkgs import the source instead of the flake output.
 - flake-parts publishes empty `apps`, `legacyPackages` and `packages` namespaces, which the project policy reports as notices without failing.
 
 ## Considered options
