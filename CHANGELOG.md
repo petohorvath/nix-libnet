@@ -233,8 +233,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checks`, `devShells` and `formatter`, so evaluating `lib` loads no
   development code. The nix-unit entry point moves from `tests/default.nix`
   to `tests/unit.nix`; `tests/default.nix` now assembles the checks. The
-  development shell adds git, nil, nixfmt and actionlint. See
-  [ADR 0017](docs/adr/0017-flake-parts-root.md).
+  development shell adds git, nil, nixfmt and actionlint. The
+  `x86_64-darwin` and `aarch64-darwin` outputs are removed; `checks`,
+  `devShells` and `formatter` cover only `x86_64-linux` and
+  `aarch64-linux`. See [ADR 0017](docs/adr/0017-flake-parts-root.md).
 - Removed the git-hooks.nix pre-commit and pre-push hooks, the `git-hooks`
   input, and `checks.<system>.pre-commit`.
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged

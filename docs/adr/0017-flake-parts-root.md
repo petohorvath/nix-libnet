@@ -1,6 +1,6 @@
 # Assemble the flake with flake-parts
 
-The flake is assembled with `flake-parts.lib.mkFlake`, following the layout the other devnix-labs projects use. The root declares `nixpkgs` and `flake-parts`, whose `nixpkgs-lib` input follows `nixpkgs`, and exports only `lib`. A `dev` partition in `dev/` supplies `checks`, `devShells` and `formatter` for the same four systems as before, reusing the root inputs.
+The flake is assembled with `flake-parts.lib.mkFlake`, following the layout the other devnix-labs projects use. The root declares `nixpkgs` and `flake-parts`, whose `nixpkgs-lib` input follows `nixpkgs`, and exports only `lib`. A `dev` partition in `dev/` supplies `checks`, `devShells` and `formatter` for `x86_64-linux` and `aarch64-linux`, the systems the project policy checks, reusing the root inputs. The best-effort Darwin outputs are removed.
 
 The previous plain `outputs` function inlined the system loop, the check derivations and the development shell in `flake.nix`. With the partition, evaluating `lib` loads no development code, and each development output lives in its own file under `dev/`.
 
