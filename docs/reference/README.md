@@ -1,6 +1,6 @@
 # API reference
 
-This reference is the contract for libnet's public API: the value each namespace produces, its canonical text, and the behavior of every function. Terms follow [`CONTEXT.md`](../../CONTEXT.md); the reasons behind the design are in [`docs/adr/`](../adr/).
+This reference is the contract for libnet's public API: the value each namespace produces, its canonical text, and the behavior of every function. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md); the reasons behind the design are in [`docs/adr/`](../adr/).
 
 | Area | Namespaces |
 | --- | --- |
