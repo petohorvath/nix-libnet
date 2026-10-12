@@ -228,6 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the branch protection of `main`; there are no VM tests, so `Policy / VM
   tests` is skipped and not required.
 - A `checks.<system>.formatting` check replaces CI's `nix fmt` drift step.
+- The `nixpkgs` input tracks the stable `nixos-26.05` branch instead of
+  `nixos-unstable`, locked to the nixos-project-policy `v0.5.1` stable pin.
 - The flake is assembled with flake-parts and gains a `flake-parts` input
   whose `nixpkgs-lib` follows `nixpkgs`. A `dev` partition in `dev/` supplies
   `checks`, `devShells` and `formatter`, so evaluating `lib` loads no
