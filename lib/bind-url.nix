@@ -18,6 +18,8 @@
   - `unix` → a socket path follows (`unix:///run/foo.sock`,
     `unix://@abstract`); no port.
 
+  Schemes match case-insensitively and are emitted lowercase.
+
   Stored as the underlying `transport` + `bindpoint` pair:
 
     { _type = "bindUrl"; transport = <transport | null>;
@@ -36,8 +38,11 @@
 let
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
+  dnsLabel = import ./internal/dns-label.nix;
   transport = import ./transport.nix;
   bindpoint = import ./bindpoint.nix;
+
+  lowerAscii = dnsLabel.toLowerAscii;
 
   unixScheme = "unix";
 
@@ -54,7 +59,8 @@ let
     or recover from invalid input.
 
     `input`: `<scheme>://<bindpoint>` string; `tcp`, `udp`, and `sctp`
-    take `[address]:port` or a port range, `unix` takes a socket path.
+    take `[address]:port` or a port range, `unix` takes a socket path;
+    the scheme is matched case-insensitively.
 
     Returns a tryResult: `{ success = true; value; }` with a bindUrl
     value, or `{ success = false; error; }` describing the problem.
@@ -71,7 +77,8 @@ let
         types.tryErr "libnet.bindUrl.parse: missing '<scheme>://': \"${input}\""
       else
         let
-          scheme = builtins.elemAt parts 0;
+          rawScheme = builtins.elemAt parts 0;
+          scheme = lowerAscii rawScheme;
           # Rejoin the remainder so a stray '://' inside a path is kept.
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
           bindpointResult = bindpoint.tryParse rest;
@@ -92,7 +99,7 @@ let
               transportResult = transport.tryParse scheme;
             in
             if !transportResult.success then
-              types.tryErr "libnet.bindUrl.parse: unknown scheme \"${scheme}\" (expected tcp, udp, sctp, or unix)"
+              types.tryErr "libnet.bindUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
             else if types.isUnixSocket bindpointValue then
               types.tryErr "libnet.bindUrl.parse: '${scheme}://' requires [addr]:port, not a socket path: \"${input}\""
             else
@@ -102,7 +109,8 @@ let
     Parse a bind URL.
 
     `input`: `<scheme>://<bindpoint>` string; `tcp`, `udp`, and `sctp`
-    take `[address]:port` or a port range, `unix` takes a socket path.
+    take `[address]:port` or a port range, `unix` takes a socket path;
+    the scheme is matched case-insensitively.
 
     Returns a bindUrl value; throws on malformed input, an unknown
     scheme, or a scheme that does not match the address kind.

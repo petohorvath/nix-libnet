@@ -1,6 +1,6 @@
 # URL forms
 
-Every URL form is bounded: a closed scheme registry, components stored verbatim, and no relative or opaque URIs ([ADR 0011](../adr/0011-bounded-url-forms.md)). `secureSocketUrl`, `url` and `proxyUrl` match schemes case-insensitively and print them lowercase; `socketUrl` and `bindUrl` require lowercase, like `transport`.
+Every URL form is bounded: a closed scheme registry, components stored verbatim, and no relative or opaque URIs ([ADR 0011](../adr/0011-bounded-url-forms.md)). Every form matches schemes case-insensitively and prints them lowercase; `transport` stays case-sensitive ([ADR 0012](../adr/0012-transport-enum.md)).
 
 | Form | Text | Schemes | Holds |
 | --- | --- | --- | --- |

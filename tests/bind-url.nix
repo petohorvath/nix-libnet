@@ -29,6 +29,18 @@ in
     expr = bindUrl.toString (parse "tcp://*:8080");
     expected = "tcp://:8080";
   };
+  testParseSchemeUppercase = {
+    expr = bindUrl.toString (parse "TCP://:80");
+    expected = "tcp://:80";
+  };
+  testParseSchemeMixedCase = {
+    expr = bindUrl.toString (parse "Udp://0.0.0.0:53");
+    expected = "udp://0.0.0.0:53";
+  };
+  testParseSchemeUppercaseSctp = {
+    expr = bindUrl.toString (parse "SCTP://[::]:8000-8100");
+    expected = "sctp://[::]:8000-8100";
+  };
   testParseTagged = {
     expr = (parse "tcp://:8080")._type;
     expected = "bindUrl";
@@ -54,6 +66,10 @@ in
   testParseUnixTransportNull = {
     expr = bindUrl.transport (parse "unix:///run/foo.sock");
     expected = null;
+  };
+  testParseUnixSchemeUppercase = {
+    expr = bindUrl.toString (parse "UNIX:///run/foo.sock");
+    expected = "unix:///run/foo.sock";
   };
   testParseUnixBindpointKind = {
     expr = (bindUrl.bindpoint (parse "unix:///run/foo.sock"))._type;
@@ -97,6 +113,10 @@ in
   testTryParseBad = {
     expr = (bindUrl.tryParse ":8080").success;
     expected = false;
+  };
+  testTryParseUnknownSchemeErrorKeepsCase = {
+    expr = (bindUrl.tryParse "HTTP://:8080").error;
+    expected = "libnet.bindUrl.parse: unknown scheme \"HTTP\" (expected tcp, udp, sctp, or unix)";
   };
   testTryParseBadError = {
     expr = builtins.isString (bindUrl.tryParse "http://:8080").error;
@@ -193,6 +213,10 @@ in
   testEqDifferentBindpoint = {
     expr = bindUrl.eq (parse "tcp://:8080") (parse "tcp://:8081");
     expected = false;
+  };
+  testEqSchemeCaseInsensitive = {
+    expr = bindUrl.eq (parse "TCP://:8080") (parse "tcp://:8080");
+    expected = true;
   };
   testEqSameUnix = {
     expr = bindUrl.eq (parse "unix:///run/foo.sock") (parse "unix:///run/foo.sock");

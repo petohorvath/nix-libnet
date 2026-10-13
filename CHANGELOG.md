@@ -241,6 +241,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `aarch64-linux`. See [ADR 0017](docs/adr/0017-flake-parts-root.md).
 - Removed the git-hooks.nix pre-commit and pre-push hooks, the `git-hooks`
   input, and `checks.<system>.pre-commit`.
+- `libnet.socketUrl` and `libnet.bindUrl` match schemes case-insensitively
+  and print them lowercase, like `secureSocketUrl`, `url` and `proxyUrl`
+  (RFC 3986 §3.1): `socketUrl.parse "TCP://1.2.3.4:80"` now succeeds and
+  prints `tcp://1.2.3.4:80`. `types.socketUrl` and `types.bindUrl` accept
+  the same inputs. `transport.parse` stays case-sensitive.
 - **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
   `Port` values rather than raw ints. The accessors `portRange.from` /
   `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
