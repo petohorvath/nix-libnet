@@ -46,7 +46,7 @@ Without flakes, import the repository root:
 libnet = import (builtins.fetchTarball "https://github.com/petohorvath/nix-libnet/archive/main.tar.gz");
 ```
 
-To pin a version, replace `main` with a release tag such as `v0.1.0` (`archive/v0.1.0.tar.gz`) or a commit hash, and pass `fetchTarball` the archive's `sha256`.
+To pin a release, replace `main` with its tag, as in `archive/v0.1.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
 
 ## Usage
 
