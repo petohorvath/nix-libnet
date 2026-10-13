@@ -30,7 +30,7 @@ nix fmt
 nix flake check --print-build-logs
 ```
 
-CI calls the [shared project policy](https://github.com/petohorvath/nixos-project-policy/blob/v0.6/POLICY.md) from [`.github/workflows/check.yml`](.github/workflows/check.yml). On `x86_64-linux` and `aarch64-linux`, the policy checks the inputs, public outputs, development shell, and formatter, and evaluates every output and builds every `checks` entry with the locked nixpkgs and with the policy's stable and unstable pins. The checker's `test` needs a Nix whose `nix derivation show` reports format version 4, such as Nix 2.34. To run the same checks locally from a clean checkout:
+CI calls the [shared project policy](https://github.com/petohorvath/nixos-project-policy/blob/v0.6/POLICY.md) from [`.github/workflows/check.yml`](.github/workflows/check.yml). On `x86_64-linux` and `aarch64-linux`, the policy checks the inputs, public outputs, development shell, and formatter, and evaluates every output and builds every `checks` entry with the locked nixpkgs and with the policy's stable and unstable pins. To run the same checks locally from a clean checkout, the checker's `test` needs a Nix whose `nix derivation show` reports format version 4, such as Nix 2.34; the library's own minimum stays 2.18:
 
 ```sh
 nix run github:petohorvath/nixos-project-policy/v0.6 -- check .
