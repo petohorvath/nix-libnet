@@ -48,7 +48,7 @@ To pin a version, replace `main` with a commit hash and pass `fetchTarball` the 
 
 ## Usage
 
-Compute the broadcast address of a CIDR block:
+With the `nix-command` and `flakes` experimental features enabled, compute the broadcast address of a CIDR block:
 
 ```sh
 nix eval github:petohorvath/nix-libnet#lib --apply 'libnet: libnet.ipv4.toString (libnet.cidr.broadcast (libnet.cidr.parse "10.0.0.0/24"))'
