@@ -37,6 +37,18 @@ in
     expr = (socketUrl.endpoint (parse "tcp://pool.ntp.org:123"))._type;
     expected = "dnsEndpoint";
   };
+  testParseSchemeUppercase = {
+    expr = socketUrl.toString (parse "TCP://1.2.3.4:80");
+    expected = "tcp://1.2.3.4:80";
+  };
+  testParseSchemeMixedCase = {
+    expr = socketUrl.toString (parse "Udp://[::1]:53");
+    expected = "udp://[::1]:53";
+  };
+  testParseSchemeUppercaseSctp = {
+    expr = socketUrl.toString (parse "SCTP://pool.ntp.org:9999");
+    expected = "sctp://pool.ntp.org:9999";
+  };
 
   # ===== Parse: unix scheme =====
   testParseUnixPathname = {
@@ -50,6 +62,10 @@ in
   testParseUnixTransportNull = {
     expr = socketUrl.transport (parse "unix:///run/foo.sock");
     expected = null;
+  };
+  testParseUnixSchemeUppercase = {
+    expr = socketUrl.toString (parse "UNIX:///run/foo.sock");
+    expected = "unix:///run/foo.sock";
   };
   testParseUnixEndpointKind = {
     expr = (socketUrl.endpoint (parse "unix:///run/foo.sock"))._type;
@@ -73,9 +89,17 @@ in
     expr = throws (parse "tcp:///run/foo.sock");
     expected = true;
   };
+  testRejectTcpPathUppercaseScheme = {
+    expr = (socketUrl.tryParse "TCP:///run/foo.sock").error;
+    expected = "libnet.socketUrl.parse: 'tcp://' requires host:port, not a socket path: \"TCP:///run/foo.sock\"";
+  };
   testRejectUnixHostPort = {
     expr = throws (parse "unix://1.2.3.4:80");
     expected = true;
+  };
+  testRejectUnixHostPortUppercaseScheme = {
+    expr = (socketUrl.tryParse "UNIX://1.2.3.4:80").error;
+    expected = "libnet.socketUrl.parse: 'unix://' requires a socket path: \"UNIX://1.2.3.4:80\"";
   };
   testRejectBadEndpoint = {
     expr = throws (parse "tcp://host_name:1");
@@ -97,6 +121,10 @@ in
   testTryParseBad = {
     expr = (socketUrl.tryParse "1.2.3.4:80").success;
     expected = false;
+  };
+  testTryParseUnknownSchemeErrorKeepsCase = {
+    expr = (socketUrl.tryParse "HTTP://x:1").error;
+    expected = "libnet.socketUrl.parse: unknown scheme \"HTTP\" (expected tcp, udp, sctp, or unix)";
   };
   testTryParseBadError = {
     expr = builtins.isString (socketUrl.tryParse "http://x:1").error;
@@ -189,6 +217,10 @@ in
   testEqDifferentEndpoint = {
     expr = socketUrl.eq (parse "tcp://1.2.3.4:80") (parse "tcp://1.2.3.4:81");
     expected = false;
+  };
+  testEqSchemeCaseInsensitive = {
+    expr = socketUrl.eq (parse "TCP://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
+    expected = true;
   };
   testEqDnsCaseInsensitive = {
     expr = socketUrl.eq (parse "tcp://Pool.NTP.org:123") (parse "tcp://pool.ntp.org:123");
