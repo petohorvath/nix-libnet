@@ -13,4 +13,4 @@ permissions:
 jobs:
   policy:
     name: Policy
-    uses: petohorvath/nixos-project-policy/.github/workflows/check.yml@v0.5
+    uses: petohorvath/nixos-project-policy/.github/workflows/check.yml@v0.6
