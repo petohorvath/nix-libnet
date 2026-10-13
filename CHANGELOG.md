@@ -220,13 +220,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in `docs/roadmap.md`. The reference now documents `cidr.topAddress`,
   `portRange.isAdjacent` and `ipRange.isAdjacent`, and states that string
   module types merge with `mergeEqualOption` (the SPEC said last-wins).
-- CI calls the shared project policy `v0.5` instead of its own workflow. The
-  policy runs `nix flake check` on `x86_64-linux` and `aarch64-linux` with the
-  locked nixpkgs and the policy's stable and unstable pins. Require
-  `Policy / Check (<system>)` and
+- CI calls the shared project policy `v0.6` instead of its own workflow. The
+  policy evaluates every output and builds every `checks` entry on
+  `x86_64-linux` and `aarch64-linux` with the locked nixpkgs and the
+  policy's stable and unstable pins. Require `Policy / Check (<system>)` and
   `Policy / Tests (locked|stable|unstable, <system>)` for both systems in
-  the branch protection of `main`; there are no VM tests, so `Policy / VM
-  tests` is skipped and not required.
+  the branch protection of `main`; there are no VM tests, so no
+  `Policy / VM tests (<nixpkgs>, <system>)` status is required.
 - A `checks.<system>.formatting` check replaces CI's `nix fmt` drift step.
 - The `nixpkgs` input tracks the stable `nixos-26.05` branch instead of
   `nixos-unstable`, locked to the nixos-project-policy `v0.5.1` stable pin.
