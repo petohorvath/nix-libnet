@@ -89,9 +89,17 @@ in
     expr = throws (parse "tcp:///run/foo.sock");
     expected = true;
   };
+  testRejectTcpPathUppercaseScheme = {
+    expr = (socketUrl.tryParse "TCP:///run/foo.sock").error;
+    expected = "libnet.socketUrl.parse: 'tcp://' requires host:port, not a socket path: \"TCP:///run/foo.sock\"";
+  };
   testRejectUnixHostPort = {
     expr = throws (parse "unix://1.2.3.4:80");
     expected = true;
+  };
+  testRejectUnixHostPortUppercaseScheme = {
+    expr = (socketUrl.tryParse "UNIX://1.2.3.4:80").error;
+    expected = "libnet.socketUrl.parse: 'unix://' requires a socket path: \"UNIX://1.2.3.4:80\"";
   };
   testRejectBadEndpoint = {
     expr = throws (parse "tcp://host_name:1");

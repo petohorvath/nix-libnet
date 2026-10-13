@@ -73,7 +73,7 @@ let
       else
         let
           rawScheme = builtins.elemAt parts 0;
-          scheme = lowerAscii rawScheme;
+          lowerScheme = lowerAscii rawScheme;
           # Rejoin the remainder so a stray '://' inside a path is kept.
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
           endpointResult = endpoint.tryParse rest;
@@ -84,19 +84,19 @@ let
           let
             endpointValue = endpointResult.value;
           in
-          if scheme == unixScheme then
+          if lowerScheme == unixScheme then
             if types.isUnixSocket endpointValue then
               types.tryOk (mk null endpointValue)
             else
               types.tryErr "libnet.socketUrl.parse: 'unix://' requires a socket path: \"${input}\""
           else
             let
-              transportResult = transport.tryParse scheme;
+              transportResult = transport.tryParse lowerScheme;
             in
             if !transportResult.success then
               types.tryErr "libnet.socketUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
             else if types.isUnixSocket endpointValue then
-              types.tryErr "libnet.socketUrl.parse: '${scheme}://' requires host:port, not a socket path: \"${input}\""
+              types.tryErr "libnet.socketUrl.parse: '${lowerScheme}://' requires host:port, not a socket path: \"${input}\""
             else
               types.tryOk (mk transportResult.value endpointValue);
 
