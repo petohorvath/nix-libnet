@@ -1,44 +1,75 @@
-# libnet
+# nix-libnet
 
-Pure-Nix library for network values: IPv4, IPv6 and MAC addresses, CIDR blocks and ranges, ports, DNS names, connect and bind targets, and bounded URL forms. Every value is parsed, validated and tagged, with RFC-conformant formatting, arithmetic, predicates and set algebra. The core has no nixpkgs dependency; NixOS option types are opt-in.
+nix-libnet provides `libnet`, a pure-Nix library that parses, validates, formats and computes on network values: IPv4, IPv6 and MAC addresses, CIDR blocks and ranges, ports, DNS names, connect and bind targets, and bounded URL forms. It serves Nix code that handles network configuration, such as NixOS modules, flakes and CI tooling, where nixpkgs offers no IP arithmetic. The core uses only Nix builtins, so it also works without nixpkgs; NixOS option types are opt-in.
 
-## Quick start
+## Overview
+
+`parse` turns text into a value, an attribute set tagged with its kind, such as `{ _type = "ipv4"; value = 167772165; }`. `toString` returns the canonical text. The tag lets `is` check a value's kind and lets pass-through unions such as `ip` and `endpoint` dispatch on it.
+
+Namespaces share standard suites for parsing, comparison and, where a kind supports it, arithmetic; the [API reference](docs/reference/README.md) documents each namespace and the suites it provides. Functions take their parameter first and the operand last, so `map (libnet.ipv4.add 1) addresses` works.
+
+`parse` throws on invalid input, and `tryParse` returns `{ success; value; error; }` for input that may be invalid. Other failures, such as arithmetic overflow, throw a message that starts with `libnet` and names the function.
+
+[GLOSSARY.md](GLOSSARY.md) defines the vocabulary, and [docs/adr/](docs/adr/) records the design decisions.
+
+## Requirements
+
+- Nix 2.18 or later.
+- `nixpkgs.lib`, only for the NixOS option types.
+
+The library evaluates on any system. The flake's checks and development shell cover `x86_64-linux` and `aarch64-linux`.
+
+## Install
+
+With flakes, add the repository as an input and take the library from its `lib` output:
 
 ```nix
-let
-  libnet = import ./nix-libnet;
+{
+  inputs.nix-libnet.url = "github:petohorvath/nix-libnet";
 
-  block = libnet.cidr.parse "10.0.0.0/24";
-  inBlock = libnet.cidr.contains block (libnet.ipv4.parse "10.0.0.5"); # true
-  broadcast = libnet.ipv4.toString (libnet.cidr.broadcast block); # "10.0.0.255"
-
-  slaac = libnet.ipv6.fromEui64 (libnet.cidr.parse "2001:db8::/64") (
-    libnet.mac.parse "aa:bb:cc:dd:ee:ff"
-  ); # 2001:db8::a8bb:ccff:fedd:eeff
-
-  endpoint = libnet.ipEndpoint.parse "[::1]:443";
-  isLocal = libnet.ipEndpoint.isLoopback endpoint; # true
-
-  listen = libnet.ipBindpoint.parse ":8080-8082";
-  isWildcard = libnet.ipBindpoint.isAnyAddress listen; # true
-
-  merged = libnet.cidr.summarize [
-    (libnet.cidr.parse "10.0.0.0/25")
-    (libnet.cidr.parse "10.0.0.128/25")
-  ]; # [ 10.0.0.0/24 ]
-in
-broadcast
+  outputs =
+    { nix-libnet, ... }:
+    let
+      libnet = nix-libnet.lib;
+    in
+    {
+      # Use libnet here.
+    };
+}
 ```
 
-## NixOS module types
-
-`libnet.withLib lib` adds `types`, NixOS option types that validate with the core parsers. Option values stay strings after merge, as in other NixOS options; call `parse` when structure is needed. Ports and the bounded integers (`vlanId`, `mtu`, `icmpType`) merge to integers.
+Without flakes, import the repository root:
 
 ```nix
-{ lib, ... }:
+libnet = import (builtins.fetchTarball "https://github.com/petohorvath/nix-libnet/archive/main.tar.gz");
+```
+
+To pin a version, replace `main` with a commit hash and pass `fetchTarball` the archive's `sha256`.
+
+## Usage
+
+With the `nix-command` and `flakes` experimental features enabled, compute the broadcast address of a CIDR block:
+
+```sh
+nix eval github:petohorvath/nix-libnet#lib --apply 'libnet: libnet.ipv4.toString (libnet.cidr.broadcast (libnet.cidr.parse "10.0.0.0/24"))'
+```
+
+```text
+"10.0.0.255"
+```
+
+The [API reference](docs/reference/README.md) documents every namespace and function.
+
+## NixOS option types
+
+`libnet.withLib lib` returns the library plus `types`, a set of NixOS option types that validate with the core parsers. String option values stay strings after merge, so code that needs structure calls `parse`. `types.port`, `types.vlanId`, `types.mtu` and `types.icmpType` merge to integers.
+
+In a NixOS module that receives `libnet` as an argument, for example through `specialArgs`:
+
+```nix
+{ lib, libnet, ... }:
 let
-  libnet = (import ./nix-libnet).withLib lib;
-  inherit (libnet) types;
+  inherit (libnet.withLib lib) types;
 in
 {
   options.services.example = {
@@ -58,45 +89,19 @@ in
 }
 ```
 
-## Namespaces
+[Module types](docs/reference/module-types.md) lists every type and its merge behavior.
 
-| Area | Namespaces |
-| --- | --- |
-| [Addresses](docs/reference/addresses.md) | `ipv4`, `ipv6`, `ip` (either family), `mac` |
-| [Networks](docs/reference/networks.md) | `cidr`, `ipRange`, `interfaceAddress` |
-| [Ports and transports](docs/reference/ports.md) | `port`, `portRange`, `transport` |
-| [Names](docs/reference/names.md) | `hostname`, `domain`, `dnsName`, `host`, `interfaceName` |
-| [Targets](docs/reference/targets.md) | `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`, `ipBindpoint`, `bindpoint` |
-| [URL forms](docs/reference/urls.md) | `socketUrl`, `bindUrl`, `secureSocketUrl`, `urlHost`, `authority`, `url`, `proxyUrl` |
-| [Bounded integers](docs/reference/bounded-integers.md) | `vlanId`, `mtu`, `icmpType` |
-| [Registry](docs/reference/registry.md) | Bogon blocks, service ports, ICMP types |
-| [Module types](docs/reference/module-types.md) | `withLib`, `types` |
+## Limitations
 
-## Design
+- libnet works on syntax and arithmetic only: it performs no DNS resolution and carries no GeoIP, WHOIS or Public Suffix List data ([ADR 0003](docs/adr/0003-syntax-not-resolution.md)).
+- Internationalized domain names and IPv6 zone identifiers such as `fe80::1%eth0` are rejected.
+- The URL forms accept fixed shapes over closed scheme sets, not general URLs, and store components without percent-decoding ([ADR 0011](docs/adr/0011-bounded-url-forms.md)).
+- IPv6 sizes and differences of 2⁶³ or more throw, such as `cidr.size` on `/65` and shorter prefixes ([ADR 0005](docs/adr/0005-integer-representations.md)).
 
-- **Tagged values**: every value is an attribute set with a `_type`, so unions dispatch safely and `is` checks kinds.
-- **Uniform API**: namespaces share `parse`, `tryParse`, `toString`, `isValid`, `is`, the comparison suite `eq` through `max`, and, where meaningful, `add`, `sub`, `diff`, `next` and `prev`.
-- **Curry-friendly**: the parameter comes first, so `map (libnet.ipv4.add 1) addresses` works.
-- **Two parse surfaces**: `parse` throws; `tryParse` returns `{ success; value; error; }` for user-supplied input.
+## Contributing
 
-[`GLOSSARY.md`](GLOSSARY.md) defines the vocabulary, [`docs/adr/`](docs/adr/) records the design decisions, and [`docs/roadmap.md`](docs/roadmap.md) lists candidate features.
-
-## Tests
-
-```sh
-nix flake check                                # every check on every system
-nix build .#checks.x86_64-linux.core           # core suites, evaluated without nixpkgs
-nix build .#checks.x86_64-linux.full           # core plus module-type suites
-nix build .#checks.x86_64-linux.formatting     # fails on unformatted files; fix with nix fmt
-nix develop --command nix-unit tests/unit.nix
-```
-
-Each check runs nix-unit in the build sandbox, and a failing case fails the build with its expected and actual values. `core` proves the library needs no nixpkgs; `full` proves the `withLib` integration. See [`docs/testing.md`](docs/testing.md).
-
-## Requirements
-
-Nix 2.18 or later.
+Report bugs and ask questions in [GitHub Issues](https://github.com/petohorvath/nix-libnet/issues). [AGENTS.md](AGENTS.md) lists the contribution rules and required checks, and [docs/testing.md](docs/testing.md) the test conventions.
 
 ## License
 
-MIT; see [LICENSE](LICENSE).
+[MIT](LICENSE)

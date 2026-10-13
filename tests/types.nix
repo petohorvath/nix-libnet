@@ -306,6 +306,10 @@ in
     expr = types.socketUrl.check "unix:///run/foo.sock";
     expected = true;
   };
+  testSocketUrlUppercaseScheme = {
+    expr = types.socketUrl.check "TCP://1.2.3.4:80";
+    expected = true;
+  };
   testSocketUrlNoScheme = {
     expr = types.socketUrl.check "1.2.3.4:80";
     expected = false;
@@ -342,6 +346,10 @@ in
   };
   testBindUrlUnix = {
     expr = types.bindUrl.check "unix:///run/foo.sock";
+    expected = true;
+  };
+  testBindUrlUppercaseScheme = {
+    expr = types.bindUrl.check "TCP://:80";
     expected = true;
   };
   testBindUrlNoScheme = {

@@ -13,6 +13,8 @@
   - `unix` → a socket path follows (`unix:///run/foo.sock`,
     `unix://@abstract`); no port.
 
+  Schemes match case-insensitively and are emitted lowercase.
+
   Stored as the underlying `transport` + `endpoint` pair:
 
     { _type = "socketUrl"; transport = <transport | null>;
@@ -31,8 +33,11 @@
 let
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
+  dnsLabel = import ./internal/dns-label.nix;
   transport = import ./transport.nix;
   endpoint = import ./endpoint.nix;
+
+  lowerAscii = dnsLabel.toLowerAscii;
 
   unixScheme = "unix";
 
@@ -49,7 +54,8 @@ let
     or recover from invalid input.
 
     `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
-    take `host:port`, `unix` takes a socket path.
+    take `host:port`, `unix` takes a socket path;
+    the scheme is matched case-insensitively.
 
     Returns a tryResult: `{ success = true; value; }` with a socketUrl
     value, or `{ success = false; error; }` describing the problem.
@@ -66,7 +72,8 @@ let
         types.tryErr "libnet.socketUrl.parse: missing '<scheme>://': \"${input}\""
       else
         let
-          scheme = builtins.elemAt parts 0;
+          rawScheme = builtins.elemAt parts 0;
+          lowerScheme = lowerAscii rawScheme;
           # Rejoin the remainder so a stray '://' inside a path is kept.
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
           endpointResult = endpoint.tryParse rest;
@@ -77,19 +84,19 @@ let
           let
             endpointValue = endpointResult.value;
           in
-          if scheme == unixScheme then
+          if lowerScheme == unixScheme then
             if types.isUnixSocket endpointValue then
               types.tryOk (mk null endpointValue)
             else
               types.tryErr "libnet.socketUrl.parse: 'unix://' requires a socket path: \"${input}\""
           else
             let
-              transportResult = transport.tryParse scheme;
+              transportResult = transport.tryParse lowerScheme;
             in
             if !transportResult.success then
-              types.tryErr "libnet.socketUrl.parse: unknown scheme \"${scheme}\" (expected tcp, udp, sctp, or unix)"
+              types.tryErr "libnet.socketUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
             else if types.isUnixSocket endpointValue then
-              types.tryErr "libnet.socketUrl.parse: '${scheme}://' requires host:port, not a socket path: \"${input}\""
+              types.tryErr "libnet.socketUrl.parse: '${lowerScheme}://' requires host:port, not a socket path: \"${input}\""
             else
               types.tryOk (mk transportResult.value endpointValue);
 
@@ -97,7 +104,8 @@ let
     Parse a socket URL.
 
     `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
-    take `host:port`, `unix` takes a socket path.
+    take `host:port`, `unix` takes a socket path;
+    the scheme is matched case-insensitively.
 
     Returns a socketUrl value; throws on malformed input, an unknown
     scheme, or a scheme that does not match the address kind.
