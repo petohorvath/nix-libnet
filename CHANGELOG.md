@@ -2,311 +2,50 @@
 
 All notable changes to libnet will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-13
+
+First release. The [API reference](docs/reference/README.md) documents every namespace below.
+
 ### Added
-- `libnet.icmpType` — ICMP / ICMPv6 message type as a tagged int in
-  `[0, 255]` (the 8-bit Type field, RFC 792 / RFC 4443). One
-  family-agnostic type: v4 and v6 share the range, so a wrong-family
-  constant is not range-detectable (like a UDP port in a TCP list);
-  named constants stay bare ints in `libnet.registry.icmpTypes`.
-  Tagged like `libnet.port`: `fromInt` / `toInt` / `toString` /
-  `isValid` / `is` plus the numeric comparison suite and
-  `lowestValue` / `highestValue` constants. No string `parse`, and no
-  arithmetic — adjacent type numbers are unrelated messages. Opt-in
-  module type `libnet.types.icmpType` enforces the range and coerces
-  to a bare int (like `types.port`).
-- `libnet.bindUrl` — a bind address in URL form, `<scheme>://<bindpoint>`
-  (`tcp://:8080`, `udp://0.0.0.0:53`, `tcp://[::]:8000-8100`,
-  `unix:///run/foo.sock`). The bind-side peer of `socketUrl`: stored as
-  the underlying `transport` + `bindpoint` pair (`{ _type = "bindUrl";
-  transport = <transport | null>; bindpoint = <bindpoint>; }`),
-  `transport` null iff the bindpoint is a `unixSocket`. Because it tags
-  a `bindpoint` (not an `endpoint`), it keeps the wildcard-address and
-  port-range affordances `socketUrl` cannot express. API: parse /
-  tryParse / toString / make / isValid / is / isUnix / transport /
-  bindpoint + comparison (fixed scheme rank `tcp < udp < sctp < unix`,
-  then bindpoint) + `schemes` constant. Opt-in module type
-  `libnet.types.bindUrl`.
-- `libnet.proxyUrl` — the address of a proxy server in URL form,
-  `<scheme>://[userinfo@]host:port` (`socks5://127.0.0.1:1080`,
-  `http://user:pass@proxy.corp:8080`). A bounded composition of a proxy
-  scheme and a `libnet.authority`. Stored as `{ _type = "proxyUrl";
-  scheme = <scheme>; authority = <authority value>; }`. Closed scheme
-  set: `http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`
-  (case-insensitive in, lowercase out; the `a`/`h` variants resolve DNS
-  at the proxy). The port is required — proxy default ports are not
-  standardized. API: parse / tryParse / toString / make / isValid / is
-  / scheme / authority + comparison (fixed scheme rank, then authority)
-  + `schemes` constant. Opt-in module type `libnet.types.proxyUrl`.
-- `libnet.authority` — the URL authority component (RFC 3986 §3.2),
-  `[userinfo@]host[:port]`, extracted from `libnet.url` as a first-class
-  public type. Stored as `{ _type = "authority"; userinfo = <string |
-  null>; host = <urlHost value>; port = <port value | null>; }`. `url`
-  now parses its authority through this module (no behaviour change — the
-  authority parser and `splitHostPort` moved out of `url.nix`), and the
-  type is usable standalone. API: parse / tryParse / toString / make /
-  isValid / is / userinfo / host / port + comparison. Comparison is
-  structural and **includes** userinfo (an authority is exactly its
-  text), with ports compared as-stored — unlike `url`, which ignores
-  userinfo and folds scheme-default ports. Opt-in module type
-  `libnet.types.authority`.
-- `libnet.secureSocketUrl` — a TLS-secured socket address in URL form,
-  `<scheme>://<endpoint>` (`tls://1.2.3.4:443`, `dtls://[::1]:5684`,
-  `quic://example.com:443`). The secured peer of `socketUrl`: same
-  `scheme://host:port` shape, but every scheme implies TLS. Stored as
-  `{ _type = "secureSocketUrl"; scheme = <"tls" | "dtls" | "quic">;
-  endpoint = <ipEndpoint | dnsEndpoint>; }` — the scheme is the stored
-  identity (with `transport` derived) because `dtls` and `quic` are both
-  UDP+TLS and a transport-plus-flag form could not tell them apart.
-  Closed scheme registry `tls`/`dtls`/`quic`; `ssl` is accepted on parse
-  as an alias of `tls` and canonicalized; there is no `unix` scheme and
-  no scheme-default port (the endpoint carries an explicit port). API:
-  parse / tryParse / toString / make / isValid / is / isSecure (always
-  true) / scheme / endpoint / transport + comparison (`tls < dtls <
-  quic`, then endpoint) + `schemes` / `aliases` constants. Opt-in module
-  type `libnet.types.secureSocketUrl`. The "no general URL parsing"
-  non-goal now carves out three bounded forms (`socketUrl`,
-  `secureSocketUrl`, `url`).
-- `libnet.socketUrl` — a socket address in URL form,
-  `<scheme>://<endpoint>` (`tcp://1.2.3.4:80`, `udp://[::1]:53`,
-  `unix:///run/foo.sock`). Stored as the underlying `transport` +
-  `endpoint` pair (`{ _type = "socketUrl"; transport = <transport |
-  null>; endpoint = <endpoint>; }`); `transport` is null iff the
-  endpoint is a `unixSocket`. API: parse / tryParse / toString / make
-  / isValid / is / isUnix / transport / endpoint + comparison +
-  `schemes` constant. Opt-in module type `libnet.types.socketUrl`.
-  This is the L4-specific URL form: a bounded composition over the fixed
-  `tcp`/`udp`/`sctp`/`unix` scheme set. Application-layer hierarchical
-  URLs use `libnet.url`; arbitrary URI schemes, relative references, and
-  opaque URIs remain out of scope.
-- `libnet.bindpoint` is a pass-through union `ipBindpoint |
-  unixSocket`, so a service can bind an IP socket **or** a Unix socket
-  path. The IP bind spec is `libnet.ipBindpoint` (tag `ipBindpoint`);
-  it carries the full bind API (wildcards, forwarded predicates,
-  `endpoints` materialization). The `bindpoint` union carries no
-  `_type` of its own and exposes parse / toString / predicates
-  (`isIpBindpoint` / `isUnixSocket`) / comparison — branch to reach a
-  member's API. `types.ipBindpoint` is the strict IP form;
-  `types.bindpoint` accepts either. The name is the local-bind peer of
-  the connect-side `endpoint`: it is the `bind(2)` argument — address +
-  port range, no transport — not a `listen(2)` state. This completes
-  the Unix socket as a genuine third address family (it appears in both
-  the `endpoint` and `bindpoint` unions).
-- `libnet.endpoint` now also accepts `unixSocket` — the union is
-  `ipEndpoint | dnsEndpoint | unixSocket`, dispatching on shape (a
-  leading `/` or `@` → unix socket). Because the members are now
-  heterogeneous (`unixSocket` has `path`, not `address`/`port`), the
-  union dropped its uniform `address`/`port` accessors — branch on
-  `isIpEndpoint` / `isDnsEndpoint` / `isUnixSocket` and use the member
-  module's accessors. `types.endpoint` accepts socket paths too.
-- `libnet.unixSocket` — Unix domain socket address as a tagged value
-  (`{ _type = "unixSocket"; path = <string>; }`): a complete connection
-  target with no port. Accepts pathname sockets (`/run/foo.sock`, ≤ 107
-  bytes — Linux `sun_path` is 108 incl. NUL) and abstract-namespace
-  sockets (`@foo`, ≤ 108 bytes displayed). API: parse / tryParse /
-  toString / isValid / is / isPathname / isAbstract / path + byte-wise
-  case-sensitive comparison + `sunPathMax` constant. Symmetric (binds
-  or dials). Opt-in module type `libnet.types.unixSocket`. (First of
-  three steps making the Unix socket a genuine address family; the
-  `endpoint` and `bindpoint` unions both gained it.)
-- `libnet.dnsEndpoint` + `libnet.endpoint` — complete the endpoint
-  trio alongside `ipEndpoint`. `dnsEndpoint` is `dnsName:port` (a
-  named destination like `pool.ntp.org:123`); it rejects IP literals
-  and has no IP-classification predicates (a name is unresolved). New
-  `_type` tag `dnsEndpoint`. `endpoint` is the pass-through union
-  `ipEndpoint | dnsEndpoint` (no tag): `parse` tries an IP endpoint
-  first, so literal addresses come back as full `ipEndpoint` values
-  (with predicates) and only genuine names become `dnsEndpoint`.
-  Mirrors the `ip`/`dnsName`/`host` address hierarchy:
-  `endpoint = ipEndpoint | dnsEndpoint`. Opt-in module types
-  `libnet.types.dnsEndpoint` and `libnet.types.endpoint`.
-- `libnet.dnsName` — pass-through union over `Hostname` and `Domain`:
-  a DNS name that is not an IP literal. Dispatches by label count
-  (single → hostname, multiple → domain) and rejects IP literals
-  (the one behavioural difference from a bare `domain`, which accepts
-  all-numeric dotted forms). No new `_type` tag; returns the
-  underlying hostname/domain value. This is the "name" half of
-  `host`, which is now composed internally as `ip | dnsName`. Opt-in
-  module type `libnet.types.dnsName`.
-- `libnet.mtu` — IP MTU as a tagged int in `[68, 65535]`: 68 is RFC
-  791's minimum forwarding MTU (and the floor Linux's `ip link set
-  mtu` accepts), 65535 is the IPv4 / IPv6 wire-format maximum.
-  Syntactic floor only, not a semantic recommendation — real-world
-  MTUs typically live in `[1280, 9000]`. Tagged like `libnet.port`
-  (`{ _type = "mtu"; value = <int>; }`): `fromInt` / `toInt` /
-  `toString` / `isValid` / `is` plus the numeric comparison suite and
-  `lowestValue` / `highestValue` constants. No string `parse` (MTUs
-  are written as ints). Opt-in module type `libnet.types.mtu` enforces
-  the range and coerces to a bare int (like `types.port`).
-- `libnet.vlanId` — IEEE 802.1Q VLAN ID as a tagged int in
-  `[1, 4094]`; rejects 0 (priority-tagged sentinel) and 4095
-  (reserved). Tagged like `libnet.port`: `fromInt` / `toInt` /
-  `toString` / `isValid` / `is` plus the numeric comparison suite and
-  `lowestValue` / `highestValue` constants. No string `parse`. Opt-in
-  module type `libnet.types.vlanId` enforces the range and coerces to
-  a bare int (like `types.port`).
-- `libnet.host` — pass-through union over `Ipv4`, `Ipv6`, `Hostname`,
-  and `Domain`. No new `_type` tag: `parse` returns the underlying
-  typed value and consumers branch on `._type`. Dispatch order is
-  IP → Hostname → Domain (dotted-quad strings classify as IPs).
-  API: parse / tryParse / toString / isValid / is / isIp /
-  isHostname / isDomain / isName plus the full cross-family
-  comparison suite (`Ipv4 < Ipv6 < Hostname < Domain`; within a
-  family, dispatches to that family's own comparator). Opt-in
-  module type `libnet.types.host` validates any of the four shapes.
-  Same pattern as `libnet.ip` already uses for its v4/v6 split.
-- `libnet.domain` — tagged multi-label DNS-name type. Requires ≥ 2
-  labels; each label follows the same RFC 1123 syntax as
-  `libnet.hostname`; total length capped at 253 chars per RFC 1035
-  §3.1. API: parse / tryParse / toString / fromLabels / isValid / is,
-  accessors (`labels`, `labelCount`), zone arithmetic (`parent`
-  returns `Domain | null`, `isSubdomainOf` is reflexive and
-  case-insensitive, `toHostname` extracts the leftmost label),
-  `normalize` (lowercase), and the full case-insensitive comparison
-  suite (`eq` / `lt` / `le` / `gt` / `ge` / `compare` / `min` /
-  `max`). No `tld` accessor — RFC 1034's rightmost-label definition
-  is misleading without a Public Suffix List. Opt-in module type
-  `libnet.types.domain` validates the same shape.
-- `lib/internal/dns-label.nix` — internal helper shared by
-  `hostname` and `domain` exposing the RFC 1123 single-label
-  pattern + `isValidLabel` predicate. Single source of truth for the
-  per-label syntax; `hostname` was refactored to consume it.
-- `libnet.hostname` — tagged single-label hostname type. RFC 1123
-  syntax capped at Linux's `HOST_NAME_MAX - 1` (= 63 effective chars,
-  ASCII `[A-Za-z0-9-]`, no leading/trailing hyphen, no underscores,
-  no dots). Matches the shape Linux uses for kernel hostnames and
-  what `networking.hostName` accepts, minus the latter's undocumented
-  underscore allowance. API: parse / tryParse / toString / isValid /
-  is / normalize, plus the full comparison suite (eq / lt / le / gt /
-  ge / compare / min / max) which is **case-insensitive** per DNS
-  semantics — `toString` still preserves the verbatim input case.
-  Opt-in module type `libnet.types.hostname` validates the same
-  pattern. Multi-label / FQDN names belong to `libnet.domain`.
-- `libnet.transport` — tagged transport-layer-protocol enum (`tcp`,
-  `udp`, `sctp`). Parallels `libnet.port`: tagged value, parse /
-  tryParse / toString, `isTcp` / `isUdp` / `isSctp` predicates, `eq`,
-  and `tcp` / `udp` / `sctp` constants plus a `values` list of the raw
-  strings. Ordering (`lt` / `compare` / `min` / `max`) is intentionally
-  omitted — transport protocols have no canonical order. Opt-in module
-  type `libnet.types.transport` validates the same value set; merged
-  value stays a string. The namespace is `transport` rather than
-  `proto` to keep the layer explicit and leave room for separate
-  network-layer / application-layer enums in the future.
-- Initial specification (`SPEC.md`) for a pure-Nix,
-  zero-nixpkgs-dependency network-address API.
-- nix-unit test suites (`tests/unit.nix`); the core suites evaluate
-  without `nixpkgs.lib`.
-- Complete public API across addresses, prefixes and ranges, endpoints and
-  bindpoints, bounded URL forms, interface addresses and names, transport,
-  VLAN, MTU, ICMP types, and static registries. Public implementations live
-  in `lib/*.nix`, including the separate `interface-address.nix` and
-  `interface-name.nix` modules.
-- Internal primitives: `lib/internal/{bits,carry,parse,format,types}.nix`
-- Opt-in NixOS module types via `libnet.withLib pkgs.lib` (see `lib/types.nix`).
-- `default.nix` + `flake.nix` entry points.
-- README with quick start, namespace index, withLib example, test instructions.
-- Comprehensive dep-free core tests plus opt-in module-type tests against
-  `nixpkgs.lib`.
+
+- Tagged values (`{ _type = "ipv4"; value = 167772165; }`) with shared suites for parsing (`parse`, `tryParse`, `toString`, `isValid`, `is`), comparison and arithmetic. `eq` returns `false`, without throwing, for values of different kinds and for operands that are not tagged values.
+- Addresses:
+  - `ipv4`: dotted-quad addresses with integer and octet conversion, reverse-DNS names, and special-purpose block predicates such as `isPrivate` and `isSharedAddressSpace`.
+  - `ipv6`: addresses with RFC 5952 canonical text, which prints IPv4-mapped addresses in mixed form (`::ffff:1.2.3.4`); word, group and byte conversion; EUI-64 and IPv4-mapped conversion; and block predicates. `isGlobal` excludes the IPv4-mapped, IPv4-compatible and 6to4 transition forms.
+  - `ip`: union of `ipv4` and `ipv6` that dispatches on family.
+  - `mac`: MAC addresses in colon, hyphen, Cisco and bare forms, with OUI and NIC parts, unicast/multicast and universal/local bits, and modified EUI-64.
+- Networks:
+  - `cidr`: blocks of either family with derived addresses, host enumeration, containment and overlap, subnetting, supernetting, summarization, exclusion and intersection. `firstHost`, `lastHost`, `numHosts` and `hosts` exclude the IPv4 network and broadcast addresses and the IPv6 Subnet-Router anycast address, except in IPv4 `/31` (RFC 3021), IPv6 `/127` (RFC 6164) and single-address blocks.
+  - `ipRange`: address ranges with CIDR conversion, containment, adjacency and merging.
+  - `interfaceAddress`: an address on a subnet, such as `10.0.0.5/24`, that keeps its host bits, with network, mask and range helpers.
+- Ports and transports:
+  - `port`: ports `0`–`65535` with RFC 6335 class predicates and the integer constants `lowestValue`, `highestValue`, `wellKnownMax` and `registeredMax`.
+  - `portRange`: ranges in `from-to` and iptables `from:to` forms, stored as tagged `port` values, with containment, adjacency, merging and enumeration.
+  - `transport`: the `tcp`, `udp` and `sctp` enum, parsed case-sensitively.
+- Names:
+  - `hostname`: single RFC 1123 labels of at most 63 characters, compared case-insensitively.
+  - `domain`: names of two or more labels and at most 253 characters, with label access, `parent` and `isSubdomainOf`.
+  - `dnsName`: union of `hostname` and `domain` that rejects IP literals.
+  - `host`: union of `ip` and `dnsName`.
+  - `interfaceName`: Linux interface names, validated like the kernel's `dev_valid_name`.
+- Targets:
+  - Connect-side `ipEndpoint`, `dnsEndpoint` and `unixSocket` (pathname and abstract sockets), and their union `endpoint`.
+  - Bind-side `ipBindpoint`, which accepts wildcard addresses and port ranges such as `:8080` and `[::]:5000-6000`, and the union `bindpoint` of `ipBindpoint` and `unixSocket`.
+- URL forms over closed scheme sets, which match schemes case-insensitively and print them lowercase:
+  - `socketUrl` (`tcp://1.2.3.4:80`, `unix:///run/foo.sock`) and `bindUrl` (`tcp://:8080`, `udp://0.0.0.0:53`).
+  - `secureSocketUrl` for `tls`, `dtls` and `quic`, with `ssl` as an alias of `tls`.
+  - `url` for 30 application schemes with default ports, and its parts `urlHost` and `authority`.
+  - `proxyUrl` for HTTP, HTTPS and SOCKS proxies.
+- Bounded integers `vlanId` (`[1, 4094]`), `mtu` (`[68, 65535]`) and `icmpType` (`[0, 255]`).
+- `registry`: bogon blocks, common TCP and UDP service ports, and ICMP and ICMPv6 message types as plain literals.
+- NixOS option types through `libnet.withLib lib` for every namespace except `registry`. String types keep the string and merge with `mergeEqualOption`; `port`, `vlanId`, `mtu` and `icmpType` merge to integers.
+- A core that uses only Nix 2.18 builtins, imported through `default.nix` or the flake's `lib` output.
+- Flake checks, development shell and formatter for `x86_64-linux` and `aarch64-linux`.
 - MIT license.
 
-### Changed
-- Documentation: `SPEC.md` is replaced by the API reference in
-  `docs/reference/`, the glossary in `GLOSSARY.md`, design decisions in
-  `docs/adr/`, test conventions in `docs/testing.md`, and candidate features
-  in `docs/roadmap.md`. The reference now documents `cidr.topAddress`,
-  `portRange.isAdjacent` and `ipRange.isAdjacent`, and states that string
-  module types merge with `mergeEqualOption` (the SPEC said last-wins).
-- CI calls the shared project policy `v0.6` instead of its own workflow. The
-  policy evaluates every output and builds every `checks` entry on
-  `x86_64-linux` and `aarch64-linux` with the locked nixpkgs and the
-  policy's stable and unstable pins. Require `Policy / Check (<system>)` and
-  `Policy / Tests (locked|stable|unstable, <system>)` for both systems in
-  the branch protection of `main`; there are no VM tests, so no
-  `Policy / VM tests (<nixpkgs>, <system>)` status is required.
-- A `checks.<system>.formatting` check replaces CI's `nix fmt` drift step.
-- The `nixpkgs` input tracks the stable `nixos-26.05` branch instead of
-  `nixos-unstable`, locked to the nixos-project-policy `v0.5.1` stable pin.
-- The flake is assembled with flake-parts and gains a `flake-parts` input
-  whose `nixpkgs-lib` follows `nixpkgs`. A `dev` partition in `dev/` supplies
-  `checks`, `devShells` and `formatter`, so evaluating `lib` loads no
-  development code. The nix-unit entry point moves from `tests/default.nix`
-  to `tests/unit.nix`; `tests/default.nix` now assembles the checks. The
-  development shell adds git, nil, nixfmt and actionlint. The
-  `x86_64-darwin` and `aarch64-darwin` outputs are removed; `checks`,
-  `devShells` and `formatter` cover only `x86_64-linux` and
-  `aarch64-linux`. See [ADR 0017](docs/adr/0017-flake-parts-root.md).
-- Removed the git-hooks.nix pre-commit and pre-push hooks, the `git-hooks`
-  input, and `checks.<system>.pre-commit`.
-- `libnet.socketUrl` and `libnet.bindUrl` match schemes case-insensitively
-  and print them lowercase, like `secureSocketUrl`, `url` and `proxyUrl`
-  (RFC 3986 §3.1): `socketUrl.parse "TCP://1.2.3.4:80"` now succeeds and
-  prints `tcp://1.2.3.4:80`. `types.socketUrl` and `types.bindUrl` accept
-  the same inputs. `transport.parse` stays case-sensitive.
-- **Breaking**: `libnet.portRange` now stores `from` and `to` as tagged
-  `Port` values rather than raw ints. The accessors `portRange.from` /
-  `portRange.to` return `Port`; unwrap via `port.toInt` for a bare int.
-  Aligns `portRange` with the library-wide tagging convention so any
-  first-class sub-value (Port, Ipv4, Ipv6) travels in the same shape
-  whether it stands alone or sits inside a composite. `portRange.make`
-  still accepts bare ints for ergonomics; `portRange.fromPort`,
-  `portRange.size`, `portRange.toString`, and friends are unchanged at
-  the call site.
-- **Breaking**: the earlier combined `libnet.interface` design was split into
-  `libnet.interfaceAddress` and `libnet.interfaceName`. `interfaceAddress`
-  represents an address-on-subnet value and retains the network, mask, CIDR,
-  and range helpers. `interfaceName` independently validates Linux interface
-  names with `dev_valid_name` parity. Their opt-in module types are exposed as
-  `types.interfaceAddress`, `types.ipv4InterfaceAddress`,
-  `types.ipv6InterfaceAddress`, and `types.interfaceName`; there is no combined
-  name-and-address value in the shipped API.
-
-### Fixed
-- `cidr.numHosts`, `cidr.hosts` and `cidr.hostsUnbounded` counted one address
-  too many for IPv6 blocks wider than /127: `hosts` on `2001:db8::/126`
-  returned `2001:db8::4`, outside the block. `numHosts` now excludes the
-  Subnet-Router anycast address (`size - 1`), so the list runs from
-  `firstHost` through `lastHost`; /127 and /128 still count every address.
-- SPEC: `cidr.firstHost` for IPv6 /127 returns the network address, as
-  implemented (both endpoints usable per RFC 6164). The SPEC row previously
-  said `network+1` for every prefix except /128.
-- `eq` threw instead of returning false when either operand lacked a `_type`,
-  such as `{ }`, `null` or `1`, contradicting the SPEC's "never throws" rule.
-  Every module's `eq` now returns false for untagged operands, through a
-  shared internal tag check. The SPEC now states that `eq` on a malformed
-  value carrying a libnet `_type` is undefined.
-
-### Fixed (during first-pass review)
-- `ipv6.isGlobal` previously shortcut to `!isBogon` (a 6-predicate check). The
-  spec defines `isGlobal` as "none of the above special categories" which for
-  IPv6 also includes `isIpv4Mapped`, `isIpv4Compatible`, and `is6to4`. These
-  transition/compat forms are now correctly excluded from `isGlobal`. Regression
-  tests added: `testGlobalNegativeV4Mapped`, `testGlobalNegativeV4Compatible`,
-  `testGlobalNegative6to4`, `testBogonExcludes6to4`.
-
-### Cleanup
-- Consolidated `vlanId`, `mtu`, and `icmpType` behind a private bounded-integer
-  implementation and a shared integer option adapter. Public functions,
-  tagged values, bounds, diagnostics, and option merge behavior are preserved;
-  arithmetic remains limited to `vlanId` and `mtu` among these types.
-- Brought the code and tests in line with the project's Nix style: every
-  public function has a header describing its parameters and result,
-  bindings and test names are spelled out, `inherit` lists are grouped by
-  source and alphabetized, and the suites run under nix-unit with
-  `test`-prefixed names nested by module. No public API impact.
-- Strengthened the `ipRange.isAdjacent` top-of-address-space tests and the
-  `interfaceAddress` `network` vs `toCidr` test, and dropped an unreachable
-  negative-number check from `portRange` parsing. No public API impact.
-- Removed unused internal exports: `hexLower`, `joinStrings`, `repeat` from
-  `lib/internal/format.nix`; `isDigit`, `isHex`, `digitValues`, `hexValues`
-  exports from `lib/internal/parse.nix`. No public API impact.
-
-### Deviations from the approved spec
-- **`libnet.port` dropped `min`/`max` constants** (they collided with the `min`/`max`
-  comparison functions). Replaced with `lowestValue` (=0) and `highestValue` (=65535)
-  as raw ints; `wellKnownMax` and `registeredMax` kept as raw ints.
-- **IPv6 `toString` for IPv4-mapped addresses** emits the mixed form
-  (`::ffff:1.2.3.4`) per RFC 5952 § 5 recommendation, instead of pure hex form.
+[Unreleased]: https://github.com/petohorvath/nix-libnet/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/petohorvath/nix-libnet/releases/tag/v0.1.0

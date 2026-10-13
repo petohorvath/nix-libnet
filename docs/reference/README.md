@@ -32,7 +32,7 @@ Each namespace page lists which suites it provides and documents only what diffe
 
 `TryResult T` is `{ success = Bool; value = T or null; error = String or null; }`, with `error` set only on failure.
 
-**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. Across kinds and families, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
 
 **Arithmetic**:
 

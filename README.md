@@ -38,13 +38,15 @@ With flakes, add the repository as an input and take the library from its `lib` 
 }
 ```
 
+To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.1.0`.
+
 Without flakes, import the repository root:
 
 ```nix
 libnet = import (builtins.fetchTarball "https://github.com/petohorvath/nix-libnet/archive/main.tar.gz");
 ```
 
-To pin a version, replace `main` with a commit hash and pass `fetchTarball` the archive's `sha256`.
+To pin a release, replace `main` with its tag, as in `archive/v0.1.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
 
 ## Usage
 
