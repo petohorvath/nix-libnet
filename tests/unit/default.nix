@@ -34,6 +34,7 @@ in
   interface-name = import ./interface-name.nix testContext;
   internal = {
     bits = import ./internal/bits.nix testContext;
+    bounded-int = import ./internal/bounded-int.nix testContext;
     carry = import ./internal/carry.nix testContext;
     dns-label = import ./internal/dns-label.nix testContext;
     format = import ./internal/format.nix testContext;
