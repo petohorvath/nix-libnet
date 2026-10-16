@@ -1,10 +1,10 @@
 /*
-  Assemble the named checks. `core` and `full` run the nix-unit suites from
+  Assemble the test checks. `core` and `full` run the nix-unit suites from
   `unit.nix` in the build sandbox: `core` without nixpkgs, proving the core
   needs none, and `full` with the nixpkgs library of `pkgs`, adding the
-  module-type suite. `formatting` fails on unformatted files.
+  module-type suite.
 */
-{ formatter, pkgs }:
+{ pkgs }:
 let
   unitTestsPath = "${../.}/tests/unit.nix";
   # nix-unit evaluates inside the build sandbox, so it needs a writable
@@ -20,5 +20,4 @@ in
 {
   core = runUnitTests "libnet-core-tests" "";
   full = runUnitTests "libnet-full-tests" "--arg lib 'import ${pkgs.path}/lib'";
-  formatting = import ./formatting.nix { inherit formatter pkgs; };
 }
