@@ -14,6 +14,9 @@ in
 let
   testContext = import ../test-context.nix { inherit nixpkgs system; };
 in
+# Suite names are the kebab-case file names, unlike the camelCase library
+# attributes, so an attribute path such as `internal.dns-label` reads as
+# the file path.
 {
   authority = import ./authority.nix testContext;
   bind-url = import ./bind-url.nix testContext;
