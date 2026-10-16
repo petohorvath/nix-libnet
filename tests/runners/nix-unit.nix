@@ -55,12 +55,9 @@ let
   inputArg =
     argName:
     if inputs ? ${argName} then
-      let
-        treePath = pkgs.writeText "${repo}-${name}-${argName}.json" (
-          builtins.toJSON (inputTree inputs.${argName})
-        );
-      in
-      "(import ${evaluationInputsPath}) (builtins.fromJSON (builtins.readFile ${treePath}))"
+      "(import ${evaluationInputsPath}) ${
+        lib.generators.toPretty { multiline = false; } (inputTree inputs.${argName})
+      }"
     else
       throw "${repo}-${name}: the entry point argument `${argName}` is neither a flake input nor in `extraArgs`.";
 
