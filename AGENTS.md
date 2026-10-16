@@ -4,7 +4,7 @@
 
 - `default.nix` defines the public `libnet` API.
 - `lib/` contains implementations; `lib/internal/` is not public API.
-- `tests/unit/` mirrors the library modules; register new suites in `tests/unit/default.nix`; `tests/default.nix` assembles the test entries of the flake checks. Do not edit the shared copies in `tests/runners/` and `tests/helpers/evaluation-inputs.nix`.
+- `tests/unit/` mirrors the library modules; register new suites in `tests/unit/default.nix`; `tests/default.nix` assembles the test entries of the flake checks.
 - `docs/reference/` is the authoritative API and behavior contract; read the page for any namespace you change.
 - `GLOSSARY.md` defines the domain vocabulary, and `docs/adr/` records design decisions with their rationale.
 - `docs/testing.md` holds the test suite conventions and coverage rules.
