@@ -1,11 +1,15 @@
 /*
-  Assemble the named checks: the test checks from `tests/default.nix`, and
-  `formatting`, which fails on unformatted files. The policy runs
+  Assemble the named checks: the test entries from `tests/default.nix`,
+  and `formatting`, which fails on unformatted files. The policy runs
   `nix flake check` but not `nix fmt`, so the formatting gate lives here as
   a check.
 */
-{ formatter, pkgs }:
-pkgs.lib.attrsets.unionOfDisjoint (import ../tests { inherit pkgs; }) {
+{
+  formatter,
+  inputs,
+  pkgs,
+}:
+pkgs.lib.attrsets.unionOfDisjoint (import ../tests { inherit inputs pkgs; }) {
   formatting =
     pkgs.runCommand "libnet-formatting"
       {

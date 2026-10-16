@@ -1,23 +1,36 @@
-/*
-  Assemble the test checks. `core` and `full` run the nix-unit suites from
-  `unit.nix` in the build sandbox: `core` without nixpkgs, proving the core
-  needs none, and `full` with the nixpkgs library of `pkgs`, adding the
-  module-type suite.
-*/
-{ pkgs }:
+# Assemble the test entries. `unit-core` runs the unit suites without
+# nixpkgs, proving the core needs none; `unit` passes nixpkgs, which adds
+# the module-type suite.
+{ inputs, pkgs }:
 let
-  unitTestsPath = "${../.}/tests/unit.nix";
-  # nix-unit evaluates inside the build sandbox, so it needs a writable
-  # eval store; `extraArgs` passes Nix function arguments.
-  runUnitTests =
-    name: extraArgs:
-    pkgs.runCommand name { nativeBuildInputs = [ pkgs.nix-unit ]; } ''
-      export HOME="$TMPDIR"
-      nix-unit --quiet --eval-store "$HOME" ${extraArgs} ${unitTestsPath}
-      touch "$out"
-    '';
+  inherit (pkgs) lib;
+  repo = "libnet";
+  srcDir = lib.fileset.toSource {
+    root = ../.;
+    fileset = lib.fileset.unions [
+      ../default.nix
+      ../lib
+      ./helpers
+      ./test-context.nix
+      ./unit
+    ];
+  };
+  runNixUnit = import ./runners/nix-unit.nix {
+    inherit
+      inputs
+      pkgs
+      repo
+      srcDir
+      ;
+  };
 in
-{
-  core = runUnitTests "libnet-core-tests" "";
-  full = runUnitTests "libnet-full-tests" "--arg lib 'import ${pkgs.path}/lib'";
-}
+lib.foldl' lib.attrsets.unionOfDisjoint { } [
+  {
+    unit = runNixUnit { kind = "unit"; };
+    unit-core = runNixUnit {
+      kind = "unit";
+      name = "unit-core";
+      extraArgs.nixpkgs = "null";
+    };
+  }
+]

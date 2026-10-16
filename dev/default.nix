@@ -1,3 +1,4 @@
+{ inputs, ... }:
 {
   perSystem =
     { config, pkgs, ... }:
@@ -8,7 +9,7 @@
       };
       checks = import ./checks.nix {
         inherit (config) formatter;
-        inherit pkgs;
+        inherit inputs pkgs;
       };
     };
 }
