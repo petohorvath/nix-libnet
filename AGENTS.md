@@ -4,12 +4,12 @@
 
 - `default.nix` defines the public `libnet` API.
 - `lib/` contains implementations; `lib/internal/` is not public API.
-- `tests/unit/` mirrors the library modules; register new suites in `tests/unit/default.nix`; `tests/default.nix` assembles the test entries of the flake checks.
+- `tests/unit/` mirrors the library modules; register new suites in `tests/unit/default.nix`; `dev/default.nix` runs them on nix-unit's flake-parts module.
 - `docs/reference/` is the authoritative API and behavior contract; read the page for any namespace you change.
 - `GLOSSARY.md` defines the domain vocabulary, and `docs/adr/` records design decisions with their rationale.
 - `docs/testing.md` holds the test suite conventions and coverage rules.
 - `README.md` documents the user-facing overview and examples.
-- `flake.nix` assembles the public outputs with flake-parts; the `dev` partition in `dev/` defines formatting, development tooling, and CI checks.
+- `flake.nix` assembles the public outputs with flake-parts; the `dev` partition in `dev/` defines formatting, development tooling, the `tests` output, and CI checks.
 
 ## Contribution rules
 
@@ -23,7 +23,7 @@
 
 ## Required checks
 
-Run the checks for the contributor's supported host system. `nix flake check` builds `checks.<system>.unit-core`, `unit`, and `formatting`; run `nix fmt` to fix a failing `formatting` check:
+Run the checks for the contributor's supported host system. `nix flake check` builds `checks.<system>.nix-unit` and `formatting`; run `nix fmt` to fix a failing `formatting` check:
 
 ```sh
 nix fmt

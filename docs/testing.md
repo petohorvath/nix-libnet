@@ -2,7 +2,7 @@
 
 All tests are [nix-unit](https://github.com/nix-community/nix-unit) unit suites.
 
-`tests/unit/default.nix` is the entry point. It lists each suite by hand, so a suite file missing from the list does not run. Suite attribute names are the kebab-case file names, such as `bind-url`, rather than the camelCase names that the library and `testContext` use, so an attribute path reads as the file path. Each suite mirrors a `lib/` file at the same path, such as `tests/unit/internal/parse.nix` (attribute `internal.parse`) for `lib/internal/parse.nix`. `tests/unit/cross-type-equality.nix` tests behavior across every kind, so it matches no source file.
+`tests/unit/default.nix` is the entry point. It lists each suite by hand, so a suite file missing from the list does not run. Suite attribute names are the kebab-case file names, such as `bind-url`, rather than the camelCase names that the library and `testContext` use, so an attribute path reads as the file path. Each suite mirrors a `lib/` file at the same path, such as `tests/unit/internal/parse.nix` (attribute `unit.internal.parse`) for `lib/internal/parse.nix`. `tests/unit/cross-type-equality.nix` tests behavior across every kind, so it matches no source file.
 
 Every suite takes `testContext`, built by `tests/test-context.nix`, and destructures what it uses:
 
@@ -13,14 +13,16 @@ Every suite takes `testContext`, built by `tests/test-context.nix`, and destruct
 
 Suites return cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`. `tests/unit/types.nix` tests the module types, which need `nixpkgs.lib`, so it returns no cases when `lib` is `null`.
 
-`tests/default.nix` assembles the test entries of the flake's checks with the runner in `tests/runners/nix-unit.nix`. `unit-core` runs the suites without nixpkgs, proving the core needs none; `unit` passes the flake's `nixpkgs` input and adds the module-type suite. `dev/checks.nix` adds `formatting`, which fails on unformatted files. The runner and `tests/helpers/evaluation-inputs.nix` are shared copies; their header line names the canonical copy to change instead.
+`dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input, which adds the module-type suite. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. `dev/checks.nix` adds `formatting`, which fails on unformatted files.
 
 ```sh
-nix develop --command nix-unit tests/unit                       # all suites, with the locked nixpkgs
-nix develop --command nix-unit --arg nixpkgs null tests/unit    # core suites only
-nix develop --command nix-unit --attr internal.parse tests/unit # one suite
-nix build .#checks.x86_64-linux.unit                            # one entry, in the build sandbox
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux                    # all suites
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit-core          # core suites only
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit.internal.parse # one suite
+nix build .#checks.x86_64-linux.nix-unit                                               # the check, in the build sandbox
 ```
+
+Add `--override-input nixpkgs <flake-ref>` to run the suites against another nixpkgs.
 
 ## Coverage rules
 

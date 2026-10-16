@@ -1,16 +1,7 @@
-/*
-  nix-unit entry point for the unit suites. Each argument defaults to the
-  root flake's locked input, so local runs need none. Pass
-  `--arg nixpkgs null` to run without nixpkgs, as the `unit-core` entry
-  does; the module-type suite then has no tests.
-*/
-let
-  rootInputs = (builtins.getFlake (toString ../..)).inputs;
-in
-{
-  nixpkgs ? rootInputs.nixpkgs,
-  system ? builtins.currentSystem,
-}:
+# nix-unit entry point for the unit suites. `dev/default.nix` passes the
+# flake's inputs, or `nixpkgs = null` for the `unit-core` suites; the
+# module-type suite then has no tests.
+{ nixpkgs, system }:
 let
   testContext = import ../test-context.nix { inherit nixpkgs system; };
 in

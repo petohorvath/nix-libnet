@@ -1,7 +1,13 @@
 { inputs, ... }:
 {
+  imports = [ inputs.nix-unit.modules.flake.default ];
   perSystem =
-    { config, pkgs, ... }:
+    {
+      config,
+      pkgs,
+      system,
+      ...
+    }:
     {
       formatter = pkgs.callPackage ./formatter.nix { };
       devShells.default = pkgs.callPackage ./shell.nix {
@@ -9,7 +15,23 @@
       };
       checks = import ./checks.nix {
         inherit (config) formatter;
-        inherit inputs pkgs;
+        inherit pkgs;
+      };
+      nix-unit = {
+        package = pkgs.nix-unit;
+        inputs = removeAttrs inputs [ "self" ];
+        tests = {
+          unit = import ../tests/unit {
+            inherit (inputs) nixpkgs;
+            inherit system;
+          };
+          # The core needs no nixpkgs, so run the same suites without it;
+          # the module-type suite then has no tests.
+          unit-core = import ../tests/unit {
+            nixpkgs = null;
+            inherit system;
+          };
+        };
       };
     };
 }
