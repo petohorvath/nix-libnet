@@ -19,7 +19,7 @@
         tests = {
           unit = import ../tests/unit { inherit (inputs) nixpkgs; };
           # The core needs no nixpkgs, so run the same suites without it;
-          # the module-type suite then has no tests.
+          # the module-type and `withLib` suites then have no tests.
           unit-core = import ../tests/unit { nixpkgs = null; };
         };
       };

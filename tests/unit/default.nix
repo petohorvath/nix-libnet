@@ -1,6 +1,6 @@
 # nix-unit entry point for the unit suites. `dev/default.nix` passes the
 # flake's inputs, or `nixpkgs = null` for the `unit-core` suites; the
-# module-type suite then has no tests.
+# module-type and `withLib` suites then have no tests.
 { nixpkgs }:
 let
   testContext = import ../test-context.nix { inherit nixpkgs; };
@@ -52,4 +52,5 @@ in
   url = import ./url.nix testContext;
   url-host = import ./url-host.nix testContext;
   vlan-id = import ./vlan-id.nix testContext;
+  with-lib = import ./with-lib.nix testContext;
 }

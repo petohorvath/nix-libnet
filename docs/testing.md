@@ -11,9 +11,9 @@ Every suite takes `testContext`, built by `tests/test-context.nix`, and destruct
 - `lib`: `nixpkgs.lib`, or `null` without nixpkgs.
 - `helpers`: assertion helpers from `tests/helpers/`. `helpers.throws expr` is `true` when forcing `expr` throws.
 
-Suites return cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`. `tests/unit/types.nix` tests the module types, which need `nixpkgs.lib`, so it returns no cases when `lib` is `null`.
+Suites return cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`. `tests/unit/types.nix` and `tests/unit/with-lib.nix` test the module types and `withLib`, which need `nixpkgs.lib`, so they return no cases when `lib` is `null`.
 
-`dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input, which adds the module-type suite. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. `dev/checks.nix` adds `formatting`, which fails on unformatted files.
+`dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input, which adds the module-type and `withLib` suites. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. `dev/checks.nix` adds `formatting`, which fails on unformatted files.
 
 ```sh
 nix develop --command nix-unit --flake .#tests.systems.x86_64-linux                                         # all suites
