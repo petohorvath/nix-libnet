@@ -1,12 +1,7 @@
-/*
-  Build `testContext`, the single argument of every nix-unit suite. The
-  library comes from source, as `flake.nix` imports it. Without nixpkgs,
-  `lib` is null, so the suites prove that the core needs none.
-
-  The entry point also passes `system`, as every test standard entry point
-  does; `...` accepts it unused, because libnet needs no package set.
-*/
-{ nixpkgs, ... }:
+# Build `testContext`, the single argument of every nix-unit suite. The
+# library comes from source, as `flake.nix` imports it. Without nixpkgs,
+# `lib` is null, so the suites prove that the core needs none.
+{ nixpkgs }:
 {
   lib = if nixpkgs == null then null else nixpkgs.lib;
   libnet = import ../.;

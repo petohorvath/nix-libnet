@@ -1,9 +1,9 @@
 # nix-unit entry point for the unit suites. `dev/default.nix` passes the
 # flake's inputs, or `nixpkgs = null` for the `unit-core` suites; the
 # module-type suite then has no tests.
-{ nixpkgs, system }:
+{ nixpkgs }:
 let
-  testContext = import ../test-context.nix { inherit nixpkgs system; };
+  testContext = import ../test-context.nix { inherit nixpkgs; };
 in
 # Suite names are the kebab-case file names, unlike the camelCase library
 # attributes, so an attribute path such as `internal.dns-label` reads as
