@@ -30,7 +30,7 @@
 let
   inherit (pkgs) lib;
 
-  entryPointPath = "${srcDir}/tests/${kind}";
+  entryPointDir = "${srcDir}/tests/${kind}";
   evaluationInputsPath = ../helpers/evaluation-inputs.nix;
 
   /*
@@ -52,7 +52,7 @@ let
         flake = false;
       };
 
-  inputArg =
+  inputArgExpr =
     argName:
     if inputs ? ${argName} then
       "(import ${evaluationInputsPath}) ${
@@ -62,10 +62,10 @@ let
       throw "${repo}-${name}: the entry point argument `${argName}` is neither a flake input nor in `extraArgs`.";
 
   inputArgNames = lib.subtractLists ([ "system" ] ++ builtins.attrNames extraArgs) (
-    builtins.attrNames (builtins.functionArgs (import entryPointPath))
+    builtins.attrNames (builtins.functionArgs (import entryPointDir))
   );
 
-  evalArgs = lib.genAttrs inputArgNames inputArg // extraArgs;
+  evalArgs = lib.genAttrs inputArgNames inputArgExpr // extraArgs;
 
   evalFlags = lib.escapeShellArgs (
     lib.concatLists (
@@ -96,7 +96,7 @@ let
   groupsPath = pkgs.writeText "${repo}-${name}-groups.nix" ''
     { ... }@args:
     let
-      entryPoint = import ${entryPointPath};
+      entryPoint = import ${entryPointDir};
       tests = entryPoint (
         builtins.intersectAttrs (builtins.functionArgs entryPoint) args
       );
@@ -165,7 +165,7 @@ pkgs.runCommand "${repo}-${name}"
       local index=$1 group=$2
       mkdir -p "$TMPDIR/gc-roots/$index"
       if nix-unit --quiet --show-trace --eval-store "$evalStore" \
-        ${gcRootsFlag} ${evalFlags} --attr "$group" ${entryPointPath} \
+        ${gcRootsFlag} ${evalFlags} --attr "$group" ${entryPointDir} \
         > "$TMPDIR/logs/$index" 2>&1; then
         touch "$TMPDIR/logs/$index.passed"
       fi
