@@ -16,11 +16,14 @@ Suites return cases of the form `testName = { expr; expected; };` with camelCase
 `dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input, which adds the module-type suite. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. `dev/checks.nix` adds `formatting`, which fails on unformatted files.
 
 ```sh
-nix develop --command nix-unit --flake .#tests.systems.x86_64-linux                    # all suites
-nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit-core          # core suites only
-nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit.internal.parse # one suite
-nix build .#checks.x86_64-linux.nix-unit                                               # the check, in the build sandbox
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux                                         # all suites
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit-core                               # core suites only
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit.internal.parse                     # one suite
+nix develop --command nix-unit --flake .#tests.systems.x86_64-linux.unit.internal.parse --attr testDecimal0 # one test
+nix build .#checks.x86_64-linux.nix-unit                                                                    # the check, in the build sandbox
 ```
+
+nix-unit treats a selected attribute as a suite, so selecting a test by its full path does not work: select its suite and name the test with `--attr`.
 
 Add `--override-input nixpkgs <flake-ref>` to run the suites against another nixpkgs.
 
