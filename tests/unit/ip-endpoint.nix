@@ -7,7 +7,7 @@ let
     port
     ;
   inherit (helpers) throws;
-  parse = ipEndpoint.parse;
+  inherit (ipEndpoint) parse;
 in
 {
   # ===== Parse =====

@@ -35,7 +35,7 @@ let
     portTable:
     builtins.all (name: port.is (port.fromInt portTable.${name})) (builtins.attrNames portTable);
 
-  icmpTypes = registry.icmpTypes;
+  inherit (registry) icmpTypes;
   isIcmpByte = value: builtins.isInt value && value >= 0 && value <= 255;
   allIcmpBytes =
     typeTable: builtins.all (name: isIcmpByte typeTable.${name}) (builtins.attrNames typeTable);

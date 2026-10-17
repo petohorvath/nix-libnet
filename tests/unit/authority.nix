@@ -2,7 +2,7 @@
 let
   inherit (libnet) authority port;
   inherit (helpers) throws;
-  parse = authority.parse;
+  inherit (authority) parse;
 in
 {
   # ===== Parse & toString =====

@@ -6,8 +6,8 @@ Value: `{ _type = "hostname"; value = String; }`, one RFC 1123 label: 1–63 cha
 
 Suites: parsing, comparison (case-insensitive). `toString` preserves the input's case.
 
-| Function | Signature | Notes |
-| --- | --- | --- |
+| Function    | Signature             | Notes       |
+| ----------- | --------------------- | ----------- |
 | `normalize` | `Hostname → Hostname` | Lowercases. |
 
 ## `libnet.domain`
@@ -16,15 +16,15 @@ Value: `{ _type = "domain"; value = String; }`, two or more hostname-valid label
 
 Suites: parsing, comparison (case-insensitive). `toString` preserves the input's case.
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `fromLabels` | `[String] → Domain` | Joins and validates. |
-| `labels` | `Domain → [String]` | Leftmost first. |
-| `labelCount` | `Domain → Int` | At least 2. |
-| `parent` | `Domain → Domain or null` | Drops the leftmost label; `null` when fewer than two would remain. |
-| `isSubdomainOf` | `Domain → Domain → Bool` | `isSubdomainOf a b` is true when `a` is `b` or below it. Case-insensitive. |
-| `toHostname` | `Domain → Hostname` | The leftmost label. |
-| `normalize` | `Domain → Domain` | Lowercases. |
+| Function        | Signature                 | Notes                                                                      |
+| --------------- | ------------------------- | -------------------------------------------------------------------------- |
+| `fromLabels`    | `[String] → Domain`       | Joins and validates.                                                       |
+| `labels`        | `Domain → [String]`       | Leftmost first.                                                            |
+| `labelCount`    | `Domain → Int`            | At least 2.                                                                |
+| `parent`        | `Domain → Domain or null` | Drops the leftmost label; `null` when fewer than two would remain.         |
+| `isSubdomainOf` | `Domain → Domain → Bool`  | `isSubdomainOf a b` is true when `a` is `b` or below it. Case-insensitive. |
+| `toHostname`    | `Domain → Hostname`       | The leftmost label.                                                        |
+| `normalize`     | `Domain → Domain`         | Lowercases.                                                                |
 
 There is no `tld` accessor ([ADR 0003](../adr/0003-syntax-not-resolution.md)); the last element of `labels` is the rightmost label.
 
@@ -34,10 +34,10 @@ Pass-through union over `hostname` and `domain` that rejects IP literals. `parse
 
 Suites: parsing, comparison (hostnames before domains, then case-insensitive).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `isHostname`, `isDomain` | `Any → Bool` | |
-| `normalize` | `DnsName → DnsName` | Lowercases. |
+| Function                 | Signature           | Notes       |
+| ------------------------ | ------------------- | ----------- |
+| `isHostname`, `isDomain` | `Any → Bool`        |             |
+| `normalize`              | `DnsName → DnsName` | Lowercases. |
 
 ## `libnet.host`
 
@@ -45,10 +45,10 @@ Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dott
 
 Suites: parsing, comparison (IPv4, IPv6, hostname, then domain; within a kind, that kind's order).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `isIp`, `isHostname`, `isDomain` | `Any → Bool` | |
-| `isName` | `Any → Bool` | Hostname or domain. |
+| Function                         | Signature    | Notes               |
+| -------------------------------- | ------------ | ------------------- |
+| `isIp`, `isHostname`, `isDomain` | `Any → Bool` |                     |
+| `isName`                         | `Any → Bool` | Hostname or domain. |
 
 ## `libnet.interfaceName`
 
@@ -56,8 +56,8 @@ Value: `{ _type = "interfaceName"; value = String; }`, valid under the kernel's 
 
 Suites: parsing, comparison (byte-wise, case-sensitive).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `value` | `InterfaceName → String` | |
+| Function | Signature                | Notes |
+| -------- | ------------------------ | ----- |
+| `value`  | `InterfaceName → String` |       |
 
 Constant: `ifnamsiz` (`16`).

@@ -2,7 +2,7 @@
 let
   inherit (libnet) bindpoint ipBindpoint unixSocket;
   inherit (helpers) throws;
-  parse = bindpoint.parse;
+  inherit (bindpoint) parse;
 in
 {
   # ===== Dispatch =====

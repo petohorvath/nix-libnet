@@ -8,7 +8,7 @@ let
     url
     ;
   inherit (helpers) throws;
-  parse = url.parse;
+  inherit (url) parse;
 in
 {
   # ===== Parse: schemes & basics =====
@@ -230,7 +230,7 @@ in
   testSchemesSourcedFromRegistryPorts = {
     expr =
       let
-        ports = registry.ports;
+        inherit (registry) ports;
         allPorts = builtins.attrValues ports.tcp ++ builtins.attrValues ports.udp;
       in
       builtins.all (scheme: builtins.elem scheme.defaultPort allPorts) (builtins.attrValues url.schemes);

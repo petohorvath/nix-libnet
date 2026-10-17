@@ -2,7 +2,7 @@
 let
   inherit (libnet) hostname;
   inherit (helpers) throws;
-  parse = hostname.parse;
+  inherit (hostname) parse;
 
   # 1 + 60 ("123456789-" × 6) + 2 = 63 chars (maximum valid)
   label63Chars = "a123456789-123456789-123456789-123456789-123456789-123456789-xy";

@@ -7,7 +7,7 @@ let
     ipv6
     ;
   inherit (helpers) throws;
-  parse = interfaceAddress.parse;
+  inherit (interfaceAddress) parse;
 in
 {
   # ===== Parse =====

@@ -7,7 +7,7 @@ let
     portRange
     ;
   inherit (helpers) throws;
-  parse = ipBindpoint.parse;
+  inherit (ipBindpoint) parse;
 in
 {
   # ===== Parse =====

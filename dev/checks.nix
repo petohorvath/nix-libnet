@@ -1,18 +1,17 @@
-# The policy runs `nix flake check` but not `nix fmt`, so the formatting
-# gate lives here as a check. nix-unit's flake-parts module adds the
-# `nix-unit` entry beside it.
-{ formatter, pkgs }:
+# treefmt-nix's module adds the `treefmt` entry and nix-unit's the
+# `nix-unit` entry. `lint` runs statix here because treefmt runs only
+# `statix fix`, which leaves the lints it cannot fix unreported.
+{ pkgs }:
 {
-  formatting =
-    pkgs.runCommand "libnet-formatting"
+  lint =
+    pkgs.runCommand "libnet-lint"
       {
         src = ../.;
-        nativeBuildInputs = [ formatter ];
+        nativeBuildInputs = [ pkgs.statix ];
       }
       ''
-        cp -R --no-preserve=mode "$src" source
-        cd source
-        treefmt --ci --tree-root .
+        cd "$src"
+        statix check .
         touch "$out"
       '';
 }

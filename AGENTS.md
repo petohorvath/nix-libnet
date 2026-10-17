@@ -9,7 +9,7 @@
 - `GLOSSARY.md` defines the domain vocabulary, and `docs/adr/` records design decisions with their rationale.
 - `docs/testing.md` holds the test suite conventions and coverage rules.
 - `README.md` documents the user-facing overview and examples.
-- `flake.nix` assembles the public outputs with flake-parts; the `dev` partition in `dev/` defines formatting, development tooling, the `tests` output, and CI checks.
+- `flake.nix` assembles the public outputs with flake-parts; the `dev` partition in `dev/` defines formatting and linting in `dev/treefmt.nix`, development tooling, the `tests` output, and CI checks.
 
 ## Contribution rules
 
@@ -23,7 +23,7 @@
 
 ## Required checks
 
-Run the checks for the contributor's supported host system. `nix flake check` builds `checks.<system>.nix-unit` and `formatting`; run `nix fmt` to fix a failing `formatting` check:
+Run the checks for the contributor's supported host system. `nix flake check` builds `checks.<system>.nix-unit`, `treefmt`, and `lint`. `treefmt` runs nixfmt, deadnix, actionlint, and prettier, and `lint` runs `statix check`. Run `nix fmt` to fix a failing `treefmt` check and review its diff, since deadnix removes unused code. Fix `lint` findings by hand or with `statix fix` in the development shell:
 
 ```sh
 nix fmt

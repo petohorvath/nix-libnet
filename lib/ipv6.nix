@@ -552,7 +552,7 @@ let
 
     Returns the RFC 5952 canonical string.
   */
-  toStringCompressed = ip: toString ip;
+  toStringCompressed = toString;
 
   /*
     Format an address with all eight groups as four hex digits and no

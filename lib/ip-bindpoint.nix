@@ -256,7 +256,7 @@ let
 
     Returns true iff the address is null, `0.0.0.0`, or `::`.
   */
-  isWildcard = bindpoint: isAnyAddress bindpoint;
+  isWildcard = isAnyAddress;
 
   /*
     Test whether the bindpoint covers more than one port.

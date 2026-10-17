@@ -2,7 +2,7 @@
 let
   inherit (libnet) dnsEndpoint dnsName port;
   inherit (helpers) throws;
-  parse = dnsEndpoint.parse;
+  inherit (dnsEndpoint) parse;
 in
 {
   # ===== Parse =====

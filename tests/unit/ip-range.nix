@@ -7,7 +7,7 @@ let
     ipv6
     ;
   inherit (helpers) throws;
-  parse = ipRange.parse;
+  inherit (ipRange) parse;
 in
 {
   # ===== Parse =====
