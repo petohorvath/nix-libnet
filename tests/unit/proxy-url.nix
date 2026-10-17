@@ -2,7 +2,7 @@
 let
   inherit (libnet) authority port proxyUrl;
   inherit (helpers) throws;
-  parse = proxyUrl.parse;
+  inherit (proxyUrl) parse;
 in
 {
   # ===== Parse & toString =====

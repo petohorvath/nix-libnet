@@ -2,7 +2,7 @@
 let
   inherit (libnet) interfaceName;
   inherit (helpers) throws;
-  parse = interfaceName.parse;
+  inherit (interfaceName) parse;
 in
 {
   # ===== parse / toString / accessor =====

@@ -3,7 +3,7 @@ let
   inherit (libnet) ipv4;
   inherit (helpers) throws;
 
-  parse = ipv4.parse;
+  inherit (ipv4) parse;
 in
 {
   # ===== Parse: positive =====
@@ -672,7 +672,7 @@ in
 
   # ===== Curry partial application =====
   testCurriedAdd = {
-    expr = map (ipv4.toString) (
+    expr = map ipv4.toString (
       map (ipv4.add 1) [
         (parse "1.0.0.0")
         (parse "2.0.0.0")

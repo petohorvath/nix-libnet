@@ -93,7 +93,7 @@ let
 
     Returns an IPv4 value; throws on a wrong length or an invalid octet.
   */
-  fromBytes = octets: fromOctets octets;
+  fromBytes = fromOctets;
 
   /*
     Alias of `toOctets`, named like `mac.toBytes` and `ipv6.toBytes` for
@@ -103,7 +103,7 @@ let
 
     Returns a list of 4 integers in [0, 255], most significant first.
   */
-  toBytes = ip: toOctets ip;
+  toBytes = toOctets;
 
   # ===== Parsing & formatting =====
 

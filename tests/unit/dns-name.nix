@@ -2,7 +2,7 @@
 let
   inherit (libnet) dnsName domain hostname;
   inherit (helpers) throws;
-  parse = dnsName.parse;
+  inherit (dnsName) parse;
 in
 {
   # ===== Dispatch =====

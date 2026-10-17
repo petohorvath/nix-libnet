@@ -7,7 +7,7 @@ let
     ip
     ;
   inherit (helpers) throws;
-  parse = host.parse;
+  inherit (host) parse;
 in
 {
   # ===== Dispatch =====

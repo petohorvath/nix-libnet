@@ -156,7 +156,7 @@ let
 
     Returns true for ports 49152..65535.
   */
-  isEphemeral = port: isDynamic port;
+  isEphemeral = isDynamic;
 
   /*
     Check whether a port is the reserved port 0 (RFC 6335). Port 0 also

@@ -2,7 +2,7 @@
 let
   inherit (libnet) urlHost;
   inherit (helpers) throws;
-  tryParse = urlHost.tryParse;
+  inherit (urlHost) tryParse;
   parseValue = input: (urlHost.tryParse input).value;
 in
 {

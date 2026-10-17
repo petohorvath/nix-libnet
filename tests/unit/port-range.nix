@@ -2,7 +2,7 @@
 let
   inherit (libnet) port portRange;
   inherit (helpers) throws;
-  parse = portRange.parse;
+  inherit (portRange) parse;
 in
 {
   # ===== Parse =====

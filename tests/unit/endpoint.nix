@@ -2,7 +2,7 @@
 let
   inherit (libnet) dnsEndpoint endpoint ipEndpoint;
   inherit (helpers) throws;
-  parse = endpoint.parse;
+  inherit (endpoint) parse;
 in
 {
   # ===== Dispatch =====

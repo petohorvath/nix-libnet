@@ -2,7 +2,7 @@
 let
   inherit (libnet) domain hostname;
   inherit (helpers) throws;
-  parse = domain.parse;
+  inherit (domain) parse;
 
   # 62 copies of "abc." = 248 chars; plus a 5/6-char final label.
   longPrefix = builtins.concatStringsSep "" (builtins.genList (_: "abc.") 62);

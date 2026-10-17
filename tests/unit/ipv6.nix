@@ -3,7 +3,7 @@ let
   inherit (libnet) ipv4 ipv6 mac;
   inherit (helpers) throws;
 
-  parse = ipv6.parse;
+  inherit (ipv6) parse;
 in
 {
   # ===== Parse: positive (compression) =====
