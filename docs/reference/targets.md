@@ -8,11 +8,11 @@ Value: `{ _type = "ipEndpoint"; address = Ip; port = Port; }`. Text is `1.2.3.4:
 
 Suites: parsing, comparison (by family, address, then port), address predicates.
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `make` | `Ip → Port → IpEndpoint` | |
-| `address`, `port`, `version` | | Accessors. |
-| `isIpv4`, `isIpv6` | `IpEndpoint → Bool` | |
+| Function                     | Signature                | Notes      |
+| ---------------------------- | ------------------------ | ---------- |
+| `make`                       | `Ip → Port → IpEndpoint` |            |
+| `address`, `port`, `version` |                          | Accessors. |
+| `isIpv4`, `isIpv6`           | `IpEndpoint → Bool`      |            |
 
 ## `libnet.dnsEndpoint`
 
@@ -20,11 +20,11 @@ Value: `{ _type = "dnsEndpoint"; address = Hostname or Domain; port = Port; }`. 
 
 Suites: parsing, comparison (by name case-insensitively, then port).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `make` | `DnsName → Port → DnsEndpoint` | |
-| `address`, `port` | | Accessors. |
-| `isHostname`, `isDomain` | `DnsEndpoint → Bool` | Kind of name held. |
+| Function                 | Signature                      | Notes              |
+| ------------------------ | ------------------------------ | ------------------ |
+| `make`                   | `DnsName → Port → DnsEndpoint` |                    |
+| `address`, `port`        |                                | Accessors.         |
+| `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held. |
 
 ## `libnet.unixSocket`
 
@@ -32,10 +32,10 @@ Value: `{ _type = "unixSocket"; path = String; }`: a pathname starting with `/` 
 
 Suites: parsing, comparison (byte-wise, case-sensitive).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `path` | `UnixSocket → String` | |
-| `isPathname`, `isAbstract` | `UnixSocket → Bool` | |
+| Function                   | Signature             | Notes |
+| -------------------------- | --------------------- | ----- |
+| `path`                     | `UnixSocket → String` |       |
+| `isPathname`, `isAbstract` | `UnixSocket → Bool`   |       |
 
 Constant: `sunPathMax` (`108`).
 
@@ -45,8 +45,8 @@ Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` pi
 
 Suites: parsing, comparison (IP, DNS, then Unix kinds; `eq` is `false` across kinds).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
+| Function                                        | Signature    | Notes                                   |
+| ----------------------------------------------- | ------------ | --------------------------------------- |
 | `isIpEndpoint`, `isDnsEndpoint`, `isUnixSocket` | `Any → Bool` | Use the member namespace for accessors. |
 
 ## `libnet.ipBindpoint`
@@ -55,17 +55,17 @@ Value: `{ _type = "ipBindpoint"; address = Ip or null; portRange = PortRange; }`
 
 Suites: parsing, comparison (null address first, then by family, address and port range), address predicates (`false` for a null address; `toArpa` throws).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
-| `make` | `Ip or null → PortRange → IpBindpoint` | |
-| `address`, `portRange` | | Accessors. |
-| `version` | `IpBindpoint → Int or null` | `null` for a null address. |
-| `isIpv4`, `isIpv6` | `IpBindpoint → Bool` | `false` for a null address. |
-| `isAnyAddress`, `isWildcard` | `IpBindpoint → Bool` | Null, `0.0.0.0` or `::`. |
-| `isRange` | `IpBindpoint → Bool` | More than one port. |
-| `endpointAt` | `Int → IpBindpoint → IpEndpoint` | Offset into the port range. |
-| `endpoints` | `IpBindpoint → [IpEndpoint]` | Throws for a null address or more than 4096 ports. |
-| `endpointsUnbounded` | `IpBindpoint → [IpEndpoint]` | No size guard. |
+| Function                     | Signature                              | Notes                                              |
+| ---------------------------- | -------------------------------------- | -------------------------------------------------- |
+| `make`                       | `Ip or null → PortRange → IpBindpoint` |                                                    |
+| `address`, `portRange`       |                                        | Accessors.                                         |
+| `version`                    | `IpBindpoint → Int or null`            | `null` for a null address.                         |
+| `isIpv4`, `isIpv6`           | `IpBindpoint → Bool`                   | `false` for a null address.                        |
+| `isAnyAddress`, `isWildcard` | `IpBindpoint → Bool`                   | Null, `0.0.0.0` or `::`.                           |
+| `isRange`                    | `IpBindpoint → Bool`                   | More than one port.                                |
+| `endpointAt`                 | `Int → IpBindpoint → IpEndpoint`       | Offset into the port range.                        |
+| `endpoints`                  | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports. |
+| `endpointsUnbounded`         | `IpBindpoint → [IpEndpoint]`           | No size guard.                                     |
 
 ## `libnet.bindpoint`
 
@@ -73,6 +73,6 @@ Pass-through union over `ipBindpoint` and `unixSocket`. `parse` picks a Unix soc
 
 Suites: parsing, comparison (IP before Unix kinds; `eq` is `false` across kinds).
 
-| Function | Signature | Notes |
-| --- | --- | --- |
+| Function                        | Signature    | Notes                                   |
+| ------------------------------- | ------------ | --------------------------------------- |
 | `isIpBindpoint`, `isUnixSocket` | `Any → Bool` | Use the member namespace for accessors. |
