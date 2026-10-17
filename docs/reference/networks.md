@@ -20,16 +20,16 @@ Suites: parsing, comparison. Comparison orders by family, network, then prefix, 
 
 **Derived addresses and counts**
 
-| Function              | Signature     | Notes                                                                              |
-| --------------------- | ------------- | ---------------------------------------------------------------------------------- |
-| `network`             | `Cidr → Ip`   | Host bits zeroed.                                                                  |
-| `topAddress`          | `Cidr → Ip`   | Host bits set.                                                                     |
-| `broadcast`           | `Cidr → Ipv4` | Throws for IPv6.                                                                   |
-| `netmask`, `hostmask` | `Cidr → Ip`   | `/24` gives `255.255.255.0` and `0.0.0.255`.                                       |
-| `firstHost`           | `Cidr → Ip`   | `network`, plus one except for IPv4 `/31`–`/32` and IPv6 `/127`–`/128` (RFC 6164). |
-| `lastHost`            | `Cidr → Ip`   | `topAddress`, minus one for IPv4 `/30` and wider.                                  |
-| `size`                | `Cidr → Int`  | Address count. Throws at 2⁶³ or more: IPv6 `/65` and shorter.                      |
-| `numHosts`            | `Cidr → Int`  | Usable hosts, `firstHost` through `lastHost`.                                      |
+| Function              | Signature     | Notes                                                                                                  |
+| --------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
+| `network`             | `Cidr → Ip`   | Host bits zeroed.                                                                                      |
+| `topAddress`          | `Cidr → Ip`   | Host bits set.                                                                                         |
+| `broadcast`           | `Cidr → Ipv4` | Throws for IPv6.                                                                                       |
+| `netmask`, `hostmask` | `Cidr → Ip`   | `/24` gives `255.255.255.0` and `0.0.0.255`.                                                           |
+| `firstHost`           | `Cidr → Ip`   | `network`, plus one except for IPv4 `/31` (RFC 3021) and `/32`, and IPv6 `/127` (RFC 6164) and `/128`. |
+| `lastHost`            | `Cidr → Ip`   | `topAddress`, minus one for IPv4 `/30` and wider.                                                      |
+| `size`                | `Cidr → Int`  | Address count. Throws at 2⁶³ or more: IPv6 `/65` and shorter.                                          |
+| `numHosts`            | `Cidr → Int`  | Usable hosts, `firstHost` through `lastHost`.                                                          |
 
 **Enumeration**
 
