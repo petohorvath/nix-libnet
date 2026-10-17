@@ -3,9 +3,15 @@
 # `statix fix`, which leaves the lints it cannot fix unreported.
 { pkgs }:
 {
-  lint = pkgs.runCommand "libnet-lint" { nativeBuildInputs = [ pkgs.statix ]; } ''
-    cd ${../.}
-    statix check .
-    touch "$out"
-  '';
+  lint =
+    pkgs.runCommand "libnet-lint"
+      {
+        src = ../.;
+        nativeBuildInputs = [ pkgs.statix ];
+      }
+      ''
+        cd "$src"
+        statix check .
+        touch "$out"
+      '';
 }
