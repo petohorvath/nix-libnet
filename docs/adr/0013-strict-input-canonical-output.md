@@ -6,6 +6,7 @@ Parsers accept every standard spelling but reject ambiguous ones, and `toString`
 - IPv6 accepts compression, mixed case and embedded IPv4, and emits RFC 5952 text.
 - MAC accepts colon, hyphen, Cisco-dot and bare forms in any case, and emits lowercase colon-separated text.
 - Endpoints require brackets around IPv6 (`[::1]:80`), per RFC 3986 §3.2.2.
+- CIDRs reject host bits (`10.0.0.5/24`); that text is an interface address ([ADR 0010](0010-interface-address-is-not-cidr.md)).
 - Port ranges emit `-` and also accept the iptables `:` separator.
 - Hostnames reject the underscore that nixpkgs' `networking.hostName` tolerates, keeping to RFC 1123.
 

@@ -117,6 +117,14 @@ else
       expr = types.cidr.check "bad";
       expected = false;
     };
+    testCidrRejectsHostBits = {
+      expr = types.cidr.check "10.0.0.5/24";
+      expected = false;
+    };
+    testIpv6CidrRejectsHostBits = {
+      expr = types.ipv6Cidr.check "2001:db8::1/64";
+      expected = false;
+    };
     testIpv4CidrV4Ok = {
       expr = types.ipv4Cidr.check "10.0.0.0/24";
       expected = true;

@@ -1,13 +1,15 @@
 /*
   libnet.cidr
 
-  Parse and operate on CIDR blocks (IPv4 and IPv6). Provides network,
+  Parse and operate on CIDR blocks (IPv4 and IPv6). A block always
+  stores its network address: host bits are rejected, and
+  `interfaceAddress` holds a host address with its prefix. Provides network,
   broadcast, and host derivation, prefix arithmetic (subnet, supernet),
   and set operations (summarize, exclude, intersect).
 
   Example:
     libnet.cidr.parse "192.0.2.0/24"
-    => { _type = "cidr"; address = <ipv4 192.0.2.0>; prefix = 24; }
+    => { _type = "cidr"; network = <ipv4 192.0.2.0>; prefix = 24; }
 
     libnet.cidr.toString (libnet.cidr.parse "2001:DB8::/32")
     => "2001:db8::/32"
@@ -20,9 +22,10 @@ let
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
 
+  # Callers guarantee `ip` has no host bits for `prefixLength`.
   mk = ip: prefixLength: {
     _type = "cidr";
-    address = ip;
+    network = ip;
     prefix = prefixLength;
   };
 
@@ -38,7 +41,7 @@ let
     untrusted text.
 
     `input`: `address/prefix` string such as `10.0.0.0/24` or
-    `2001:db8::/32`; host bits may be set.
+    `2001:db8::/32`; host bits must be zero.
 
     Returns a tryParse result whose `value` is a cidr value.
   */
@@ -66,6 +69,8 @@ let
           types.tryErr "libnet.cidr.parse: invalid prefix \"${prefixText}\""
         else if prefixLength > (maxPrefix addressResult.value) then
           types.tryErr "libnet.cidr.parse: prefix /${prefixText} out of range"
+        else if hasHostBits addressResult.value prefixLength then
+          types.tryErr "libnet.cidr.parse: host bits set in \"${input}\"; the network is ${toString (mk (maskAddress addressResult.value prefixLength) prefixLength)}, and interfaceAddress keeps a host address with its prefix"
         else
           types.tryOk (mk addressResult.value prefixLength);
 
@@ -73,10 +78,9 @@ let
     Parse a CIDR block from its text form.
 
     `input`: `address/prefix` string such as `10.0.0.0/24` or
-    `2001:db8::/32`; host bits may be set.
+    `2001:db8::/32`; host bits must be zero.
 
-    Returns a cidr value storing the address as given; throws on invalid
-    input.
+    Returns a cidr value; throws on invalid input or set host bits.
   */
   parse =
     input:
@@ -90,22 +94,23 @@ let
 
     `cidr`: cidr value.
 
-    Returns a string using the stored address, which may be non-canonical.
+    Returns a string.
   */
   toString =
     cidr:
     let
-      addressText = if isV4 cidr.address then ipv4.toString cidr.address else ipv6.toString cidr.address;
+      addressText = if isV4 cidr.network then ipv4.toString cidr.network else ipv6.toString cidr.network;
     in
     "${addressText}/${builtins.toString cidr.prefix}";
 
   /*
     Build a CIDR block from an address and a prefix length.
 
-    `ip`: ipv4 or ipv6 value; host bits may be set.
+    `ip`: ipv4 or ipv6 network address; host bits must be zero.
     `prefixLength`: integer in [0, 32] for IPv4 or [0, 128] for IPv6.
 
-    Returns a cidr value; throws on a non-address or out-of-range prefix.
+    Returns a cidr value; throws on a non-address, an out-of-range prefix,
+    or set host bits.
   */
   make =
     ip: prefixLength:
@@ -113,6 +118,8 @@ let
       throw "libnet.cidr.make: address must be ipv4 or ipv6"
     else if !(builtins.isInt prefixLength) || prefixLength < 0 || prefixLength > (maxPrefix ip) then
       throw "libnet.cidr.make: prefix out of range"
+    else if hasHostBits ip prefixLength then
+      throw "libnet.cidr.make: host bits set; the network is ${toString (mk (maskAddress ip prefixLength) prefixLength)}, and interfaceAddress keeps a host address with its prefix"
     else
       mk ip prefixLength;
 
@@ -133,13 +140,13 @@ let
   # ===== Accessors / predicates =====
 
   /*
-    Read the address stored in a CIDR block.
+    Read the network address of a CIDR block.
 
     `cidr`: cidr value.
 
-    Returns the ipv4 or ipv6 value as given, host bits included.
+    Returns the ipv4 or ipv6 value with the host bits zero.
   */
-  address = cidr: cidr.address;
+  network = cidr: cidr.network;
 
   /*
     Read the prefix length of a CIDR block.
@@ -157,7 +164,7 @@ let
 
     Returns 4 or 6.
   */
-  version = cidr: if isV4 cidr.address then 4 else 6;
+  version = cidr: if isV4 cidr.network then 4 else 6;
 
   /*
     Check whether a CIDR block is IPv4.
@@ -166,7 +173,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv4 = cidr: isV4 cidr.address;
+  isIpv4 = cidr: isV4 cidr.network;
 
   /*
     Check whether a CIDR block is IPv6.
@@ -175,7 +182,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv6 = cidr: isV6 cidr.address;
+  isIpv6 = cidr: isV6 cidr.network;
 
   /*
     Check whether a string parses as a CIDR block.
@@ -224,27 +231,24 @@ let
 
   wordHostmaskIpv6 = i: prefixLength: bits.mask32 - (wordMaskIpv6 i prefixLength);
 
-  # ===== Derived values =====
-
-  /*
-    Compute the network address of a CIDR block.
-
-    `cidr`: cidr value.
-
-    Returns the stored address with its host bits zeroed.
-  */
-  network =
-    cidr:
-    let
-      prefixLength = cidr.prefix;
-      ip = cidr.address;
-    in
+  # Zero the host bits of an address for a prefix length.
+  maskAddress =
+    ip: prefixLength:
     if isV4 ip then
       ipv4.fromInt (builtins.bitAnd ip.value (netmaskV4Int prefixLength))
     else
       ipv6.fromWords (
         builtins.genList (i: builtins.bitAnd (builtins.elemAt ip.words i) (wordMaskIpv6 i prefixLength)) 4
       );
+
+  hasHostBits =
+    ip: prefixLength:
+    let
+      masked = maskAddress ip prefixLength;
+    in
+    if isV4 ip then ip.value != masked.value else ip.words != masked.words;
+
+  # ===== Derived values =====
 
   /*
     Compute the IPv4 broadcast address of a CIDR block.
@@ -256,7 +260,7 @@ let
   */
   broadcast =
     cidr:
-    if isV6 cidr.address then
+    if isV6 cidr.network then
       throw "libnet.cidr.broadcast: IPv6 has no broadcast"
     else
       let
@@ -277,7 +281,7 @@ let
       base = network cidr;
       prefixLength = cidr.prefix;
     in
-    if isV4 cidr.address then
+    if isV4 cidr.network then
       ipv4.fromInt (builtins.bitOr base.value (hostmaskV4Int prefixLength))
     else
       ipv6.fromWords (
@@ -295,7 +299,7 @@ let
   */
   netmask =
     cidr:
-    if isV4 cidr.address then
+    if isV4 cidr.network then
       ipv4.fromInt (netmaskV4Int cidr.prefix)
     else
       ipv6.fromWords (builtins.genList (i: wordMaskIpv6 i cidr.prefix) 4);
@@ -310,7 +314,7 @@ let
   */
   hostmask =
     cidr:
-    if isV4 cidr.address then
+    if isV4 cidr.network then
       ipv4.fromInt (hostmaskV4Int cidr.prefix)
     else
       ipv6.fromWords (builtins.genList (i: wordHostmaskIpv6 i cidr.prefix) 4);
@@ -326,7 +330,7 @@ let
   size =
     cidr:
     let
-      hostBits = (maxPrefix cidr.address) - cidr.prefix;
+      hostBits = (maxPrefix cidr.network) - cidr.prefix;
     in
     if hostBits > 62 then
       throw "libnet.cidr.size: block too large for Nix int (2^${builtins.toString hostBits}); IPv6 prefixes <= 65 exceed signed 63-bit range"
@@ -348,7 +352,7 @@ let
       addressCount = size cidr;
       prefixLength = cidr.prefix;
     in
-    if isV4 cidr.address then
+    if isV4 cidr.network then
       (if prefixLength >= 31 then addressCount else addressCount - 2)
     else
       (if prefixLength >= 127 then addressCount else addressCount - 1);
@@ -368,7 +372,7 @@ let
       base = network cidr;
       prefixLength = cidr.prefix;
     in
-    if isV4 cidr.address then
+    if isV4 cidr.network then
       (if prefixLength >= 31 then base else ipv4.add 1 base)
     else
       (if prefixLength >= 127 then base else ipv6.add 1 base);
@@ -387,7 +391,7 @@ let
       top = topAddress cidr;
       prefixLength = cidr.prefix;
     in
-    if isV4 cidr.address then (if prefixLength >= 31 then top else ipv4.sub 1 top) else top;
+    if isV4 cidr.network then (if prefixLength >= 31 then top else ipv4.sub 1 top) else top;
 
   # ===== Enumeration =====
 
@@ -413,7 +417,7 @@ let
       let
         base = network cidr;
       in
-      if isV4 cidr.address then ipv4.add index base else ipv6.add index base;
+      if isV4 cidr.network then ipv4.add index base else ipv6.add index base;
 
   /*
     List every usable host address with no size guard; the caller accepts
@@ -428,7 +432,7 @@ let
     let
       hostCount = numHosts cidr;
       first = firstHost cidr;
-      offsetAddress = if isV4 cidr.address then ipv4.add else ipv6.add;
+      offsetAddress = if isV4 cidr.network then ipv4.add else ipv6.add;
     in
     builtins.genList (i: offsetAddress i first) hostCount;
 
@@ -462,7 +466,7 @@ let
   */
   containsAddress =
     cidr: ip:
-    if cidr.address._type != ip._type then
+    if cidr.network._type != ip._type then
       false
     else
       let
@@ -485,7 +489,7 @@ let
   */
   containsCidr =
     parent: child:
-    if parent.address._type != child.address._type then
+    if parent.network._type != child.network._type then
       false
     else if child.prefix < parent.prefix then
       false
@@ -536,32 +540,9 @@ let
   */
   overlaps =
     a: b:
-    if a.address._type != b.address._type then false else (containsCidr a b) || (containsCidr b a);
+    if a.network._type != b.network._type then false else (containsCidr a b) || (containsCidr b a);
 
-  # ===== Normalization & restructuring =====
-
-  /*
-    Zero the host bits of a CIDR block.
-
-    `cidr`: cidr value.
-
-    Returns a cidr value whose address is the network address.
-  */
-  canonical = cidr: mk (network cidr) cidr.prefix;
-
-  /*
-    Check whether a CIDR block's stored address has no host bits set.
-
-    `cidr`: cidr value.
-
-    Returns a Boolean.
-  */
-  isCanonical =
-    cidr:
-    let
-      base = network cidr;
-    in
-    if isV4 cidr.address then cidr.address.value == base.value else cidr.address.words == base.words;
+  # ===== Restructuring =====
 
   /*
     Compute the IPv6 address `base + i * 2^shift` directly on 32-bit words.
@@ -615,7 +596,7 @@ let
     `n`: additional prefix bits, an integer in [0, 16].
     `cidr`: cidr value.
 
-    Returns 2^n canonical cidr values in address order; throws when `n` is
+    Returns 2^n cidr values in address order; throws when `n` is
     negative, exceeds 16, or pushes the prefix past the family maximum.
   */
   subnet =
@@ -625,7 +606,7 @@ let
     else
       let
         newPrefix = cidr.prefix + n;
-        maxPrefixLength = maxPrefix cidr.address;
+        maxPrefixLength = maxPrefix cidr.network;
       in
       if newPrefix > maxPrefixLength then
         throw "libnet.cidr.subnet: resulting prefix /${builtins.toString newPrefix} exceeds max /${builtins.toString maxPrefixLength}"
@@ -637,7 +618,7 @@ let
           base = network cidr;
           bitsToShift = maxPrefixLength - newPrefix;
           blockAt =
-            if isV4 cidr.address then
+            if isV4 cidr.network then
               let
                 blockSize = bits.pow2 bitsToShift;
               in
@@ -653,7 +634,7 @@ let
     `n`: number of prefix bits to remove, from 0 to the current prefix.
     `cidr`: cidr value.
 
-    Returns the canonical enclosing cidr value; throws when `n` is negative
+    Returns the enclosing cidr value; throws when `n` is negative
     or exceeds the current prefix.
   */
   supernet =
@@ -663,13 +644,12 @@ let
     else if n > cidr.prefix then
       throw "libnet.cidr.supernet: n exceeds current prefix"
     else
-      canonical (mk cidr.address (cidr.prefix - n));
+      mk (maskAddress cidr.network (cidr.prefix - n)) (cidr.prefix - n);
 
   # ===== Comparison =====
 
   /*
-    Test two CIDR blocks for equality after zeroing host bits, so
-    `10.0.0.0/24` equals `10.0.0.5/24`.
+    Test two CIDR blocks for equality.
 
     `a`, `b`: cidr values.
 
@@ -678,14 +658,10 @@ let
   eq =
     a: b:
     types.hasSameTag a b
-    && a.address._type == b.address._type
+    && a.network._type == b.network._type
     && a.prefix == b.prefix
     && (
-      let
-        networkA = network a;
-        networkB = network b;
-      in
-      if isV4 a.address then networkA.value == networkB.value else networkA.words == networkB.words
+      if isV4 a.network then a.network.value == b.network.value else a.network.words == b.network.words
     );
 
   /*
@@ -698,26 +674,24 @@ let
   */
   compare =
     a: b:
-    if isV4 a.address && isV6 b.address then
+    if isV4 a.network && isV6 b.network then
       -1
-    else if isV6 a.address && isV4 b.address then
+    else if isV6 a.network && isV4 b.network then
       1
     else
       let
-        networkA = network a;
-        networkB = network b;
         addressOrder =
-          if isV4 a.address then
+          if isV4 a.network then
             (
-              if networkA.value < networkB.value then
+              if a.network.value < b.network.value then
                 -1
-              else if networkA.value > networkB.value then
+              else if a.network.value > b.network.value then
                 1
               else
                 0
             )
           else
-            ipv6.compare networkA networkB;
+            ipv6.compare a.network b.network;
       in
       if addressOrder != 0 then
         addressOrder
@@ -784,19 +758,16 @@ let
 
   # ===== Set algebra =====
 
-  # Whether a and b are distinct canonical halves of the same parent block.
+  # Whether a and b are distinct halves of the same parent block.
   areSiblings =
     a: b:
     a.prefix == b.prefix
     && a.prefix > 0
-    && a.address._type == b.address._type
-    && isCanonical a
-    && isCanonical b
+    && a.network._type == b.network._type
     && !(eq a b)
-    && containsCidr (canonical (mk a.address (a.prefix - 1))) a
-    && containsCidr (canonical (mk a.address (a.prefix - 1))) b;
+    && containsCidr (mergeParent a) b;
 
-  mergeParent = cidr: canonical (mk cidr.address (cidr.prefix - 1));
+  mergeParent = supernet 1;
 
   # Sorts by (family, network, prefix).
   sortCidrs = cidrs: builtins.sort (a: b: compare a b < 0) cidrs;
@@ -806,7 +777,7 @@ let
   coalesceOne =
     cidrs:
     let
-      sorted = sortCidrs (map canonical cidrs);
+      sorted = sortCidrs cidrs;
       step =
         acc: current:
         if acc == [ ] then
@@ -833,14 +804,14 @@ let
 
     `cidrs`: list of cidr values of either family.
 
-    Returns sorted canonical cidr values with duplicates and covered blocks
+    Returns sorted cidr values with duplicates and covered blocks
     dropped and sibling pairs merged; IPv4 blocks come first.
   */
   summarize =
     cidrs:
     let
-      ipv4Cidrs = builtins.filter (cidr: isV4 cidr.address) cidrs;
-      ipv6Cidrs = builtins.filter (cidr: isV6 cidr.address) cidrs;
+      ipv4Cidrs = builtins.filter (cidr: isV4 cidr.network) cidrs;
+      ipv6Cidrs = builtins.filter (cidr: isV6 cidr.network) cidrs;
     in
     (coalesceOne ipv4Cidrs) ++ (coalesceOne ipv6Cidrs);
 
@@ -850,13 +821,13 @@ let
     `parent`: cidr value to subtract from.
     `child`: cidr value contained in `parent`.
 
-    Returns the minimal list of canonical cidr values covering
+    Returns the minimal list of cidr values covering
     `parent \ child`, or `[ ]` when they are equal; throws when the
     families differ or `child` is not contained in `parent`.
   */
   exclude =
     parent: child:
-    if parent.address._type != child.address._type then
+    if parent.network._type != child.network._type then
       throw "libnet.cidr.exclude: family mismatch"
     else if !(containsCidr parent child) then
       throw "libnet.cidr.exclude: child not contained in parent"
@@ -877,32 +848,30 @@ let
             in
             if containsCidr left child then (split left) ++ [ right ] else [ left ] ++ (split right);
       in
-      split (canonical parent);
+      split parent;
 
   /*
     Find the largest CIDR block contained in both arguments.
 
     `a`, `b`: cidr values.
 
-    Returns the canonical smaller block when one contains the other,
+    Returns the smaller block when one contains the other,
     otherwise null (including for different families).
   */
   intersect =
     a: b:
-    if a.address._type != b.address._type then
+    if a.network._type != b.network._type then
       null
     else if containsCidr a b then
-      canonical b
+      b
     else if containsCidr b a then
-      canonical a
+      a
     else
       null;
 in
 {
   inherit
-    address
     broadcast
-    canonical
     compare
     contains
     containsAddress
@@ -919,7 +888,6 @@ in
     hostsUnbounded
     intersect
     is
-    isCanonical
     isIpv4
     isIpv6
     isSubnetOf

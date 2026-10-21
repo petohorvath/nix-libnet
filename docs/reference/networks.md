@@ -2,27 +2,24 @@
 
 ## `libnet.cidr`
 
-Value: `{ _type = "cidr"; address = Ipv4 or Ipv6; prefix = Int; }` with `prefix` in `[0, 32]` or `[0, 128]` by family. The address may keep host bits (`10.0.0.5/24` parses); `canonical` zeros them. `toString` prints the stored address.
+Value: `{ _type = "cidr"; network = Ipv4 or Ipv6; prefix = Int; }` with `prefix` in `[0, 32]` or `[0, 128]` by family. Host bits are zero: `parse` and `make` reject `10.0.0.5/24`, which is an [interface address](#libnetinterfaceaddress) ([ADR 0010](../adr/0010-interface-address-is-not-cidr.md)).
 
-Suites: parsing, comparison. Comparison orders by family, network, then prefix, and `eq` compares canonical networks, so `10.0.0.0/24` equals `10.0.0.5/24`.
+Suites: parsing, comparison. Comparison orders by family, network, then prefix.
 
 **Construction and accessors**
 
-| Function            | Signature                 | Notes                                |
-| ------------------- | ------------------------- | ------------------------------------ |
-| `make`              | `Ip → Int → Cidr`         | Validates the prefix for the family. |
-| `fromAddress`       | `Ip → Cidr`               | `/32` or `/128`.                     |
-| `address`, `prefix` | `Cidr → Ip`, `Cidr → Int` | Stored fields.                       |
-| `version`           | `Cidr → Int`              | `4` or `6`.                          |
-| `isIpv4`, `isIpv6`  | `Cidr → Bool`             |                                      |
-| `canonical`         | `Cidr → Cidr`             | Host bits zeroed.                    |
-| `isCanonical`       | `Cidr → Bool`             |                                      |
+| Function            | Signature                 | Notes                                                               |
+| ------------------- | ------------------------- | ------------------------------------------------------------------- |
+| `make`              | `Ip → Int → Cidr`         | Validates the prefix for the family. Throws when host bits are set. |
+| `fromAddress`       | `Ip → Cidr`               | `/32` or `/128`.                                                    |
+| `network`, `prefix` | `Cidr → Ip`, `Cidr → Int` | Stored fields.                                                      |
+| `version`           | `Cidr → Int`              | `4` or `6`.                                                         |
+| `isIpv4`, `isIpv6`  | `Cidr → Bool`             |                                                                     |
 
 **Derived addresses and counts**
 
 | Function              | Signature     | Notes                                                                                                  |
 | --------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
-| `network`             | `Cidr → Ip`   | Host bits zeroed.                                                                                      |
 | `topAddress`          | `Cidr → Ip`   | Host bits set.                                                                                         |
 | `broadcast`           | `Cidr → Ipv4` | Throws for IPv6.                                                                                       |
 | `netmask`, `hostmask` | `Cidr → Ip`   | `/24` gives `255.255.255.0` and `0.0.0.255`.                                                           |
@@ -96,8 +93,7 @@ Suites: parsing, comparison (by family, address, then prefix), address predicate
 | `fromAddressAndNetwork`        | `Ip → Cidr → InterfaceAddress` | Throws when the address is outside the network. |
 | `address`, `prefix`, `version` |                                | Accessors.                                      |
 | `isIpv4`, `isIpv6`             | `InterfaceAddress → Bool`      |                                                 |
-| `network`                      | `InterfaceAddress → Cidr`      | Canonical network.                              |
+| `network`                      | `InterfaceAddress → Cidr`      | The network the address sits on.                |
 | `netmask`, `hostmask`          | `InterfaceAddress → Ip`        |                                                 |
 | `broadcast`                    | `InterfaceAddress → Ipv4`      | Throws for IPv6.                                |
-| `toCidr`                       | `InterfaceAddress → Cidr`      | Keeps the host bits.                            |
 | `toRange`                      | `InterfaceAddress → IpRange`   | The network as a range.                         |

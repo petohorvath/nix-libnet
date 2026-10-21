@@ -146,25 +146,6 @@ in
   };
 
   # ===== Conversions =====
-  # toCidr preserves host bits; network returns the canonical block.
-  testToCidrPreservesHost = {
-    expr = cidr.toString (interfaceAddress.toCidr (parse "192.168.1.5/24"));
-    expected = "192.168.1.5/24";
-  };
-  testToCidrV6PreservesHost = {
-    expr = cidr.toString (interfaceAddress.toCidr (parse "2001:db8::5/64"));
-    expected = "2001:db8::5/64";
-  };
-  testNetworkVsToCidr = {
-    expr = map cidr.toString [
-      (interfaceAddress.network (parse "192.168.1.5/24"))
-      (interfaceAddress.toCidr (parse "192.168.1.5/24"))
-    ];
-    expected = [
-      "192.168.1.0/24"
-      "192.168.1.5/24"
-    ];
-  };
   testToRange = {
     expr = (interfaceAddress.toRange (parse "192.168.1.5/24")).to.value;
     expected = (ipv4.parse "192.168.1.255").value;
@@ -221,8 +202,19 @@ in
   # ===== Distinction from CIDR =====
   # interfaceAddress vs cidr with same text representation must NOT be equal.
   testTypeDiffersFromCidr = {
-    expr = (parse "192.168.1.5/24")._type != (cidr.parse "192.168.1.5/24")._type;
+    expr = (parse "192.168.1.0/24")._type != (cidr.parse "192.168.1.0/24")._type;
     expected = true;
+  };
+  # Host bits are valid only in an interface address.
+  testHostBitsRejectedByCidr = {
+    expr = [
+      (interfaceAddress.isValid "192.168.1.5/24")
+      (cidr.isValid "192.168.1.5/24")
+    ];
+    expected = [
+      true
+      false
+    ];
   };
   testTypeTag = {
     expr = (parse "192.168.1.5/24")._type;

@@ -32,10 +32,6 @@ in
     expr = cidr.toString (parse "::/0");
     expected = "::/0";
   };
-  testParseNonCanonical = {
-    expr = cidr.toString (parse "10.0.0.5/24");
-    expected = "10.0.0.5/24";
-  }; # stores as-is
 
   # ===== Parse: negative =====
   testRejectNoSlash = {
@@ -58,6 +54,26 @@ in
     expr = throws (parse "10.0.0.0/a");
     expected = true;
   };
+  testRejectV4HostBits = {
+    expr = throws (parse "10.0.0.5/24");
+    expected = true;
+  };
+  testRejectV4HostBitsPrefix0 = {
+    expr = throws (parse "0.0.0.1/0");
+    expected = true;
+  };
+  testRejectV4HostBitsPrefix31 = {
+    expr = throws (parse "10.0.0.1/31");
+    expected = true;
+  };
+  testRejectV6HostBits = {
+    expr = throws (parse "2001:db8::1/64");
+    expected = true;
+  };
+  testRejectV6HostBitsPrefix127 = {
+    expr = throws (parse "2001:db8::1/127");
+    expected = true;
+  };
   testRejectBadAddress = {
     expr = throws (parse "999.0.0.0/24");
     expected = true;
@@ -71,6 +87,10 @@ in
   testTryParseBad = {
     expr = (cidr.tryParse "bad").success;
     expected = false;
+  };
+  testTryParseHostBitsError = {
+    expr = (cidr.tryParse "10.0.0.5/24").error;
+    expected = "libnet.cidr.parse: host bits set in \"10.0.0.5/24\"; the network is 10.0.0.0/24, and interfaceAddress keeps a host address with its prefix";
   };
 
   # ===== Predicates =====
@@ -102,6 +122,10 @@ in
     expr = cidr.isValid "bad";
     expected = false;
   };
+  testIsValidHostBits = {
+    expr = cidr.isValid "10.0.0.5/24";
+    expected = false;
+  };
 
   # ===== Accessors =====
   testPrefixV4 = {
@@ -119,7 +143,7 @@ in
 
   # ===== Derived values: v4 /24 =====
   testNetworkV4Prefix24 = {
-    expr = formatIpv4 (cidr.network (parse "10.0.0.5/24"));
+    expr = formatIpv4 (cidr.network (parse "10.0.0.0/24"));
     expected = "10.0.0.0";
   };
   testBroadcastV4Prefix24 = {
@@ -213,7 +237,7 @@ in
 
   # ===== Derived values: v6 /64 =====
   testNetworkV6Prefix64 = {
-    expr = formatIpv6 (cidr.network (parse "2001:db8::1/64"));
+    expr = formatIpv6 (cidr.network (parse "2001:db8::/64"));
     expected = "2001:db8::";
   };
   testNetmaskV6Prefix64 = {
@@ -451,24 +475,6 @@ in
     expected = false;
   };
 
-  # ===== Canonical =====
-  testCanonicalZeroesHostBits = {
-    expr = cidr.toString (cidr.canonical (parse "10.0.0.5/24"));
-    expected = "10.0.0.0/24";
-  };
-  testCanonicalAlready = {
-    expr = cidr.toString (cidr.canonical (parse "10.0.0.0/24"));
-    expected = "10.0.0.0/24";
-  };
-  testIsCanonicalTrue = {
-    expr = cidr.isCanonical (parse "10.0.0.0/24");
-    expected = true;
-  };
-  testIsCanonicalFalse = {
-    expr = cidr.isCanonical (parse "10.0.0.5/24");
-    expected = false;
-  };
-
   # ===== subnet / supernet =====
   testSubnet1SplitsInTwo = {
     expr = map cidr.toString (cidr.subnet 1 (parse "10.0.0.0/24"));
@@ -691,6 +697,18 @@ in
     expr = throws (cidr.make "10.0.0.0" 24);
     expected = true;
   };
+  testMakeHostBits = {
+    expr = throws (cidr.make (ipv4.parse "10.0.0.5") 24);
+    expected = true;
+  };
+  testMakeV6HostBits = {
+    expr = throws (cidr.make (ipv6.parse "2001:db8::1") 64);
+    expected = true;
+  };
+  testMakeV6 = {
+    expr = cidr.toString (cidr.make (ipv6.parse "2001:db8::") 32);
+    expected = "2001:db8::/32";
+  };
   testMakeNonIntPrefix = {
     expr = throws (cidr.make (ipv4.parse "10.0.0.0") "24");
     expected = true;
@@ -707,9 +725,9 @@ in
     expr = throws (cidr.fromAddress "10.0.0.5");
     expected = true;
   };
-  testAddressAccessor = {
-    expr = ipv4.toString (cidr.address (parse "10.0.0.5/24"));
-    expected = "10.0.0.5";
+  testNetworkField = {
+    expr = ipv4.toString (parse "10.0.0.0/24").network;
+    expected = "10.0.0.0";
   };
   testTopAddressV4 = {
     expr = ipv4.toString (cidr.topAddress (parse "10.0.0.0/24"));
@@ -767,10 +785,6 @@ in
     expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = true;
   };
-  testEqNonCanonical = {
-    expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.5/24");
-    expected = true;
-  }; # canonical eq
   testEqDifferentPrefix = {
     expr = cidr.eq (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = false;

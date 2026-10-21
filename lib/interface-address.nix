@@ -8,8 +8,8 @@
   Distinct from `cidr`: a `cidr` is a network/block with the host bits
   zeroed (`192.168.1.0/24`), whereas an `interfaceAddress` keeps the host
   bits significant (`192.168.1.10/24` — a specific host's address plus
-  its subnet). The two never compare `eq` (different `_type`); `toCidr`
-  converts (preserving host bits), `network` derives the canonical block.
+  its subnet). The two never compare `eq` (different `_type`); `network`
+  derives the block.
 
   The interface *name* (the NIC identifier, `eth0`) is a separate type:
   `libnet.interfaceName`.
@@ -168,7 +168,7 @@ let
       throw "libnet.interfaceAddress.fromAddressAndNetwork: address must be ipv4 or ipv6"
     else if !(types.isCidr networkCidr) then
       throw "libnet.interfaceAddress.fromAddressAndNetwork: expected cidr as network"
-    else if addressValue._type != networkCidr.address._type then
+    else if addressValue._type != networkCidr.network._type then
       throw "libnet.interfaceAddress.fromAddressAndNetwork: family mismatch"
     else if !(cidr.containsAddress networkCidr addressValue) then
       throw "libnet.interfaceAddress.fromAddressAndNetwork: address not in network"
@@ -335,14 +335,17 @@ let
   version = interfaceAddress: if isV4 interfaceAddress.address then 4 else 6;
 
   /*
-    Derive the canonical network the host belongs to.
+    Derive the network the host belongs to.
 
     `interfaceAddress`: interfaceAddress value.
 
-    Returns a cidr value with the host bits zeroed.
+    Returns a cidr value.
   */
   network =
-    interfaceAddress: cidr.canonical (cidr.make interfaceAddress.address interfaceAddress.prefix);
+    interfaceAddress:
+    cidr.supernet (maxPrefix interfaceAddress.address - interfaceAddress.prefix) (
+      cidr.fromAddress interfaceAddress.address
+    );
 
   /*
     Derive the netmask for the prefix.
@@ -351,8 +354,7 @@ let
 
     Returns an address value of the same family with the prefix bits set.
   */
-  netmask =
-    interfaceAddress: cidr.netmask (cidr.make interfaceAddress.address interfaceAddress.prefix);
+  netmask = interfaceAddress: cidr.netmask (network interfaceAddress);
 
   /*
     Derive the hostmask (inverse netmask) for the prefix.
@@ -361,8 +363,7 @@ let
 
     Returns an address value of the same family with the host bits set.
   */
-  hostmask =
-    interfaceAddress: cidr.hostmask (cidr.make interfaceAddress.address interfaceAddress.prefix);
+  hostmask = interfaceAddress: cidr.hostmask (network interfaceAddress);
 
   /*
     Derive the IPv4 broadcast address of the host's network.
@@ -376,20 +377,9 @@ let
     if !(isV4 interfaceAddress.address) then
       throw "libnet.interfaceAddress.broadcast: IPv6 has no broadcast"
     else
-      cidr.broadcast (cidr.make interfaceAddress.address interfaceAddress.prefix);
+      cidr.broadcast (network interfaceAddress);
 
   # ===== Conversions =====
-
-  /*
-    Convert to a cidr value that keeps the host bits, unlike `network`,
-    which zeroes them. Mirrors Python's IPv4Interface, whose string form
-    keeps the host but whose `.network` does not.
-
-    `interfaceAddress`: interfaceAddress value.
-
-    Returns a possibly non-canonical cidr value.
-  */
-  toCidr = interfaceAddress: cidr.make interfaceAddress.address interfaceAddress.prefix;
 
   /*
     Convert the host's network to an address range.
@@ -530,7 +520,6 @@ in
     parse
     prefix
     toArpa
-    toCidr
     toRange
     toString
     tryParse
