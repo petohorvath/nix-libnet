@@ -1,6 +1,11 @@
 { helpers, libnet, ... }:
 let
-  inherit (libnet) authority port urlHost;
+  inherit (libnet)
+    authority
+    ipv4
+    port
+    urlHost
+    ;
   inherit (helpers) throws;
   inherit (authority) parse;
 in
@@ -158,11 +163,15 @@ in
     );
     expected = "[::1]:80";
   };
-  testMakeRejectsHostString = {
+  testMakeBadHostString = {
     expr = throws (authority.make { host = "example.com"; });
     expected = true;
   };
-  testMakeRejectsPortInt = {
+  testMakeBadHostIpv4 = {
+    expr = throws (authority.make { host = ipv4.parse "1.2.3.4"; });
+    expected = true;
+  };
+  testMakeBadPortInt = {
     expr = throws (
       authority.make {
         host = urlHost.parse "h";
@@ -171,7 +180,7 @@ in
     );
     expected = true;
   };
-  testMakeRejectsPortString = {
+  testMakeBadPortString = {
     expr = throws (
       authority.make {
         host = urlHost.parse "h";

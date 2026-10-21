@@ -3,6 +3,7 @@ let
   inherit (libnet)
     dnsEndpoint
     ipEndpoint
+    ipv4
     port
     registry
     url
@@ -321,7 +322,7 @@ in
     );
     expected = true;
   };
-  testMakeRejectsHostString = {
+  testMakeBadHostString = {
     expr = throws (
       url.make {
         scheme = "http";
@@ -330,7 +331,26 @@ in
     );
     expected = true;
   };
-  testMakeRejectsPortInt = {
+  testMakeBadHostIpv4 = {
+    expr = throws (
+      url.make {
+        scheme = "http";
+        host = ipv4.parse "1.2.3.4";
+      }
+    );
+    expected = true;
+  };
+  testMakeBadPortString = {
+    expr = throws (
+      url.make {
+        scheme = "http";
+        host = urlHost.parse "h";
+        port = "8080";
+      }
+    );
+    expected = true;
+  };
+  testMakeBadPortInt = {
     expr = throws (
       url.make {
         scheme = "http";

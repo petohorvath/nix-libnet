@@ -77,15 +77,15 @@ in
     expr = throws (portRange.make (port.fromInt 200) (port.fromInt 100));
     expected = true;
   };
-  testMakeRejectsInts = {
+  testMakeBadInts = {
     expr = throws (portRange.make 100 200);
     expected = true;
   };
-  testMakeRejectsIntTo = {
+  testMakeBadIntTo = {
     expr = throws (portRange.make (port.fromInt 100) 200);
     expected = true;
   };
-  testMakeRejectsString = {
+  testMakeBadString = {
     expr = throws (portRange.make "80" (port.fromInt 100));
     expected = true;
   };
