@@ -336,32 +336,48 @@ in
   };
 
   # ===== Enumeration =====
-  testHostAt0 = {
-    expr = formatIpv4 (cidr.hostAt 0 (parse "10.0.0.0/28"));
+  testAddressAt0 = {
+    expr = formatIpv4 (cidr.addressAt 0 (parse "10.0.0.0/28"));
     expected = "10.0.0.0";
   };
-  testHostAt5 = {
-    expr = formatIpv4 (cidr.hostAt 5 (parse "10.0.0.0/28"));
+  testAddressAt5 = {
+    expr = formatIpv4 (cidr.addressAt 5 (parse "10.0.0.0/28"));
     expected = "10.0.0.5";
   };
-  testHostAtLast = {
-    expr = formatIpv4 (cidr.hostAt 15 (parse "10.0.0.0/28"));
+  testAddressAtLast = {
+    expr = formatIpv4 (cidr.addressAt 15 (parse "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  testHostAtNegative1 = {
-    expr = formatIpv4 (cidr.hostAt (-1) (parse "10.0.0.0/28"));
+  testAddressAtNegative1 = {
+    expr = formatIpv4 (cidr.addressAt (-1) (parse "10.0.0.0/28"));
     expected = "10.0.0.15";
   };
-  testHostAtNegative2 = {
-    expr = formatIpv4 (cidr.hostAt (-2) (parse "10.0.0.0/28"));
+  testAddressAtNegative2 = {
+    expr = formatIpv4 (cidr.addressAt (-2) (parse "10.0.0.0/28"));
     expected = "10.0.0.14";
   };
-  testHostAtOutOfRangePositive = {
-    expr = throws (cidr.hostAt 16 (parse "10.0.0.0/28"));
+  testAddressAtPartial = {
+    expr = map formatIpv4 (
+      map (cidr.addressAt 1) [
+        (parse "10.0.0.0/24")
+        (parse "192.168.0.0/30")
+      ]
+    );
+    expected = [
+      "10.0.0.1"
+      "192.168.0.1"
+    ];
+  };
+  testAddressAtV6 = {
+    expr = formatIpv6 (cidr.addressAt (-1) (parse "2001:db8::/120"));
+    expected = "2001:db8::ff";
+  };
+  testAddressAtOutOfRangePositive = {
+    expr = throws (cidr.addressAt 16 (parse "10.0.0.0/28"));
     expected = true;
   };
-  testHostAtOutOfRangeNegative = {
-    expr = throws (cidr.hostAt (-17) (parse "10.0.0.0/28"));
+  testAddressAtOutOfRangeNegative = {
+    expr = throws (cidr.addressAt (-17) (parse "10.0.0.0/28"));
     expected = true;
   };
 
@@ -496,15 +512,15 @@ in
   };
 
   # ===== subnet / supernet =====
-  testSubnet1SplitsInTwo = {
-    expr = map cidr.toString (cidr.subnet 1 (parse "10.0.0.0/24"));
+  testSubnets1SplitsInTwo = {
+    expr = map cidr.toString (cidr.subnets 1 (parse "10.0.0.0/24"));
     expected = [
       "10.0.0.0/25"
       "10.0.0.128/25"
     ];
   };
-  testSubnet2SplitsInFour = {
-    expr = map cidr.toString (cidr.subnet 2 (parse "10.0.0.0/24"));
+  testSubnets2SplitsInFour = {
+    expr = map cidr.toString (cidr.subnets 2 (parse "10.0.0.0/24"));
     expected = [
       "10.0.0.0/26"
       "10.0.0.64/26"
@@ -512,27 +528,27 @@ in
       "10.0.0.192/26"
     ];
   };
-  testSubnet0Identity = {
-    expr = map cidr.toString (cidr.subnet 0 (parse "10.0.0.0/24"));
+  testSubnets0Identity = {
+    expr = map cidr.toString (cidr.subnets 0 (parse "10.0.0.0/24"));
     expected = [ "10.0.0.0/24" ];
   };
-  testSubnetExceedsMax = {
-    expr = throws (cidr.subnet 1 (parse "10.0.0.0/32"));
+  testSubnetsExceedsMax = {
+    expr = throws (cidr.subnets 1 (parse "10.0.0.0/32"));
     expected = true;
   };
-  testSubnetTooMany = {
-    expr = throws (cidr.subnet 17 (parse "10.0.0.0/8"));
+  testSubnetsTooMany = {
+    expr = throws (cidr.subnets 17 (parse "10.0.0.0/8"));
     expected = true;
   };
-  testSubnetV6SplitsInTwo = {
-    expr = map cidr.toString (cidr.subnet 1 (parse "2001:db8::/64"));
+  testSubnetsV6SplitsInTwo = {
+    expr = map cidr.toString (cidr.subnets 1 (parse "2001:db8::/64"));
     expected = [
       "2001:db8::/65"
       "2001:db8:0:0:8000::/65"
     ];
   };
-  testSubnetV6SplitsInFour = {
-    expr = map cidr.toString (cidr.subnet 2 (parse "2001:db8::/64"));
+  testSubnetsV6SplitsInFour = {
+    expr = map cidr.toString (cidr.subnets 2 (parse "2001:db8::/64"));
     expected = [
       "2001:db8::/66"
       "2001:db8:0:0:4000::/66"
@@ -540,26 +556,26 @@ in
       "2001:db8:0:0:c000::/66"
     ];
   };
-  testSubnetV6ZeroIdentity = {
-    expr = map cidr.toString (cidr.subnet 0 (parse "2001:db8::/64"));
+  testSubnetsV6ZeroIdentity = {
+    expr = map cidr.toString (cidr.subnets 0 (parse "2001:db8::/64"));
     expected = [ "2001:db8::/64" ];
   };
-  testSubnetV6OfPrefix0 = {
-    expr = map cidr.toString (cidr.subnet 1 (parse "::/0"));
+  testSubnetsV6OfPrefix0 = {
+    expr = map cidr.toString (cidr.subnets 1 (parse "::/0"));
     expected = [
       "::/1"
       "8000::/1"
     ];
   };
-  testSubnetV6OfPrefix127 = {
-    expr = map cidr.toString (cidr.subnet 1 (parse "2001:db8::/127"));
+  testSubnetsV6OfPrefix127 = {
+    expr = map cidr.toString (cidr.subnets 1 (parse "2001:db8::/127"));
     expected = [
       "2001:db8::/128"
       "2001:db8::1/128"
     ];
   };
-  testSubnetV6ExceedsMax = {
-    expr = throws (cidr.subnet 1 (parse "::1/128"));
+  testSubnetsV6ExceedsMax = {
+    expr = throws (cidr.subnets 1 (parse "::1/128"));
     expected = true;
   };
 

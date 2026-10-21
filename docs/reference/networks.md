@@ -30,11 +30,11 @@ Suites: parsing, comparison. Comparison orders by family, network, then prefix.
 
 **Enumeration**
 
-| Function         | Signature         | Notes                                                                  |
-| ---------------- | ----------------- | ---------------------------------------------------------------------- |
-| `hostAt`         | `Int → Cidr → Ip` | Offset from `network`; `-1` is `topAddress`. Throws where `size` does. |
-| `hosts`          | `Cidr → [Ip]`     | Usable hosts. Throws when `size` exceeds 2¹⁶.                          |
-| `hostsUnbounded` | `Cidr → [Ip]`     | No guard.                                                              |
+| Function         | Signature         | Notes                                                                                             |
+| ---------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| `addressAt`      | `Int → Cidr → Ip` | Offset from `network`, as in `ipRange.addressAt`; `-1` is `topAddress`. Throws where `size` does. |
+| `hosts`          | `Cidr → [Ip]`     | Usable hosts, from `firstHost`. Throws when `size` exceeds 2¹⁶.                                   |
+| `hostsUnbounded` | `Cidr → [Ip]`     | No guard.                                                                                         |
 
 **Relationships**, all `false` across families:
 
@@ -50,7 +50,7 @@ Suites: parsing, comparison. Comparison orders by family, network, then prefix.
 
 | Function    | Signature                    | Notes                                                                                                                                      |
 | ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `subnet`    | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer. `subnet 2` of a `/24` gives four `/26`s.                                                           |
+| `subnets`   | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer. `subnets 2` of a `/24` gives four `/26`s.                                                          |
 | `supernet`  | `Int → Cidr → Cidr`          | `n` bits shorter. `supernet 8` of `10.1.0.0/24` gives `10.0.0.0/16`.                                                                       |
 | `summarize` | `[Cidr] → [Cidr]`            | Minimal sorted cover: merges siblings, drops duplicates and covered blocks, handles each family separately. Python's `collapse_addresses`. |
 | `exclude`   | `Cidr → Cidr → [Cidr]`       | `exclude parent child` covers `parent \ child` minimally. Throws when `child` is outside `parent`.                                         |
