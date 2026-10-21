@@ -347,7 +347,7 @@ let
       portsUnbounded range;
 
   /*
-    Index into a range, parallel to `cidr.hostAt` and
+    Index into a range, parallel to `cidr.addressAt` and
     `ipBindpoint.endpointAt`.
 
     `n`: 0-based offset from `from`; negative values count from the end.

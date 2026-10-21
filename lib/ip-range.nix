@@ -399,8 +399,8 @@ let
       addressesUnbounded range;
 
   /*
-    Index into a range, parallel to `cidr.hostAt` and
-    `ipBindpoint.endpointAt`. Like `cidr.hostAt` it relies on `size`, so
+    Index into a range, parallel to `cidr.addressAt` and
+    `ipBindpoint.endpointAt`. Like `cidr.addressAt` it relies on `size`, so
     it throws for IPv6 ranges wider than about 2^63 addresses.
 
     `n`: 0-based offset from `from`; negative values count from the end.

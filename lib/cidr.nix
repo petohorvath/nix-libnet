@@ -4,7 +4,7 @@
   Parse and operate on CIDR blocks (IPv4 and IPv6). A block always
   stores its network address: host bits are rejected, and
   `interfaceAddress` holds a host address with its prefix. Provides network,
-  broadcast, and host derivation, prefix arithmetic (subnet, supernet),
+  broadcast, and host derivation, prefix arithmetic (subnets, supernet),
   and set operations (summarize, exclude, intersect).
 
   Example:
@@ -407,14 +407,14 @@ let
     Returns an address of the block's family; throws when `n` falls outside
     the block.
   */
-  hostAt =
+  addressAt =
     n: cidr:
     let
       addressCount = size cidr;
       index = if n < 0 then addressCount + n else n;
     in
     if index < 0 || index >= addressCount then
-      throw "libnet.cidr.hostAt: index out of range [0, ${builtins.toString addressCount})"
+      throw "libnet.cidr.addressAt: index out of range [0, ${builtins.toString addressCount})"
     else
       let
         base = network cidr;
@@ -452,7 +452,7 @@ let
       addressCount = size cidr;
     in
     if addressCount > bits.pow2 16 then
-      throw "libnet.cidr.hosts: block too large (${builtins.toString addressCount} addresses > 2^16); use hostAt or hostsUnbounded"
+      throw "libnet.cidr.hosts: block too large (${builtins.toString addressCount} addresses > 2^16); use addressAt or hostsUnbounded"
     else
       hostsUnbounded cidr;
 
@@ -548,7 +548,7 @@ let
 
   /*
     Compute the IPv6 address `base + i * 2^shift` directly on 32-bit words.
-    `subnet` uses it because 2^shift can exceed the 62-bit limit of
+    `subnets` uses it because 2^shift can exceed the 62-bit limit of
     `bits.pow2`. The caller guarantees 0 <= shift < 128 when i > 0 and
     that `bits.shl (shift mod 32) i` fits in a Nix int.
   */
@@ -565,7 +565,7 @@ let
         highPart = if shiftInWord == 0 then 0 else bits.shr (32 - shiftInWord) i;
       in
       if wordIndex == 0 && highPart > 0 then
-        throw "libnet.cidr.subnet: block offset overflow beyond 2^128"
+        throw "libnet.cidr.subnets: block offset overflow beyond 2^128"
       else
         let
           offsetWord =
@@ -583,7 +583,7 @@ let
           result0 = carry.add32 (builtins.elemAt words 0) (offsetWord 0) result1.carry;
         in
         if result0.carry == 1 then
-          throw "libnet.cidr.subnet: block offset overflow beyond 2^128"
+          throw "libnet.cidr.subnets: block offset overflow beyond 2^128"
         else
           ipv6.fromWords [
             result0.sum
@@ -601,19 +601,19 @@ let
     Returns 2^n cidr values in address order; throws when `n` is
     negative, exceeds 16, or pushes the prefix past the family maximum.
   */
-  subnet =
+  subnets =
     n: cidr:
     if !(builtins.isInt n) || n < 0 then
-      throw "libnet.cidr.subnet: n must be non-negative int"
+      throw "libnet.cidr.subnets: n must be non-negative int"
     else
       let
         newPrefix = cidr.prefix + n;
         maxPrefixLength = maxPrefix cidr.network;
       in
       if newPrefix > maxPrefixLength then
-        throw "libnet.cidr.subnet: resulting prefix /${builtins.toString newPrefix} exceeds max /${builtins.toString maxPrefixLength}"
+        throw "libnet.cidr.subnets: resulting prefix /${builtins.toString newPrefix} exceeds max /${builtins.toString maxPrefixLength}"
       else if n > 16 then
-        throw "libnet.cidr.subnet: n too large (>16); would produce > 2^16 subnets"
+        throw "libnet.cidr.subnets: n too large (>16); would produce > 2^16 subnets"
       else
         let
           count = bits.pow2 n;
@@ -842,7 +842,7 @@ let
             [ ]
           else
             let
-              halves = subnet 1 current;
+              halves = subnets 1 current;
               left = builtins.elemAt halves 0;
               right = builtins.elemAt halves 1;
             in
@@ -871,6 +871,7 @@ let
 in
 {
   inherit
+    addressAt
     broadcast
     compare
     contains
@@ -882,7 +883,6 @@ in
     fromAddress
     ge
     gt
-    hostAt
     hostmask
     hosts
     hostsUnbounded
@@ -906,7 +906,7 @@ in
     parse
     prefix
     size
-    subnet
+    subnets
     summarize
     supernet
     topAddress
