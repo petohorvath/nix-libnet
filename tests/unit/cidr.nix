@@ -511,7 +511,7 @@ in
     expected = false;
   };
 
-  # ===== subnet / supernet =====
+  # ===== subnets / supernet =====
   testSubnets1SplitsInTwo = {
     expr = map cidr.toString (cidr.subnets 1 (parse "10.0.0.0/24"));
     expected = [
