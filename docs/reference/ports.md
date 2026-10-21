@@ -24,7 +24,7 @@ Suites: parsing, comparison (by `from`, then `to`).
 
 | Function                         | Signature                                   | Notes                                            |
 | -------------------------------- | ------------------------------------------- | ------------------------------------------------ |
-| `make`                           | `Int → Int → PortRange`                     | Throws out of range or when `from > to`.         |
+| `make`                           | `Port → Port → PortRange`                   | Throws when `from > to`.                         |
 | `fromPort`                       | `Port → PortRange`                          | A single port.                                   |
 | `toStringColon`                  | `PortRange → String`                        | `from:to`.                                       |
 | `from`, `to`                     | `PortRange → Port`                          |                                                  |

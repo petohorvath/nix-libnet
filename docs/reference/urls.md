@@ -78,10 +78,10 @@ Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port =
 
 Suites: parsing, comparison (by host, port with `null` first, then userinfo; `eq` includes userinfo and ignores host case).
 
-| Function                   | Signature                                             | Notes                                            |
-| -------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
-| `make`                     | `{ host; userinfo ? null; port ? null; } → Authority` | `host` is a string; `port` an integer or `null`. |
-| `userinfo`, `host`, `port` |                                                       | Accessors.                                       |
+| Function                   | Signature                                             | Notes                                             |
+| -------------------------- | ----------------------------------------------------- | ------------------------------------------------- |
+| `make`                     | `{ host; userinfo ? null; port ? null; } → Authority` | `host` is a `UrlHost`; `port` a `Port` or `null`. |
+| `userinfo`, `host`, `port` |                                                       | Accessors.                                        |
 
 ## `libnet.url`
 
@@ -93,7 +93,7 @@ Suites: parsing, comparison (by scheme, host, effective port, path, query, then 
 
 | Function                                                          | Signature                                                                                         | Notes                                                                         |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `make`                                                            | `{ scheme; host; port ? null; userinfo ? null; path ? ""; query ? null; fragment ? null; } → Url` | `host` is a string; `port` an integer or `null`.                              |
+| `make`                                                            | `{ scheme; host; port ? null; userinfo ? null; path ? ""; query ? null; fragment ? null; } → Url` | `host` is a `UrlHost`; `port` a `Port` or `null`.                             |
 | `scheme`, `userinfo`, `host`, `port`, `path`, `query`, `fragment` |                                                                                                   | Accessors; `port` is the explicit port or `null`.                             |
 | `defaultPort`                                                     | `Url → Int`                                                                                       | From the scheme.                                                              |
 | `effectivePort`                                                   | `Url → Port`                                                                                      | Explicit port, else the default.                                              |

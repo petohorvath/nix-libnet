@@ -28,8 +28,6 @@ let
   urlHost = import ./url-host.nix;
   port = import ./port.nix;
 
-  mkPort = port.fromInt;
-
   mk = userinfoValue: hostValue: portValue: {
     _type = "authority";
     userinfo = userinfoValue;
@@ -160,14 +158,15 @@ let
   # ===== Construction =====
 
   /*
-    Build an authority from its textual parts; pass a whole authority string
-    to `parse` instead.
+    Build an authority from its parts; pass a whole authority string to
+    `parse` instead.
 
-    `host`: URL host text, parsed with `urlHost.parse` rules.
+    `host`: urlHost value.
     `userinfo`: raw userinfo string, or null (default).
-    `port`: integer port, or null (default) to omit it.
+    `port`: port value, or null (default) to omit it.
 
-    Returns an authority value; throws on an invalid host or a non-int port.
+    Returns an authority value; throws on a non-urlHost host or a non-port
+    port.
   */
   make =
     {
@@ -175,15 +174,12 @@ let
       userinfo ? null,
       port ? null,
     }:
-    let
-      hostResult = urlHost.tryParse host;
-    in
-    if !hostResult.success then
-      throw "libnet.authority.make: invalid host \"${host}\""
-    else if port != null && !(builtins.isInt port) then
-      throw "libnet.authority.make: port must be an int or null"
+    if !(types.isUrlHost host) then
+      throw "libnet.authority.make: host must be a urlHost value"
+    else if port != null && !(types.isPort port) then
+      throw "libnet.authority.make: port must be a port value or null"
     else
-      mk userinfo hostResult.value (if port == null then null else mkPort port);
+      mk userinfo host port;
 
   # ===== Predicates =====
 

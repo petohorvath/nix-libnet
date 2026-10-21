@@ -57,6 +57,7 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 
 - **Curry order**: the parameter comes first and the operand last, so `map (ipv4.add 1) addresses` and `map (cidr.hostAt 1) blocks` work.
 - **Accessors** share their name with the field they read, such as `cidr.prefix`.
+- **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
 - **Errors** throw messages that begin with `libnet` and name the function. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
 - **Enumeration** functions throw above a size guard and have an `*Unbounded` sibling ([ADR 0015](../adr/0015-enumeration-size-guards.md)).
 - **Indexed access** (`hostAt`, `portAt`, `addressAt`, `endpointAt`) counts from 0; a negative index counts from the end, and an out-of-range index throws.

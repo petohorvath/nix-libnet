@@ -144,26 +144,21 @@ let
       "${port.toString range.from}:${port.toString range.to}";
 
   /*
-    Build a range from raw integers. A port is just an int, so this
-    parallels `port.fromInt` rather than `ipRange.make`; use `fromPort`
-    to build from a tagged port.
+    Build a range from its two end ports, parallel to `ipRange.make`.
 
-    `first`: lowest port number, in [0, 65535].
-    `last`: highest port number, in [first, 65535].
+    `first`: lowest port value.
+    `last`: highest port value, not below `first`.
 
-    Returns a portRange value; throws on non-integers, out-of-range
-    numbers, or first > last.
+    Returns a portRange value; throws on non-port values or first > last.
   */
   make =
     first: last:
-    if !(builtins.isInt first) || !(builtins.isInt last) then
-      throw "libnet.portRange.make: from and to must be ints"
-    else if first < 0 || first > portMax || last < 0 || last > portMax then
-      throw "libnet.portRange.make: out of range [0, 65535]"
-    else if first > last then
+    if !(types.isPort first) || !(types.isPort last) then
+      throw "libnet.portRange.make: from and to must be port values"
+    else if port.gt first last then
       throw "libnet.portRange.make: from > to"
     else
-      mk (port.fromInt first) (port.fromInt last);
+      mk first last;
 
   /*
     Build a range holding exactly one port, parallel to

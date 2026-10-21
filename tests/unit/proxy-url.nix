@@ -1,6 +1,11 @@
 { helpers, libnet, ... }:
 let
-  inherit (libnet) authority port proxyUrl;
+  inherit (libnet)
+    authority
+    port
+    proxyUrl
+    urlHost
+    ;
   inherit (helpers) throws;
   inherit (proxyUrl) parse;
 in
@@ -115,8 +120,8 @@ in
     expr = proxyUrl.toString (
       proxyUrl.make "socks5" (
         authority.make {
-          host = "10.0.0.1";
-          port = 1080;
+          host = urlHost.parse "10.0.0.1";
+          port = port.fromInt 1080;
         }
       )
     );
@@ -126,9 +131,9 @@ in
     expr = proxyUrl.toString (
       proxyUrl.make "http" (
         authority.make {
-          host = "h";
+          host = urlHost.parse "h";
           userinfo = "u:p";
-          port = 8080;
+          port = port.fromInt 8080;
         }
       )
     );
@@ -138,8 +143,8 @@ in
     expr = proxyUrl.toString (
       proxyUrl.make "SOCKS5" (
         authority.make {
-          host = "h";
-          port = 1080;
+          host = urlHost.parse "h";
+          port = port.fromInt 1080;
         }
       )
     );
@@ -149,15 +154,15 @@ in
     expr = throws (
       proxyUrl.make "ftp" (
         authority.make {
-          host = "h";
-          port = 1080;
+          host = urlHost.parse "h";
+          port = port.fromInt 1080;
         }
       )
     );
     expected = true;
   };
   testMakeNoPortThrows = {
-    expr = throws (proxyUrl.make "socks5" (authority.make { host = "h"; }));
+    expr = throws (proxyUrl.make "socks5" (authority.make { host = urlHost.parse "h"; }));
     expected = true;
   };
   testMakeNonAuthorityThrows = {
@@ -168,8 +173,8 @@ in
     expr = throws (
       proxyUrl.make 42 (
         authority.make {
-          host = "h";
-          port = 1080;
+          host = urlHost.parse "h";
+          port = port.fromInt 1080;
         }
       )
     );

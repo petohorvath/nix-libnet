@@ -4,6 +4,7 @@ let
     ipBindpoint
     ipEndpoint
     ipv4
+    port
     portRange
     ;
   inherit (helpers) throws;
@@ -278,15 +279,19 @@ in
 
   # ===== make / accessors / unbounded expansion =====
   testMakeOk = {
-    expr = ipBindpoint.toString (ipBindpoint.make (ipv4.parse "1.2.3.4") (portRange.make 80 82));
+    expr = ipBindpoint.toString (
+      ipBindpoint.make (ipv4.parse "1.2.3.4") (portRange.make (port.fromInt 80) (port.fromInt 82))
+    );
     expected = "1.2.3.4:80-82";
   };
   testMakeNullAddress = {
-    expr = ipBindpoint.toString (ipBindpoint.make null (portRange.make 80 80));
+    expr = ipBindpoint.toString (
+      ipBindpoint.make null (portRange.make (port.fromInt 80) (port.fromInt 80))
+    );
     expected = ":80";
   };
   testMakeBadAddress = {
-    expr = throws (ipBindpoint.make "1.2.3.4" (portRange.make 80 80));
+    expr = throws (ipBindpoint.make "1.2.3.4" (portRange.make (port.fromInt 80) (port.fromInt 80)));
     expected = true;
   };
   testMakeBadPortRange = {
