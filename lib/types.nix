@@ -154,7 +154,7 @@ let
 
   cidrType = mkStringType {
     typeName = "cidr";
-    description = "a CIDR block (address/prefix)";
+    description = "a CIDR block (network/prefix, host bits zero)";
     validator = cidr.isValid;
   };
 

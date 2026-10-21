@@ -51,7 +51,7 @@ _Avoid_: public address
 ## Networks
 
 **CIDR**:
-A network block written `address/prefix`. Its address may keep host bits; its canonical form zeros them.
+A network block written `network/prefix`, with every host bit zero. Text with host bits set, such as `10.0.0.5/24`, is an interface address.
 _Avoid_: subnet (as the type name), netblock, network (as the type name)
 
 **Prefix**:

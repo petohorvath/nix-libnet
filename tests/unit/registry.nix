@@ -16,8 +16,7 @@ let
   v4Cidrs = map cidr.parse v4Strings;
   v6Cidrs = map cidr.parse v6Strings;
 
-  isIpv4 = block: block.address._type == "ipv4";
-  isIpv6 = block: block.address._type == "ipv6";
+  inherit (cidr) isIpv4 isIpv6;
 
   inAnyV4 = address: builtins.any (block: cidr.containsAddress block address) v4Cidrs;
   inAnyV6 = address: builtins.any (block: cidr.containsAddress block address) v6Cidrs;

@@ -652,7 +652,7 @@ let
   fromEui64 =
     cidrValue: macValue:
     let
-      isValidCidr = types.isCidr cidrValue && cidrValue.address._type == "ipv6";
+      isValidCidr = types.isCidr cidrValue && cidrValue.network._type == "ipv6";
     in
     if !isValidCidr then
       throw "libnet.ipv6.fromEui64: first argument must be an IPv6 cidr"
@@ -662,19 +662,9 @@ let
       throw "libnet.ipv6.fromEui64: CIDR prefix must be <= 64, got /${builtins.toString cidrValue.prefix}"
     else
       let
-        addressWords = cidrValue.address.words;
-        inherit (cidrValue) prefix;
-        # Keep the top `keep` bits of `word` and zero the rest.
-        applyMask =
-          word: keep:
-          if keep <= 0 then
-            0
-          else if keep >= 32 then
-            word
-          else
-            bits.shl (32 - keep) (bits.shr (32 - keep) word);
-        networkWord0 = applyMask (builtins.elemAt addressWords 0) prefix;
-        networkWord1 = applyMask (builtins.elemAt addressWords 1) (prefix - 32);
+        # The network has no host bits, so its upper two words are the
+        # prefix and its lower two are zero.
+        networkWords = cidrValue.network.words;
         euiBytes = mac.toEui64 macValue;
         euiByteAt = i: builtins.elemAt euiBytes i;
         interfaceWord =
@@ -685,8 +675,8 @@ let
           + (euiByteAt (i + 3));
       in
       mk [
-        networkWord0
-        networkWord1
+        (builtins.elemAt networkWords 0)
+        (builtins.elemAt networkWords 1)
         (interfaceWord 0)
         (interfaceWord 4)
       ];

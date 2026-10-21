@@ -128,6 +128,22 @@ in
     expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/64"));
     expected = "2001:db8::/64";
   };
+  testNetworkV4Prefix0 = {
+    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/0"));
+    expected = "0.0.0.0/0";
+  };
+  testNetworkV4Prefix32 = {
+    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/32"));
+    expected = "10.1.2.3/32";
+  };
+  testNetworkV6Prefix0 = {
+    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/0"));
+    expected = "::/0";
+  };
+  testNetworkV6Prefix128 = {
+    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/128"));
+    expected = "2001:db8::5/128";
+  };
   testNetmaskV4 = {
     expr = ipv4.toString (interfaceAddress.netmask (parse "192.168.1.5/24"));
     expected = "255.255.255.0";
@@ -146,25 +162,6 @@ in
   };
 
   # ===== Conversions =====
-  # toCidr preserves host bits; network returns the canonical block.
-  testToCidrPreservesHost = {
-    expr = cidr.toString (interfaceAddress.toCidr (parse "192.168.1.5/24"));
-    expected = "192.168.1.5/24";
-  };
-  testToCidrV6PreservesHost = {
-    expr = cidr.toString (interfaceAddress.toCidr (parse "2001:db8::5/64"));
-    expected = "2001:db8::5/64";
-  };
-  testNetworkVsToCidr = {
-    expr = map cidr.toString [
-      (interfaceAddress.network (parse "192.168.1.5/24"))
-      (interfaceAddress.toCidr (parse "192.168.1.5/24"))
-    ];
-    expected = [
-      "192.168.1.0/24"
-      "192.168.1.5/24"
-    ];
-  };
   testToRange = {
     expr = (interfaceAddress.toRange (parse "192.168.1.5/24")).to.value;
     expected = (ipv4.parse "192.168.1.255").value;
@@ -221,8 +218,19 @@ in
   # ===== Distinction from CIDR =====
   # interfaceAddress vs cidr with same text representation must NOT be equal.
   testTypeDiffersFromCidr = {
-    expr = (parse "192.168.1.5/24")._type != (cidr.parse "192.168.1.5/24")._type;
+    expr = (parse "192.168.1.0/24")._type != (cidr.parse "192.168.1.0/24")._type;
     expected = true;
+  };
+  # Host bits are valid only in an interface address.
+  testHostBitsRejectedByCidr = {
+    expr = [
+      (interfaceAddress.isValid "192.168.1.5/24")
+      (cidr.isValid "192.168.1.5/24")
+    ];
+    expected = [
+      true
+      false
+    ];
   };
   testTypeTag = {
     expr = (parse "192.168.1.5/24")._type;

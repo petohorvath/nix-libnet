@@ -23,7 +23,7 @@ let
   };
   cidr = {
     _type = "cidr";
-    address = ipv4;
+    network = ipv4;
     prefix = 24;
   };
   port = {

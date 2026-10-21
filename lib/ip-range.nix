@@ -474,7 +474,7 @@ let
               maxPrefix
             else
               let
-                block = cidr.make start prefix;
+                block = cidr.supernet (maxPrefix - prefix) (cidr.fromAddress start);
                 network = cidr.network block;
                 topAddress = cidr.topAddress block;
               in

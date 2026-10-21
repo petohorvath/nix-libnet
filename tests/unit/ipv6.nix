@@ -595,7 +595,7 @@ in
     expr = ipv6.toString (
       ipv6.fromEui64 {
         _type = "cidr";
-        address = parse "2001:db8::";
+        network = parse "2001:db8::";
         prefix = 64;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
@@ -605,7 +605,7 @@ in
     expr = throws (
       ipv6.fromEui64 {
         _type = "cidr";
-        address = parse "2001:db8::";
+        network = parse "2001:db8::";
         prefix = 96;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
