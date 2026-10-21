@@ -34,6 +34,59 @@ let
 
   maxPrefix = ip: if isV4 ip then 32 else 128;
 
+  # ===== Mask helpers =====
+
+  # IPv4 netmask as an unsigned 32-bit int.
+  netmaskV4Int =
+    prefixLength:
+    if prefixLength == 0 then
+      0
+    else if prefixLength == 32 then
+      bits.mask32
+    else
+      bits.shl (32 - prefixLength) (bits.mask prefixLength);
+
+  hostmaskV4Int = prefixLength: bits.mask32 - (netmaskV4Int prefixLength);
+
+  # Netmask bits of IPv6 word `i` (0..3) for the whole-address prefix length.
+  wordMaskIpv6 =
+    i: prefixLength:
+    let
+      keptBits = prefixLength - 32 * i;
+    in
+    if keptBits <= 0 then
+      0
+    else if keptBits >= 32 then
+      bits.mask32
+    else
+      bits.shl (32 - keptBits) (bits.mask keptBits);
+
+  wordHostmaskIpv6 = i: prefixLength: bits.mask32 - (wordMaskIpv6 i prefixLength);
+
+  # The network address that `ip` falls in at `prefixLength`.
+  networkAddress =
+    ip: prefixLength:
+    if isV4 ip then
+      ipv4.fromInt (builtins.bitAnd ip.value (netmaskV4Int prefixLength))
+    else
+      ipv6.fromWords (
+        builtins.genList (i: builtins.bitAnd (builtins.elemAt ip.words i) (wordMaskIpv6 i prefixLength)) 4
+      );
+
+  sameAddress = a: b: if isV4 a then a.value == b.value else a.words == b.words;
+
+  hasHostBits = ip: prefixLength: !(sameAddress ip (networkAddress ip prefixLength));
+
+  formatAddress = ip: if isV4 ip then ipv4.toString ip else ipv6.toString ip;
+
+  # The error `parse` and `make` raise for an address with host bits set.
+  hostBitsError =
+    function: ip: prefixLength:
+    let
+      prefixText = builtins.toString prefixLength;
+    in
+    "libnet.cidr.${function}: host bits set in \"${formatAddress ip}/${prefixText}\"; the network is ${formatAddress (networkAddress ip prefixLength)}/${prefixText}, and interfaceAddress keeps a host address with its prefix";
+
   # ===== Parsing =====
 
   /*
@@ -70,7 +123,7 @@ let
         else if prefixLength > (maxPrefix addressResult.value) then
           types.tryErr "libnet.cidr.parse: prefix /${prefixText} out of range"
         else if hasHostBits addressResult.value prefixLength then
-          types.tryErr "libnet.cidr.parse: host bits set in \"${input}\"; the network is ${toString (mk (maskAddress addressResult.value prefixLength) prefixLength)}, and interfaceAddress keeps a host address with its prefix"
+          types.tryErr (hostBitsError "parse" addressResult.value prefixLength)
         else
           types.tryOk (mk addressResult.value prefixLength);
 
@@ -96,12 +149,7 @@ let
 
     Returns a string.
   */
-  toString =
-    cidr:
-    let
-      addressText = if isV4 cidr.network then ipv4.toString cidr.network else ipv6.toString cidr.network;
-    in
-    "${addressText}/${builtins.toString cidr.prefix}";
+  toString = cidr: "${formatAddress cidr.network}/${builtins.toString cidr.prefix}";
 
   /*
     Build a CIDR block from an address and a prefix length.
@@ -119,7 +167,7 @@ let
     else if !(builtins.isInt prefixLength) || prefixLength < 0 || prefixLength > (maxPrefix ip) then
       throw "libnet.cidr.make: prefix out of range"
     else if hasHostBits ip prefixLength then
-      throw "libnet.cidr.make: host bits set; the network is ${toString (mk (maskAddress ip prefixLength) prefixLength)}, and interfaceAddress keeps a host address with its prefix"
+      throw (hostBitsError "make" ip prefixLength)
     else
       mk ip prefixLength;
 
@@ -201,52 +249,6 @@ let
     Returns true only for cidr values.
   */
   is = value: types.isCidr value;
-
-  # ===== Mask helpers =====
-
-  # IPv4 netmask as an unsigned 32-bit int.
-  netmaskV4Int =
-    prefixLength:
-    if prefixLength == 0 then
-      0
-    else if prefixLength == 32 then
-      bits.mask32
-    else
-      bits.shl (32 - prefixLength) (bits.mask prefixLength);
-
-  hostmaskV4Int = prefixLength: bits.mask32 - (netmaskV4Int prefixLength);
-
-  # Netmask bits of IPv6 word `i` (0..3) for the whole-address prefix length.
-  wordMaskIpv6 =
-    i: prefixLength:
-    let
-      keptBits = prefixLength - 32 * i;
-    in
-    if keptBits <= 0 then
-      0
-    else if keptBits >= 32 then
-      bits.mask32
-    else
-      bits.shl (32 - keptBits) (bits.mask keptBits);
-
-  wordHostmaskIpv6 = i: prefixLength: bits.mask32 - (wordMaskIpv6 i prefixLength);
-
-  # Zero the host bits of an address for a prefix length.
-  maskAddress =
-    ip: prefixLength:
-    if isV4 ip then
-      ipv4.fromInt (builtins.bitAnd ip.value (netmaskV4Int prefixLength))
-    else
-      ipv6.fromWords (
-        builtins.genList (i: builtins.bitAnd (builtins.elemAt ip.words i) (wordMaskIpv6 i prefixLength)) 4
-      );
-
-  hasHostBits =
-    ip: prefixLength:
-    let
-      masked = maskAddress ip prefixLength;
-    in
-    if isV4 ip then ip.value != masked.value else ip.words != masked.words;
 
   # ===== Derived values =====
 
@@ -644,7 +646,7 @@ let
     else if n > cidr.prefix then
       throw "libnet.cidr.supernet: n exceeds current prefix"
     else
-      mk (maskAddress cidr.network (cidr.prefix - n)) (cidr.prefix - n);
+      mk (networkAddress cidr.network (cidr.prefix - n)) (cidr.prefix - n);
 
   # ===== Comparison =====
 
@@ -660,9 +662,7 @@ let
     types.hasSameTag a b
     && a.network._type == b.network._type
     && a.prefix == b.prefix
-    && (
-      if isV4 a.network then a.network.value == b.network.value else a.network.words == b.network.words
-    );
+    && sameAddress a.network b.network;
 
   /*
     Order two CIDR blocks by family (IPv4 first), network address, then
@@ -758,6 +758,8 @@ let
 
   # ===== Set algebra =====
 
+  mergeParent = supernet 1;
+
   # Whether a and b are distinct halves of the same parent block.
   areSiblings =
     a: b:
@@ -766,8 +768,6 @@ let
     && a.network._type == b.network._type
     && !(eq a b)
     && containsCidr (mergeParent a) b;
-
-  mergeParent = supernet 1;
 
   # Sorts by (family, network, prefix).
   sortCidrs = cidrs: builtins.sort (a: b: compare a b < 0) cidrs;

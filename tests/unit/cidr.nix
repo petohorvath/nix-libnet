@@ -74,6 +74,22 @@ in
     expr = throws (parse "2001:db8::1/127");
     expected = true;
   };
+  testRejectV6HostBitsWord0Prefix0 = {
+    expr = throws (parse "8000::/0");
+    expected = true;
+  };
+  testRejectV6HostBitsInsideWordPrefix33 = {
+    expr = throws (parse "2001:db8:4000::/33");
+    expected = true;
+  };
+  testRejectV6HostBitsWordBoundaryPrefix96 = {
+    expr = throws (parse "::1/96");
+    expected = true;
+  };
+  testParseV6Prefix33 = {
+    expr = cidr.toString (parse "2001:db8:8000::/33");
+    expected = "2001:db8:8000::/33";
+  };
   testRejectBadAddress = {
     expr = throws (parse "999.0.0.0/24");
     expected = true;
@@ -121,6 +137,10 @@ in
   testIsValidBad = {
     expr = cidr.isValid "bad";
     expected = false;
+  };
+  testTryParseV6HostBitsError = {
+    expr = (cidr.tryParse "2001:db8::1/64").error;
+    expected = "libnet.cidr.parse: host bits set in \"2001:db8::1/64\"; the network is 2001:db8::/64, and interfaceAddress keeps a host address with its prefix";
   };
   testIsValidHostBits = {
     expr = cidr.isValid "10.0.0.5/24";

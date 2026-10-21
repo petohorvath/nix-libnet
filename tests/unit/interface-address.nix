@@ -128,6 +128,22 @@ in
     expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/64"));
     expected = "2001:db8::/64";
   };
+  testNetworkV4Prefix0 = {
+    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/0"));
+    expected = "0.0.0.0/0";
+  };
+  testNetworkV4Prefix32 = {
+    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/32"));
+    expected = "10.1.2.3/32";
+  };
+  testNetworkV6Prefix0 = {
+    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/0"));
+    expected = "::/0";
+  };
+  testNetworkV6Prefix128 = {
+    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/128"));
+    expected = "2001:db8::5/128";
+  };
   testNetmaskV4 = {
     expr = ipv4.toString (interfaceAddress.netmask (parse "192.168.1.5/24"));
     expected = "255.255.255.0";
