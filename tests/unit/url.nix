@@ -6,6 +6,7 @@ let
     port
     registry
     url
+    urlHost
     ;
   inherit (helpers) throws;
   inherit (url) parse;
@@ -264,7 +265,7 @@ in
     expr = url.toString (
       url.make {
         scheme = "https";
-        host = "example.com";
+        host = urlHost.parse "example.com";
         path = "/p";
       }
     );
@@ -274,8 +275,8 @@ in
     expr = url.toString (
       url.make {
         scheme = "http";
-        host = "h";
-        port = 8080;
+        host = urlHost.parse "h";
+        port = port.fromInt 8080;
       }
     );
     expected = "http://h:8080";
@@ -284,26 +285,57 @@ in
     expr = url.toString (
       url.make {
         scheme = "https";
-        host = "h";
+        host = urlHost.parse "h";
         userinfo = "tok";
       }
     );
     expected = "https://tok@h";
   };
+  testMakeQueryFragment = {
+    expr = url.toString (
+      url.make {
+        scheme = "https";
+        host = urlHost.parse "[::1]";
+        path = "/p";
+        query = "q=1";
+        fragment = "f";
+      }
+    );
+    expected = "https://[::1]/p?q=1#f";
+  };
+  testMakeSchemeCaseInsensitive = {
+    expr = url.scheme (
+      url.make {
+        scheme = "HTTPS";
+        host = urlHost.parse "h";
+      }
+    );
+    expected = "https";
+  };
   testMakeBadScheme = {
     expr = throws (
       url.make {
         scheme = "gopher";
+        host = urlHost.parse "h";
+      }
+    );
+    expected = true;
+  };
+  testMakeRejectsHostString = {
+    expr = throws (
+      url.make {
+        scheme = "http";
         host = "h";
       }
     );
     expected = true;
   };
-  testMakeBadHost = {
+  testMakeRejectsPortInt = {
     expr = throws (
       url.make {
         scheme = "http";
-        host = "bad host";
+        host = urlHost.parse "h";
+        port = 8080;
       }
     );
     expected = true;
@@ -312,7 +344,7 @@ in
     expr = throws (
       url.make {
         scheme = "http";
-        host = "h";
+        host = urlHost.parse "h";
         path = "noslash";
       }
     );
@@ -322,7 +354,7 @@ in
     expr = url.toString (
       url.make {
         scheme = "http";
-        host = "h";
+        host = urlHost.parse "h";
       }
     );
     expected = "http://h";

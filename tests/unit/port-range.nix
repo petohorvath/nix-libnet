@@ -62,24 +62,42 @@ in
 
   # ===== make / fromPort =====
   testMakeOk = {
-    expr = portRange.toString (portRange.make 100 200);
+    expr = portRange.toString (portRange.make (port.fromInt 100) (port.fromInt 200));
     expected = "100-200";
   };
   testMakeSingle = {
-    expr = portRange.toString (portRange.make 80 80);
+    expr = portRange.toString (portRange.make (port.fromInt 80) (port.fromInt 80));
     expected = "80";
   };
+  testMakeFullRange = {
+    expr = portRange.size (portRange.make (port.fromInt 0) (port.fromInt 65535));
+    expected = 65536;
+  };
   testMakeReversed = {
-    expr = throws (portRange.make 200 100);
+    expr = throws (portRange.make (port.fromInt 200) (port.fromInt 100));
     expected = true;
   };
-  testMakeAboveMax = {
-    expr = throws (portRange.make 0 65536);
+  testMakeRejectsInts = {
+    expr = throws (portRange.make 100 200);
     expected = true;
   };
-  testMakeNonInt = {
-    expr = throws (portRange.make "80" 100);
+  testMakeRejectsIntTo = {
+    expr = throws (portRange.make (port.fromInt 100) 200);
     expected = true;
+  };
+  testMakeRejectsString = {
+    expr = throws (portRange.make "80" (port.fromInt 100));
+    expected = true;
+  };
+  testMakePartial = {
+    expr = map (to: portRange.toString (portRange.make (port.fromInt 80) to)) [
+      (port.fromInt 80)
+      (port.fromInt 90)
+    ];
+    expected = [
+      "80"
+      "80-90"
+    ];
   };
   testFromPortOk = {
     expr = portRange.toString (portRange.fromPort (port.fromInt 80));

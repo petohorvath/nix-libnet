@@ -47,7 +47,7 @@ let
       let
         n = parsing.decimal input;
       in
-      if n == null || n < 0 || n > 65535 then null else portRange.make n n
+      if n == null || n < 0 || n > 65535 then null else portRange.fromPort (port.fromInt n)
     else if builtins.length parts == 2 then
       let
         from = parsing.decimal (builtins.elemAt parts 0);
@@ -58,7 +58,7 @@ let
       else if from < 0 || to > 65535 || from > to then
         null
       else
-        portRange.make from to
+        portRange.make (port.fromInt from) (port.fromInt to)
     else
       null;
 

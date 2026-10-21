@@ -195,20 +195,19 @@ let
   # ===== Construction =====
 
   /*
-    Build a URL from its textual parts. Most fields are plain strings with
-    no tagged type, so `host` is a string and `port` an int; pass a whole
-    URL string to `parse` instead.
+    Build a URL from its parts; pass a whole URL string to `parse`
+    instead.
 
     `scheme`: a key of `schemes`, matched case-insensitively.
-    `host`: URL host text, parsed with `urlHost.parse` rules.
-    `port`: integer port, or null (default) for the scheme default.
+    `host`: urlHost value.
+    `port`: port value, or null (default) for the scheme default.
     `userinfo`: raw userinfo string, or null (default).
     `path`: "" (default) or a string starting with `/`.
     `query`: raw query string without `?`, or null (default).
     `fragment`: raw fragment string without `#`, or null (default).
 
-    Returns a url value; throws on an unknown scheme, invalid host, non-int
-    port, or a path that does not start with `/`.
+    Returns a url value; throws on an unknown scheme, a non-urlHost host, a
+    non-port port, or a path that does not start with `/`.
   */
   make =
     {
@@ -222,20 +221,17 @@ let
     }:
     let
       lowerScheme = lowerAscii scheme;
-      hostResult = urlHost.tryParse host;
     in
     if !(builtins.hasAttr lowerScheme schemes) then
       throw "libnet.url.make: unknown scheme \"${scheme}\""
-    else if !hostResult.success then
-      throw "libnet.url.make: invalid host \"${host}\""
-    else if port != null && !(builtins.isInt port) then
-      throw "libnet.url.make: port must be an int or null"
+    else if !(types.isUrlHost host) then
+      throw "libnet.url.make: host must be a urlHost value"
+    else if port != null && !(types.isPort port) then
+      throw "libnet.url.make: port must be a port value or null"
     else if path != "" && !(parsing.startsWith "/" path) then
       throw "libnet.url.make: path must be empty or start with '/': \"${path}\""
     else
-      mk lowerScheme userinfo hostResult.value (
-        if port == null then null else mkPort port
-      ) path query fragment;
+      mk lowerScheme userinfo host port path query fragment;
 
   # ===== Predicates =====
 

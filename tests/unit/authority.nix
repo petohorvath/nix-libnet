@@ -1,6 +1,6 @@
 { helpers, libnet, ... }:
 let
-  inherit (libnet) authority port;
+  inherit (libnet) authority port urlHost;
   inherit (helpers) throws;
   inherit (authority) parse;
 in
@@ -118,14 +118,14 @@ in
 
   # ===== make =====
   testMakeHost = {
-    expr = authority.toString (authority.make { host = "example.com"; });
+    expr = authority.toString (authority.make { host = urlHost.parse "example.com"; });
     expected = "example.com";
   };
   testMakeHostPort = {
     expr = authority.toString (
       authority.make {
-        host = "h";
-        port = 8080;
+        host = urlHost.parse "h";
+        port = port.fromInt 8080;
       }
     );
     expected = "h:8080";
@@ -133,7 +133,7 @@ in
   testMakeUserinfo = {
     expr = authority.toString (
       authority.make {
-        host = "h";
+        host = urlHost.parse "h";
         userinfo = "tok";
       }
     );
@@ -142,9 +142,9 @@ in
   testMakeFull = {
     expr = authority.toString (
       authority.make {
-        host = "h";
+        host = urlHost.parse "h";
         userinfo = "u:pw";
-        port = 443;
+        port = port.fromInt 443;
       }
     );
     expected = "u:pw@h:443";
@@ -152,20 +152,29 @@ in
   testMakeIpv6 = {
     expr = authority.toString (
       authority.make {
-        host = "[::1]";
-        port = 80;
+        host = urlHost.parse "[::1]";
+        port = port.fromInt 80;
       }
     );
     expected = "[::1]:80";
   };
-  testMakeBadHost = {
-    expr = throws (authority.make { host = "bad host"; });
+  testMakeRejectsHostString = {
+    expr = throws (authority.make { host = "example.com"; });
     expected = true;
   };
-  testMakeBadPort = {
+  testMakeRejectsPortInt = {
     expr = throws (
       authority.make {
-        host = "h";
+        host = urlHost.parse "h";
+        port = 80;
+      }
+    );
+    expected = true;
+  };
+  testMakeRejectsPortString = {
+    expr = throws (
+      authority.make {
+        host = urlHost.parse "h";
         port = "80";
       }
     );
