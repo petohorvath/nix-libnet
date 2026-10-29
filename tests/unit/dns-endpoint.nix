@@ -116,7 +116,7 @@ in
   # rejects (ADR 0021).
   testMakeRejectsNumericHostname = {
     expr = dnsEndpoint.make (libnet.hostname.parse "1234") (port.fromInt 22);
-    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected hostname or domain value, got hostname \"1234\", which reads as an IPv4 address$";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected hostname or domain value, got numeric hostname \"1234\", which reads as an IPv4 address$";
   };
   testParseRejectsNumericName = {
     expr = parse "0x7f:22";

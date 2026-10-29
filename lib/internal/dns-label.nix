@@ -70,7 +70,7 @@ let
     if isExpected value then
       value
     else if isNumericHostname value then
-      errors.fail caller "expected ${expected}, got hostname \"${value.value}\", which reads as an IPv4 address"
+      errors.fail caller "expected ${expected}, got numeric hostname \"${value.value}\", which reads as an IPv4 address"
     else
       errors.fail caller "expected ${expected}, got ${errors.describe value}";
 

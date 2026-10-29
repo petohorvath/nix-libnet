@@ -25,7 +25,7 @@ There is no `tld` accessor ([ADR 0003](../adr/0003-syntax-not-resolution.md)); t
 
 ## `libnet.dnsName`
 
-Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count. A numeric hostname value, such as `hostname.parse "1234"`, is the wrong kind: `is` and `isHostname` are `false` for it, `eq` returns `false`, and the functions that take a DNS name, here and in `host` and `dnsEndpoint`, throw `expected hostname or domain value, got hostname "1234", which reads as an IPv4 address`. A parse error names `dnsName.parse` and keeps the domain's detail for text with a dot and the hostname's otherwise, such as `libnet.dnsName.parse: invalid hostname "host_name" …`.
+Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count. A numeric hostname value, such as `hostname.parse "1234"`, is the wrong kind: `is` and `isHostname` are `false` for it, `eq` returns `false`, and the functions that take a DNS name, here and in `host` and `dnsEndpoint`, throw `expected hostname or domain value, got numeric hostname "1234", which reads as an IPv4 address`. A parse error names `dnsName.parse` and keeps the domain's detail for text with a dot and the hostname's otherwise, such as `libnet.dnsName.parse: invalid hostname "host_name" …`.
 
 Suites: parsing, comparison (hostnames before domains, then by the lowercase text).
 

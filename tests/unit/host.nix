@@ -237,7 +237,7 @@ in
   };
   testToStringRejectsNumericHostname = {
     expr = host.toString (hostname.parse "1234");
-    expectedError.msg = "^libnet\\.host\\.toString: expected ip, hostname or domain value, got hostname \"1234\", which reads as an IPv4 address$";
+    expectedError.msg = "^libnet\\.host\\.toString: expected ip, hostname or domain value, got numeric hostname \"1234\", which reads as an IPv4 address$";
   };
   testIsDnsNameIp = {
     expr = host.isDnsName (parse "10.0.0.1");

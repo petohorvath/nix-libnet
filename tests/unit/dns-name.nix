@@ -154,7 +154,7 @@ in
   # A numeric hostname is not a DNS name, so it is the wrong kind.
   testToStringRejectsNumericHostname = {
     expr = dnsName.toString (hostname.parse "1234");
-    expectedError.msg = "^libnet\\.dnsName\\.toString: expected hostname or domain value, got hostname \"1234\", which reads as an IPv4 address$";
+    expectedError.msg = "^libnet\\.dnsName\\.toString: expected hostname or domain value, got numeric hostname \"1234\", which reads as an IPv4 address$";
   };
 
   # ===== Predicates =====
@@ -311,7 +311,7 @@ in
 
   testCompareRejectsNumericHostname = {
     expr = dnsName.compare (parse "nas") (hostname.parse "0x7f");
-    expectedError.msg = "^libnet\\.dnsName\\.compare: expected hostname or domain value, got hostname \"0x7f\", which reads as an IPv4 address$";
+    expectedError.msg = "^libnet\\.dnsName\\.compare: expected hostname or domain value, got numeric hostname \"0x7f\", which reads as an IPv4 address$";
   };
 
   # Sanity: recognises values from each underlying module
