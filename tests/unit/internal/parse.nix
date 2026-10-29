@@ -637,18 +637,4 @@ in
     expr = parsing.stripPrefix "" "abc";
     expected = "abc";
   };
-
-  # ===== stripSuffix =====
-  testStripSuffixSimple = {
-    expr = parsing.stripSuffix "ef" "abcdef";
-    expected = "abcd";
-  };
-  testStripSuffixWhole = {
-    expr = parsing.stripSuffix "abc" "abc";
-    expected = "";
-  };
-  testStripSuffixEmpty = {
-    expr = parsing.stripSuffix "" "abc";
-    expected = "abc";
-  };
 }

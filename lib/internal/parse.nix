@@ -219,14 +219,6 @@ let
     in
     builtins.substring prefixLength (builtins.stringLength input - prefixLength) input;
 
-  stripSuffix =
-    suffix: input:
-    let
-      suffixLength = builtins.stringLength suffix;
-      inputLength = builtins.stringLength input;
-    in
-    builtins.substring 0 (inputLength - suffixLength) input;
-
   /*
     `suite namespace tryParseDetail` builds the parsing suite of the kind
     `namespace`, such as `ipv4`, from its detail parser, as
@@ -308,7 +300,6 @@ in
     splitScheme
     startsWith
     stripPrefix
-    stripSuffix
     suite
     ;
 }

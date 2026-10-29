@@ -126,26 +126,22 @@ let
 
   # ===== Parsing =====
 
-  # Each parser below returns a mac value, or null when `input` is not in
-  # its format.
-  parseBare =
-    input:
-    if builtins.match "[0-9a-fA-F]{12}" input == null then
+  # Each parser below takes text of its format's length, which
+  # `tryParseDetail` checks first, and returns a mac value, or null when
+  # `input` is not in its format.
+
+  # Read six two-digit hex `pairs`, most significant first.
+  fromHexPairs =
+    pairs:
+    let
+      bytes = map parsing.hexByte pairs;
+    in
+    if builtins.elem null bytes then
       null
     else
-      let
-        byte = i: parsing.hexInt (builtins.substring (i * 2) 2 input);
-      in
-      mk (
-        builtins.foldl' (acc: i: acc * 256 + (byte i)) 0 [
-          0
-          1
-          2
-          3
-          4
-          5
-        ]
-      );
+      mk (builtins.foldl' (acc: byte: acc * 256 + byte) 0 bytes);
+
+  parseBare = input: fromHexPairs (builtins.genList (i: builtins.substring (i * 2) 2 input) 6);
 
   parseCisco =
     input:
@@ -160,10 +156,7 @@ let
         group1 = builtins.elemAt parts 1;
         group2 = builtins.elemAt parts 2;
         valid =
-          builtins.stringLength group0 == 4
-          && builtins.stringLength group1 == 4
-          && builtins.stringLength group2 == 4
-          && builtins.match "[0-9a-fA-F]{4}" group0 != null
+          builtins.match "[0-9a-fA-F]{4}" group0 != null
           && builtins.match "[0-9a-fA-F]{4}" group1 != null
           && builtins.match "[0-9a-fA-F]{4}" group2 != null;
       in
@@ -181,18 +174,7 @@ let
     let
       parts = parsing.splitOn separator input;
     in
-    if builtins.length parts != 6 then
-      null
-    else
-      let
-        allValid = builtins.all (
-          octet: builtins.stringLength octet == 2 && builtins.match "[0-9a-fA-F]{2}" octet != null
-        ) parts;
-      in
-      if !allValid then
-        null
-      else
-        mk (builtins.foldl' (acc: octet: acc * 256 + (parsing.hexInt octet)) 0 parts);
+    if builtins.length parts != 6 then null else fromHexPairs parts;
 
   /*
     Parse a MAC address: the detail parser of the parsing suite.
