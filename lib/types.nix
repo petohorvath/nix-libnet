@@ -31,6 +31,7 @@ let
   secureSocketUrl = import ./secure-socket-url.nix;
   url = import ./url.nix;
   urlHost = import ./url-host.nix;
+  regName = import ./reg-name.nix;
   authority = import ./authority.nix;
   proxyUrl = import ./proxy-url.nix;
   ipBindpoint = import ./ip-bindpoint.nix;
@@ -249,6 +250,12 @@ let
     validator = urlHost.isValid;
   };
 
+  regNameType = mkStringType {
+    typeName = "regName";
+    description = "an RFC 3986 registered name (a URL host that is not an IP literal)";
+    validator = regName.isValid;
+  };
+
   authorityType = mkStringType {
     typeName = "authority";
     description = "a URL authority ([userinfo@]host[:port])";
@@ -361,6 +368,7 @@ in
     secureSocketUrl = secureSocketUrlType;
     url = urlType;
     urlHost = urlHostType;
+    regName = regNameType;
     authority = authorityType;
     proxyUrl = proxyUrlType;
     ipBindpoint = ipBindpointType;

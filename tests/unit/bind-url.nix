@@ -253,14 +253,86 @@ in
     expected = 0;
   };
 
-  # ===== Constant =====
-  testSchemesList = {
-    expr = bindUrl.schemes;
+  # Schemes sort by name: sctp < tcp < udp < unix.
+  testCompareSctpBeforeTcp = {
+    expr = bindUrl.compare (parse "sctp://:8080") (parse "tcp://:8080");
+    expected = -1;
+  };
+  testCompareUdpBeforeUnix = {
+    expr = bindUrl.compare (parse "udp://:8080") (parse "unix:///run/foo.sock");
+    expected = -1;
+  };
+  testSortByScheme = {
+    expr = map bindUrl.scheme (
+      builtins.sort bindUrl.lt [
+        (parse "unix:///run/foo.sock")
+        (parse "udp://:8080")
+        (parse "tcp://:8080")
+        (parse "sctp://:8080")
+      ]
+    );
     expected = [
+      "sctp"
       "tcp"
       "udp"
-      "sctp"
       "unix"
+    ];
+  };
+
+  # ===== Scheme-derived =====
+  testSchemeTcp = {
+    expr = bindUrl.scheme (parse "TCP://:8080");
+    expected = "tcp";
+  };
+  testSchemeUnix = {
+    expr = bindUrl.scheme (parse "unix:///run/foo.sock");
+    expected = "unix";
+  };
+  testTransportSctp = {
+    expr = bindUrl.transport (parse "sctp://:8080");
+    expected = transport.sctp;
+  };
+  testTransportUnixNull = {
+    expr = bindUrl.transport (parse "unix:///run/foo.sock");
+    expected = null;
+  };
+  testIsSecureIp = {
+    expr = bindUrl.isSecure (parse "tcp://:8080");
+    expected = false;
+  };
+  testIsSecureUnix = {
+    expr = bindUrl.isSecure (parse "unix:///run/foo.sock");
+    expected = false;
+  };
+
+  # ===== Constant =====
+  testSchemesRegistry = {
+    expr = bindUrl.schemes;
+    expected = {
+      sctp = {
+        transport = "sctp";
+        secure = false;
+      };
+      tcp = {
+        transport = "tcp";
+        secure = false;
+      };
+      udp = {
+        transport = "udp";
+        secure = false;
+      };
+      unix = {
+        transport = null;
+        secure = false;
+      };
+    };
+  };
+  testSchemesMatchTransports = {
+    expr = map (name: bindUrl.schemes.${name}.transport) (map transport.toString transport.values);
+    expected = [
+      "sctp"
+      "tcp"
+      "udp"
     ];
   };
 }

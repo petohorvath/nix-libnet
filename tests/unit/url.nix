@@ -1,6 +1,7 @@
 { helpers, libnet, ... }:
 let
   inherit (libnet)
+    authority
     dnsEndpoint
     ipEndpoint
     ipv4
@@ -34,26 +35,37 @@ in
     expr = (parse "HTTPS://example.com").scheme;
     expected = "https";
   };
+  testParseStoresNestedAuthority = {
+    expr = parse "https://u@Example.com:8443/p?q#f";
+    expected = {
+      _type = "url";
+      scheme = "https";
+      authority = authority.parse "u@Example.com:8443";
+      path = "/p";
+      query = "q";
+      fragment = "f";
+    };
+  };
 
   # ===== Host kinds =====
   testHostIpv4 = {
-    expr = (parse "http://1.2.3.4/x").host.kind;
-    expected = "ip";
+    expr = url.host (parse "http://1.2.3.4/x");
+    expected = ipv4.parse "1.2.3.4";
   };
   testHostIpv6RoundTrip = {
     expr = url.toString (parse "http://[::1]:80/x");
     expected = "http://[::1]:80/x";
   };
   testHostRegName = {
-    expr = (parse "http://example.com").host.kind;
+    expr = (url.host (parse "http://example.com"))._type;
     expected = "regName";
   };
   testHostUnderscore = {
-    expr = (parse "http://my_host/x").host.name;
+    expr = urlHost.toString (url.host (parse "http://my_host/x"));
     expected = "my_host";
   };
   testHostPreservesCase = {
-    expr = (parse "http://Example.COM").host.name;
+    expr = urlHost.toString (url.host (parse "http://Example.COM"));
     expected = "Example.COM";
   };
 
@@ -83,15 +95,15 @@ in
     expected = null;
   };
   testComponentUserinfo = {
-    expr = (parse "https://tok@h").userinfo;
+    expr = url.userinfo (parse "https://tok@h");
     expected = "tok";
   };
   testComponentUserinfoNull = {
-    expr = (parse "https://h").userinfo;
+    expr = url.userinfo (parse "https://h");
     expected = null;
   };
   testComponentUserinfoCredentials = {
-    expr = (parse "https://u:pw@h").userinfo;
+    expr = url.userinfo (parse "https://u:pw@h");
     expected = "u:pw";
   };
 
@@ -162,8 +174,16 @@ in
     expected = "ftp";
   };
   testAccessorHostName = {
-    expr = (url.host (parse "http://h")).name;
-    expected = "h";
+    expr = url.host (parse "http://h");
+    expected = urlHost.parse "h";
+  };
+  testAccessorAuthority = {
+    expr = authority.toString (url.authority (parse "http://u@h:81/p?q#f"));
+    expected = "u@h:81";
+  };
+  testAccessorAuthorityNoPort = {
+    expr = authority.port (url.authority (parse "http://h"));
+    expected = null;
   };
   testAccessorPortExplicit = {
     expr = port.toInt (url.port (parse "http://h:8080"));
@@ -175,7 +195,19 @@ in
   };
   testAccessorDefaultPort = {
     expr = url.defaultPort (parse "https://h");
-    expected = 443;
+    expected = port.fromInt 443;
+  };
+  testAccessorDefaultPortCheck = {
+    expr = map (u: port.eq (url.effectivePort u) (url.defaultPort u)) [
+      (parse "https://h")
+      (parse "https://h:443")
+      (parse "https://h:8443")
+    ];
+    expected = [
+      true
+      true
+      false
+    ];
   };
   testAccessorEffectivePortDefault = {
     expr = port.toInt (url.effectivePort (parse "https://h"));
@@ -197,15 +229,15 @@ in
   # ===== Scheme registry =====
   testSchemeSshPort = {
     expr = url.defaultPort (parse "ssh://h");
-    expected = 22;
+    expected = port.fromInt 22;
   };
   testSchemeRedisPort = {
     expr = url.defaultPort (parse "redis://h");
-    expected = 6379;
+    expected = port.fromInt 6379;
   };
   testSchemePostgresPort = {
     expr = url.defaultPort (parse "postgres://h");
-    expected = 5432;
+    expected = port.fromInt 5432;
   };
   testSchemeCoapUdp = {
     expr = (url.transport (parse "coap://h")).value;
@@ -215,15 +247,15 @@ in
   # wss → https, sftp → ssh) must resolve to that specific port.
   testSchemeWsBorrowsHttp = {
     expr = url.defaultPort (parse "ws://h");
-    expected = 80;
+    expected = port.fromInt 80;
   };
   testSchemeWssBorrowsHttps = {
     expr = url.defaultPort (parse "wss://h");
-    expected = 443;
+    expected = port.fromInt 443;
   };
   testSchemeSftpBorrowsSsh = {
     expr = url.defaultPort (parse "sftp://h");
-    expected = 22;
+    expected = port.fromInt 22;
   };
   testSchemesCount = {
     expr = builtins.length (builtins.attrNames url.schemes);
@@ -266,37 +298,41 @@ in
     expr = url.toString (
       url.make {
         scheme = "https";
-        host = urlHost.parse "example.com";
+        authority = authority.parse "example.com";
         path = "/p";
       }
     );
     expected = "https://example.com/p";
   };
-  testMakePort = {
+  testMakeAuthorityParts = {
     expr = url.toString (
       url.make {
         scheme = "http";
-        host = urlHost.parse "h";
-        port = port.fromInt 8080;
+        authority = authority.make {
+          host = ipv4.parse "1.2.3.4";
+          userinfo = "tok";
+          port = port.fromInt 8080;
+        };
       }
     );
-    expected = "http://h:8080";
+    expected = "http://tok@1.2.3.4:8080";
   };
-  testMakeUserinfo = {
-    expr = url.toString (
+  testMakeEqualsParse = {
+    expr =
       url.make {
         scheme = "https";
-        host = urlHost.parse "h";
-        userinfo = "tok";
-      }
-    );
-    expected = "https://tok@h";
+        authority = authority.parse "u@h:8443";
+        path = "/p";
+        query = "q=1";
+        fragment = "f";
+      } == parse "https://u@h:8443/p?q=1#f";
+    expected = true;
   };
   testMakeQueryFragment = {
     expr = url.toString (
       url.make {
         scheme = "https";
-        host = urlHost.parse "[::1]";
+        authority = authority.parse "[::1]";
         path = "/p";
         query = "q=1";
         fragment = "f";
@@ -308,7 +344,7 @@ in
     expr = url.scheme (
       url.make {
         scheme = "HTTPS";
-        host = urlHost.parse "h";
+        authority = authority.parse "h";
       }
     );
     expected = "https";
@@ -317,45 +353,25 @@ in
     expr = throws (
       url.make {
         scheme = "gopher";
-        host = urlHost.parse "h";
+        authority = authority.parse "h";
       }
     );
     expected = true;
   };
-  testMakeBadHostString = {
+  testMakeBadAuthorityString = {
     expr = throws (
       url.make {
         scheme = "http";
-        host = "h";
+        authority = "h";
       }
     );
     expected = true;
   };
-  testMakeBadHostIpv4 = {
+  testMakeBadAuthorityUrlHost = {
     expr = throws (
       url.make {
         scheme = "http";
-        host = ipv4.parse "1.2.3.4";
-      }
-    );
-    expected = true;
-  };
-  testMakeBadPortString = {
-    expr = throws (
-      url.make {
-        scheme = "http";
-        host = urlHost.parse "h";
-        port = "8080";
-      }
-    );
-    expected = true;
-  };
-  testMakeBadPortInt = {
-    expr = throws (
-      url.make {
-        scheme = "http";
-        host = urlHost.parse "h";
-        port = 8080;
+        authority = urlHost.parse "h";
       }
     );
     expected = true;
@@ -364,7 +380,7 @@ in
     expr = throws (
       url.make {
         scheme = "http";
-        host = urlHost.parse "h";
+        authority = authority.parse "h";
         path = "noslash";
       }
     );
@@ -374,7 +390,7 @@ in
     expr = url.toString (
       url.make {
         scheme = "http";
-        host = urlHost.parse "h";
+        authority = authority.parse "h";
       }
     );
     expected = "http://h";
@@ -401,11 +417,25 @@ in
     expr = url.eq (parse "http://h") (parse "https://h");
     expected = false;
   };
-  # userinfo is not part of URL identity (see authority.nix): two URLs
-  # differing only in credentials compare equal.
-  testEqIgnoresUserinfo = {
+  testEqCountsUserinfo = {
     expr = url.eq (parse "https://alice@h/p") (parse "https://bob@h/p");
+    expected = false;
+  };
+  testEqUserinfoVsNone = {
+    expr = url.eq (parse "https://alice@h/p") (parse "https://h/p");
+    expected = false;
+  };
+  testEqSameUserinfoDefaultPort = {
+    expr = url.eq (parse "https://alice@h/p") (parse "https://alice@h:443/p");
     expected = true;
+  };
+  testEqDifferentQuery = {
+    expr = url.eq (parse "https://h/p?a") (parse "https://h/p");
+    expected = false;
+  };
+  testEqDifferentFragment = {
+    expr = url.eq (parse "https://h/p#a") (parse "https://h/p#b");
+    expected = false;
   };
   testCompareScheme = {
     expr = url.compare (parse "http://h") (parse "https://h");
@@ -427,8 +457,25 @@ in
     expr = url.compare (parse "https://h") (parse "https://h");
     expected = 0;
   };
-  testCompareIgnoresUserinfo = {
+  testCompareUserinfo = {
     expr = url.compare (parse "https://alice@h/p") (parse "https://bob@h/p");
+    expected = -1;
+  };
+  testCompareUserinfoNullFirst = {
+    expr = url.compare (parse "https://h/p") (parse "https://alice@h/p");
+    expected = -1;
+  };
+  # Userinfo ranks after the effective port and before the path.
+  testCompareUserinfoAfterPort = {
+    expr = url.compare (parse "https://bob@h") (parse "https://alice@h:444");
+    expected = -1;
+  };
+  testCompareUserinfoBeforePath = {
+    expr = url.compare (parse "https://h/z") (parse "https://alice@h/a");
+    expected = -1;
+  };
+  testCompareDefaultPortEqual = {
+    expr = url.compare (parse "https://alice@h") (parse "https://alice@h:443");
     expected = 0;
   };
   testLt = {

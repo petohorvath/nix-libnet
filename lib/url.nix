@@ -1,10 +1,11 @@
 /*
   libnet.url
 
-  Absolute hierarchical URL — `<scheme>://[userinfo@]<host>[:port][/path]
-  [?query][#fragment]`. The application-layer superset of `socketUrl`:
-  `socketUrl` is an L4 socket address; `url` adds scheme-default ports,
-  the path/query/fragment, and userinfo.
+  Absolute hierarchical URL — `<scheme>://<authority>[/path][?query]
+  [#fragment]`, where the authority is `[userinfo@]<host>[:port]`. The
+  application-layer superset of `socketUrl`: `socketUrl` is an L4 socket
+  address; `url` adds scheme-default ports, the path/query/fragment, and
+  userinfo.
 
   Bounded: absolute hierarchical URLs only — no relative references, no
   opaque URIs (`mailto:`, `urn:`). Components are stored verbatim (no
@@ -12,12 +13,13 @@
   exists for the encode direction). The host is the URL-authority host
   (RFC 3986 reg-name / IP-literal), looser than `libnet.host` — see
   `libnet.urlHost`. `userinfo` is kept raw and opaque; note it may carry
-  credentials.
+  credentials. The authority is stored as a `libnet.authority` value, and
+  `host`, `port` and `userinfo` read through it.
 
   Example:
     libnet.url.parse "https://user@example.com/p?q=1#f"
-    => { _type = "url"; scheme = "https"; userinfo = "user";
-         host = <urlHost example.com>; port = null; path = "/p";
+    => { _type = "url"; scheme = "https";
+         authority = <authority user@example.com>; path = "/p";
          query = "q=1"; fragment = "f"; }
 */
 let
@@ -79,12 +81,10 @@ let
     xmpp = mkScheme wellKnownPorts.tcp.xmpp "tcp" false;
   };
 
-  mk = schemeValue: userinfoValue: hostValue: portValue: pathValue: queryValue: fragmentValue: {
+  mk = schemeValue: authorityValue: pathValue: queryValue: fragmentValue: {
     _type = "url";
     scheme = schemeValue;
-    userinfo = userinfoValue;
-    host = hostValue;
-    port = portValue;
+    authority = authorityValue;
     path = pathValue;
     query = queryValue;
     fragment = fragmentValue;
@@ -120,7 +120,7 @@ let
           lowerScheme = lowerAscii rawScheme;
           rest = builtins.concatStringsSep "://" (builtins.tail schemeParts);
         in
-        if !(builtins.hasAttr lowerScheme schemes) then
+        if !(schemes ? ${lowerScheme}) then
           types.tryErr "libnet.url.parse: unknown scheme \"${rawScheme}\": \"${input}\""
         else
           let
@@ -150,14 +150,7 @@ let
           if !authorityResult.success then
             authorityResult
           else
-            let
-              parsedAuthority = authorityResult.value;
-            in
-            types.tryOk (
-              mk lowerScheme parsedAuthority.userinfo parsedAuthority.host parsedAuthority.port pathValue
-                queryValue
-                fragmentValue
-            );
+            types.tryOk (mk lowerScheme authorityResult.value pathValue queryValue fragmentValue);
 
   /*
     Parse an absolute URL, for values that must be valid.
@@ -179,18 +172,16 @@ let
 
     `url`: a url value.
 
-    Returns `<scheme>://[userinfo@]host[:port]<path>[?query][#fragment]`,
-    omitting the port when none was given, so parsed input round-trips.
+    Returns `<scheme>://<authority><path>[?query][#fragment]`, omitting the
+    port when none was given, so parsed input round-trips.
   */
   toString =
     url:
     let
-      userinfoPart = if url.userinfo == null then "" else "${url.userinfo}@";
-      portPart = if url.port == null then "" else ":${port.toString url.port}";
       queryPart = if url.query == null then "" else "?${url.query}";
       fragmentPart = if url.fragment == null then "" else "#${url.fragment}";
     in
-    "${url.scheme}://${userinfoPart}${urlHost.toString url.host}${portPart}${url.path}${queryPart}${fragmentPart}";
+    "${url.scheme}://${authority.toString url.authority}${url.path}${queryPart}${fragmentPart}";
 
   # ===== Construction =====
 
@@ -199,22 +190,18 @@ let
     instead.
 
     `scheme`: a key of `schemes`, matched case-insensitively.
-    `host`: urlHost value.
-    `port`: port value, or null (default) for the scheme default.
-    `userinfo`: raw userinfo string, or null (default).
+    `authority`: authority value; a null port means the scheme default.
     `path`: "" (default) or a string starting with `/`.
     `query`: raw query string without `?`, or null (default).
     `fragment`: raw fragment string without `#`, or null (default).
 
-    Returns a url value; throws on an unknown scheme, a non-urlHost host, a
-    non-port port, or a path that does not start with `/`.
+    Returns a url value; throws on an unknown scheme, a non-authority
+    authority, or a path that does not start with `/`.
   */
   make =
     {
       scheme,
-      host,
-      port ? null,
-      userinfo ? null,
+      authority,
       path ? "",
       query ? null,
       fragment ? null,
@@ -222,16 +209,14 @@ let
     let
       lowerScheme = lowerAscii scheme;
     in
-    if !(builtins.hasAttr lowerScheme schemes) then
+    if !(schemes ? ${lowerScheme}) then
       throw "libnet.url.make: unknown scheme \"${scheme}\""
-    else if !(types.isUrlHost host) then
-      throw "libnet.url.make: host must be a urlHost value"
-    else if port != null && !(types.isPort port) then
-      throw "libnet.url.make: port must be a port value or null"
+    else if !(types.isAuthority authority) then
+      throw "libnet.url.make: authority must be an authority value"
     else if path != "" && !(parsing.startsWith "/" path) then
       throw "libnet.url.make: path must be empty or start with '/': \"${path}\""
     else
-      mk lowerScheme userinfo host port path query fragment;
+      mk lowerScheme authority path query fragment;
 
   # ===== Predicates =====
 
@@ -278,27 +263,27 @@ let
 
     `url`: a url value.
 
-    Returns the raw userinfo string, or null when absent.
+    Returns the authority's raw userinfo string, or null when absent.
   */
-  userinfo = url: url.userinfo;
+  userinfo = url: url.authority.userinfo;
 
   /*
     Get the host of a URL.
 
     `url`: a url value.
 
-    Returns the urlHost value.
+    Returns the authority's host: an ipv4, ipv6, or regName value.
   */
-  host = url: url.host;
+  host = url: url.authority.host;
 
   /*
     Get the default port of a URL's scheme.
 
     `url`: a url value.
 
-    Returns the registry default as an integer.
+    Returns the registry default as a port value.
   */
-  defaultPort = url: schemes.${url.scheme}.defaultPort;
+  defaultPort = url: mkPort schemes.${url.scheme}.defaultPort;
 
   /*
     Get the port a URL connects to, filling in the scheme default.
@@ -307,8 +292,7 @@ let
 
     Returns the explicit port value, or the scheme's default port value.
   */
-  effectivePort =
-    url: if url.port != null then url.port else mkPort schemes.${url.scheme}.defaultPort;
+  effectivePort = url: if url.authority.port != null then url.authority.port else defaultPort url;
 
   /*
     Get the path of a URL.
@@ -344,24 +328,24 @@ let
 
     `url`: a url value.
 
-    Returns an ipEndpoint for IP hosts or a dnsEndpoint for reg-names that
-    are valid DNS names; throws for other reg-names, which have no
-    endpoint.
+    Returns an ipEndpoint for IP hosts or a dnsEndpoint for registered
+    names that are valid DNS names; throws for other registered names,
+    which have no endpoint.
   */
   toEndpoint =
     url:
     let
-      hostValue = url.host;
+      hostValue = host url;
       targetPort = effectivePort url;
     in
     if urlHost.isIp hostValue then
-      ipEndpoint.make hostValue.ip targetPort
+      ipEndpoint.make hostValue targetPort
     else
       let
         dnsHost = urlHost.toHost hostValue;
       in
       if dnsHost == null then
-        throw "libnet.url.toEndpoint: reg-name host \"${hostValue.name}\" is not a valid DNS name"
+        throw "libnet.url.toEndpoint: registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
       else
         dnsEndpoint.make dnsHost targetPort;
 
@@ -388,28 +372,32 @@ let
     else
       compareStrings a b;
 
+  # The authority with the scheme default filled in, so `https://h` and
+  # `https://h:443` compare alike.
+  effectiveAuthority = url: url.authority // { port = effectivePort url; };
+
   /*
-    Test two URLs for equality. Userinfo is ignored, and an omitted port
-    equals the scheme default, so `https://h` equals `https://h:443`.
+    Test two URLs for equality. An omitted port equals the scheme
+    default, so `https://h` equals `https://h:443`.
 
     `a`, `b`: url values.
 
-    Returns true when scheme, host (case-folded), effective port, path,
-    query, and fragment all match.
+    Returns true when the scheme, the authority with its effective port
+    (host case-folded, userinfo exact), path, query, and fragment all
+    match.
   */
   eq =
     a: b:
     types.hasSameTag a b
     && a.scheme == b.scheme
-    && urlHost.eq a.host b.host
-    && port.eq (effectivePort a) (effectivePort b)
+    && authority.eq (effectiveAuthority a) (effectiveAuthority b)
     && a.path == b.path
     && a.query == b.query
     && a.fragment == b.fragment;
 
   /*
-    Order two URLs by scheme, host, effective port, path, query, then
-    fragment (null query or fragment first). Userinfo is ignored.
+    Order two URLs by scheme, host, effective port, userinfo, path,
+    query, then fragment (null userinfo, query, or fragment first).
 
     `a`, `b`: url values.
 
@@ -421,27 +409,21 @@ let
       compareStrings a.scheme b.scheme
     else
       let
-        hostOrder = urlHost.compare a.host b.host;
+        authorityOrder = authority.compare (effectiveAuthority a) (effectiveAuthority b);
       in
-      if hostOrder != 0 then
-        hostOrder
+      if authorityOrder != 0 then
+        authorityOrder
       else
         let
-          portOrder = port.compare (effectivePort a) (effectivePort b);
+          pathOrder = compareStrings a.path b.path;
         in
-        if portOrder != 0 then
-          portOrder
+        if pathOrder != 0 then
+          pathOrder
         else
           let
-            pathOrder = compareStrings a.path b.path;
+            queryOrder = compareOptionalStrings a.query b.query;
           in
-          if pathOrder != 0 then
-            pathOrder
-          else
-            let
-              queryOrder = compareOptionalStrings a.query b.query;
-            in
-            if queryOrder != 0 then queryOrder else compareOptionalStrings a.fragment b.fragment;
+          if queryOrder != 0 then queryOrder else compareOptionalStrings a.fragment b.fragment;
 
   /*
     Check whether one URL sorts before another.
@@ -526,16 +508,25 @@ in
     userinfo
     ;
 
-  # Defined here rather than in `let`, where `port` and `transport` name
-  # the imported modules.
+  # Defined here rather than in `let`, where `authority`, `port` and
+  # `transport` name the imported modules.
+  /*
+    Get the authority of a URL.
+
+    `url`: a url value.
+
+    Returns the authority value: userinfo, host, and explicit port.
+  */
+  authority = url: url.authority;
+
   /*
     Get the explicit port of a URL; see `effectivePort` for the port in use.
 
     `url`: a url value.
 
-    Returns the port value, or null when the input omitted it.
+    Returns the authority's port value, or null when the input omitted it.
   */
-  port = url: url.port;
+  port = url: url.authority.port;
 
   /*
     Get the L4 transport of a URL's scheme.

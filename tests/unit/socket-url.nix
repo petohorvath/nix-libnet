@@ -253,14 +253,86 @@ in
     expected = 0;
   };
 
-  # ===== Constant =====
-  testSchemesList = {
-    expr = socketUrl.schemes;
+  # Schemes sort by name: sctp < tcp < udp < unix.
+  testCompareSctpBeforeTcp = {
+    expr = socketUrl.compare (parse "sctp://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
+    expected = -1;
+  };
+  testCompareUdpBeforeUnix = {
+    expr = socketUrl.compare (parse "udp://1.2.3.4:80") (parse "unix:///run/foo.sock");
+    expected = -1;
+  };
+  testSortByScheme = {
+    expr = map socketUrl.scheme (
+      builtins.sort socketUrl.lt [
+        (parse "unix:///run/foo.sock")
+        (parse "udp://1.2.3.4:80")
+        (parse "tcp://1.2.3.4:80")
+        (parse "sctp://1.2.3.4:80")
+      ]
+    );
     expected = [
+      "sctp"
       "tcp"
       "udp"
-      "sctp"
       "unix"
+    ];
+  };
+
+  # ===== Scheme-derived =====
+  testSchemeTcp = {
+    expr = socketUrl.scheme (parse "TCP://1.2.3.4:80");
+    expected = "tcp";
+  };
+  testSchemeUnix = {
+    expr = socketUrl.scheme (parse "unix:///run/foo.sock");
+    expected = "unix";
+  };
+  testTransportSctp = {
+    expr = socketUrl.transport (parse "sctp://1.2.3.4:80");
+    expected = transport.sctp;
+  };
+  testTransportUnixNull = {
+    expr = socketUrl.transport (parse "unix:///run/foo.sock");
+    expected = null;
+  };
+  testIsSecureIp = {
+    expr = socketUrl.isSecure (parse "tcp://1.2.3.4:80");
+    expected = false;
+  };
+  testIsSecureUnix = {
+    expr = socketUrl.isSecure (parse "unix:///run/foo.sock");
+    expected = false;
+  };
+
+  # ===== Constant =====
+  testSchemesRegistry = {
+    expr = socketUrl.schemes;
+    expected = {
+      sctp = {
+        transport = "sctp";
+        secure = false;
+      };
+      tcp = {
+        transport = "tcp";
+        secure = false;
+      };
+      udp = {
+        transport = "udp";
+        secure = false;
+      };
+      unix = {
+        transport = null;
+        secure = false;
+      };
+    };
+  };
+  testSchemesMatchTransports = {
+    expr = map (name: socketUrl.schemes.${name}.transport) (map transport.toString transport.values);
+    expected = [
+      "sctp"
+      "tcp"
+      "udp"
     ];
   };
 }

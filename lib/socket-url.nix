@@ -13,7 +13,8 @@
   - `unix` → a socket path follows (`unix:///run/foo.sock`,
     `unix://@abstract`); no port.
 
-  Schemes match case-insensitively and are emitted lowercase.
+  Schemes match case-insensitively and are emitted lowercase, and sort
+  by name (sctp < tcp < udp < unix).
 
   Stored as the underlying `transport` + `endpoint` pair:
 
@@ -40,6 +41,27 @@ let
   lowerAscii = dnsLabel.toLowerAscii;
 
   unixScheme = "unix";
+
+  # Closed registry of socket schemes, `scheme -> { transport; secure; }`.
+  # `unix` has no transport; no scheme is TLS-secured.
+  schemes = {
+    sctp = {
+      transport = "sctp";
+      secure = false;
+    };
+    tcp = {
+      transport = "tcp";
+      secure = false;
+    };
+    udp = {
+      transport = "udp";
+      secure = false;
+    };
+    unix = {
+      transport = null;
+      secure = false;
+    };
+  };
 
   mk = transportValue: endpointValue: {
     _type = "socketUrl";
@@ -80,6 +102,8 @@ let
         in
         if !endpointResult.success then
           types.tryErr "libnet.socketUrl.parse: invalid address in \"${input}\""
+        else if !(schemes ? ${lowerScheme}) then
+          types.tryErr "libnet.socketUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
         else
           let
             endpointValue = endpointResult.value;
@@ -89,16 +113,10 @@ let
               types.tryOk (mk null endpointValue)
             else
               types.tryErr "libnet.socketUrl.parse: 'unix://' requires a socket path: \"${input}\""
+          else if types.isUnixSocket endpointValue then
+            types.tryErr "libnet.socketUrl.parse: '${lowerScheme}://' requires host:port, not a socket path: \"${input}\""
           else
-            let
-              transportResult = transport.tryParse lowerScheme;
-            in
-            if !transportResult.success then
-              types.tryErr "libnet.socketUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
-            else if types.isUnixSocket endpointValue then
-              types.tryErr "libnet.socketUrl.parse: '${lowerScheme}://' requires host:port, not a socket path: \"${input}\""
-            else
-              types.tryOk (mk transportResult.value endpointValue);
+            types.tryOk (mk (transport.parse schemes.${lowerScheme}.transport) endpointValue);
 
   /*
     Parse a socket URL.
@@ -125,12 +143,7 @@ let
     Returns `<scheme>://<endpoint>`, such as "tcp://1.2.3.4:80" or
     "unix:///run/foo.sock".
   */
-  toString =
-    socketUrl:
-    let
-      scheme = if socketUrl.transport == null then unixScheme else transport.toString socketUrl.transport;
-    in
-    "${scheme}://${endpoint.toString socketUrl.endpoint}";
+  toString = socketUrl: "${scheme socketUrl}://${endpoint.toString socketUrl.endpoint}";
 
   # ===== Construction =====
 
@@ -191,47 +204,46 @@ let
   */
   isUnix = socketUrl: socketUrl.transport == null;
 
+  /*
+    Check whether a socket URL's scheme implies TLS, per the scheme
+    registry.
+
+    `socketUrl`: socketUrl value.
+
+    Returns false; no socket scheme is TLS-secured (see `secureSocketUrl`).
+  */
+  isSecure = socketUrl: schemes.${scheme socketUrl}.secure;
+
   # ===== Accessors =====
+
+  /*
+    Get the canonical scheme of a socket URL.
+
+    `socketUrl`: socketUrl value.
+
+    Returns "sctp", "tcp", "udp", or "unix".
+  */
+  scheme =
+    socketUrl:
+    if socketUrl.transport == null then unixScheme else transport.toString socketUrl.transport;
 
   # ===== Comparison =====
   #
-  # `transport` itself has no canonical order, so sockets sort by a
-  # fixed scheme rank (tcp < udp < sctp < unix), then by endpoint.
-
-  schemeRank =
-    transportValue:
-    if transportValue == null then
-      3
-    else if transport.isTcp transportValue then
-      0
-    else if transport.isUdp transportValue then
-      1
-    else
-      2;
-
-  transportEq =
-    a: b:
-    if a == null && b == null then
-      true
-    else if a == null || b == null then
-      false
-    else
-      transport.eq a b;
+  # Sorted by scheme name (sctp < tcp < udp < unix), for determinism
+  # only, then by endpoint.
 
   /*
     Compare two socket URLs for equality.
 
     `a`, `b`: socketUrl values.
 
-    Returns true when the type tags, transports, and endpoints match.
+    Returns true when the type tags, schemes, and endpoints match.
   */
-  eq =
-    a: b:
-    types.hasSameTag a b && transportEq a.transport b.transport && endpoint.eq a.endpoint b.endpoint;
+  eq = a: b: types.hasSameTag a b && scheme a == scheme b && endpoint.eq a.endpoint b.endpoint;
 
   /*
-    Order two socket URLs by scheme (tcp < udp < sctp < unix), then by
-    endpoint.
+    Order two socket URLs by scheme name (sctp < tcp < udp < unix), then
+    by endpoint.
 
     `a`, `b`: socketUrl values.
 
@@ -240,12 +252,12 @@ let
   compare =
     a: b:
     let
-      rankA = schemeRank a.transport;
-      rankB = schemeRank b.transport;
+      schemeA = scheme a;
+      schemeB = scheme b;
     in
-    if rankA < rankB then
+    if schemeA < schemeB then
       -1
-    else if rankA > rankB then
+    else if schemeA > schemeB then
       1
     else
       endpoint.compare a.endpoint b.endpoint;
@@ -303,13 +315,6 @@ let
     Returns the one that sorts last; `a` when they are equal.
   */
   max = a: b: if ge a b then a else b;
-
-  schemes = [
-    "tcp"
-    "udp"
-    "sctp"
-    "unix"
-  ];
 in
 {
   inherit
@@ -318,6 +323,7 @@ in
     ge
     gt
     is
+    isSecure
     isUnix
     isValid
     le
@@ -326,6 +332,7 @@ in
     max
     min
     parse
+    scheme
     schemes
     toString
     tryParse

@@ -39,10 +39,10 @@ Suites: parsing, comparison (by `from`, then `to`).
 
 Value: `{ _type = "transport"; value = "tcp" | "udp" | "sctp"; }`. `parse` is case-sensitive ([ADR 0012](../adr/0012-transport-enum.md)).
 
-Suites: parsing. Comparison is `eq` only.
+Suites: parsing, comparison (by name, `sctp < tcp < udp`, for determinism only).
 
 | Function                   | Signature          | Notes |
 | -------------------------- | ------------------ | ----- |
 | `isTcp`, `isUdp`, `isSctp` | `Transport → Bool` |       |
 
-Constants: `tcp`, `udp` and `sctp` as transport values, and `values`, the list of name strings.
+Constants: `tcp`, `udp` and `sctp` as transport values, and `values`, all three in sorted order: `[ sctp tcp udp ]`.

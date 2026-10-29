@@ -13,6 +13,7 @@ in
   bind-url = import ./bind-url.nix testContext;
   bindpoint = import ./bindpoint.nix testContext;
   cidr = import ./cidr.nix testContext;
+  compare-agrees-with-eq = import ./compare-agrees-with-eq.nix testContext;
   cross-type-equality = import ./cross-type-equality.nix testContext;
   dns-endpoint = import ./dns-endpoint.nix testContext;
   dns-name = import ./dns-name.nix testContext;
@@ -43,6 +44,7 @@ in
   port = import ./port.nix testContext;
   port-range = import ./port-range.nix testContext;
   proxy-url = import ./proxy-url.nix testContext;
+  reg-name = import ./reg-name.nix testContext;
   registry = import ./registry.nix testContext;
   secure-socket-url = import ./secure-socket-url.nix testContext;
   socket-url = import ./socket-url.nix testContext;

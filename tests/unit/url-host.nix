@@ -20,8 +20,8 @@ in
     expected = true;
   };
   testParseOk = {
-    expr = (urlHost.parse "example.com").kind;
-    expected = "regName";
+    expr = urlHost.parse "example.com";
+    expected = libnet.regName.parse "example.com";
   };
   testParseThrows = {
     expr = throws (urlHost.parse "bad host");
@@ -30,31 +30,48 @@ in
 
   # ===== Parse: kinds =====
   testIpv4 = {
-    expr = (parseValue "1.2.3.4").kind;
-    expected = "ip";
+    expr = parseValue "1.2.3.4";
+    expected = libnet.ipv4.parse "1.2.3.4";
   };
   testIpv6Bracketed = {
-    expr = urlHost.toString (parseValue "[::1]");
-    expected = "[::1]";
+    expr = parseValue "[::1]";
+    expected = libnet.ipv6.parse "::1";
+  };
+  testIpv6BracketedRoundTrip = {
+    expr = urlHost.toString (parseValue "[2001:db8::1]");
+    expected = "[2001:db8::1]";
+  };
+  # A dotted quad is an IPv4 address, not a four-label registered name.
+  testDottedQuadIsIp = {
+    expr = (parseValue "192.0.2.1")._type;
+    expected = "ipv4";
   };
   testIpv6UnbracketedRejected = {
     expr = (tryParse "::1").success;
     expected = false;
   };
   testRegName = {
-    expr = (parseValue "example.com").kind;
-    expected = "regName";
+    expr = parseValue "example.com";
+    expected = {
+      _type = "regName";
+      value = "example.com";
+    };
   };
   testRegNameUnderscore = {
-    expr = (parseValue "my_host").name;
+    expr = urlHost.toString (parseValue "my_host");
     expected = "my_host";
   };
   testRegNameSubDelimiters = {
-    expr = (parseValue "a+b!c").kind;
+    expr = (parseValue "a+b!c")._type;
     expected = "regName";
   };
   testRegNamePercentEncoded = {
-    expr = (parseValue "a%20b").kind;
+    expr = (parseValue "a%20b")._type;
+    expected = "regName";
+  };
+  # Not a valid IPv4 address, so the registered-name grammar applies.
+  testOutOfRangeQuadIsRegName = {
+    expr = (parseValue "256.0.0.1")._type;
     expected = "regName";
   };
 
@@ -85,6 +102,14 @@ in
     expr = urlHost.toString (parseValue "1.2.3.4");
     expected = "1.2.3.4";
   };
+  testToStringBracketsIpv6Value = {
+    expr = urlHost.toString (libnet.ipv6.parse "fe80::1");
+    expected = "[fe80::1]";
+  };
+  testToStringRejectsDomain = {
+    expr = throws (urlHost.toString (libnet.domain.parse "example.com"));
+    expected = true;
+  };
   testIsValidOk = {
     expr = urlHost.isValid "example.com";
     expected = true;
@@ -96,6 +121,18 @@ in
   testIsYes = {
     expr = urlHost.is (parseValue "1.2.3.4");
     expected = true;
+  };
+  testIsIpv6Value = {
+    expr = urlHost.is (libnet.ipv6.parse "::1");
+    expected = true;
+  };
+  testIsRegNameValue = {
+    expr = urlHost.is (libnet.regName.parse "my_host");
+    expected = true;
+  };
+  testIsDomainNo = {
+    expr = urlHost.is (libnet.domain.parse "example.com");
+    expected = false;
   };
   testIsNo = {
     expr = urlHost.is "x";
@@ -109,15 +146,23 @@ in
     expr = urlHost.isIp (parseValue "example.com");
     expected = false;
   };
+  testIsIpIpv6 = {
+    expr = urlHost.isIp (parseValue "[::1]");
+    expected = true;
+  };
   testIsRegNameYes = {
     expr = urlHost.isRegName (parseValue "example.com");
     expected = true;
   };
+  testIsRegNameNo = {
+    expr = urlHost.isRegName (parseValue "1.2.3.4");
+    expected = false;
+  };
 
   # ===== toHost (bridge to libnet.host) =====
   testToHostIp = {
-    expr = (urlHost.toHost (parseValue "1.2.3.4"))._type;
-    expected = "ipv4";
+    expr = urlHost.toHost (parseValue "1.2.3.4");
+    expected = libnet.ipv4.parse "1.2.3.4";
   };
   testToHostHostname = {
     expr = (urlHost.toHost (parseValue "nas"))._type;
@@ -141,12 +186,32 @@ in
     expr = urlHost.eq (parseValue "Example.COM") (parseValue "example.com");
     expected = true;
   };
+  testEqIpv6 = {
+    expr = urlHost.eq (parseValue "[::1]") (parseValue "[0::1]");
+    expected = true;
+  };
   testEqCrossKind = {
     expr = urlHost.eq (parseValue "1.2.3.4") (parseValue "example.com");
     expected = false;
   };
+  testEqCrossFamily = {
+    expr = urlHost.eq (parseValue "0.0.0.1") (parseValue "[::1]");
+    expected = false;
+  };
+  testEqRegNameVsDomain = {
+    expr = urlHost.eq (parseValue "example.com") (libnet.domain.parse "example.com");
+    expected = false;
+  };
   testCompareIpBeforeRegName = {
     expr = urlHost.compare (parseValue "1.2.3.4") (parseValue "example.com");
+    expected = -1;
+  };
+  testCompareRegNameAfterIpv6 = {
+    expr = urlHost.compare (parseValue "a") (parseValue "[::1]");
+    expected = 1;
+  };
+  testCompareIpv4BeforeIpv6 = {
+    expr = urlHost.compare (parseValue "255.255.255.255") (parseValue "[::]");
     expected = -1;
   };
   testCompareRegNameOrder = {

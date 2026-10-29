@@ -2,46 +2,31 @@
   libnet.urlHost
 
   The host component of a URL authority (RFC 3986 §3.2.2) — the `host`
-  field of `libnet.url`, and usable standalone. Deliberately distinct
-  from `libnet.host`: a URL host is `IP-literal | IPv4address | reg-name`,
-  where reg-name is a loose ASCII set (adds `_`, `~`, sub-delims,
-  `%`-encoding) with no DNS label structure. Looser and less composable
-  than `libnet.host` — an IP host carries a tagged `ip`; a reg-name is an
-  opaque string.
+  of `libnet.authority`, and usable standalone. A pass-through union
+  over `libnet.ip` and `libnet.regName`, deliberately distinct from
+  `libnet.host`: a registered name is a loose ASCII set (adds `_`, `~`,
+  sub-delims, `%`-encoding) with no DNS label structure, where `host`
+  holds a DNS name.
+
+  Returns the member's own tagged value (no `urlHost` tag): an `ipv4`,
+  an `ipv6`, or a `regName`. IPs are tried first, so a dotted quad is an
+  IPv4 address; IPv6 must be bracketed in text.
 
   Example:
     libnet.urlHost.parse "[::1]"
-    => { _type = "urlHost"; kind = "ip"; ip = <ipv6 ::1>; name = null; }
+    => { _type = "ipv6"; … }   # the ::1 address
 
     libnet.urlHost.parse "my_host"
-    => { _type = "urlHost"; kind = "regName"; ip = null; name = "my_host"; }
+    => { _type = "regName"; value = "my_host"; }
 */
 let
   ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
+  regName = import ./reg-name.nix;
   dnsName = import ./dns-name.nix;
   parsing = import ./internal/parse.nix;
-  dnsLabel = import ./internal/dns-label.nix;
   types = import ./internal/types.nix;
-
-  lowerAscii = dnsLabel.toLowerAscii;
-
-  # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
-  regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
-
-  mkIp = address: {
-    _type = "urlHost";
-    kind = "ip";
-    ip = address;
-    name = null;
-  };
-  mkRegName = name: {
-    _type = "urlHost";
-    kind = "regName";
-    ip = null;
-    inherit name;
-  };
 
   # ===== Parsing =====
 
@@ -49,10 +34,10 @@ let
     Parse a URL host without throwing, for callers that branch on validity.
 
     `input`: a bracketed IPv6 literal (`[::1]`), dotted IPv4, or a non-empty
-    reg-name (unreserved, sub-delims, and `%XX` escapes).
+    registered name (unreserved, sub-delims, and `%XX` escapes).
 
-    Returns a tryResult: `{ success = true; value = <urlHost>; }` or
-    `{ success = false; error = <string>; }`. Never throws.
+    Returns a tryResult: `{ success = true; value = <ipv4 | ipv6 | regName>; }`
+    or `{ success = false; error = <string>; }`. Never throws.
   */
   tryParse =
     input:
@@ -67,7 +52,7 @@ let
           result = ipv6.tryParse inner;
         in
         if result.success then
-          types.tryOk (mkIp result.value)
+          result
         else
           types.tryErr "libnet.urlHost.parse: invalid IPv6 literal \"${input}\""
       else
@@ -75,11 +60,12 @@ let
     else
       let
         ipv4Result = ipv4.tryParse input;
+        regNameResult = regName.tryParse input;
       in
       if ipv4Result.success then
-        types.tryOk (mkIp ipv4Result.value)
-      else if builtins.match regNamePattern input != null then
-        types.tryOk (mkRegName input)
+        ipv4Result
+      else if regNameResult.success then
+        regNameResult
       else
         types.tryErr "libnet.urlHost.parse: invalid host \"${input}\"";
 
@@ -88,7 +74,7 @@ let
 
     `input`: host text as accepted by `tryParse`.
 
-    Returns a urlHost value; throws on invalid input.
+    Returns an ipv4, ipv6, or regName value; throws on invalid input.
   */
   parse =
     input:
@@ -100,17 +86,21 @@ let
   /*
     Render a URL host as it appears in a URL authority.
 
-    `urlHost`: a urlHost value.
+    `urlHost`: an ipv4, ipv6, or regName value.
 
-    Returns the host text: IPv6 addresses re-bracketed, reg-names verbatim
-    (case preserved).
+    Returns the host text: IPv6 addresses bracketed, registered names
+    verbatim (case preserved); throws for any other value.
   */
   toString =
     urlHost:
-    if urlHost.kind == "ip" then
-      (if ip.isIpv6 urlHost.ip then "[${ip.toString urlHost.ip}]" else ip.toString urlHost.ip)
+    if types.isIpv6 urlHost then
+      "[${ipv6.toString urlHost}]"
+    else if types.isIpv4 urlHost then
+      ipv4.toString urlHost
+    else if regName.is urlHost then
+      regName.toString urlHost
     else
-      urlHost.name;
+      throw "libnet.urlHost.toString: expected ip or regName value";
 
   # ===== Predicates =====
 
@@ -124,31 +114,31 @@ let
   isValid = input: (tryParse input).success;
 
   /*
-    Check whether a value is a urlHost value.
+    Check whether a value is a URL host value.
 
     `value`: any value.
 
-    Returns true for a urlHost-tagged attrset.
+    Returns true for a tagged ipv4, ipv6, or regName value.
   */
   is = value: types.isUrlHost value;
 
   /*
-    Check whether a URL host is an IP address (IPv4 or bracketed IPv6).
+    Check whether a value is an IP address (IPv4 or IPv6).
 
-    `urlHost`: a urlHost value.
+    `value`: any value.
 
-    Returns true for the `ip` kind.
+    Returns true for a tagged ipv4 or ipv6 value.
   */
-  isIp = urlHost: urlHost.kind == "ip";
+  isIp = value: types.isIp value;
 
   /*
-    Check whether a URL host is a reg-name rather than an IP address.
+    Check whether a value is a registered name rather than an IP address.
 
-    `urlHost`: a urlHost value.
+    `value`: any value.
 
-    Returns true for the `regName` kind.
+    Returns true for a tagged regName value.
   */
-  isRegName = urlHost: urlHost.kind == "regName";
+  isRegName = value: regName.is value;
 
   # ===== Conversion =====
 
@@ -156,67 +146,69 @@ let
     Convert a URL host to a `libnet.host`, bridging the looser URL grammar
     to the composable host types.
 
-    `urlHost`: a urlHost value.
+    `urlHost`: an ipv4, ipv6, or regName value.
 
-    Returns the IP value, or the `dnsName` value when the reg-name is a valid
-    DNS name; null otherwise (for example, names containing underscores).
+    Returns the IP value itself, or the `dnsName` value when the registered
+    name is a valid DNS name; null otherwise (for example, names containing
+    underscores).
   */
   toHost =
     urlHost:
-    if urlHost.kind == "ip" then
-      urlHost.ip
+    if types.isIp urlHost then
+      urlHost
     else
       let
-        result = dnsName.tryParse urlHost.name;
+        result = dnsName.tryParse (regName.toString urlHost);
       in
       if result.success then result.value else null;
 
   # ===== Comparison =====
+  #
+  # Cross-kind order: ip < regName. Within IPs, ipv4 < ipv6 (delegated
+  # to ip.compare); registered names compare case-insensitively.
+
+  rank = value: if types.isIp value then 0 else 1;
 
   /*
     Test two URL hosts for equality.
 
-    `a`, `b`: urlHost values.
+    `a`, `b`: values to compare.
 
-    Returns true when both have the same kind and equal IPs, or reg-names
-    that match case-insensitively. Never throws on mismatched types.
+    Returns true when both are IPs equal under `ip.eq` or both are
+    registered names equal under `regName.eq` (case-insensitive); false
+    across kinds. Never throws on mismatched types.
   */
   eq =
     a: b:
-    if !types.hasSameTag a b || a.kind != b.kind then
-      false
-    else if a.kind == "ip" then
-      ip.eq a.ip b.ip
+    if types.isIp a && types.isIp b then
+      ip.eq a b
+    else if regName.is a && regName.is b then
+      regName.eq a b
     else
-      lowerAscii a.name == lowerAscii b.name;
+      false;
 
   /*
-    Order two URL hosts: IP literals before reg-names, IPs by address, and
-    reg-names by case-folded name.
+    Order two URL hosts: IPs before registered names, IPs by `ip.compare`
+    (IPv4 first), and registered names case-insensitively.
 
-    `a`, `b`: urlHost values.
+    `a`, `b`: ipv4, ipv6, or regName values.
 
     Returns -1, 0, or 1.
   */
   compare =
     a: b:
-    if a.kind == "ip" && b.kind == "regName" then
+    let
+      rankA = rank a;
+      rankB = rank b;
+    in
+    if rankA < rankB then
       -1
-    else if a.kind == "regName" && b.kind == "ip" then
+    else if rankA > rankB then
       1
-    else if a.kind == "ip" then
-      ip.compare a.ip b.ip
+    else if rankA == 0 then
+      ip.compare a b
     else
-      let
-        nameA = lowerAscii a.name;
-        nameB = lowerAscii b.name;
-      in
-      if nameA < nameB then
-        -1
-      else if nameA > nameB then
-        1
-      else
-        0;
+      regName.compare a b;
 
   /*
     Check whether one URL host sorts before another.

@@ -176,6 +176,66 @@ in
     expected = false;
   };
 
+  # ===== Ordering (by name: sctp < tcp < udp) =====
+  testCompareSctpTcp = {
+    expr = transport.compare (parse "sctp") (parse "tcp");
+    expected = -1;
+  };
+  testCompareTcpUdp = {
+    expr = transport.compare (parse "tcp") (parse "udp");
+    expected = -1;
+  };
+  testCompareUdpSctp = {
+    expr = transport.compare (parse "udp") (parse "sctp");
+    expected = 1;
+  };
+  testCompareSame = {
+    expr = transport.compare (parse "tcp") (parse "tcp");
+    expected = 0;
+  };
+  testLt = {
+    expr = transport.lt (parse "sctp") (parse "udp");
+    expected = true;
+  };
+  testLtSame = {
+    expr = transport.lt (parse "tcp") (parse "tcp");
+    expected = false;
+  };
+  testLe = {
+    expr = transport.le (parse "tcp") (parse "tcp");
+    expected = true;
+  };
+  testGt = {
+    expr = transport.gt (parse "udp") (parse "tcp");
+    expected = true;
+  };
+  testGe = {
+    expr = transport.ge (parse "sctp") (parse "tcp");
+    expected = false;
+  };
+  testMin = {
+    expr = transport.toString (transport.min (parse "udp") (parse "sctp"));
+    expected = "sctp";
+  };
+  testMax = {
+    expr = transport.toString (transport.max (parse "udp") (parse "sctp"));
+    expected = "udp";
+  };
+  testSortByCompare = {
+    expr = map transport.toString (
+      builtins.sort transport.lt [
+        transport.udp
+        transport.tcp
+        transport.sctp
+      ]
+    );
+    expected = [
+      "sctp"
+      "tcp"
+      "udp"
+    ];
+  };
+
   # ===== Constants =====
   testConstantTcp = {
     expr = transport.eq transport.tcp (parse "tcp");
@@ -193,12 +253,16 @@ in
     expr = transport.is transport.tcp;
     expected = true;
   };
-  testValuesList = {
+  testValuesSortedTransports = {
     expr = transport.values;
     expected = [
-      "tcp"
-      "udp"
-      "sctp"
+      transport.sctp
+      transport.tcp
+      transport.udp
     ];
+  };
+  testValuesTagged = {
+    expr = builtins.all transport.is transport.values;
+    expected = true;
   };
 }

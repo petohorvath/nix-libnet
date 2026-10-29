@@ -2,6 +2,8 @@
 let
   inherit (libnet)
     authority
+    dnsEndpoint
+    ipEndpoint
     port
     proxyUrl
     urlHost
@@ -56,8 +58,8 @@ in
     expected = "authority";
   };
   testParseAuthorityHostIp = {
-    expr = (authority.host (proxyUrl.authority (parse "socks5://1.2.3.4:1080"))).kind;
-    expected = "ip";
+    expr = (authority.host (proxyUrl.authority (parse "socks5://1.2.3.4:1080")))._type;
+    expected = "ipv4";
   };
   testParseAuthorityPort = {
     expr = port.toInt (authority.port (proxyUrl.authority (parse "socks5://h:1080")));
@@ -281,9 +283,78 @@ in
     expected = "socks5://h:1";
   };
 
-  # ===== Constant =====
-  testSchemesList = {
-    expr = proxyUrl.schemes;
+  # ===== Scheme-derived =====
+  testTransportHttp = {
+    expr = proxyUrl.transport (parse "http://h:8080");
+    expected = libnet.transport.tcp;
+  };
+  testTransportSocks5h = {
+    expr = proxyUrl.transport (parse "socks5h://h:1080");
+    expected = libnet.transport.tcp;
+  };
+
+  # ===== Forwarded from the authority =====
+  testHost = {
+    expr = proxyUrl.host (parse "socks5://u@Proxy.corp:1080");
+    expected = urlHost.parse "Proxy.corp";
+  };
+  testHostIp = {
+    expr = proxyUrl.host (parse "socks5://[::1]:1080");
+    expected = libnet.ipv6.parse "::1";
+  };
+  testPort = {
+    expr = proxyUrl.port (parse "socks5://h:1080");
+    expected = port.fromInt 1080;
+  };
+  testUserinfo = {
+    expr = proxyUrl.userinfo (parse "http://user:pass@h:8080");
+    expected = "user:pass";
+  };
+  testUserinfoNull = {
+    expr = proxyUrl.userinfo (parse "http://h:8080");
+    expected = null;
+  };
+
+  # ===== toEndpoint =====
+  testToEndpointIpv4 = {
+    expr = ipEndpoint.toString (proxyUrl.toEndpoint (parse "socks5://u@127.0.0.1:1080"));
+    expected = "127.0.0.1:1080";
+  };
+  testToEndpointIpv6 = {
+    expr = ipEndpoint.toString (proxyUrl.toEndpoint (parse "http://[::1]:3128"));
+    expected = "[::1]:3128";
+  };
+  testToEndpointDns = {
+    expr = dnsEndpoint.toString (proxyUrl.toEndpoint (parse "https://proxy.corp:443"));
+    expected = "proxy.corp:443";
+  };
+  testToEndpointRegNameThrows = {
+    expr = throws (proxyUrl.toEndpoint (parse "http://my_proxy:8080"));
+    expected = true;
+  };
+  testToEndpointMapped = {
+    expr = map (u: ipEndpoint.toString (proxyUrl.toEndpoint (parse u))) [
+      "socks4://10.0.0.1:1080"
+      "socks5h://10.0.0.2:1081"
+    ];
+    expected = [
+      "10.0.0.1:1080"
+      "10.0.0.2:1081"
+    ];
+  };
+
+  # Schemes sort by name.
+  testSortByScheme = {
+    expr = map proxyUrl.scheme (
+      builtins.sort proxyUrl.lt [
+        (parse "socks5h://h:1")
+        (parse "https://h:1")
+        (parse "socks4a://h:1")
+        (parse "socks5://h:1")
+        (parse "http://h:1")
+        (parse "socks4://h:1")
+      ]
+    );
     expected = [
       "http"
       "https"
@@ -292,5 +363,36 @@ in
       "socks5"
       "socks5h"
     ];
+  };
+
+  # ===== Constant =====
+  testSchemesRegistry = {
+    expr = proxyUrl.schemes;
+    expected = {
+      http = {
+        transport = "tcp";
+        secure = false;
+      };
+      https = {
+        transport = "tcp";
+        secure = true;
+      };
+      socks4 = {
+        transport = "tcp";
+        secure = false;
+      };
+      socks4a = {
+        transport = "tcp";
+        secure = false;
+      };
+      socks5 = {
+        transport = "tcp";
+        secure = false;
+      };
+      socks5h = {
+        transport = "tcp";
+        secure = false;
+      };
+    };
   };
 }

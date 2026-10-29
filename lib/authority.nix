@@ -15,7 +15,7 @@
   Bounded like the URL forms: no scheme, path, query, or fragment.
 
     { _type = "authority"; userinfo = <string | null>;
-      host = <urlHost value>; port = <port value | null>; }
+      host = <ipv4 | ipv6 | regName>; port = <port value | null>; }
 
   Example:
     libnet.authority.parse "user@example.com:8443"
@@ -161,7 +161,7 @@ let
     Build an authority from its parts; pass a whole authority string to
     `parse` instead.
 
-    `host`: urlHost value.
+    `host`: urlHost value (ipv4, ipv6, or regName).
     `userinfo`: raw userinfo string, or null (default).
     `port`: port value, or null (default) to omit it.
 
@@ -217,7 +217,7 @@ let
 
     `authority`: an authority value.
 
-    Returns the urlHost value.
+    Returns the urlHost value: an ipv4, ipv6, or regName value.
   */
   host = authority: authority.host;
 

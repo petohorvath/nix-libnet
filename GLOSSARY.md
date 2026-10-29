@@ -17,7 +17,7 @@ The IP version of an address-bearing value: IPv4 or IPv6.
 _Avoid_: version (except for the `version` accessor), protocol
 
 **Pass-through union**:
-A namespace that accepts several kinds and returns the member's own tagged value, adding no tag of its own: `ip`, `dnsName`, `host`, `endpoint`, `bindpoint`.
+A namespace that accepts several kinds and returns the member's own tagged value, adding no tag of its own: `ip`, `dnsName`, `host`, `urlHost`, `endpoint`, `bindpoint`.
 _Avoid_: sum type, wrapper
 
 **Canonical text**:
@@ -116,6 +116,10 @@ _Avoid_: target, server
 The host component of a URL authority under RFC 3986: an IP literal or a looser registered name with no DNS label structure.
 _Avoid_: host (when the URL grammar applies)
 
+**Registered name**:
+An RFC 3986 URL host that is not an IP literal: a name that admits `_`, `~`, sub-delimiters and percent-encoding, with no DNS label structure.
+_Avoid_: hostname, domain (in the URL grammar)
+
 ## Targets
 
 **Endpoint**:
@@ -146,13 +150,13 @@ _Avoid_: any address, unspecified (which names the address `0.0.0.0` / `::` itse
 ## URL forms
 
 **Socket URL**:
-An endpoint tagged with a transport, `<scheme>://<endpoint>`, such as `tcp://1.2.3.4:80` or `unix:///run/foo.sock`.
+An endpoint paired with a transport, `<scheme>://<endpoint>`, such as `tcp://1.2.3.4:80` or `unix:///run/foo.sock`.
 
 **Bind URL**:
-A bindpoint tagged with a transport, `<scheme>://<bindpoint>`, such as `tcp://:8080`: the bind-side peer of a socket URL.
+A bindpoint paired with a transport, `<scheme>://<bindpoint>`, such as `tcp://:8080`: the bind-side peer of a socket URL.
 
 **Secure socket URL**:
-A TLS-secured socket URL whose scheme is `tls`, `dtls` or `quic` (`ssl` is an alias of `tls`).
+An IP or DNS endpoint reached over TLS, `<scheme>://<endpoint>`, whose scheme is `tls`, `dtls` or `quic`.
 
 **URL**:
 An absolute hierarchical URL over a closed scheme registry, with components stored verbatim.
@@ -162,10 +166,11 @@ _Avoid_: URI, link
 The `[userinfo@]host[:port]` component of a URL, usable on its own.
 
 **Proxy URL**:
-A proxy server address, `<scheme>://<authority>`, with an HTTP or SOCKS scheme and a required port.
+The location of a proxy server, `<scheme>://<authority>`, with an HTTP or SOCKS scheme and a required port.
 
 **Scheme registry**:
-The closed set of schemes a URL form accepts, with any per-scheme facts such as a default port or transport.
+The closed set of schemes a URL form accepts, each with its transport, whether it is secure, and, for URLs, its default port.
+_Avoid_: registry (unqualified, which is the `registry` namespace)
 
 ## Bounded integers
 

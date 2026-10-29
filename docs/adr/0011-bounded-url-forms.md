@@ -4,7 +4,7 @@ libnet parses a fixed set of URL shapes, each over a closed scheme registry: `so
 
 Choices within the URL forms:
 
-- `urlHost` is separate from `host` because the RFC 3986 registered-name grammar admits `_`, `~`, sub-delimiters and percent-encoding with no label structure. `url.toEndpoint` throws for a registered name that is not a valid DNS name.
+- `urlHost` is separate from `host` because the RFC 3986 registered-name grammar admits `_`, `~`, sub-delimiters and percent-encoding with no label structure. `url.toEndpoint` throws for a registered name that is not a valid DNS name. Like `host`, `urlHost` is a pass-through union, over `ip` and `regName`, so an IP host is a full `ipv4` or `ipv6` value.
 - `secureSocketUrl` stores the scheme rather than a transport plus a secure flag, since `dtls` and `quic` are both TLS over UDP.
 - `proxyUrl` requires a port because proxy default ports are not standardized.
 - `url` takes scheme default ports from `registry.ports`, the single source of port numbers.

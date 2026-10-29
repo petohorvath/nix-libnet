@@ -110,27 +110,23 @@ let
     scheme = "tls";
     endpoint = ipEndpoint;
   };
-  urlHost = {
-    _type = "urlHost";
-    kind = "regName";
-    ip = null;
-    name = "example.com";
-  };
-  url = {
-    _type = "url";
-    scheme = "https";
-    userinfo = null;
-    host = urlHost;
-    port = null;
-    path = "";
-    query = null;
-    fragment = null;
+  regName = {
+    _type = "regName";
+    value = "example.com";
   };
   authority = {
     _type = "authority";
     userinfo = null;
-    host = urlHost;
+    host = regName;
     inherit port;
+  };
+  url = {
+    _type = "url";
+    scheme = "https";
+    inherit authority;
+    path = "";
+    query = null;
+    fragment = null;
   };
   proxyUrl = {
     _type = "proxyUrl";
@@ -236,9 +232,9 @@ in
     expr = types.tags.url;
     expected = "url";
   };
-  testTagsUrlHost = {
-    expr = types.tags.urlHost;
-    expected = "urlHost";
+  testTagsRegName = {
+    expr = types.tags.regName;
+    expected = "regName";
   };
   testTagsAuthority = {
     expr = types.tags.authority;
@@ -368,8 +364,8 @@ in
     expr = types.isUrl url;
     expected = true;
   };
-  testIsUrlHostYes = {
-    expr = types.isUrlHost urlHost;
+  testIsRegNameYes = {
+    expr = types.isRegName regName;
     expected = true;
   };
   testIsAuthorityYes = {
@@ -428,6 +424,28 @@ in
   };
   testIsIpString = {
     expr = types.isIp "1.2.3.4";
+    expected = false;
+  };
+
+  # ===== isUrlHost (union) =====
+  testIsUrlHostV4 = {
+    expr = types.isUrlHost ipv4;
+    expected = true;
+  };
+  testIsUrlHostV6 = {
+    expr = types.isUrlHost ipv6;
+    expected = true;
+  };
+  testIsUrlHostRegName = {
+    expr = types.isUrlHost regName;
+    expected = true;
+  };
+  testIsUrlHostMac = {
+    expr = types.isUrlHost mac;
+    expected = false;
+  };
+  testIsUrlHostString = {
+    expr = types.isUrlHost "example.com";
     expected = false;
   };
 

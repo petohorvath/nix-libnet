@@ -65,6 +65,10 @@ let
       module = libnet.urlHost;
       value = libnet.urlHost.parse "example.com";
     };
+    regName = {
+      module = libnet.regName;
+      value = libnet.regName.parse "my_host";
+    };
     authority = {
       module = libnet.authority;
       value = libnet.authority.parse "example.com:443";
