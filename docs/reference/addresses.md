@@ -102,7 +102,7 @@ Suites: parsing, comparison, arithmetic.
 | `fromBytes`, `toBytes`                                   | `[Int] ↔ Mac`     | Six bytes, most significant first.                                                               |
 | `oui`, `nic`                                             | `Mac → Int`       | Upper and lower 24 bits.                                                                         |
 | `fromOuiNic`                                             | `Int → Int → Mac` | Inverse of `oui` and `nic`. Throws for a non-integer or out-of-range half.                       |
-| `ouiToString`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
+| `toStringOui`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
 | `isUnicast`, `isMulticast`                               | `Mac → Bool`      | Bit 0 of the first octet clear or set.                                                           |
 | `isUniversal`, `isLocal`                                 | `Mac → Bool`      | Bit 1 of the first octet clear or set.                                                           |
 | `isBroadcast`, `isUnspecified`                           | `Mac → Bool`      | All ones, all zeros.                                                                             |

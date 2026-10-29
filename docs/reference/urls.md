@@ -81,7 +81,7 @@ Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bra
 | --------- | --------------------------------- | ---------------------------------------------- |
 | Grammar   | IP, hostname or domain (RFC 1123) | IP literal, IPv4 or registered name (RFC 3986) |
 | IPv6 text | `::1`                             | `[::1]`                                        |
-| Used by   | targets, interface addresses      | `authority`, `url`, `proxyUrl`                 |
+| Used by   | `types.host`, `urlHost.toHost`    | `authority`, `url`, `proxyUrl`                 |
 
 Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registered names by their folded text).
 

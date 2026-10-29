@@ -191,6 +191,18 @@ in
     expr = interfaceAddress.broadcast (parse "::1/64");
     expectedError.msg = "^libnet\\.interfaceAddress\\.broadcast: IPv6 has no broadcast$";
   };
+  testBroadcastV4Prefix30 = {
+    expr = ipv4.toString (interfaceAddress.broadcast (parse "10.0.0.1/30"));
+    expected = "10.0.0.3";
+  };
+  testBroadcastV4Prefix31Throws = {
+    expr = interfaceAddress.broadcast (parse "10.0.0.1/31");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.broadcast: /31 has no broadcast \\(RFC 3021\\)$";
+  };
+  testBroadcastV4Prefix32Throws = {
+    expr = interfaceAddress.broadcast (parse "10.0.0.1/32");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.broadcast: /32 has no broadcast$";
+  };
   testNetmaskV6 = {
     expr = ipv6.toString (interfaceAddress.netmask (parse "2001:db8::5/64"));
     expected = "ffff:ffff:ffff:ffff::";

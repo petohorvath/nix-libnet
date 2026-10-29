@@ -234,6 +234,10 @@ else
       expr = types.port.mk { };
       expectedError.msg = "^libnet\\.types\\.port\\.mk: expected int or string, got set$";
     };
+    testPortMkRejectsParsedValue = {
+      expr = types.port.mk (libnet.port.fromInt 80);
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: expected int or string, got port value$";
+    };
     testPortMkBadString = {
       expr = types.port.mk "abc";
       expectedError.msg = "^libnet\\.types\\.port\\.mk: invalid value \"abc\"$";
@@ -262,7 +266,7 @@ else
     };
     testPortRangeMkRejectsParsedValue = {
       expr = types.portRange.mk (libnet.portRange.parse "80-90");
-      expectedError.msg = "^libnet\\.types\\.portRange\\.mk: expected string, got set$";
+      expectedError.msg = "^libnet\\.types\\.portRange\\.mk: expected string, got portRange value$";
     };
     testPortRangeOverlong = {
       expr = types.portRange.check "80-99999999999999999999";
@@ -886,7 +890,7 @@ else
     };
     testIpRangeMkRejectsParsedValue = {
       expr = types.ipRange.mk (libnet.ipRange.parse "1.2.3.4-1.2.3.10");
-      expectedError.msg = "^libnet\\.types\\.ipRange\\.mk: expected string, got set$";
+      expectedError.msg = "^libnet\\.types\\.ipRange\\.mk: expected string, got ipRange value$";
     };
 
     # ===== interfaceAddress =====
