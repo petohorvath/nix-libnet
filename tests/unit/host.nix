@@ -85,11 +85,19 @@ in
   # Not an `ip`, yet `inet_aton` reads each as an address (ADR 0021).
   testRejectLeadingZeroQuad = {
     expr = parse "010.0.0.1";
-    expectedError.msg = "^libnet\\.host\\.parse: \"010\\.0\\.0\\.1\" is not a valid IP, hostname, or domain$";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid octet in \"010\\.0\\.0\\.1\"$";
   };
   testRejectShortQuad = {
-    expr = throws (parse "127.1");
-    expected = true;
+    expr = parse "127.1";
+    expectedError.msg = "^libnet\\.host\\.parse: must have 4 octets, got 2: \"127\\.1\"$";
+  };
+  testRejectHexQuadKeepsNameDetail = {
+    expr = parse "0x7f.0.0.1";
+    expectedError.msg = "^libnet\\.host\\.parse: \"0x7f\\.0\\.0\\.1\" reads as an IPv4 address, not a DNS name$";
+  };
+  testRejectBadIpv6KeepsDetail = {
+    expr = parse "::g";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid \"::g\"$";
   };
   testRejectNumericHostname = {
     expr = map host.isValid [
@@ -105,7 +113,7 @@ in
   };
   testRejectInvalidNamesHost = {
     expr = parse "host_name";
-    expectedError.msg = "^libnet\\.host\\.parse: \"host_name\" is not a valid IP, hostname, or domain$";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
 
   testTryParseOkIp = {

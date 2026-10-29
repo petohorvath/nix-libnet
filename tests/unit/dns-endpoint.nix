@@ -68,7 +68,7 @@ in
   };
   testRejectUnderscore = {
     expr = parse "host_name:22";
-    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: \"host_name\" ";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
   testRejectMultipleColons = {
     expr = throws (parse "a:b:22");

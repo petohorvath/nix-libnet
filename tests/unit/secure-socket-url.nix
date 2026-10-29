@@ -89,11 +89,11 @@ in
   };
   testRejectBadEndpoint = {
     expr = parse "tls://host_name:1";
-    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: \"host_name:1\" is not a valid IP, name, or unix-socket endpoint$";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
   testRejectMissingPort = {
     expr = parse "tls://1.2.3.4";
-    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: \"1\\.2\\.3\\.4\" is not a valid IP, name, or unix-socket endpoint$";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: missing ':port' in \"1\\.2\\.3\\.4\"$";
   };
   testRejectUnknownSchemeBeforeAddress = {
     expr = (secureSocketUrl.tryParse "foo://garbage").error;

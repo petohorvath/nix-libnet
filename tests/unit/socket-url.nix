@@ -126,7 +126,11 @@ in
   };
   testRejectBadEndpoint = {
     expr = parse "tcp://host_name:1";
-    expectedError.msg = "^libnet\\.socketUrl\\.parse: \"host_name:1\" is not a valid IP, name, or unix-socket endpoint$";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid hostname \"host_name\" \\(expected ";
+  };
+  testRejectBadIpPortKeepsDetail = {
+    expr = parse "tcp://1.2.3.4:x";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid port in \"1\\.2\\.3\\.4:x\"$";
   };
   testRejectBadSocketPathKeepsDetail = {
     expr = parse "unix://@";

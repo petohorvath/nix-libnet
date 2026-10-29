@@ -70,8 +70,12 @@ let
         ipv4Result
       else if regNameResult.success then
         regNameResult
+      # Keep the detail of the member whose shape the text has; a
+      # registered name of only digits and dots reads as IPv4 (ADR 0021).
+      else if parsing.isDottedDigits input then
+        parseError (errors.detail "ipv4.parse" ipv4Result.error)
       else
-        parseError "invalid host \"${input}\"";
+        parseError (errors.detail "regName.parse" regNameResult.error);
 
   /*
     Parse a URL host, for values that must be valid.

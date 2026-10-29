@@ -25,7 +25,7 @@ There is no `tld` accessor ([ADR 0003](../adr/0003-syntax-not-resolution.md)); t
 
 ## `libnet.dnsName`
 
-Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count.
+Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count. A parse error names `dnsName.parse` and keeps the domain's detail for text with a dot and the hostname's otherwise, such as `libnet.dnsName.parse: invalid hostname "host_name" …`.
 
 Suites: parsing, comparison (hostnames before domains, then by the lowercase text).
 
@@ -35,7 +35,7 @@ Suites: parsing, comparison (hostnames before domains, then by the lowercase tex
 
 ## `libnet.host`
 
-Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it.
+Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it. A parse error names `host.parse` and keeps the IP's detail for text with a colon or only digits and dots, and the DNS name's otherwise: `host.parse "010.0.0.1"` reports `libnet.host.parse: invalid octet in "010.0.0.1"`.
 
 Suites: parsing, comparison (IPv4, IPv6, hostname, then domain; within a kind, that kind's order).
 

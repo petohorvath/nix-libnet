@@ -74,8 +74,12 @@ let
         in
         if domainResult.success then
           domainResult
+        # Keep the detail of the member whose shape the text has: a domain
+        # has a dot and a hostname does not.
+        else if parsing.countOccurrences "." input > 0 then
+          parseError (errors.detail "domain.parse" domainResult.error)
         else
-          parseError "\"${input}\" is not a valid hostname or domain";
+          parseError (errors.detail "hostname.parse" hostnameResult.error);
 
   /*
     Parse a DNS name that is not an IP literal.

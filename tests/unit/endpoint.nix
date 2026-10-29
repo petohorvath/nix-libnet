@@ -38,7 +38,7 @@ in
   # ===== Reject =====
   testRejectEmpty = {
     expr = parse "";
-    expectedError.msg = "^libnet\\.endpoint\\.parse: \"\" is not a valid IP, name, or unix-socket endpoint$";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: expected exactly one ':' \\(name:port\\): \"\"$";
   };
   testRejectNoPort = {
     expr = throws (parse "nas");
@@ -49,13 +49,27 @@ in
     expected = true;
   };
   testRejectUnbracketedIpv6 = {
-    expr = throws (parse "::1:443");
-    expected = true;
+    expr = parse "::1:443";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: unbracketed IPv6 is ambiguous";
+  };
+  # A union's error keeps the detail of the member whose shape the text
+  # matches: an IP endpoint for an IP host, otherwise a DNS endpoint.
+  testRejectIpPortKeepsDetail = {
+    expr = parse "1.2.3.4:99999";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"1\\.2\\.3\\.4:99999\"$";
+  };
+  testRejectBracketedPortKeepsDetail = {
+    expr = parse "[::1]:x";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"\\[::1\\]:x\"$";
+  };
+  testRejectNamePortKeepsDetail = {
+    expr = parse "nas:x";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"nas:x\"$";
   };
   # Not an IP endpoint, and its name reads as IPv4 (ADR 0021).
   testRejectLeadingZeroQuad = {
     expr = parse "010.0.0.1:80";
-    expectedError.msg = "^libnet\\.endpoint\\.parse: \"010\\.0\\.0\\.1:80\" is not a valid IP, name, or unix-socket endpoint$";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid IPv4 in \"010\\.0\\.0\\.1:80\"$";
   };
   testRejectNumericName = {
     expr = map endpoint.isValid [

@@ -112,7 +112,12 @@ in
   };
   testRejectInvalidNamesDnsName = {
     expr = parse "host_name";
-    expectedError.msg = "^libnet\\.dnsName\\.parse: \"host_name\" is not a valid hostname or domain$";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: invalid hostname \"host_name\" \\(expected ";
+  };
+  # Text with a dot fails as a domain, so it keeps the domain's detail.
+  testRejectInvalidDomainKeepsDetail = {
+    expr = parse "host_name.example";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: invalid label in \"host_name\\.example\" \\(each label ";
   };
 
   testTryParseOkHostname = {

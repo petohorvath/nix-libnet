@@ -86,7 +86,7 @@ in
   # is no registered name either (ADR 0021).
   testOutOfRangeQuadRejected = {
     expr = (tryParse "256.0.0.1").error;
-    expected = "libnet.urlHost.parse: invalid host \"256.0.0.1\"";
+    expected = "libnet.urlHost.parse: invalid octet in \"256.0.0.1\"";
   };
 
   # ===== Reject =====
@@ -100,7 +100,7 @@ in
   };
   testRejectInvalidNamesUrlHost = {
     expr = urlHost.parse "bad host";
-    expectedError.msg = "^libnet\\.urlHost\\.parse: invalid host \"bad host\"$";
+    expectedError.msg = "^libnet\\.urlHost\\.parse: invalid registered name \"bad host\"$";
   };
   testRejectSpace = {
     expr = (tryParse "bad host").success;

@@ -79,8 +79,17 @@ let
         in
         if dnsEndpointResult.success then
           dnsEndpointResult
+        # Keep the detail of the member whose shape the text has: an IP
+        # endpoint is bracketed, holds several colons or has an IPv4-shaped
+        # host, and anything else reads as a DNS endpoint.
+        else if
+          parsing.startsWith "[" input
+          || parsing.countOccurrences ":" input > 1
+          || parsing.isDottedDigits (builtins.head (parsing.splitOn ":" input))
+        then
+          parseError (errors.detail "ipEndpoint.parse" ipEndpointResult.error)
         else
-          parseError "\"${input}\" is not a valid IP, name, or unix-socket endpoint";
+          parseError (errors.detail "dnsEndpoint.parse" dnsEndpointResult.error);
 
   /*
     Parse any connection target, classifying it by shape as `tryParse`

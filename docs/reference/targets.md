@@ -38,7 +38,7 @@ Suites: parsing, comparison (byte-wise, case-sensitive).
 
 ## `libnet.endpoint`
 
-Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint, so `endpoint.parse "010.0.0.1:80"` throws, being neither. Its errors name `endpoint.parse`, so `endpoint.parse "@"` reports `libnet.endpoint.parse: invalid socket "@" …` with the Unix socket's detail.
+Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint, so `endpoint.parse "010.0.0.1:80"` throws, being neither. Its errors name `endpoint.parse` and keep the detail of the member whose shape the text has: the Unix socket's for a leading `/` or `@`, the IP endpoint's for a bracketed host, several colons or a host of only digits and dots, and otherwise the DNS endpoint's. `endpoint.parse "@"` reports `libnet.endpoint.parse: invalid socket "@" …`, and `endpoint.parse "1.2.3.4:99999"` reports `libnet.endpoint.parse: invalid port in "1.2.3.4:99999"`.
 
 Suites: parsing, comparison (IP, DNS, then Unix kinds; `eq` is `false` across kinds).
 

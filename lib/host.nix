@@ -22,6 +22,7 @@ let
   ip = import ./ip.nix;
   dnsName = import ./dns-name.nix;
   errors = import ./internal/errors.nix;
+  parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
   # Return a host argument of `caller`, throwing for any other value.
@@ -57,8 +58,12 @@ let
         in
         if nameResult.success then
           nameResult
+        # Keep the detail of the member whose shape the text has: no DNS
+        # name holds a colon or only digits and dots.
+        else if parsing.isDottedDigits input || parsing.countOccurrences ":" input > 0 then
+          parseError (errors.detail "ip.parse" ipResult.error)
         else
-          parseError "\"${input}\" is not a valid IP, hostname, or domain";
+          parseError (errors.detail "dnsName.parse" nameResult.error);
 
   /*
     Parse an address a service consumer might connect to.
