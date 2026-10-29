@@ -19,6 +19,7 @@
   arithmetic ? false,
 }:
 let
+  address = import ./address.nix;
   comparison = import ./comparison.nix;
   errors = import ./errors.nix;
   parsing = import ./parse.nix;
@@ -50,30 +51,31 @@ let
 
   ordering = comparison.suite compareFor;
 
-  # Bound the offset, not the result: both bounds lie within a domain
-  # width of zero, so no check can overflow a Nix integer, which Nix 2.18
-  # would wrap silently.
+  within = address.offsetWithin { inherit minValue maxValue; };
+
   addFor =
     function: n: scalar:
     let
       offset = intArgument function n;
       value = valueOf function scalar;
+      result = within.add value offset;
     in
-    if offset < minValue - value || offset > maxValue - value then
+    if result == null then
       outOfRange function "${builtins.toString value} + ${builtins.toString offset}"
     else
-      mk (value + offset);
+      mk result;
 
   subFor =
     function: n: scalar:
     let
       offset = intArgument function n;
       value = valueOf function scalar;
+      result = within.sub value offset;
     in
-    if offset < value - maxValue || offset > value - minValue then
+    if result == null then
       outOfRange function "${builtins.toString value} - ${builtins.toString offset}"
     else
-      mk (value - offset);
+      mk result;
 
   /*
     Parse a value from its decimal text without throwing, so callers can

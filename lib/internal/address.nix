@@ -1,6 +1,6 @@
 /*
-  Arithmetic and integer-list checks shared by the address kinds and the
-  `ip` union. Each function takes `caller`, the public function its errors
+  Arithmetic and integer-list checks shared by the address kinds, the
+  `ip` union and, through `offsetWithin`, the bounded integers. Each function takes `caller`, the public function its errors
   name, so `ip.next` reports `libnet.ip.next` even though the IPv4 code
   does the work. They check every argument: the kind of the address
   operands, the offset and the integer lists.
@@ -17,6 +17,24 @@ let
 
   outOfRange = caller: text: errors.fail caller "out of range: ${text}";
 
+  /*
+    `add value offset` and `sub value offset` for an integer `value` in
+    [minValue, maxValue], or null when the result leaves that range. The
+    checks bound the offset, not the result: both bounds lie within a
+    domain width of zero, so no check can overflow a Nix integer, which
+    Nix 2.18 would wrap silently.
+  */
+  offsetWithin =
+    { minValue, maxValue }:
+    {
+      add =
+        value: offset:
+        if offset < minValue - value || offset > maxValue - value then null else value + offset;
+      sub =
+        value: offset:
+        if offset < value - maxValue || offset > value - minValue then null else value - offset;
+    };
+
   # Arithmetic on an address stored as one integer `value` in
   # [0, maxValue], such as IPv4 and MAC. `format` renders an address for
   # error messages.
@@ -31,31 +49,33 @@ let
         _type = typeName;
         inherit value;
       };
+      within = offsetWithin {
+        minValue = 0;
+        inherit maxValue;
+      };
     in
     {
-      # Bound the offset, not the result: both bounds lie within
-      # `maxValue` of zero, so no check can overflow.
       add =
         caller: n: address:
         let
           offset = offsetOf caller n;
-          inherit (errors.expectKind caller typeName address) value;
+          result = within.add (errors.expectKind caller typeName address).value offset;
         in
-        if offset < 0 - value || offset > maxValue - value then
+        if result == null then
           outOfRange caller "${format address} + ${builtins.toString offset}"
         else
-          mk (value + offset);
+          mk result;
 
       sub =
         caller: n: address:
         let
           offset = offsetOf caller n;
-          inherit (errors.expectKind caller typeName address) value;
+          result = within.sub (errors.expectKind caller typeName address).value offset;
         in
-        if offset < value - maxValue || offset > value then
+        if result == null then
           outOfRange caller "${format address} - ${builtins.toString offset}"
         else
-          mk (value - offset);
+          mk result;
     };
 
   # ===== 128-bit words =====
@@ -216,5 +236,10 @@ let
       builtins.seq (builtins.foldl' (_: check) null checked) checked;
 in
 {
-  inherit intList scalar words;
+  inherit
+    intList
+    offsetWithin
+    scalar
+    words
+    ;
 }

@@ -34,6 +34,73 @@ let
   smallestInt = -9223372036854775807 - 1;
 in
 {
+  # ===== offsetWithin =====
+  testOffsetWithinAddPinsBounds = {
+    expr =
+      let
+        within = address.offsetWithin {
+          minValue = 1;
+          maxValue = 10;
+        };
+      in
+      [
+        (within.add 5 5)
+        (within.add 5 6)
+        (within.add 5 (-4))
+        (within.add 5 (-5))
+      ];
+    expected = [
+      10
+      null
+      1
+      null
+    ];
+  };
+  testOffsetWithinSubPinsBounds = {
+    expr =
+      let
+        within = address.offsetWithin {
+          minValue = 1;
+          maxValue = 10;
+        };
+      in
+      [
+        (within.sub 5 4)
+        (within.sub 5 5)
+        (within.sub 5 (-5))
+        (within.sub 5 (-6))
+      ];
+    expected = [
+      1
+      null
+      10
+      null
+    ];
+  };
+  # An offset at either end of the Nix integer range is rejected without
+  # overflowing, which Nix 2.18 would wrap silently.
+  testOffsetWithinExtremeOffsets = {
+    expr =
+      let
+        within = address.offsetWithin {
+          minValue = 0;
+          maxValue = 65535;
+        };
+      in
+      [
+        (within.add 0 smallestInt)
+        (within.add 65535 9223372036854775807)
+        (within.sub 0 9223372036854775807)
+        (within.sub 65535 smallestInt)
+      ];
+    expected = [
+      null
+      null
+      null
+      null
+    ];
+  };
+
   # ===== scalar =====
   testScalarAddToUpperBound = {
     expr = nibble.add "nibble.add" 15 (mkNibble 0);
