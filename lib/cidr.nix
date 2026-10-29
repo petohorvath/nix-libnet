@@ -85,7 +85,7 @@ let
     let
       prefixText = builtins.toString prefixLength;
     in
-    "libnet.cidr.${function}: host bits set in \"${formatAddress ip}/${prefixText}\"; the network is ${formatAddress (zeroHostBits ip prefixLength)}/${prefixText}, and interfaceAddress keeps a host address with its prefix";
+    "libnet.cidr.${function}: host bits set in \"${formatAddress ip}/${prefixText}\"; the CIDR is ${formatAddress (zeroHostBits ip prefixLength)}/${prefixText}, and interfaceAddress keeps a host address with its prefix";
 
   # ===== Parsing =====
 
@@ -467,11 +467,13 @@ let
     `ip`: value to test.
 
     Returns true when `ip` is a same-family address within the block;
-    false for other values or families.
+    false for other values or families. Throws when `ip` is a cidr value.
   */
   contains =
     cidr: ip:
-    if !(types.isIp ip) || cidr.networkAddress._type != ip._type then
+    if types.isCidr ip then
+      throw "libnet.cidr.contains: expected an address, got a cidr; use isSupernetOf to test a block"
+    else if !(types.isIp ip) || cidr.networkAddress._type != ip._type then
       false
     else
       let

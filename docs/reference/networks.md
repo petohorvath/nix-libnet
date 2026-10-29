@@ -38,12 +38,12 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 
 **Relationships**, all `false` across families:
 
-| Function       | Signature            | Notes                                                                            |
-| -------------- | -------------------- | -------------------------------------------------------------------------------- |
-| `contains`     | `Cidr → Ip → Bool`   | `false` for any other value, including a CIDR; test a block with `isSupernetOf`. |
-| `isSubnetOf`   | `Cidr → Cidr → Bool` | `isSubnetOf a b` is `a ⊆ b`, as in Python's `subnet_of`.                         |
-| `isSupernetOf` | `Cidr → Cidr → Bool` | `isSupernetOf a b` is `b ⊆ a`.                                                   |
-| `overlaps`     | `Cidr → Cidr → Bool` | Symmetric.                                                                       |
+| Function       | Signature            | Notes                                                                             |
+| -------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `contains`     | `Cidr → Ip → Bool`   | Throws for a CIDR; test a block with `isSupernetOf`. `false` for any other value. |
+| `isSubnetOf`   | `Cidr → Cidr → Bool` | `isSubnetOf a b` is `a ⊆ b`, as in Python's `subnet_of`.                          |
+| `isSupernetOf` | `Cidr → Cidr → Bool` | `isSupernetOf a b` is `b ⊆ a`.                                                    |
+| `overlaps`     | `Cidr → Cidr → Bool` | Symmetric.                                                                        |
 
 **Restructuring and set algebra**
 

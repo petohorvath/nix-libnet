@@ -611,6 +611,16 @@ in
     expr = throws (ipv6.fromMac (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
     expected = true;
   };
+  testFromMacNonMac = {
+    expr = throws (
+      ipv6.fromMac {
+        _type = "cidr";
+        networkAddress = parse "2001:db8::";
+        prefix = 64;
+      } "aa:bb:cc:dd:ee:ff"
+    );
+    expected = true;
+  };
 
   # ===== Arithmetic =====
   testAddOne = {

@@ -106,7 +106,7 @@ in
   };
   testTryParseHostBitsError = {
     expr = (cidr.tryParse "10.0.0.5/24").error;
-    expected = "libnet.cidr.parse: host bits set in \"10.0.0.5/24\"; the network is 10.0.0.0/24, and interfaceAddress keeps a host address with its prefix";
+    expected = "libnet.cidr.parse: host bits set in \"10.0.0.5/24\"; the CIDR is 10.0.0.0/24, and interfaceAddress keeps a host address with its prefix";
   };
 
   # ===== Predicates =====
@@ -140,7 +140,7 @@ in
   };
   testTryParseV6HostBitsError = {
     expr = (cidr.tryParse "2001:db8::1/64").error;
-    expected = "libnet.cidr.parse: host bits set in \"2001:db8::1/64\"; the network is 2001:db8::/64, and interfaceAddress keeps a host address with its prefix";
+    expected = "libnet.cidr.parse: host bits set in \"2001:db8::1/64\"; the CIDR is 2001:db8::/64, and interfaceAddress keeps a host address with its prefix";
   };
   testIsValidHostBits = {
     expr = cidr.isValid "10.0.0.5/24";
@@ -445,10 +445,10 @@ in
     expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "9.255.255.255");
     expected = false;
   };
-  # A block is not an element; test it with isSupernetOf.
-  testContainsCidrIsFalse = {
-    expr = cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16");
-    expected = false;
+  # A block is not an element; the throw points callers at isSupernetOf.
+  testContainsCidrThrows = {
+    expr = throws (cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16"));
+    expected = true;
   };
   testContainsNonAddress = {
     expr = cidr.contains (parse "10.0.0.0/24") "10.0.0.5";

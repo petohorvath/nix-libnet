@@ -167,7 +167,7 @@ let
   fromCidrAndAddress =
     cidrValue: addressValue:
     if !(types.isCidr cidrValue) then
-      throw "libnet.interfaceAddress.fromCidrAndAddress: expected cidr value"
+      throw "libnet.interfaceAddress.fromCidrAndAddress: expected a cidr value"
     else if !(types.isIp addressValue) then
       throw "libnet.interfaceAddress.fromCidrAndAddress: address must be ipv4 or ipv6"
     else if addressValue._type != cidrValue.networkAddress._type then
