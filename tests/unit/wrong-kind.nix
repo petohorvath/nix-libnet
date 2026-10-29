@@ -386,6 +386,24 @@ let
           ports.portOperand = portRange.ports (port.fromInt 80);
         };
       };
+    transport =
+      let
+        inherit (libnet) transport;
+        value = transport.tcp;
+      in
+      {
+        module = transport;
+        inherit value;
+        rejects = {
+          toString.string = transport.toString "tcp";
+          isTcp.set = transport.isTcp { };
+          isUdp.portOperand = transport.isUdp (libnet.port.fromInt 53);
+          isSctp.null = transport.isSctp null;
+          compare.string = transport.compare value "udp";
+          lt.int = transport.lt 6 value;
+          min.portOperand = transport.min value (libnet.port.fromInt 80);
+        };
+      };
     hostname =
       let
         inherit (libnet) hostname;
