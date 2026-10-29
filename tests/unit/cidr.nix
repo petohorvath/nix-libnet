@@ -966,8 +966,8 @@ in
     expected = "2001:db8:0:0:8000::/65";
   };
   testExcludeV6NotParent = {
-    expr = throws (cidr.exclude (parse "2001:dead::/128") (parse "2001:db8::/64"));
-    expected = true;
+    expr = cidr.exclude (parse "2001:dead::/128") (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.exclude: child not contained in parent$";
   };
 
   testIntersectContained = {

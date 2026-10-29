@@ -67,11 +67,18 @@ in
     expr = digit.parse null;
     expectedError.msg = "^libnet\\.digit\\.parse: expected string, got null$";
   };
-  # Namespaces share their detail parsers with each other, not with users.
+  # Namespaces share their detail parsers with each other, not with users,
+  # so no public namespace exports a `*Detail` attribute. `withLib` keeps
+  # the core namespaces unchanged, which `tests/unit/with-lib.nix` checks.
   testSuiteDetailIsNotPublic = {
-    expr = builtins.filter (name: builtins.isAttrs libnet.${name} && libnet.${name} ? tryParseDetail) (
-      builtins.attrNames libnet
-    );
+    expr = builtins.concatMap (
+      namespace:
+      map (name: "${namespace}.${name}") (
+        builtins.filter (name: builtins.match ".*Detail" name != null) (
+          builtins.attrNames (if builtins.isAttrs libnet.${namespace} then libnet.${namespace} else { })
+        )
+      )
+    ) (builtins.attrNames libnet);
     expected = [ ];
   };
   testSuiteIsValid = {
