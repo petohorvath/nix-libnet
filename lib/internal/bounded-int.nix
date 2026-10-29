@@ -47,7 +47,9 @@ let
       let
         number = parsing.decimal highestValue input;
       in
-      if !(parsing.isDecimal input) then
+      if builtins.match "0[0-9]+" input != null then
+        types.tryErr "libnet.${typeName}.parse: leading zero in \"${input}\""
+      else if !(parsing.isDecimal input) then
         types.tryErr "libnet.${typeName}.parse: not a decimal number: \"${input}\""
       else if number == null || !(inRange number) then
         types.tryErr "libnet.${typeName}.parse: out of range ${rangeText}: ${input}"

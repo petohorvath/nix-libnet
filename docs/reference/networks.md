@@ -2,7 +2,7 @@
 
 ## `libnet.cidr`
 
-Value: `{ _type = "cidr"; networkAddress = Ipv4 or Ipv6; prefix = Int; }` with `prefix` in `[0, 32]` or `[0, 128]` by family. Host bits are zero: `parse` and `make` reject `10.0.0.5/24`, which is an [interface address](#libnetinterfaceaddress) ([ADR 0010](../adr/0010-interface-address-is-not-cidr.md)).
+Value: `{ _type = "cidr"; networkAddress = Ipv4 or Ipv6; prefix = Int; }` with `prefix` in `[0, 32]` or `[0, 128]` by family, written without leading zeros (`/08` is rejected). Host bits are zero: `parse` and `make` reject `10.0.0.5/24`, which is an [interface address](#libnetinterfaceaddress) ([ADR 0010](../adr/0010-interface-address-is-not-cidr.md)).
 
 Suites: parsing, comparison. Comparison orders by family, network address, then prefix.
 
@@ -81,7 +81,7 @@ Suites: parsing, comparison (by family, `from`, then `to`).
 
 ## `libnet.interfaceAddress`
 
-Value: `{ _type = "interfaceAddress"; address = Ip; prefix = Int; }`. Text is `address/prefix` with host bits preserved; a bare address without `/prefix` is rejected.
+Value: `{ _type = "interfaceAddress"; address = Ip; prefix = Int; }`. Text is `address/prefix` with host bits preserved and no leading zeros in the prefix; a bare address without `/prefix` is rejected.
 
 Suites: parsing, comparison (by family, address, then prefix), address predicates.
 

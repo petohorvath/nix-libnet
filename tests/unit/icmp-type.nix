@@ -96,6 +96,10 @@ in
     ];
     expected = true;
   };
+  testParseRejectsLeadingZero = {
+    expr = throws (icmpType.parse "08");
+    expected = true;
+  };
   testParseRejectsInt = {
     expr = throws (icmpType.parse 8);
     expected = true;

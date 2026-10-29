@@ -97,7 +97,7 @@ Suites: parsing, comparison (case-insensitive). `toString` preserves the input's
 
 ## `libnet.authority`
 
-Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port = Port or null; }`. Text is `[userinfo@]host[:port]`: `example.com`, `host:8443`, `user@[::1]:443`. `userinfo` is opaque and may carry credentials; a missing port stays `null`, because an authority has no scheme default.
+Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port = Port or null; }`. Text is `[userinfo@]host[:port]`: `example.com`, `host:8443`, `user@[::1]:443`. `userinfo` is opaque and may carry credentials; a missing port stays `null`, because an authority has no scheme default. The port rejects leading zeros (`host:0080`), although RFC 3986 allows them, so every port round-trips ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
 
 Suites: parsing, comparison (by host, port with `null` first, then userinfo with `null` first; `eq` includes userinfo and ignores host case).
 

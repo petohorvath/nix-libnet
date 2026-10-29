@@ -152,9 +152,15 @@ in
       false
     ];
   };
-  testParseLeadingZeroErrorIsNotDecimal = {
-    expr = (plain.tryParse "05").error;
-    expected = "libnet.plain.parse: not a decimal number: \"05\"";
+  testParseLeadingZeroError = {
+    expr = map (input: (plain.tryParse input).error) [
+      "05"
+      "00"
+    ];
+    expected = [
+      "libnet.plain.parse: leading zero in \"05\""
+      "libnet.plain.parse: leading zero in \"00\""
+    ];
   };
   testTryParseRejectsOverlongDigits = {
     # The second is 2^64 + 9, which wraps to 9 where integer overflow is

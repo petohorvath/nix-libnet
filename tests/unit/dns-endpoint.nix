@@ -60,6 +60,10 @@ in
     expr = throws (parse "nas:022");
     expected = true;
   };
+  testTryParseOverlongPort = {
+    expr = (dnsEndpoint.tryParse "nas:99999999999999999999").success;
+    expected = false;
+  };
   testRejectUnderscore = {
     expr = throws (parse "host_name:22");
     expected = true;

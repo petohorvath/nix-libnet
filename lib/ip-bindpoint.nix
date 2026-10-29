@@ -36,6 +36,7 @@ let
 
   # ===== Port-field parser =====
 
+  # Decimal port number, or null when invalid.
   parsePort = parsing.decimal port.highestValue;
 
   # Hyphen form only: the iptables colon form (`8000:8100`) would collide

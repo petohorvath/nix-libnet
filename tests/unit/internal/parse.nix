@@ -1,8 +1,43 @@
-{ internal, ... }:
+{ helpers, internal, ... }:
 let
   parsing = internal.parse;
+  inherit (helpers) throws;
 in
 {
+  # ===== isDecimal =====
+  testIsDecimalAccepts = {
+    expr = map parsing.isDecimal [
+      "0"
+      "7"
+      "65535"
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testIsDecimalRejects = {
+    expr = map parsing.isDecimal [
+      ""
+      "00"
+      "07"
+      "-1"
+      "+1"
+      " 1"
+      "1a"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+
   # ===== decimal =====
   testDecimal0 = {
     expr = parsing.decimal 255 "0";
@@ -56,6 +91,14 @@ in
   testDecimalNegative = {
     expr = parsing.decimal 255 "-1";
     expected = null;
+  };
+  testDecimalBelowOverflowLimit = {
+    expr = parsing.decimal 999999999999999999 "999999999999999999";
+    expected = 999999999999999999;
+  };
+  testDecimalMaximumAtOverflowLimitThrows = {
+    expr = throws (parsing.decimal 1000000000000000000 "1");
+    expected = true;
   };
   testDecimalPartialApplication = {
     expr = map (parsing.decimal 9) [

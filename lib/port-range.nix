@@ -20,8 +20,6 @@ let
   types = import ./internal/types.nix;
   port = import ./port.nix;
 
-  portMax = 65535;
-
   # `first` and `last` are tagged Port values, parallel to how cidr stores
   # a tagged address and how ipRange stores tagged from/to ip values.
   mk = first: last: {
@@ -33,7 +31,7 @@ let
   # ===== Parsing =====
 
   # Decimal port number from one side of a range, or null when invalid.
-  parsePart = parsing.decimal portMax;
+  parsePort = parsing.decimal port.highestValue;
 
   /*
     Parse a port range without throwing, so callers can handle invalid
@@ -62,8 +60,8 @@ let
         fromPair =
           parts:
           let
-            first = parsePart (builtins.elemAt parts 0);
-            last = parsePart (builtins.elemAt parts 1);
+            first = parsePort (builtins.elemAt parts 0);
+            last = parsePort (builtins.elemAt parts 1);
           in
           if first == null || last == null then
             types.tryErr "libnet.portRange.parse: invalid range \"${input}\""
@@ -78,7 +76,7 @@ let
         fromPair colonParts
       else if isSingle then
         let
-          number = parsePart input;
+          number = parsePort input;
         in
         if number == null then
           types.tryErr "libnet.portRange.parse: invalid port \"${input}\""

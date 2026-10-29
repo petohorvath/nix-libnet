@@ -117,6 +117,10 @@ in
     ];
     expected = true;
   };
+  testParseRejectsLeadingZero = {
+    expr = throws (mtu.parse "01500");
+    expected = true;
+  };
   testParseRejectsInt = {
     expr = throws (mtu.parse 1500);
     expected = true;
