@@ -85,15 +85,17 @@ Value: `{ _type = "interfaceAddress"; address = Ip; prefix = Int; }`. Text is `a
 
 Suites: parsing, comparison (by family, address, then prefix), address predicates.
 
-| Function                       | Signature                      | Notes                                        |
-| ------------------------------ | ------------------------------ | -------------------------------------------- |
-| `make`                         | `Ip → Int → InterfaceAddress`  | Validates the prefix for the family.         |
-| `fromAddress`                  | `Ip → InterfaceAddress`        | `/32` or `/128`.                             |
-| `fromCidrAndAddress`           | `Cidr → Ip → InterfaceAddress` | Throws when the address is outside the CIDR. |
-| `address`, `prefix`, `version` |                                | Accessors.                                   |
-| `isIpv4`, `isIpv6`             | `InterfaceAddress → Bool`      |                                              |
-| `cidr`                         | `InterfaceAddress → Cidr`      | The CIDR the address sits on.                |
-| `netmask`, `hostmask`          | `InterfaceAddress → Ip`        |                                              |
-| `broadcast`                    | `InterfaceAddress → Ipv4`      | Throws for IPv6.                             |
+| Function              | Signature                      | Notes                                        |
+| --------------------- | ------------------------------ | -------------------------------------------- |
+| `make`                | `Ip → Int → InterfaceAddress`  | Validates the prefix for the family.         |
+| `fromAddress`         | `Ip → InterfaceAddress`        | `/32` or `/128`.                             |
+| `fromCidrAndAddress`  | `Cidr → Ip → InterfaceAddress` | Throws when the address is outside the CIDR. |
+| `address`             | `InterfaceAddress → Ip`        | Stored field.                                |
+| `prefix`              | `InterfaceAddress → Int`       | Stored field.                                |
+| `version`             | `InterfaceAddress → Int`       | `4` or `6`.                                  |
+| `isIpv4`, `isIpv6`    | `InterfaceAddress → Bool`      |                                              |
+| `cidr`                | `InterfaceAddress → Cidr`      | The CIDR the address sits on.                |
+| `netmask`, `hostmask` | `InterfaceAddress → Ip`        |                                              |
+| `broadcast`           | `InterfaceAddress → Ipv4`      | Throws for IPv6.                             |
 
 For the range an interface address sits on, write `ipRange.fromCidr (interfaceAddress.cidr ia)`.
