@@ -130,15 +130,15 @@ in
     expected = false;
   };
   testParsePartialApplication = {
-    expr = map mtu.toInt (
+    expr = map (mtu.eq (mtu.parse "1500")) (
       map mtu.parse [
-        "68"
-        "65535"
+        "1500"
+        "9000"
       ]
     );
     expected = [
-      68
-      65535
+      true
+      false
     ];
   };
 

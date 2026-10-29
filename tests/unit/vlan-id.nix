@@ -118,15 +118,15 @@ in
     expected = false;
   };
   testParsePartialApplication = {
-    expr = map vlanId.toInt (
+    expr = map (vlanId.eq (vlanId.parse "100")) (
       map vlanId.parse [
-        "1"
+        "100"
         "4094"
       ]
     );
     expected = [
-      1
-      4094
+      true
+      false
     ];
   };
 

@@ -109,15 +109,15 @@ in
     expected = false;
   };
   testParsePartialApplication = {
-    expr = map icmpType.toInt (
+    expr = map (icmpType.eq (icmpType.parse "8")) (
       map icmpType.parse [
-        "0"
-        "255"
+        "8"
+        "128"
       ]
     );
     expected = [
-      0
-      255
+      true
+      false
     ];
   };
 

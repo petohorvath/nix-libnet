@@ -261,7 +261,7 @@ let
   prev = scalar: sub 1 scalar;
 in
 if lowestValue < 0 then
-  throw "libnet.${typeName}: lowestValue must not be negative, since decimal text has no sign: ${builtins.toString lowestValue}"
+  throw "libnet.internal.boundedInt: lowestValue of ${typeName} must not be negative, since decimal text has no sign: ${builtins.toString lowestValue}"
 else
   {
     inherit

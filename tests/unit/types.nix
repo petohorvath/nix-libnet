@@ -1009,7 +1009,7 @@ else
       expr = throws (merged types.vlanId "0");
       expected = true;
     };
-    testVlanIdCheckRejectsNonInts = {
+    testVlanIdCheckRejectsOtherTypes = {
       expr = builtins.any types.vlanId.check [
         null
         true
@@ -1022,7 +1022,7 @@ else
       ];
       expected = false;
     };
-    testVlanIdMkRejectsNonInts = {
+    testVlanIdMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.vlanId.mk value)) [
         null
         true
@@ -1123,7 +1123,7 @@ else
       expr = throws (merged types.mtu "67");
       expected = true;
     };
-    testMtuCheckRejectsNonInts = {
+    testMtuCheckRejectsOtherTypes = {
       expr = builtins.any types.mtu.check [
         null
         true
@@ -1136,7 +1136,7 @@ else
       ];
       expected = false;
     };
-    testMtuMkRejectsNonInts = {
+    testMtuMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.mtu.mk value)) [
         null
         true
@@ -1228,7 +1228,7 @@ else
       expr = throws (merged types.icmpType "256");
       expected = true;
     };
-    testIcmpTypeCheckRejectsNonInts = {
+    testIcmpTypeCheckRejectsOtherTypes = {
       expr = builtins.any types.icmpType.check [
         null
         true
@@ -1241,7 +1241,7 @@ else
       ];
       expected = false;
     };
-    testIcmpTypeMkRejectsNonInts = {
+    testIcmpTypeMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.icmpType.mk value)) [
         null
         true
