@@ -44,6 +44,8 @@ let
   portArgument = function: errors.expectKind "portRange.${function}" "port";
   intArgument = errors.intArgument "portRange";
 
+  parseError = detail: types.tryErr (errors.message "portRange.parse" detail);
+
   # Check both range operands of a binary `function`, then apply
   # `relation` to them. Unchecked helpers such as `order` and `sizeOf`
   # below take ranges the public function has already checked.
@@ -70,7 +72,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr (errors.message "portRange.parse" (errors.notString input))
+      parseError (errors.notString input)
     else
       let
         hyphenParts = parsing.splitOn "-" input;
@@ -87,9 +89,9 @@ let
             last = parsePort (builtins.elemAt parts 1);
           in
           if first == null || last == null then
-            types.tryErr "libnet.portRange.parse: invalid range \"${input}\""
+            parseError "invalid range \"${input}\""
           else if first > last then
-            types.tryErr "libnet.portRange.parse: from > to in \"${input}\""
+            parseError "from > to in \"${input}\""
           else
             types.tryOk (mk (port.fromInt first) (port.fromInt last));
       in
@@ -102,14 +104,14 @@ let
           number = parsePort input;
         in
         if number == null then
-          types.tryErr "libnet.portRange.parse: invalid port \"${input}\""
+          parseError "invalid port \"${input}\""
         else
           let
             portValue = port.fromInt number;
           in
           types.tryOk (mk portValue portValue)
       else
-        types.tryErr "libnet.portRange.parse: malformed \"${input}\"";
+        parseError "malformed \"${input}\"";
 
   /*
     Parse a port range from text such as firewall or service settings.

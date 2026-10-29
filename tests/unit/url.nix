@@ -420,8 +420,8 @@ in
     expected = "0x7g.example:80";
   };
   testToEndpointRegNameThrows = {
-    expr = throws (url.toEndpoint (parse "http://my_host/x"));
-    expected = true;
+    expr = url.toEndpoint (parse "http://my_host/x");
+    expectedError.msg = "^libnet\\.url\\.toEndpoint: registered name \"my_host\" is not a valid DNS name$";
   };
 
   # ===== make =====

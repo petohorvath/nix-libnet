@@ -244,7 +244,7 @@ let
         dnsHost = urlHost.toHost hostValue;
       in
       if dnsHost == null then
-        throw "libnet.proxyUrl.toEndpoint: registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
+        errors.fail "proxyUrl.toEndpoint" "registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
       else
         dnsEndpoint.make dnsHost targetPort;
 
