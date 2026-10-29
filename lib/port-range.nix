@@ -24,17 +24,12 @@ let
 
   # `first` and `last` are tagged Port values, parallel to how cidr stores
   # a tagged address and how ipRange stores tagged from/to ip values.
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     first: last:
-    builtins.seq first (
-      builtins.seq last {
-        _type = "portRange";
-        from = first;
-        to = last;
-      }
-    );
+    types.mkStrict "portRange" {
+      from = first;
+      to = last;
+    };
 
   # ===== Argument kinds =====
 
@@ -42,9 +37,7 @@ let
   # the public `function`.
   portRangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
   portArgument = function: errors.expectKind "portRange.${function}" "port";
-  intArgument = errors.intArgument "portRange";
-
-  parseError = detail: types.tryErr (errors.message "portRange.parse" detail);
+  intArgument = function: errors.intArgument "portRange.${function}";
 
   # Check both range operands of a binary `function`, then apply
   # `relation` to them. Unchecked helpers such as `order` and `sizeOf`
@@ -59,76 +52,57 @@ let
   parsePort = parsing.decimal port.maxValue;
 
   /*
-    Parse a port range without throwing, so callers can handle invalid
-    input themselves.
+    Parse a port range: the detail parser of the parsing suite.
 
     `input`: "8080" (single port), "5500-6000" (canonical), or
     "5500:6000" (iptables form); each port is decimal in [0, 65535]
     without leading zeros.
 
-    Returns a tryResult: `{ success = true; value = <portRange>; }` or
-    `{ success = false; error = <message>; }`. Fails when from > to.
+    Returns a tryResult holding a portRange value, or the detail of the
+    failure, such as from > to.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        hyphenParts = parsing.splitOn "-" input;
-        colonParts = parsing.splitOn ":" input;
-        hasHyphen = builtins.length hyphenParts == 2;
-        hasColon = builtins.length colonParts == 2 && !hasHyphen;
-        isSingle = builtins.length hyphenParts == 1 && !hasColon;
-        # Hyphen ("8000-8100") and colon ("8000:8100") forms both split
-        # into a [from to] pair parsed the same way.
-        fromPair =
-          parts:
-          let
-            first = parsePort (builtins.elemAt parts 0);
-            last = parsePort (builtins.elemAt parts 1);
-          in
-          if first == null || last == null then
-            parseError "invalid range \"${input}\""
-          else if first > last then
-            parseError "from > to in \"${input}\""
-          else
-            types.tryOk (mk (port.fromInt first) (port.fromInt last));
-      in
-      if hasHyphen then
-        fromPair hyphenParts
-      else if hasColon then
-        fromPair colonParts
-      else if isSingle then
-        let
-          number = parsePort input;
-        in
-        if number == null then
-          parseError "invalid port \"${input}\""
-        else
-          let
-            portValue = port.fromInt number;
-          in
-          types.tryOk (mk portValue portValue)
-      else
-        parseError "malformed \"${input}\"";
-
-  /*
-    Parse a port range from text such as firewall or service settings.
-
-    `input`: "8080" (single port), "5500-6000" (canonical), or
-    "5500:6000" (iptables form); each port is decimal in [0, 65535]
-    without leading zeros.
-
-    Returns a portRange value; throws on malformed input, out-of-range
-    ports, or from > to.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      hyphenParts = parsing.splitOn "-" input;
+      colonParts = parsing.splitOn ":" input;
+      hasHyphen = builtins.length hyphenParts == 2;
+      hasColon = builtins.length colonParts == 2 && !hasHyphen;
+      isSingle = builtins.length hyphenParts == 1 && !hasColon;
+      # Hyphen ("8000-8100") and colon ("8000:8100") forms both split
+      # into a [from to] pair parsed the same way.
+      fromPair =
+        parts:
+        let
+          first = parsePort (builtins.elemAt parts 0);
+          last = parsePort (builtins.elemAt parts 1);
+        in
+        if first == null || last == null then
+          types.tryErr "invalid range \"${input}\""
+        else if first > last then
+          types.tryErr "from > to in \"${input}\""
+        else
+          types.tryOk (mk (port.fromInt first) (port.fromInt last));
     in
-    if result.success then result.value else throw result.error;
+    if hasHyphen then
+      fromPair hyphenParts
+    else if hasColon then
+      fromPair colonParts
+    else if isSingle then
+      let
+        number = parsePort input;
+      in
+      if number == null then
+        types.tryErr "invalid port \"${input}\""
+      else
+        let
+          portValue = port.fromInt number;
+        in
+        types.tryOk (mk portValue portValue)
+    else
+      types.tryErr "malformed \"${input}\"";
+
+  parsers = parsing.suite "portRange" tryParseDetail;
 
   formatWith =
     separator: range:
@@ -190,15 +164,6 @@ let
     mk checked checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a port range.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a portRange value.
@@ -432,11 +397,9 @@ in
     isSingleton
     isSubrangeOf
     isSuperrangeOf
-    isValid
     make
     merge
     overlaps
-    parse
     portAt
     ports
     portsUnbounded
@@ -444,6 +407,10 @@ in
     to
     toString
     toStringColon
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

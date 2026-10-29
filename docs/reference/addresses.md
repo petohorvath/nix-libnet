@@ -41,7 +41,7 @@ Predicates, each `Ipv4 → Bool`:
 
 ## `libnet.ipv6`
 
-Value: `{ _type = "ipv6"; words = [Int Int Int Int]; }`, four 32-bit words with the most significant first; `2001:db8::1` is `[ 536939960 0 0 1 ]`. `parse` accepts compression, mixed case, and embedded IPv4 (`::ffff:1.2.3.4`). Canonical text follows RFC 5952.
+Value: `{ _type = "ipv6"; words = [Int Int Int Int]; }`, four 32-bit words with the most significant first; `2001:db8::1` is `[ 536939960 0 0 1 ]`. `parse` accepts compression, mixed case, and embedded IPv4 (`::ffff:1.2.3.4`). A parse error names the first empty or invalid group or IPv4 part, or else the wrong group count: `ipv6.parse "gggg::"` throws `libnet.ipv6.parse: invalid group "gggg" in "gggg::"`, and `ipv6.parse "1:2:3:4:5:6:7"` throws `libnet.ipv6.parse: must have 8 groups, got 7: "1:2:3:4:5:6:7"`. Canonical text follows RFC 5952.
 
 Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cross words; `diff` throws when the result falls outside the Nix integer range `[−2⁶³, 2⁶³ − 1]`, so a difference of exactly −2⁶³ is returned). There is no `toInt` or `fromInt`.
 
@@ -80,7 +80,7 @@ Predicates, each `Ipv6 → Bool`:
 
 ## `libnet.ip`
 
-Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`. A parse error names `ip.parse` and keeps the member's detail: `ip.parse "300.1.1.1"` throws `libnet.ip.parse: invalid octet in "300.1.1.1"`.
+Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`. A parse error names `ip.parse` and keeps the member's detail: `ip.parse "300.1.1.1"` throws `libnet.ip.parse: invalid octet in "300.1.1.1"`. Colon text that is not plausibly IPv6 names the syntax it belongs to instead: bracketed text, as in `ip.parse "[::1]"`, throws `libnet.ip.parse: "[::1]" is bracketed, which is URL and endpoint syntax`, and a host other than an IPv6 group followed by a port, as in `ip.parse "1.2.3.4:5"`, throws `libnet.ip.parse: "1.2.3.4:5" reads as host:port, which is endpoint syntax`.
 
 Suites: parsing, comparison (IPv4 before IPv6), arithmetic (dispatched by family, with errors naming the `ip` function called; `diff` across families throws), address predicates.
 
@@ -102,7 +102,7 @@ Suites: parsing, comparison, arithmetic.
 | `fromBytes`, `toBytes`                                   | `[Int] ↔ Mac`     | Six bytes, most significant first.                                                               |
 | `oui`, `nic`                                             | `Mac → Int`       | Upper and lower 24 bits.                                                                         |
 | `fromOuiNic`                                             | `Int → Int → Mac` | Inverse of `oui` and `nic`. Throws for a non-integer or out-of-range half.                       |
-| `ouiToString`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
+| `toStringOui`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
 | `isUnicast`, `isMulticast`                               | `Mac → Bool`      | Bit 0 of the first octet clear or set.                                                           |
 | `isUniversal`, `isLocal`                                 | `Mac → Bool`      | Bit 1 of the first octet clear or set.                                                           |
 | `isBroadcast`, `isUnspecified`                           | `Mac → Bool`      | All ones, all zeros.                                                                             |

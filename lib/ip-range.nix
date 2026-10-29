@@ -25,17 +25,12 @@ let
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     first: last:
-    builtins.seq first (
-      builtins.seq last {
-        _type = "ipRange";
-        from = first;
-        to = last;
-      }
-    );
+    types.mkStrict "ipRange" {
+      from = first;
+      to = last;
+    };
 
   isV4 = address: address._type == "ipv4";
   isV6 = address: address._type == "ipv6";
@@ -51,6 +46,19 @@ let
   sameAddress =
     left: right: if isV4 left then left.value == right.value else left.words == right.words;
 
+  # Whether `address` is the highest address of its family.
+  isTopAddress =
+    address:
+    if isV4 address then
+      address.value == bits.mask32
+    else
+      address.words == [
+        bits.mask32
+        bits.mask32
+        bits.mask32
+        bits.mask32
+      ];
+
   # ===== Argument kinds =====
 
   /*
@@ -59,7 +67,7 @@ let
     and `order`, take values the public function has already checked.
   */
   ipRangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
-  intArgument = errors.intArgument "ipRange";
+  intArgument = function: errors.intArgument "ipRange.${function}";
   addressArgument = function: errors.expect "ipRange.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both range operands of a binary `function`, then apply
@@ -71,68 +79,41 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an address range without throwing, so callers can handle
-    invalid input themselves.
+    Parse an address range, such as a firewall iprange rule or DHCP
+    pool: the detail parser of the parsing suite.
 
     `input`: "<from>-<to>" with two same-family addresses, such as
     "1.2.3.4-1.2.3.10" or "2001:db8::1-2001:db8::ff".
 
-    Returns a tryResult: `{ success = true; value = <ipRange>; }` or
-    `{ success = false; error = <message>; }`. Fails on malformed
-    addresses, mixed families, or from > to.
-  */
-  tryParse =
-    input:
-    let
-      parseError = detail: types.tryErr (errors.message "ipRange.parse" detail);
-      isV6Input = text: parsing.countOccurrences ":" text > 0;
-      # The address parser's detail, without its own prefix.
-      addressDetail =
-        text: result: errors.detail (if isV6Input text then "ipv6.parse" else "ipv4.parse") result.error;
-    in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "-" input;
-        partCount = builtins.length parts;
-      in
-      if partCount != 2 then
-        parseError "missing '-' or too many: \"${input}\""
-      else
-        let
-          fromInput = builtins.elemAt parts 0;
-          toInput = builtins.elemAt parts 1;
-          fromResult = if isV6Input fromInput then ipv6.tryParse fromInput else ipv4.tryParse fromInput;
-          toResult = if isV6Input toInput then ipv6.tryParse toInput else ipv4.tryParse toInput;
-        in
-        if !fromResult.success then
-          parseError "invalid 'from': ${addressDetail fromInput fromResult}"
-        else if !toResult.success then
-          parseError "invalid 'to': ${addressDetail toInput toResult}"
-        else if fromResult.value._type != toResult.value._type then
-          parseError "mixed families in \"${input}\""
-        else if !(leFor fromResult.value fromResult.value toResult.value) then
-          parseError "'from' > 'to' in \"${input}\""
-        else
-          types.tryOk (mk fromResult.value toResult.value);
-
-  /*
-    Parse an address range from text, such as a firewall iprange rule
-    or DHCP pool.
-
-    `input`: "<from>-<to>" with two same-family addresses, such as
-    "1.2.3.4-1.2.3.10" or "2001:db8::1-2001:db8::ff".
-
-    Returns an ipRange value; throws on malformed addresses, mixed
+    Returns a tryResult whose `value` is an ipRange value, or whose
+    `error` is the detail of the failure: malformed addresses, mixed
     families, or from > to.
   */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "-" input;
+      partCount = builtins.length parts;
     in
-    if result.success then result.value else throw result.error;
+    if partCount != 2 then
+      types.tryErr "missing '-' or too many: \"${input}\""
+    else
+      let
+        fromResult = ip.tryParseDetail (builtins.elemAt parts 0);
+        toResult = ip.tryParseDetail (builtins.elemAt parts 1);
+      in
+      if !fromResult.success then
+        types.tryErr "invalid 'from': ${fromResult.error}"
+      else if !toResult.success then
+        types.tryErr "invalid 'to': ${toResult.error}"
+      else if fromResult.value._type != toResult.value._type then
+        types.tryErr "mixed families in \"${input}\""
+      else if !(leFor fromResult.value fromResult.value toResult.value) then
+        types.tryErr "'from' > 'to' in \"${input}\""
+      else
+        types.tryOk (mk fromResult.value toResult.value);
+
+  parsers = parsing.suite "ipRange" tryParseDetail;
 
   /*
     Format a range in canonical hyphen form.
@@ -188,15 +169,6 @@ let
     mk checked checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an address range.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is an ipRange value.
@@ -269,13 +241,13 @@ let
   version = range: if isV4 (ipRangeArgument "version" range).from then 4 else 6;
 
   /*
-    The address count of `range`, throwing on behalf of `function` when
-    it reaches 2^63, which a Nix int cannot hold. The IPv6 count is
-    checked on the words before any arithmetic that could overflow,
-    which Nix 2.18 would wrap silently.
+    The address count of `range`, or null when it reaches 2^63, which a
+    Nix int cannot hold. The IPv6 count is checked on the words before
+    any arithmetic that could overflow, which Nix 2.18 would wrap
+    silently.
   */
-  sizeFor =
-    function: range:
+  sizeOrNull =
+    range:
     if isV4 range.from then
       range.to.value - range.from.value + 1
     else
@@ -296,9 +268,21 @@ let
         || word2.diff > highMax
         || (word2.diff == highMax && word3.diff == bits.mask32)
       then
-        errors.fail "ipRange.${function}" "range too large for a Nix integer (2^63 or more addresses)"
+        null
       else
         word2.diff * bits.pow2_32 + word3.diff + 1;
+
+  # The address count of `range`, throwing on behalf of `function` when
+  # it reaches 2^63.
+  sizeFor =
+    function: range:
+    let
+      rangeSize = sizeOrNull range;
+    in
+    if rangeSize == null then
+      errors.fail "ipRange.${function}" "range too large for a Nix integer (2^63 or more addresses)"
+    else
+      rangeSize;
 
   /*
     Count the addresses in a range.
@@ -382,19 +366,12 @@ let
   */
   isSuperrangeOf = binary "isSuperrangeOf" (a: b: subrange b a);
 
-  adjacent =
-    a: b:
-    if a.from._type != b.from._type then
-      false
-    else
-      let
-        # Incrementing the top address throws; tryEval turns that into
-        # "no neighbour".
-        aAfterEnd = builtins.tryEval ((addFor a.from) 1 a.to);
-        bAfterEnd = builtins.tryEval ((addFor b.from) 1 b.to);
-      in
-      (aAfterEnd.success && sameAddress aAfterEnd.value b.from)
-      || (bAfterEnd.success && sameAddress bAfterEnd.value a.from);
+  # Whether same-family `left` ends immediately before `right` starts. A
+  # range ending at the family's top address has no upward neighbour.
+  endsBefore =
+    left: right: !(isTopAddress left.to) && sameAddress ((addFor left.to) 1 left.to) right.from;
+
+  adjacent = a: b: a.from._type == b.from._type && (endsBefore a b || endsBefore b a);
 
   /*
     Check whether two ranges touch with no gap and no overlap. A range
@@ -463,43 +440,50 @@ let
     `range`: ipRange value.
 
     Returns the addresses from `from` to `to` in ascending order; throws
-    when the range holds more than 2^16 addresses (use
+    when the range holds more than 2^16 addresses (use `addressAt` or
     `addressesUnbounded`).
   */
   addresses =
     range:
     let
       checked = ipRangeArgument "addresses" range;
-      rangeSize = sizeFor "addresses" checked;
+      rangeSize = sizeOrNull checked;
     in
-    if rangeSize > bits.pow2 16 then
-      errors.fail "ipRange.addresses" "range too large (${builtins.toString rangeSize} > 2^16); use addressesUnbounded"
+    # `addressesUnbounded` throws where a Nix int cannot hold the size.
+    if rangeSize == null then
+      errors.fail "ipRange.addresses" "range too large (2^63 or more > 2^16); use addressAt"
+    else if rangeSize > bits.pow2 16 then
+      errors.fail "ipRange.addresses" "range too large (${builtins.toString rangeSize} > 2^16); use addressAt or addressesUnbounded"
     else
       listAddresses checked rangeSize;
 
   /*
     Index into a range, parallel to `cidr.addressAt` and
-    `ipBindpoint.endpointAt`. Like `cidr.addressAt` it relies on `size`, so
-    it throws for IPv6 ranges of 2^63 or more addresses.
+    `ipBindpoint.endpointAt`.
 
-    `n`: 0-based offset from `from`; negative values count from the end.
+    `n`: 0-based offset from `from`; negative values count back from
+    `to` (-1 is `to`).
     `range`: ipRange value.
 
     Returns the selected address; throws when `n` is not an integer or
-    falls outside the range.
+    falls outside the range. A range of 2^63 addresses or more holds
+    every integer `n`.
   */
   addressAt =
     n: range:
     let
       offset = intArgument "addressAt" n;
       checked = ipRangeArgument "addressAt" range;
-      rangeSize = sizeFor "addressAt" checked;
-      index = if offset < 0 then rangeSize + offset else offset;
+      rangeSize = sizeOrNull checked;
     in
-    if index < 0 || index >= rangeSize then
+    if rangeSize != null && (offset >= rangeSize || offset < 0 - rangeSize) then
       errors.fail "ipRange.addressAt" "index out of range [0, ${builtins.toString rangeSize}): ${builtins.toString offset}"
+    else if offset < 0 then
+      # Counting back from `to` avoids the size, and `offset + 1` cannot
+      # overflow, even for -2^63.
+      (addFor checked.from) (offset + 1) checked.to
     else
-      (addFor checked.from) index checked.from;
+      (addFor checked.from) offset checked.from;
 
   # ===== CIDR interop =====
 
@@ -509,7 +493,7 @@ let
     `cidrValue`: cidr value.
 
     Returns the range from the network address to the block's top
-    address (broadcast for IPv4); throws when given a non-cidr.
+    address; throws when given a non-cidr.
   */
   fromCidr =
     cidrValue:
@@ -532,17 +516,6 @@ let
       range = ipRangeArgument "toCidrs" toCidrsArgument;
       maxPrefix = if isV4 range.from then 32 else 128;
       nextAddress = (addFor range.from) 1;
-      isTopAddress =
-        address:
-        if isV4 address then
-          address.value == bits.mask32
-        else
-          address.words == [
-            bits.mask32
-            bits.mask32
-            bits.mask32
-            bits.mask32
-          ];
       lessOrEqual = leFor range.from;
 
       # Smallest prefix whose block starting at `start` is aligned and
@@ -630,17 +603,19 @@ in
     isSingleton
     isSubrangeOf
     isSuperrangeOf
-    isValid
     make
     merge
     overlaps
-    parse
     size
     to
     toCidrs
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

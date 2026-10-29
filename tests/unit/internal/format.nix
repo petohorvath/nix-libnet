@@ -207,4 +207,59 @@ in
       len = 4;
     };
   };
+
+  # ===== ipv4 =====
+  testIpv4DottedQuad = {
+    expr = formatting.ipv4 3221225985;
+    expected = "192.0.2.1";
+  };
+  testIpv4Bounds = {
+    expr = map formatting.ipv4 [
+      0
+      4294967295
+    ];
+    expected = [
+      "0.0.0.0"
+      "255.255.255.255"
+    ];
+  };
+
+  # ===== ipv6 =====
+  testIpv6CompressesLongestZeroRun = {
+    expr = formatting.ipv6 [
+      536939960
+      0
+      0
+      1
+    ];
+    expected = "2001:db8::1";
+  };
+  testIpv6Unspecified = {
+    expr = formatting.ipv6 [
+      0
+      0
+      0
+      0
+    ];
+    expected = "::";
+  };
+  # A single zero group is not compressed (RFC 5952 section 4.2.2).
+  testIpv6SingleZeroGroup = {
+    expr = formatting.ipv6 [
+      536939960
+      1
+      65537
+      65537
+    ];
+    expected = "2001:db8:0:1:1:1:1:1";
+  };
+  testIpv6Ipv4Mapped = {
+    expr = formatting.ipv6 [
+      0
+      0
+      65535
+      3221225985
+    ];
+    expected = "::ffff:192.0.2.1";
+  };
 }

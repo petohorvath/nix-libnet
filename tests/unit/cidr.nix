@@ -336,6 +336,19 @@ in
     expr = cidr.broadcast (parse "2001:db8::/64");
     expectedError.msg = "^libnet\\.cidr\\.broadcast: IPv6 has no broadcast$";
   };
+  testBroadcastV4Prefix30 = {
+    expr = formatIpv4 (cidr.broadcast (parse "10.0.0.0/30"));
+    expected = "10.0.0.3";
+  };
+  # RFC 3021: both addresses of a /31 are hosts, so it has no broadcast.
+  testBroadcastV4Prefix31Throws = {
+    expr = cidr.broadcast (parse "10.0.0.0/31");
+    expectedError.msg = "^libnet\\.cidr\\.broadcast: /31 has no broadcast \\(RFC 3021\\)$";
+  };
+  testBroadcastV4Prefix32Throws = {
+    expr = cidr.broadcast (parse "10.0.0.1/32");
+    expectedError.msg = "^libnet\\.cidr\\.broadcast: /32 has no broadcast$";
+  };
 
   # ===== v6 /127 (point-to-point) =====
   testFirstHostV6Prefix127 = {
@@ -456,9 +469,47 @@ in
     expr = cidr.addressAt 1.0 (parse "10.0.0.0/28");
     expectedError.msg = "^libnet\\.cidr\\.addressAt: expected int, got float$";
   };
-  testAddressAtV6Prefix64NamesAddressAt = {
-    expr = cidr.addressAt 0 (parse "2001:db8::/64");
-    expectedError.msg = "^libnet\\.cidr\\.addressAt: block too large for a Nix integer \\(2\\^64 addresses\\)$";
+  testAddressAtV6Prefix64Gateway = {
+    expr = formatIpv6 (cidr.addressAt 1 (parse "2001:db8::/64"));
+    expected = "2001:db8::1";
+  };
+  # A /64 holds 2^64 addresses, so every Int index lands inside: the
+  # largest counts up from the network address and the smallest, -2^63,
+  # counts back from the top address.
+  testAddressAtV6Prefix64Ends = {
+    expr = map (n: formatIpv6 (cidr.addressAt n (parse "2001:db8::/64"))) [
+      0
+      (-1)
+      9223372036854775807
+      (-9223372036854775807 - 1)
+    ];
+    expected = [
+      "2001:db8::"
+      "2001:db8::ffff:ffff:ffff:ffff"
+      "2001:db8::7fff:ffff:ffff:ffff"
+      "2001:db8:0:0:8000::"
+    ];
+  };
+  # A /65 holds exactly 2^63 addresses, so the Int range reaches both ends.
+  testAddressAtV6Prefix65Ends = {
+    expr = map (n: formatIpv6 (cidr.addressAt n (parse "::/65"))) [
+      9223372036854775807
+      (-9223372036854775807 - 1)
+    ];
+    expected = [
+      "::7fff:ffff:ffff:ffff"
+      "::"
+    ];
+  };
+  testAddressAtV6Prefix0Ends = {
+    expr = map (n: formatIpv6 (cidr.addressAt n (parse "::/0"))) [
+      1
+      (-1)
+    ];
+    expected = [
+      "::1"
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+    ];
   };
   testAddressAtV6Prefix66Ends = {
     expr = map (n: formatIpv6 (cidr.addressAt n (parse "::/66"))) [
@@ -529,7 +580,7 @@ in
   };
   testHostsV6Prefix64NamesHosts = {
     expr = cidr.hosts (parse "2001:db8::/64");
-    expectedError.msg = "^libnet\\.cidr\\.hosts: block too large for a Nix integer \\(2\\^64 addresses\\)$";
+    expectedError.msg = "^libnet\\.cidr\\.hosts: block too large \\(2\\^64 addresses > 2\\^16\\); use addressAt$";
   };
   testHostsUnboundedV6Prefix64NamesItself = {
     expr = cidr.hostsUnbounded (parse "2001:db8::/64");
@@ -850,26 +901,41 @@ in
   };
 
   testExcludeV4Half = {
-    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/25"));
+    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/25") (parse "10.0.0.0/24"));
     expected = [ "10.0.0.128/25" ];
+  };
+  # The removed block comes first, so `cidr.exclude reserved` maps over
+  # pools.
+  testExcludePartial = {
+    expr = map cidr.toString (
+      builtins.concatMap (cidr.exclude (parse "10.0.0.0/26")) [
+        (parse "10.0.0.0/25")
+        (parse "10.0.0.0/24")
+      ]
+    );
+    expected = [
+      "10.0.0.64/26"
+      "10.0.0.64/26"
+      "10.0.0.128/25"
+    ];
   };
   testExcludeV4Self = {
     expr = cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/24");
     expected = [ ];
   };
   testExcludeNotParent = {
-    expr = cidr.exclude (parse "10.0.0.0/24") (parse "11.0.0.0/25");
+    expr = cidr.exclude (parse "11.0.0.0/25") (parse "10.0.0.0/24");
     expectedError.msg = "^libnet\\.cidr\\.exclude: child not contained in parent$";
   };
   testExcludeV4Quarter = {
-    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/26"));
+    expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/26") (parse "10.0.0.0/24"));
     expected = [
       "10.0.0.64/26"
       "10.0.0.128/25"
     ];
   };
   testExcludeV6Half = {
-    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/65"));
+    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/65") (parse "2001:db8::/64"));
     expected = [ "2001:db8:0:0:8000::/65" ];
   };
   testExcludeV6Self = {
@@ -877,31 +943,31 @@ in
     expected = [ ];
   };
   testExcludeV6Depth2 = {
-    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/126") (parse "2001:db8::/128"));
+    expr = map cidr.toString (cidr.exclude (parse "2001:db8::/128") (parse "2001:db8::/126"));
     expected = [
       "2001:db8::1/128"
       "2001:db8::2/127"
     ];
   };
   testExcludeV6DeepLength = {
-    expr = builtins.length (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128"));
+    expr = builtins.length (cidr.exclude (parse "2001:db8::/128") (parse "2001:db8::/64"));
     expected = 64;
   };
   testExcludeV6DeepFirst = {
     expr = cidr.toString (
-      builtins.elemAt (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128")) 0
+      builtins.elemAt (cidr.exclude (parse "2001:db8::/128") (parse "2001:db8::/64")) 0
     );
     expected = "2001:db8::1/128";
   };
   testExcludeV6DeepLast = {
     expr = cidr.toString (
-      builtins.elemAt (cidr.exclude (parse "2001:db8::/64") (parse "2001:db8::/128")) 63
+      builtins.elemAt (cidr.exclude (parse "2001:db8::/128") (parse "2001:db8::/64")) 63
     );
     expected = "2001:db8:0:0:8000::/65";
   };
   testExcludeV6NotParent = {
-    expr = throws (cidr.exclude (parse "2001:db8::/64") (parse "2001:dead::/128"));
-    expected = true;
+    expr = cidr.exclude (parse "2001:dead::/128") (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.exclude: child not contained in parent$";
   };
 
   testIntersectContained = {
@@ -925,7 +991,7 @@ in
     expectedError.msg = "^libnet\\.cidr\\.intersect: expected cidr value, got string$";
   };
   testExcludeCrossFamily = {
-    expr = cidr.exclude (parse "10.0.0.0/24") (parse "::/0");
+    expr = cidr.exclude (parse "::/0") (parse "10.0.0.0/24");
     expectedError.msg = "^libnet\\.cidr\\.exclude: family mismatch$";
   };
 

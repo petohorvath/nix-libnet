@@ -26,6 +26,7 @@ let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
   errors = import ./internal/errors.nix;
+  parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
   mk = value: {
@@ -39,39 +40,23 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a hostname without throwing, for callers that branch on
-    validity or report the error themselves.
-
-    `input`: candidate hostname string.
-
-    Returns a tryResult `{ success, value, error }` holding the hostname
-    on success or an error message on failure.
-  */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      types.tryErr (errors.message "hostname.parse" (errors.notString input))
-    else if !(dnsLabel.isValidLabel input) then
-      types.tryErr (
-        errors.message "hostname.parse" "invalid hostname \"${input}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
-      )
-    else
-      types.tryOk (mk (dnsLabel.toLowerAscii input));
-
-  /*
-    Parse a single-label hostname, lowercasing it.
+    Parse a single-label hostname, lowercasing it: the detail parser of
+    the parsing suite.
 
     `input`: 1-63 ASCII alphanumerics or hyphens, starting and ending
     with an alphanumeric.
 
-    Returns a hostname value; throws on non-string or invalid input.
+    Returns a tryResult holding the hostname on success, or the detail
+    of the failure.
   */
-  parse =
+  tryParseDetail =
     input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+    if !(dnsLabel.isValidLabel input) then
+      types.tryErr "invalid hostname \"${input}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+    else
+      types.tryOk (mk (dnsLabel.toLowerAscii input));
+
+  parsers = parsing.suite "hostname" tryParseDetail;
 
   /*
     Render a hostname as a string.
@@ -83,15 +68,6 @@ let
   toString = valueOf "toString";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a value parses as a hostname.
-
-    `input`: any value; non-strings are invalid.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Recognize a tagged hostname value without validating its payload.
@@ -124,9 +100,12 @@ in
   inherit
     eq
     is
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

@@ -26,17 +26,12 @@ let
   ipv6 = import ./ipv6.nix;
 
   # Callers guarantee `ip` has no host bits for `prefixLength`.
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     ip: prefixLength:
-    builtins.seq ip (
-      builtins.seq prefixLength {
-        _type = "cidr";
-        networkAddress = ip;
-        prefix = prefixLength;
-      }
-    );
+    types.mkStrict "cidr" {
+      networkAddress = ip;
+      prefix = prefixLength;
+    };
 
   isV4 = ip: ip._type == "ipv4";
   isV6 = ip: ip._type == "ipv6";
@@ -52,7 +47,7 @@ let
     already checked.
   */
   cidrArgument = function: errors.expectKind "cidr.${function}" "cidr";
-  intArgument = errors.intArgument "cidr";
+  intArgument = function: errors.intArgument "cidr.${function}";
   addressArgument = function: errors.expect "cidr.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both block operands of a binary `function`, then apply
@@ -128,60 +123,28 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a CIDR block without throwing, for callers that validate
-    untrusted text.
+    Parse a CIDR block: the detail parser of the parsing suite.
 
     `input`: `address/prefix` string such as `10.0.0.0/24` or
     `2001:db8::/32`; host bits must be zero.
 
-    Returns a tryParse result whose `value` is a cidr value.
+    Returns a tryResult whose `value` is a cidr value, or whose `error`
+    is the detail of the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
     let
-      parseError = detail: types.tryErr (errors.message "cidr.parse" detail);
+      result = parsing.addressPrefix ip.tryParseDetail input;
+      inherit (result.value) address prefix;
     in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
+    if !result.success then
+      result
+    else if hasHostBits address prefix then
+      types.tryErr (hostBitsError address prefix)
     else
-      let
-        parts = parsing.splitOn "/" input;
-      in
-      if builtins.length parts != 2 then
-        parseError "missing '/': \"${input}\""
-      else
-        let
-          addressText = builtins.elemAt parts 0;
-          prefixText = builtins.elemAt parts 1;
-          isIpv6Text = parsing.countOccurrences ":" addressText > 0;
-          addressResult = if isIpv6Text then ipv6.tryParse addressText else ipv4.tryParse addressText;
-          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixText;
-        in
-        if !addressResult.success then
-          parseError (errors.detail (if isIpv6Text then "ipv6.parse" else "ipv4.parse") addressResult.error)
-        else if !(parsing.isDecimal prefixText) then
-          parseError "invalid prefix \"${prefixText}\""
-        else if prefixLength == null then
-          parseError "prefix /${prefixText} out of range"
-        else if hasHostBits addressResult.value prefixLength then
-          parseError (hostBitsError addressResult.value prefixLength)
-        else
-          types.tryOk (mk addressResult.value prefixLength);
+      types.tryOk (mk address prefix);
 
-  /*
-    Parse a CIDR block from its text form.
-
-    `input`: `address/prefix` string such as `10.0.0.0/24` or
-    `2001:db8::/32`; host bits must be zero.
-
-    Returns a cidr value; throws on invalid input or set host bits.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "cidr" tryParseDetail;
 
   /*
     Format a CIDR block as `address/prefix`.
@@ -282,15 +245,6 @@ let
   isIpv6 = cidr: isV6 (cidrArgument "isIpv6" cidr).networkAddress;
 
   /*
-    Check whether a string parses as a CIDR block.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
-
-  /*
     Structural check for a tagged CIDR block.
 
     `value`: any value.
@@ -320,10 +274,11 @@ let
   /*
     Compute the IPv4 broadcast address of a CIDR block.
 
-    `cidr`: IPv4 cidr value.
+    `cidr`: IPv4 cidr value of prefix /30 or shorter.
 
     Returns the ipv4 value with all host bits set; throws for IPv6, which
-    has no broadcast.
+    has no broadcast, and for /31 and /32, whose addresses are all hosts
+    (RFC 3021).
   */
   broadcast =
     cidr:
@@ -332,6 +287,10 @@ let
     in
     if isV6 block.networkAddress then
       errors.fail "cidr.broadcast" "IPv6 has no broadcast"
+    else if block.prefix == 31 then
+      errors.fail "cidr.broadcast" "/31 has no broadcast (RFC 3021)"
+    else if block.prefix == 32 then
+      errors.fail "cidr.broadcast" "/32 has no broadcast"
     else
       topAddressOf block;
 
@@ -473,23 +432,27 @@ let
     `cidr`: cidr value.
 
     Returns an address of the block's family; throws when `n` is not an
-    integer or falls outside the block, or where `size` throws.
+    integer or falls outside the block. A block of 2^63 addresses or more
+    holds every integer `n`.
   */
   addressAt =
     n: cidr:
     let
       offset = intArgument "addressAt" n;
       block = cidrArgument "addressAt" cidr;
-      addressCount = sizeFor "addressAt" block;
-      index = if offset < 0 then addressCount + offset else offset;
-      base = block.networkAddress;
+      hostBits = maxPrefix block.networkAddress - block.prefix;
+      # Read only for blocks below 2^63 addresses, which a Nix int holds.
+      addressCount = bits.pow2 hostBits;
+      offsetAddress = if isV4 block.networkAddress then ipv4.add else ipv6.add;
     in
-    if index < 0 || index >= addressCount then
+    if hostBits <= 62 && (offset >= addressCount || offset < 0 - addressCount) then
       errors.fail "cidr.addressAt" "index out of range [0, ${builtins.toString addressCount}): ${builtins.toString offset}"
-    else if isV4 base then
-      ipv4.add index base
+    else if offset < 0 then
+      # Counting back from the top address avoids the size, and
+      # `offset + 1` cannot overflow, even for -2^63.
+      offsetAddress (offset + 1) (topAddressOf block)
     else
-      ipv6.add index base;
+      offsetAddress offset block.networkAddress;
 
   # The usable hosts of `block`, counted on behalf of `function`.
   listHosts =
@@ -523,10 +486,16 @@ let
     cidr:
     let
       block = cidrArgument "hosts" cidr;
-      addressCount = sizeFor "hosts" block;
+      hostBits = maxPrefix block.networkAddress - block.prefix;
+      # `hostsUnbounded` throws where a Nix int cannot hold the size.
+      fitsInt = hostBits <= 62;
+      addressCount =
+        if fitsInt then builtins.toString (bits.pow2 hostBits) else "2^${builtins.toString hostBits}";
     in
-    if addressCount > bits.pow2 16 then
-      errors.fail "cidr.hosts" "block too large (${builtins.toString addressCount} addresses > 2^16); use addressAt or hostsUnbounded"
+    if hostBits > 16 then
+      errors.fail "cidr.hosts" "block too large (${addressCount} addresses > 2^16); use addressAt${
+        if fitsInt then " or hostsUnbounded" else ""
+      }"
     else
       listHosts "hosts" block;
 
@@ -805,17 +774,18 @@ let
     (coalesceOne ipv4Cidrs) ++ (coalesceOne ipv6Cidrs);
 
   /*
-    Remove one CIDR block from another.
+    Remove one CIDR block from another. The removed block comes first,
+    so `concatMap (exclude reserved) pools` works.
 
+    `child`: cidr value to remove, contained in `parent`.
     `parent`: cidr value to subtract from.
-    `child`: cidr value contained in `parent`.
 
     Returns the minimal list of cidr values covering
     `parent \ child`, or `[ ]` when they are equal; throws when the
     families differ or `child` is not contained in `parent`.
   */
   exclude = binary "exclude" (
-    parent: child:
+    child: parent:
     if parent.networkAddress._type != child.networkAddress._type then
       errors.fail "cidr.exclude" "family mismatch"
     else if !(supernetOf parent child) then
@@ -875,13 +845,11 @@ in
     isIpv6
     isSubnetOf
     isSupernetOf
-    isValid
     lastHost
     make
     netmask
     networkAddress
     overlaps
-    parse
     prefix
     size
     subnets
@@ -889,8 +857,12 @@ in
     supernet
     topAddress
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

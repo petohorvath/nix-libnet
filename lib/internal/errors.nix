@@ -21,20 +21,6 @@ let
 
   fail = caller: detail: throw (message caller detail);
 
-  # The detail of a `text` that `caller` raised, without its prefix, so a
-  # function can report a member's failure under its own name. Other text
-  # is returned unchanged.
-  detail =
-    caller: text:
-    let
-      prefix = "libnet.${caller}: ";
-      prefixLength = builtins.stringLength prefix;
-    in
-    if builtins.substring 0 prefixLength text == prefix then
-      builtins.substring prefixLength (builtins.stringLength text) text
-    else
-      text;
-
   # A tagged value reads as `<kind> value`, anything else as its builtin
   # type, such as `int` or `set`. A non-string `_type` is not a tag.
   describe =
@@ -60,10 +46,10 @@ let
   # it, such as `int` or `string`.
   expectType = caller: typeName: expect caller typeName (value: builtins.typeOf value == typeName);
 
-  # Expect an integer argument, such as an offset or an index, of the
-  # public function `function` of `namespace`, a guard that several
-  # namespaces bind as their `intArgument`.
-  intArgument = namespace: function: expectType "${namespace}.${function}" "int";
+  # Expect an integer argument, such as an offset or an index, the one
+  # integer guard that the namespaces bind as their `intArgument` and the
+  # shared arithmetic uses for offsets.
+  intArgument = caller: expectType caller "int";
 
   # Expect an attribute set argument, such as that of `url.make`, holding
   # every name in `required` and no name outside `required` and
@@ -89,7 +75,6 @@ in
 {
   inherit
     describe
-    detail
     expect
     expectFields
     expectKind

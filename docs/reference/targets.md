@@ -20,11 +20,11 @@ Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Tex
 
 Suites: parsing, comparison (hostnames before domains, then by name, then by port).
 
-| Function                 | Signature                      | Notes                                                                   |
-| ------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
-| `make`                   | `DnsName → Port → DnsEndpoint` | Throws for a name `dnsName.parse` rejects, such as the hostname `1234`. |
-| `name`, `port`           |                                | Accessors.                                                              |
-| `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held.                                                      |
+| Function                 | Signature                      | Notes                                                                                 |
+| ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------- |
+| `make`                   | `DnsName → Port → DnsEndpoint` | A numeric hostname such as `1234` is not a `DnsName`, so it throws as the wrong kind. |
+| `name`, `port`           |                                | Accessors.                                                                            |
+| `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held.                                                                    |
 
 ## `libnet.unixSocket`
 

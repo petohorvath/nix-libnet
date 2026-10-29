@@ -19,6 +19,7 @@ let
   bits = import ./internal/bits.nix;
   comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
+  formatting = import ./internal/format.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
 
@@ -41,8 +42,6 @@ let
     in
     builtins.seq value (f value);
 
-  parseError = detail: types.tryErr (errors.message "ipv4.parse" detail);
-
   bytesOf = value: [
     (bits.bits 24 8 value)
     (bits.bits 16 8 value)
@@ -50,13 +49,7 @@ let
     (bits.bits 0 8 value)
   ];
 
-  format = value: builtins.concatStringsSep "." (map builtins.toString (bytesOf value));
-
-  arithmetic = address.scalar {
-    typeName = "ipv4";
-    maxValue = bits.mask32;
-    format = ip: format ip.value;
-  };
+  arithmetic = address.ipv4;
 
   # ===== Conversion =====
 
@@ -70,7 +63,7 @@ let
   fromInt =
     n:
     let
-      value = errors.expectType "ipv4.fromInt" "int" n;
+      value = errors.intArgument "ipv4.fromInt" n;
     in
     if value < 0 || value > bits.mask32 then
       errors.fail "ipv4.fromInt" "out of range [0, 4294967295]: ${builtins.toString value}"
@@ -103,9 +96,7 @@ let
         maxValue = 255;
       } bytes;
     in
-    builtins.seq checkedBytes (
-      mk (builtins.foldl' (accumulated: byte: accumulated * bits.pow2_8 + byte) 0 checkedBytes)
-    );
+    builtins.seq checkedBytes (mk (bits.fromBytes checkedBytes));
 
   /*
     Split an address into its four bytes, named like `ipv6.toBytes` and
@@ -120,44 +111,29 @@ let
   # ===== Parsing & formatting =====
 
   /*
-    Parse a dotted-quad string without throwing, for validating untrusted
-    input. Octets with leading zeros or above 255 are rejected.
+    Parse a dotted-quad string: the detail parser of the parsing suite.
+    Octets with leading zeros or above 255 are rejected.
 
     `input`: string such as "192.0.2.1".
 
-    Returns a tryParse result: `{ success, value, error }`, where `value`
-    is the IPv4 value on success and `error` describes the failure.
+    Returns a tryResult holding the IPv4 value, or the detail of the
+    failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "." input;
-        partCount = builtins.length parts;
-        octets = map parsing.octet parts;
-      in
-      if partCount != 4 then
-        parseError "must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
-      else if builtins.elem null octets then
-        parseError "invalid octet in \"${input}\""
-      else
-        types.tryOk (fromBytes octets);
-
-  /*
-    Parse a dotted-quad string, for trusted configuration values.
-
-    `input`: string such as "192.0.2.1".
-
-    Returns an IPv4 value; throws on malformed input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "." input;
+      partCount = builtins.length parts;
+      octets = map parsing.octet parts;
     in
-    if result.success then result.value else throw result.error;
+    if partCount != 4 then
+      types.tryErr "must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
+    else if builtins.elem null octets then
+      types.tryErr "invalid octet in \"${input}\""
+    else
+      types.tryOk (fromBytes octets);
+
+  parsers = parsing.suite "ipv4" tryParseDetail;
 
   /*
     Format an address in canonical dotted-quad form.
@@ -166,7 +142,7 @@ let
 
     Returns a string such as "192.0.2.1".
   */
-  toString = withValue "toString" format;
+  toString = withValue "toString" formatting.ipv4;
 
   /*
     Format an address as its reverse-DNS name.
@@ -184,15 +160,6 @@ let
     "${byteText 3}.${byteText 2}.${byteText 1}.${byteText 0}.in-addr.arpa";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an IPv4 address.
-
-    `input`: value to check; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a parsed IPv4 value by its `_type` tag, as
@@ -438,7 +405,7 @@ let
 
     Returns `toInt b - toInt a`, negative when `b` precedes `a`.
   */
-  diff = a: b: valueOf "diff" b - valueOf "diff" a;
+  diff = arithmetic.diff "ipv4.diff";
 
   /*
     Get the address one above `ip`. Equivalent to `add 1`, so it can be
@@ -514,18 +481,21 @@ in
     isSharedAddressSpace
     isThisNetwork
     isUnspecified
-    isValid
     loopback
     next
-    parse
     prev
     sub
     toArpa
     toBytes
     toInt
     toString
-    tryParse
+    tryParseDetail
     unspecified
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

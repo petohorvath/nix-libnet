@@ -1,9 +1,126 @@
-{ helpers, internal, ... }:
+{
+  helpers,
+  internal,
+  libnet,
+  ...
+}:
 let
   parsing = internal.parse;
   inherit (helpers) throws;
+  inherit (internal) types;
+
+  # A kind `digit` whose detail parser reads one decimal digit and
+  # describes other text without a prefix.
+  digit = parsing.suite "digit" (
+    input:
+    let
+      value = parsing.decimal 9 input;
+    in
+    if value == null then types.tryErr "not a digit: \"${input}\"" else types.tryOk value
+  );
+
+  # An address detail parser that reads "v4" and "v6" as tagged
+  # addresses of each family.
+  addressStub =
+    input:
+    if input == "v4" then
+      types.tryOk { _type = "ipv4"; }
+    else if input == "v6" then
+      types.tryOk { _type = "ipv6"; }
+    else
+      types.tryErr "bad address \"${input}\"";
+  addressPrefix = parsing.addressPrefix addressStub;
+
+  # A registry of `tcp` and `tls`, which `ssl` spells too; schemes are
+  # matched case-sensitively here.
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = scheme: if scheme == "ssl" then "tls" else scheme;
+    schemes = {
+      tcp = { };
+      tls = { };
+    };
+    hint = "expected tcp or tls";
+  };
 in
 {
+  # ===== suite =====
+  testSuiteTryParseSucceeds = {
+    expr = digit.tryParse "7";
+    expected = {
+      success = true;
+      value = 7;
+      error = null;
+    };
+  };
+  # The suite adds the prefix once, naming `parse`.
+  testSuiteTryParseNamesParse = {
+    expr = digit.tryParse "x";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.digit.parse: not a digit: \"x\"";
+    };
+  };
+  # A non-string never reaches the detail parser.
+  testSuiteTryParseNonString = {
+    expr = map (input: (digit.tryParse input).error) [
+      7
+      { _type = "digit"; }
+    ];
+    expected = [
+      "libnet.digit.parse: expected string, got int"
+      "libnet.digit.parse: expected string, got digit value"
+    ];
+  };
+  testSuiteParse = {
+    expr = map digit.parse [
+      "0"
+      "9"
+    ];
+    expected = [
+      0
+      9
+    ];
+  };
+  testSuiteParseThrows = {
+    expr = digit.parse "10";
+    expectedError.msg = "^libnet\\.digit\\.parse: not a digit: \"10\"$";
+  };
+  testSuiteParseNonStringThrows = {
+    expr = digit.parse null;
+    expectedError.msg = "^libnet\\.digit\\.parse: expected string, got null$";
+  };
+  # Namespaces share their detail parsers with each other, not with users,
+  # so no public namespace exports a `*Detail` attribute. `withLib` keeps
+  # the core namespaces unchanged, which `tests/unit/with-lib.nix` checks.
+  testSuiteDetailIsNotPublic = {
+    expr = builtins.concatMap (
+      namespace:
+      map (name: "${namespace}.${name}") (
+        builtins.filter (name: builtins.match ".*Detail" name != null) (
+          builtins.attrNames (if builtins.isAttrs libnet.${namespace} then libnet.${namespace} else { })
+        )
+      )
+    ) (builtins.attrNames libnet);
+    expected = [ ];
+  };
+  testSuiteIsValid = {
+    expr = map digit.isValid [
+      "3"
+      "x"
+      ""
+      3
+      null
+    ];
+    expected = [
+      true
+      false
+      false
+      false
+      false
+    ];
+  };
+
   # ===== isDecimal =====
   testIsDecimalAccepts = {
     expr = map parsing.isDecimal [
@@ -32,6 +149,103 @@ in
       false
       false
       false
+      false
+      false
+      false
+    ];
+  };
+
+  # ===== isRepetitionOf =====
+  testIsRepetitionOfAccepts = {
+    expr = map (parsing.isRepetitionOf "[a-z]|%[0-9]") [
+      "a"
+      "abc"
+      "%1"
+      "a%1b%2"
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+    ];
+  };
+  testIsRepetitionOfRejects = {
+    expr = map (parsing.isRepetitionOf "[a-z]|%[0-9]") [
+      ""
+      "A"
+      "%"
+      "a%"
+      "%x"
+      "ab1"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # A repetition in builtins.match would exhaust the stack.
+  testIsRepetitionOfLongInput = {
+    expr = parsing.isRepetitionOf "[0-9]" (
+      builtins.concatStringsSep "" (builtins.genList (_: "1") 100000)
+    );
+    expected = true;
+  };
+
+  # ===== hasLeadingZero =====
+  testHasLeadingZeroAccepts = {
+    expr = map parsing.hasLeadingZero [
+      "00"
+      "08"
+      "0080"
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testHasLeadingZeroRejects = {
+    expr = map parsing.hasLeadingZero [
+      ""
+      "0"
+      "80"
+      "0x"
+      "-08"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+
+  # ===== isDottedDigits =====
+  testIsDottedDigitsAccepts = {
+    expr = map parsing.isDottedDigits [
+      "1"
+      "10.0.0.1"
+      "1."
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testIsDottedDigitsRejects = {
+    expr = map parsing.isDottedDigits [
+      ""
+      "a.1"
+      "1:2"
+    ];
+    expected = [
       false
       false
       false
@@ -138,6 +352,11 @@ in
   };
   testHexIntPrefix = {
     expr = parsing.hexInt "0x1";
+    expected = null;
+  };
+  # Long text is rejected without exhausting the stack.
+  testHexIntLongInput = {
+    expr = parsing.hexInt (builtins.concatStringsSep "" (builtins.genList (_: "a") 100000) + "g");
     expected = null;
   };
 
@@ -275,6 +494,60 @@ in
     expr = parsing.splitOn "" "abc";
     expected = [ "abc" ];
   };
+  testSplitOnRepeatedMultiChar = {
+    expr = parsing.splitOn "::" "a:::b::::c";
+    expected = [
+      "a"
+      ":b"
+      ""
+      "c"
+    ];
+  };
+  # The delimiter is literal text, not a regular expression.
+  testSplitOnRegexSpecialDelimiters = {
+    expr = map (delimiter: parsing.splitOn delimiter "a${delimiter}b") [
+      "."
+      "]"
+      "]:"
+      "["
+      "("
+      ")"
+      "{"
+      "}"
+      "*"
+      "+"
+      "?"
+      "|"
+      "^"
+      "$"
+      "\\"
+      "%"
+      "://"
+    ];
+    expected = builtins.genList (_: [
+      "a"
+      "b"
+    ]) 17;
+  };
+  testSplitOnDotIsNotAWildcard = {
+    expr = parsing.splitOn "." "abc";
+    expected = [ "abc" ];
+  };
+  # Recursing once per character would exceed the maximum call depth.
+  testSplitOnLongInput =
+    let
+      parts = parsing.splitOn "." (builtins.concatStringsSep "." (builtins.genList (_: "a") 20000));
+    in
+    {
+      expr = {
+        length = builtins.length parts;
+        allA = builtins.all (part: part == "a") parts;
+      };
+      expected = {
+        length = 20000;
+        allA = true;
+      };
+    };
 
   # ===== countOccurrences =====
   testCountZero = {
@@ -350,6 +623,136 @@ in
     expected = true;
   };
 
+  # ===== splitScheme =====
+  testSplitSchemeKeepsCase = {
+    expr = parsing.splitScheme "TCP://192.0.2.1:80";
+    expected = {
+      scheme = "TCP";
+      rest = "192.0.2.1:80";
+    };
+  };
+  # Only the first separator splits, so a later one stays in the rest.
+  testSplitSchemeKeepsLaterSeparators = {
+    expr = parsing.splitScheme "unix:///run/a://b";
+    expected = {
+      scheme = "unix";
+      rest = "/run/a://b";
+    };
+  };
+  testSplitSchemeEmptyParts = {
+    expr = parsing.splitScheme "://";
+    expected = {
+      scheme = "";
+      rest = "";
+    };
+  };
+  testSplitSchemeMissingSeparator = {
+    expr = map parsing.splitScheme [
+      ""
+      "tcp:/x"
+      "tcp:x"
+    ];
+    expected = [
+      null
+      null
+      null
+    ];
+  };
+
+  # ===== addressPrefix =====
+  testAddressPrefixSplits = {
+    expr = map addressPrefix [
+      "v4/0"
+      "v4/32"
+      "v6/128"
+    ];
+    expected = map types.tryOk [
+      {
+        address._type = "ipv4";
+        prefix = 0;
+      }
+      {
+        address._type = "ipv4";
+        prefix = 32;
+      }
+      {
+        address._type = "ipv6";
+        prefix = 128;
+      }
+    ];
+  };
+  testAddressPrefixMissingSlash = {
+    expr = map addressPrefix [
+      "v4"
+      "v4/1/2"
+    ];
+    expected = [
+      (types.tryErr "missing '/': \"v4\"")
+      (types.tryErr "missing '/': \"v4/1/2\"")
+    ];
+  };
+  # The address's detail comes back unchanged.
+  testAddressPrefixKeepsAddressDetail = {
+    expr = addressPrefix "x/24";
+    expected = types.tryErr "bad address \"x\"";
+  };
+  testAddressPrefixInvalidPrefix = {
+    expr = map addressPrefix [
+      "v4/"
+      "v4/x"
+      "v4/08"
+    ];
+    expected = [
+      (types.tryErr "invalid prefix \"\"")
+      (types.tryErr "invalid prefix \"x\"")
+      (types.tryErr "invalid prefix \"08\"")
+    ];
+  };
+  # The prefix must fit the parsed address's family.
+  testAddressPrefixOutOfRange = {
+    expr = map addressPrefix [
+      "v4/33"
+      "v6/129"
+    ];
+    expected = [
+      (types.tryErr "prefix /33 out of range")
+      (types.tryErr "prefix /129 out of range")
+    ];
+  };
+
+  # ===== splitKnownScheme =====
+  testSplitKnownSchemeCanonicalizes = {
+    expr = map splitKnownScheme [
+      "tcp://a:1"
+      "ssl://b://c"
+    ];
+    expected = map types.tryOk [
+      {
+        scheme = "tcp";
+        rest = "a:1";
+      }
+      {
+        scheme = "tls";
+        rest = "b://c";
+      }
+    ];
+  };
+  testSplitKnownSchemeMissingSeparator = {
+    expr = splitKnownScheme "tcp:/a";
+    expected = types.tryErr "missing '<scheme>://': \"tcp:/a\"";
+  };
+  # The unknown scheme is quoted as written, before canonicalizing.
+  testSplitKnownSchemeUnknown = {
+    expr = map splitKnownScheme [
+      "TCP://a:1"
+      "://a:1"
+    ];
+    expected = [
+      (types.tryErr "unknown scheme \"TCP\" (expected tcp or tls)")
+      (types.tryErr "unknown scheme \"\" (expected tcp or tls)")
+    ];
+  };
+
   # ===== stripPrefix =====
   testStripPrefixSimple = {
     expr = parsing.stripPrefix "ab" "abcdef";
@@ -361,20 +764,6 @@ in
   };
   testStripPrefixEmpty = {
     expr = parsing.stripPrefix "" "abc";
-    expected = "abc";
-  };
-
-  # ===== stripSuffix =====
-  testStripSuffixSimple = {
-    expr = parsing.stripSuffix "ef" "abcdef";
-    expected = "abcd";
-  };
-  testStripSuffixWhole = {
-    expr = parsing.stripSuffix "abc" "abc";
-    expected = "";
-  };
-  testStripSuffixEmpty = {
-    expr = parsing.stripSuffix "" "abc";
     expected = "abc";
   };
 }

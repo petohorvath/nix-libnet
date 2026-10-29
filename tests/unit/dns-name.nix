@@ -151,6 +151,12 @@ in
     expectedError.msg = "^libnet\\.dnsName\\.toString: expected hostname or domain value, got ipv4 value$";
   };
 
+  # A numeric hostname is not a DNS name, so it is the wrong kind.
+  testToStringRejectsNumericHostname = {
+    expr = dnsName.toString (hostname.parse "1234");
+    expectedError.msg = "^libnet\\.dnsName\\.toString: expected hostname or domain value, got numeric hostname \"1234\", which reads as an IPv4 address$";
+  };
+
   # ===== Predicates =====
   testIsHostname = {
     expr = dnsName.is (parse "nas");
@@ -178,6 +184,24 @@ in
   };
   testIsDomainNo = {
     expr = dnsName.isDomain (parse "nas");
+    expected = false;
+  };
+  # `hostname.parse` accepts a numeric label, which no DNS name is
+  # (ADR 0021).
+  testIsNumericHostname = {
+    expr = map (text: dnsName.is (hostname.parse text)) [
+      "1234"
+      "0x7f"
+      "1234a"
+    ];
+    expected = [
+      false
+      false
+      true
+    ];
+  };
+  testIsHostnameNumeric = {
+    expr = dnsName.isHostname (hostname.parse "1234");
     expected = false;
   };
   testIsValidHostname = {
@@ -254,6 +278,11 @@ in
     expected = false;
   };
 
+  testEqNumericHostname = {
+    expr = dnsName.eq (hostname.parse "1234") (hostname.parse "1234");
+    expected = false;
+  };
+
   # ===== compare =====
   testCompareHostnameBeforeDomain = {
     expr = dnsName.compare (parse "zzz") (parse "a.com");
@@ -278,6 +307,11 @@ in
   testCompareEqualCase = {
     expr = dnsName.compare (parse "NAS") (parse "nas");
     expected = 0;
+  };
+
+  testCompareRejectsNumericHostname = {
+    expr = dnsName.compare (parse "nas") (hostname.parse "0x7f");
+    expectedError.msg = "^libnet\\.dnsName\\.compare: expected hostname or domain value, got numeric hostname \"0x7f\", which reads as an IPv4 address$";
   };
 
   # Sanity: recognises values from each underlying module

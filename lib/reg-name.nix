@@ -48,8 +48,6 @@ let
   # The stored text of a regName argument of `function`.
   valueOf = function: regName: (errors.expectKind "regName.${function}" "regName" regName).value;
 
-  parseError = detail: types.tryErr (errors.message "regName.parse" detail);
-
   # Whether a client reads `input` as an IPv4 address, ignoring one
   # trailing dot as browsers do.
   readsAsIpv4 =
@@ -65,7 +63,7 @@ let
     dnsLabel.hasNumericRightmostLabel withoutTrailingDot;
 
   # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
-  regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
+  isRegName = parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f]";
 
   mk = value: {
     _type = "regName";
@@ -75,40 +73,25 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a registered name without throwing, for callers that branch on
-    validity.
+    Parse a registered name: the detail parser of the parsing suite.
 
     `input`: a non-empty string of unreserved characters, sub-delimiters,
     and `%XX` escapes whose rightmost label is not numeric.
 
-    Returns a tryResult: `{ success = true; value = <regName>; }`, with
-    letters lowercase and percent-encoding hex digits uppercase, or
-    `{ success = false; error = <string>; }`. Never throws.
+    Returns a tryResult holding a regName value, with letters lowercase
+    and percent-encoding hex digits uppercase, or the detail of the
+    failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if builtins.match regNamePattern input == null then
-      parseError "invalid registered name \"${input}\""
+    if !(isRegName input) then
+      types.tryErr "invalid registered name \"${input}\""
     else if readsAsIpv4 input then
-      parseError "\"${input}\" reads as an IPv4 address, not a registered name"
+      types.tryErr "\"${input}\" reads as an IPv4 address, not a registered name"
     else
       types.tryOk (mk (fold input));
 
-  /*
-    Parse a registered name, for values that must be valid.
-
-    `input`: registered-name text as accepted by `tryParse`.
-
-    Returns a regName value; throws on invalid input.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "regName" tryParseDetail;
 
   /*
     Render a registered name.
@@ -121,15 +104,6 @@ let
   toString = valueOf "toString";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a registered name.
-
-    `input`: candidate name text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a regName value.
@@ -162,9 +136,12 @@ in
   inherit
     eq
     is
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

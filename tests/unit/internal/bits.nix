@@ -183,4 +183,37 @@ in
       3
     ];
   };
+
+  # Bytes read most significant first.
+  testFromBytes = {
+    expr = map bits.fromBytes [
+      [ ]
+      [ 255 ]
+      [
+        1
+        0
+      ]
+      [
+        192
+        0
+        2
+        1
+      ]
+      [
+        255
+        255
+        255
+        255
+        255
+        255
+      ]
+    ];
+    expected = [
+      0
+      255
+      256
+      3221225985
+      281474976710655
+    ];
+  };
 }

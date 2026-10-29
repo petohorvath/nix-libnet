@@ -33,6 +33,7 @@ let
   transport = import ./transport.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
+  dnsName = import ./dns-name.nix;
   registry = import ./registry.nix;
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
@@ -84,14 +85,15 @@ let
     xmpp = mkScheme wellKnownPorts.tcp.xmpp "tcp" false;
   };
 
-  mk = schemeValue: authorityValue: pathValue: queryValue: fragmentValue: {
-    _type = "url";
-    scheme = schemeValue;
-    authority = authorityValue;
-    path = pathValue;
-    query = queryValue;
-    fragment = fragmentValue;
-  };
+  mk =
+    schemeValue: authorityValue: pathValue: queryValue: fragmentValue:
+    types.mkStrict "url" {
+      scheme = schemeValue;
+      authority = authorityValue;
+      path = pathValue;
+      query = queryValue;
+      fragment = fragmentValue;
+    };
 
   # Check the url argument of `function`, throwing for any other kind.
   urlArgument = function: url: errors.expectKind "url.${function}" "url" url;
@@ -100,8 +102,6 @@ let
   defaultPortOf = url: mkPort schemes.${url.scheme}.defaultPort;
   effectivePortOf = url: if url.authority.port != null then url.authority.port else defaultPortOf url;
 
-  parseError = detail: types.tryErr (errors.message "url.parse" detail);
-
   /*
     RFC 3986 grammars for the components after the authority. A pchar is
     unreserved / pct-encoded / sub-delims / ":" / "@"; a path is
@@ -109,11 +109,10 @@ let
     *( pchar / "/" / "?" ). The bracket expressions admit only ASCII.
   */
   pchar = "[-A-Za-z0-9._~!$&'()*+,;=:@]|%[0-9A-Fa-f][0-9A-Fa-f]";
-  pathPattern = "(/(${pchar})*)*";
-  queryPattern = "(${pchar}|[/?])*";
 
-  isPath = text: builtins.match pathPattern text != null;
-  isQuery = text: builtins.match queryPattern text != null;
+  isPath =
+    text: text == "" || (parsing.startsWith "/" text && parsing.isRepetitionOf "${pchar}|/" text);
+  isQuery = text: text == "" || parsing.isRepetitionOf "${pchar}|[/?]" text;
 
   # The detail for the first component outside its grammar, or null.
   componentError =
@@ -130,84 +129,64 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an absolute URL without throwing, for callers that branch on
-    validity.
+    Parse an absolute URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]`
     text; the scheme must be a key of `schemes` (matched
     case-insensitively).
 
-    Returns a tryResult: `{ success = true; value = <url>; }` or
-    `{ success = false; error = <string>; }`, whose error names
-    `url.parse` and keeps the detail of an authority failure. Never
-    throws.
+    Returns a tryResult holding a url value, or the detail of the
+    failure, which keeps the detail of an authority failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        schemeParts = parsing.splitOn "://" input;
-      in
-      if builtins.length schemeParts < 2 then
-        parseError "missing \"<scheme>://\": \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt schemeParts 0;
-          lowerScheme = lowerAscii rawScheme;
-          rest = builtins.concatStringsSep "://" (builtins.tail schemeParts);
-        in
-        if !(schemes ? ${lowerScheme}) then
-          parseError "unknown scheme \"${rawScheme}\": \"${input}\""
-        else
-          let
-            fragmentParts = parsing.splitOn "#" rest;
-            beforeFragment = builtins.elemAt fragmentParts 0;
-            fragmentValue =
-              if builtins.length fragmentParts > 1 then
-                builtins.concatStringsSep "#" (builtins.tail fragmentParts)
-              else
-                null;
-            queryParts = parsing.splitOn "?" beforeFragment;
-            beforeQuery = builtins.elemAt queryParts 0;
-            queryValue =
-              if builtins.length queryParts > 1 then
-                builtins.concatStringsSep "?" (builtins.tail queryParts)
-              else
-                null;
-            slashParts = parsing.splitOn "/" beforeQuery;
-            authorityText = builtins.elemAt slashParts 0;
-            pathValue =
-              if builtins.length slashParts > 1 then
-                "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
-              else
-                "";
-            authorityResult = authority.tryParse authorityText;
-            componentDetail = componentError pathValue queryValue fragmentValue;
-          in
-          if !authorityResult.success then
-            parseError (errors.detail "authority.parse" authorityResult.error)
-          else if componentDetail != null then
-            parseError componentDetail
-          else
-            types.tryOk (mk lowerScheme authorityResult.value pathValue queryValue fragmentValue);
-
-  /*
-    Parse an absolute URL, for values that must be valid.
-
-    `input`: URL text as accepted by `tryParse`.
-
-    Returns a url value; throws on an unknown scheme, a missing or invalid
-    host, a bad port, invalid userinfo, a path, query, or fragment
-    outside its RFC 3986 grammar, or relative or opaque input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      split = parsing.splitScheme input;
     in
-    if result.success then result.value else throw result.error;
+    if split == null then
+      types.tryErr "missing \"<scheme>://\": \"${input}\""
+    else
+      let
+        rawScheme = split.scheme;
+        canonicalScheme = lowerAscii rawScheme;
+        inherit (split) rest;
+      in
+      if !(schemes ? ${canonicalScheme}) then
+        types.tryErr "unknown scheme \"${rawScheme}\": \"${input}\""
+      else
+        let
+          fragmentParts = parsing.splitOn "#" rest;
+          beforeFragment = builtins.elemAt fragmentParts 0;
+          fragmentValue =
+            if builtins.length fragmentParts > 1 then
+              builtins.concatStringsSep "#" (builtins.tail fragmentParts)
+            else
+              null;
+          queryParts = parsing.splitOn "?" beforeFragment;
+          beforeQuery = builtins.elemAt queryParts 0;
+          queryValue =
+            if builtins.length queryParts > 1 then
+              builtins.concatStringsSep "?" (builtins.tail queryParts)
+            else
+              null;
+          slashParts = parsing.splitOn "/" beforeQuery;
+          authorityText = builtins.elemAt slashParts 0;
+          pathValue =
+            if builtins.length slashParts > 1 then
+              "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
+            else
+              "";
+          authorityResult = authority.tryParseDetail authorityText;
+          componentDetail = componentError pathValue queryValue fragmentValue;
+        in
+        if !authorityResult.success then
+          authorityResult
+        else if componentDetail != null then
+          types.tryErr componentDetail
+        else
+          types.tryOk (mk canonicalScheme authorityResult.value pathValue queryValue fragmentValue);
+
+  parsers = parsing.suite "url" tryParseDetail;
 
   /*
     Render a URL back to text.
@@ -263,7 +242,7 @@ let
         ];
       } arguments;
       schemeValue = errors.expectType caller "string" checked.scheme;
-      lowerScheme = lowerAscii schemeValue;
+      canonicalScheme = lowerAscii schemeValue;
       authorityValue = errors.expectKind caller "authority" checked.authority;
       pathValue = errors.expectType caller "string" (checked.path or "");
       optionalString = errors.expect caller "string or null" (
@@ -273,24 +252,14 @@ let
       fragmentValue = optionalString (checked.fragment or null);
       componentDetail = componentError pathValue queryValue fragmentValue;
     in
-    if !(schemes ? ${lowerScheme}) then
+    if !(schemes ? ${canonicalScheme}) then
       errors.fail caller "unknown scheme \"${schemeValue}\""
     else if componentDetail != null then
       errors.fail caller componentDetail
     else
-      # Force the authority guard, which `mk` would store unevaluated.
-      builtins.seq authorityValue (mk lowerScheme authorityValue pathValue queryValue fragmentValue);
+      mk canonicalScheme authorityValue pathValue queryValue fragmentValue;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a URL.
-
-    `input`: candidate URL text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a url value.
@@ -408,26 +377,15 @@ let
       ipEndpoint.make hostValue targetPort
     else
       let
-        dnsHost = urlHost.toHost hostValue;
+        nameText = urlHost.toString hostValue;
       in
-      if dnsHost == null then
-        errors.fail "url.toEndpoint" "registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
+      # Guard `toHost`, which would name itself in the error.
+      if dnsName.isValid nameText then
+        dnsEndpoint.make (urlHost.toHost hostValue) targetPort
       else
-        dnsEndpoint.make dnsHost targetPort;
+        errors.fail "url.toEndpoint" "registered name \"${nameText}\" is not a valid DNS name";
 
   # ===== Comparison =====
-
-  # Order nullable strings with null first.
-  compareOptionalStrings =
-    a: b:
-    if a == null && b == null then
-      0
-    else if a == null then
-      -1
-    else if b == null then
-      1
-    else
-      comparison.order a b;
 
   # The authority with the scheme default filled in, so `https://h` and
   # `https://h:443` compare alike.
@@ -471,8 +429,8 @@ let
       (comparison.order left.scheme right.scheme)
       (authority.compare (effectiveAuthority left) (effectiveAuthority right))
       (comparison.order (effectivePath left) (effectivePath right))
-      (compareOptionalStrings left.query right.query)
-      (compareOptionalStrings left.fragment right.fragment)
+      (comparison.optional comparison.order left.query right.query)
+      (comparison.optional comparison.order left.fragment right.fragment)
     ]
   );
 in
@@ -485,17 +443,19 @@ in
     host
     is
     isSecure
-    isValid
     make
-    parse
     path
     query
     scheme
     schemes
     toEndpoint
     toString
-    tryParse
     userinfo
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

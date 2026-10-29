@@ -70,9 +70,15 @@ let
 
   schemeHint = "expected tcp, udp, sctp, or unix";
 
-  mk = schemeName: endpointValue: {
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
+  mk = canonicalScheme: endpointValue: {
     _type = "socketUrl";
-    scheme = schemeName;
+    scheme = canonicalScheme;
     endpoint = endpointValue;
   };
 
@@ -80,74 +86,45 @@ let
   # kind.
   socketUrlArgument = function: errors.expectKind "socketUrl.${function}" "socketUrl";
 
-  parseError = detail: types.tryErr (errors.message "socketUrl.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a socket URL without throwing, for callers that want to report
-    or recover from invalid input.
+    Parse a socket URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
     take `host:port`, `unix` takes a socket path;
     the scheme is matched case-insensitively.
 
-    Returns a tryResult: `{ success = true; value; }` with a socketUrl
-    value, or `{ success = false; error; }` naming `socketUrl.parse`. An
-    unknown scheme is reported before an invalid address.
+    Returns a tryResult holding a socketUrl value, or the detail of the
+    failure. An unknown scheme is reported before an invalid address.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "://" input;
-      in
-      if builtins.length parts < 2 then
-        parseError "missing '<scheme>://': \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt parts 0;
-          schemeName = lowerAscii rawScheme;
-          # Rejoin the remainder so a stray '://' inside a path is kept.
-          rest = builtins.concatStringsSep "://" (builtins.tail parts);
-        in
-        if !(schemes ? ${schemeName}) then
-          parseError "unknown scheme \"${rawScheme}\" (${schemeHint})"
-        else
-          let
-            endpointResult = endpoint.tryParse rest;
-            endpointValue = endpointResult.value;
-          in
-          if !endpointResult.success then
-            parseError (errors.detail "endpoint.parse" endpointResult.error)
-          else if schemeName == unixScheme then
-            if types.isUnixSocket endpointValue then
-              types.tryOk (mk schemeName endpointValue)
-            else
-              parseError "'unix://' requires a socket path: \"${input}\""
-          else if types.isUnixSocket endpointValue then
-            parseError "'${schemeName}://' requires host:port, not a socket path: \"${input}\""
-          else
-            types.tryOk (mk schemeName endpointValue);
-
-  /*
-    Parse a socket URL.
-
-    `input`: `<scheme>://<endpoint>` string; `tcp`, `udp`, and `sctp`
-    take `host:port`, `unix` takes a socket path;
-    the scheme is matched case-insensitively.
-
-    Returns a socketUrl value; throws on malformed input, an unknown
-    scheme, or a scheme that does not match the address kind.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if result.success then result.value else throw result.error;
+    if !schemeResult.success then
+      schemeResult
+    else
+      let
+        endpointResult = endpoint.tryParseDetail rest;
+        endpointValue = endpointResult.value;
+      in
+      if !endpointResult.success then
+        endpointResult
+      else if canonicalScheme == unixScheme then
+        if types.isUnixSocket endpointValue then
+          types.tryOk (mk canonicalScheme endpointValue)
+        else
+          types.tryErr "'unix://' requires a socket path: \"${input}\""
+      else if types.isUnixSocket endpointValue then
+        types.tryErr "'${canonicalScheme}://' requires host:port, not a socket path: \"${input}\""
+      else
+        types.tryOk (mk canonicalScheme endpointValue);
+
+  parsers = parsing.suite "socketUrl" tryParseDetail;
 
   /*
     Render a socket URL in canonical text form.
@@ -197,15 +174,6 @@ let
       mk canonicalScheme checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a socket URL, without throwing.
-
-    `input`: value to check.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a socketUrl value.
@@ -286,12 +254,14 @@ in
     is
     isSecure
     isUnix
-    isValid
     make
-    parse
     scheme
     schemes
     toString
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

@@ -59,7 +59,7 @@ The lowest address of a CIDR, with every host bit zero.
 _Avoid_: network (for the address)
 
 **Top address**:
-The highest address of a CIDR, with every host bit set; for IPv4, the broadcast address.
+The highest address of a CIDR, with every host bit set; for an IPv4 block of `/30` or shorter, the broadcast address.
 
 **Prefix**:
 The number of leading network bits in a CIDR or interface address.

@@ -22,12 +22,29 @@
   module by relative import.
 */
 let
+  errors = import ./errors.nix;
+  parsing = import ./parse.nix;
+  types = import ./types.nix;
+
   # `builtins.match` anchors the pattern against the whole string.
   labelPattern = "[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?";
 
   isValidLabel = input: builtins.isString input && builtins.match labelPattern input != null;
 
-  isNumericLabel = label: builtins.match "[0-9]+|0[xX][0-9A-Fa-f]*" label != null;
+  # All digits, or `0x` followed by hex digits.
+  isNumericLabel =
+    label:
+    let
+      hexDigits = builtins.substring 2 (builtins.stringLength label) label;
+    in
+    parsing.isRepetitionOf "[0-9]" label
+    || (
+      builtins.elem (builtins.substring 0 2 label) [
+        "0x"
+        "0X"
+      ]
+      && (hexDigits == "" || parsing.isRepetitionOf "[0-9A-Fa-f]" hexDigits)
+    );
 
   # Whether a resolver reads the dotted `name` as an IPv4 address.
   hasNumericRightmostLabel =
@@ -36,6 +53,26 @@ let
       labels = builtins.split "[.]" name;
     in
     isNumericLabel (builtins.elemAt labels (builtins.length labels - 1));
+
+  # A hostname value whose label is numeric: `hostname` accepts it, but no
+  # DNS name reads as an IPv4 address (ADR 0021).
+  isNumericHostname =
+    value:
+    types.isHostname value && builtins.isString (value.value or null) && isNumericLabel value.value;
+
+  /*
+    Return `value` when `isExpected value` holds, like `errors.expect`, for
+    an argument that must be a DNS name. A numeric hostname is described
+    by its text, since `got hostname value` would not say what is wrong.
+  */
+  expectDnsName =
+    caller: expected: isExpected: value:
+    if isExpected value then
+      value
+    else if isNumericHostname value then
+      errors.fail caller "expected ${expected}, got numeric hostname \"${value.value}\", which reads as an IPv4 address"
+    else
+      errors.fail caller "expected ${expected}, got ${errors.describe value}";
 
   # ASCII-only lowercase for case-insensitive equality and ordering (DNS
   # labels are case-insensitive). Names are ASCII by validation, so this
@@ -102,7 +139,9 @@ let
 in
 {
   inherit
+    expectDnsName
     hasNumericRightmostLabel
+    isNumericHostname
     isNumericLabel
     isValidLabel
     labelPattern

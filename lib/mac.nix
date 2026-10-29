@@ -31,7 +31,7 @@ let
 
   # Build a value from a checked integer, forcing the check so a bad
   # argument throws at the call rather than when the value is read.
-  mkStrict = value: builtins.seq value (mk value);
+  mkChecked = value: types.mkStrict "mac" { inherit value; };
 
   # A MAC argument of `function`, which throws for any other kind.
   macArgument = function: errors.expectKind "mac.${function}" "mac";
@@ -45,8 +45,6 @@ let
       value = valueOf function mac;
     in
     builtins.seq value (f value);
-
-  parseError = detail: types.tryErr (errors.message "mac.parse" detail);
 
   bytesOf = value: [
     (bits.bits 40 8 value)
@@ -72,7 +70,7 @@ let
   boundedInt =
     function: outOfRange: maxValue: n:
     let
-      checkedInt = errors.expectType "mac.${function}" "int" n;
+      checkedInt = errors.intArgument "mac.${function}" n;
     in
     if checkedInt < 0 || checkedInt > maxValue then
       errors.fail "mac.${function}" "${outOfRange} [0, ${builtins.toString maxValue}]: ${builtins.toString checkedInt}"
@@ -88,7 +86,7 @@ let
 
     Returns a mac value; throws on a non-integer or out-of-range value.
   */
-  fromInt = value: mkStrict (boundedInt "fromInt" "out of range" bits.mask48 value);
+  fromInt = value: mkChecked (boundedInt "fromInt" "out of range" bits.mask48 value);
 
   /*
     Read the 48-bit integer value of a MAC address.
@@ -115,7 +113,7 @@ let
         maxValue = 255;
       } bytes;
     in
-    mkStrict (builtins.foldl' (acc: byte: acc * 256 + byte) 0 checkedBytes);
+    mkChecked (bits.fromBytes checkedBytes);
 
   /*
     Split a MAC address into its six octets.
@@ -128,26 +126,19 @@ let
 
   # ===== Parsing =====
 
-  # Each parser below returns a mac value, or null when `input` is not in
-  # its format.
-  parseBare =
-    input:
-    if builtins.match "[0-9a-fA-F]{12}" input == null then
-      null
-    else
-      let
-        byte = i: parsing.hexInt (builtins.substring (i * 2) 2 input);
-      in
-      mk (
-        builtins.foldl' (acc: i: acc * 256 + (byte i)) 0 [
-          0
-          1
-          2
-          3
-          4
-          5
-        ]
-      );
+  # Each parser below takes text of its format's length, which
+  # `tryParseDetail` checks first, and returns a mac value, or null when
+  # `input` is not in its format.
+
+  # Read six two-digit hex `pairs`, most significant first.
+  fromHexPairs =
+    pairs:
+    let
+      bytes = map parsing.hexByte pairs;
+    in
+    if builtins.elem null bytes then null else mk (bits.fromBytes bytes);
+
+  parseBare = input: fromHexPairs (builtins.genList (i: builtins.substring (i * 2) 2 input) 6);
 
   parseCisco =
     input:
@@ -162,10 +153,7 @@ let
         group1 = builtins.elemAt parts 1;
         group2 = builtins.elemAt parts 2;
         valid =
-          builtins.stringLength group0 == 4
-          && builtins.stringLength group1 == 4
-          && builtins.stringLength group2 == 4
-          && builtins.match "[0-9a-fA-F]{4}" group0 != null
+          builtins.match "[0-9a-fA-F]{4}" group0 != null
           && builtins.match "[0-9a-fA-F]{4}" group1 != null
           && builtins.match "[0-9a-fA-F]{4}" group2 != null;
       in
@@ -183,69 +171,41 @@ let
     let
       parts = parsing.splitOn separator input;
     in
-    if builtins.length parts != 6 then
-      null
-    else
-      let
-        allValid = builtins.all (
-          octet: builtins.stringLength octet == 2 && builtins.match "[0-9a-fA-F]{2}" octet != null
-        ) parts;
-      in
-      if !allValid then
-        null
-      else
-        mk (builtins.foldl' (acc: octet: acc * 256 + (parsing.hexInt octet)) 0 parts);
+    if builtins.length parts != 6 then null else fromHexPairs parts;
 
   /*
-    Parse a MAC address without throwing, for callers that validate
-    untrusted text.
+    Parse a MAC address: the detail parser of the parsing suite.
 
     `input`: string in colon (`aa:bb:cc:dd:ee:ff`), hyphen, Cisco dotted
     (`aabb.ccdd.eeff`), or bare (`aabbccddeeff`) form; case-insensitive.
 
-    Returns a tryParse result whose `value` is a mac value.
+    Returns a tryResult holding a mac value, or the detail of the failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        inputLength = builtins.stringLength input;
-        parsed =
-          if inputLength == 12 then
-            parseBare input
-          else if inputLength == 14 then
-            parseCisco input
-          else if inputLength == 17 then
-            let
-              separator = builtins.substring 2 1 input;
-            in
-            if separator == ":" then
-              parseSeparated ":" input
-            else if separator == "-" then
-              parseSeparated "-" input
-            else
-              null
-          else
-            null;
-      in
-      if parsed == null then parseError "invalid MAC address \"${input}\"" else types.tryOk parsed;
-
-  /*
-    Parse a MAC address written in any common notation.
-
-    `input`: string in colon, hyphen, Cisco dotted, or bare form;
-    case-insensitive.
-
-    Returns a mac value; throws on invalid input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      inputLength = builtins.stringLength input;
+      parsed =
+        if inputLength == 12 then
+          parseBare input
+        else if inputLength == 14 then
+          parseCisco input
+        else if inputLength == 17 then
+          let
+            separator = builtins.substring 2 1 input;
+          in
+          if separator == ":" then
+            parseSeparated ":" input
+          else if separator == "-" then
+            parseSeparated "-" input
+          else
+            null
+        else
+          null;
     in
-    if result.success then result.value else throw result.error;
+    if parsed == null then types.tryErr "invalid MAC address \"${input}\"" else types.tryOk parsed;
+
+  parsers = parsing.suite "mac" tryParseDetail;
 
   # ===== Formatting =====
 
@@ -292,15 +252,6 @@ let
   toStringBare = withValue "toStringBare" (hexBytes "");
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a MAC address.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Structural check for a tagged MAC address.
@@ -452,7 +403,7 @@ let
   */
   fromOuiNic =
     ouiValue: nicValue:
-    mkStrict (
+    mkChecked (
       boundedInt "fromOuiNic" "OUI out of range" bits.mask24 ouiValue * bits.pow2_24
       + boundedInt "fromOuiNic" "NIC out of range" bits.mask24 nicValue
     );
@@ -464,10 +415,10 @@ let
 
     Returns a lowercase string such as `aa:bb:cc`.
   */
-  ouiToString =
+  toStringOui =
     mac:
     let
-      ouiValue = bits.shr 24 (valueOf "ouiToString" mac);
+      ouiValue = bits.shr 24 (valueOf "toStringOui" mac);
       high = bits.bits 16 8 ouiValue;
       middle = bits.bits 8 8 ouiValue;
       low = bits.bits 0 8 ouiValue;
@@ -534,7 +485,7 @@ let
 
     Returns `toInt b - toInt a`.
   */
-  diff = a: b: valueOf "diff" b - valueOf "diff" a;
+  diff = arithmetic.diff "mac.diff";
 
   /*
     Step to the following MAC address.
@@ -594,12 +545,9 @@ in
     isUnicast
     isUniversal
     isUnspecified
-    isValid
     next
     nic
     oui
-    ouiToString
-    parse
     prev
     setLocal
     setMulticast
@@ -613,8 +561,13 @@ in
     toStringBare
     toStringCisco
     toStringHyphen
-    tryParse
+    toStringOui
     unspecified
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

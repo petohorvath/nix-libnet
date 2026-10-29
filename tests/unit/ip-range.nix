@@ -217,7 +217,7 @@ in
   };
   testAddressesTooLarge = {
     expr = ipRange.addresses (parse "1.0.0.0-2.0.0.0");
-    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(16777217 > 2\\^16\\); use addressesUnbounded$";
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(16777217 > 2\\^16\\); use addressAt or addressesUnbounded$";
   };
   testAddressesAtLimit = {
     expr = builtins.length (ipRange.addresses (parse "10.0.0.0-10.0.255.255"));
@@ -229,11 +229,11 @@ in
   };
   testAddressesV6Exactly2To63NamesAddresses = {
     expr = ipRange.addresses (parse "::-::7fff:ffff:ffff:ffff");
-    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(2\\^63 or more > 2\\^16\\); use addressAt$";
   };
   testAddressesV6HugeNamesAddresses = {
     expr = ipRange.addresses (parse "::-ffff::");
-    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(2\\^63 or more > 2\\^16\\); use addressAt$";
   };
   testAddressesUnboundedV6HugeNamesItself = {
     expr = ipRange.addressesUnbounded (parse "::-ffff::");
@@ -263,9 +263,38 @@ in
     expr = ipRange.addressAt 0.0 (parse "1.2.3.4-1.2.3.6");
     expectedError.msg = "^libnet\\.ipRange\\.addressAt: expected int, got float$";
   };
-  testAddressAtV6Exactly2To63NamesAddressAt = {
-    expr = ipRange.addressAt 0 (parse "::-::7fff:ffff:ffff:ffff");
-    expectedError.msg = "^libnet\\.ipRange\\.addressAt: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  # Exactly 2^63 addresses, so the Int range reaches both ends.
+  testAddressAtV6Exactly2To63Ends = {
+    expr = map (n: ipv6.toString (ipRange.addressAt n (parse "1::8000:0:0:0-1::ffff:ffff:ffff:ffff"))) [
+      0
+      (-1)
+      9223372036854775807
+      (-9223372036854775807 - 1)
+    ];
+    expected = [
+      "1::8000:0:0:0"
+      "1::ffff:ffff:ffff:ffff"
+      "1::ffff:ffff:ffff:ffff"
+      "1::8000:0:0:0"
+    ];
+  };
+  # Nearly 2^128 addresses: positive indexes count from `from` and
+  # negative ones back from `to`.
+  testAddressAtV6Huge = {
+    expr =
+      map (n: ipv6.toString (ipRange.addressAt n (parse "::5-ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")))
+        [
+          1
+          (-1)
+          (-2)
+          (-9223372036854775807 - 1)
+        ];
+    expected = [
+      "::6"
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffd"
+      "ffff:ffff:ffff:ffff:7fff:ffff:ffff:ffff"
+    ];
   };
   testAddressAtV6Below2To63Ends = {
     expr = map (n: ipv6.toString (ipRange.addressAt n (parse "::-::7fff:ffff:ffff:fffe"))) [
@@ -400,6 +429,23 @@ in
       parse "255.255.255.254-255.255.255.255"
     );
     expected = true;
+  };
+  # The top address has no upward neighbour; it does not wrap to zero.
+  testIsAdjacentTopDoesNotWrap = {
+    expr = map (pair: ipRange.isAdjacent (parse pair.a) (parse pair.b)) [
+      {
+        a = "255.255.255.255-255.255.255.255";
+        b = "0.0.0.0-0.0.0.1";
+      }
+      {
+        a = "::-::1";
+        b = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
+      }
+    ];
+    expected = [
+      false
+      false
+    ];
   };
   testIsAdjacentAtMaxV6 = {
     expr = ipRange.isAdjacent (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff") (

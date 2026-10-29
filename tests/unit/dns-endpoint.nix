@@ -112,10 +112,11 @@ in
     expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected hostname or domain value, got string$";
   };
   # `hostname.parse "1234"` succeeds, but no DNS name reads as IPv4, so
-  # `make` cannot build what `parse` rejects (ADR 0021).
+  # the hostname is the wrong kind and `make` cannot build what `parse`
+  # rejects (ADR 0021).
   testMakeRejectsNumericHostname = {
     expr = dnsEndpoint.make (libnet.hostname.parse "1234") (port.fromInt 22);
-    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: \"1234\" reads as an IPv4 address, not a DNS name$";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected hostname or domain value, got numeric hostname \"1234\", which reads as an IPv4 address$";
   };
   testParseRejectsNumericName = {
     expr = parse "0x7f:22";

@@ -41,52 +41,27 @@ let
   bindpointArgument =
     function: errors.expect "bindpoint.${function}" "ipBindpoint or unixSocket value" isMember;
 
-  # Report a member parser's failure under the union's name, keeping its
-  # detail.
-  fromMember =
-    member: result:
-    if result.success then
-      result
-    else
-      types.tryErr (errors.message "bindpoint.parse" (errors.detail "${member}.parse" result.error));
-
   # ===== Parsing =====
 
   /*
-    Parse any bind target without throwing, classifying it by shape.
+    Parse any bind target, classifying it by shape: the detail parser of
+    the parsing suite.
 
     `input`: a unix socket path (leading `/` or `@`), or any form
     `ipBindpoint.parse` accepts, such as `":8080"` or
     `"[::1]:8000-8100"`.
 
     Returns a tryResult whose value is an ipBindpoint or unixSocket; on
-    failure, `error` names `bindpoint.parse` with the detail of the
-    member parser that was tried.
+    failure, `error` is the detail of the member parser that was tried.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      types.tryErr (errors.message "bindpoint.parse" (errors.notString input))
-    else if parsing.startsWith "/" input || parsing.startsWith "@" input then
-      fromMember "unixSocket" (unixSocket.tryParse input)
+    if parsing.startsWith "/" input || parsing.startsWith "@" input then
+      unixSocket.tryParseDetail input
     else
-      fromMember "ipBindpoint" (ipBindpoint.tryParse input);
+      ipBindpoint.tryParseDetail input;
 
-  /*
-    Parse any bind target, classifying it by shape as `tryParse` does.
-
-    `input`: a unix socket path, or an IP bindpoint form such as
-    `":8080"`.
-
-    Returns an ipBindpoint or unixSocket value; throws on malformed
-    input.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "bindpoint" tryParseDetail;
 
   /*
     Render any bindpoint member in its canonical text form.
@@ -104,15 +79,6 @@ let
     if types.isIpBindpoint checked then ipBindpoint.toString checked else unixSocket.toString checked;
 
   # ===== Predicates =====
-
-  /*
-    Test whether a string parses as any bindpoint member.
-
-    `input`: value to test; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Test whether a value is an ipBindpoint or unixSocket.
@@ -179,9 +145,12 @@ in
     is
     isIpBindpoint
     isUnixSocket
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

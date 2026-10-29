@@ -56,83 +56,61 @@ let
 
   schemeHint = "expected tcp, udp, sctp, or unix";
 
-  mk = schemeName: bindpointValue: {
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
+  mk = canonicalScheme: bindpointValue: {
     _type = "bindUrl";
-    scheme = schemeName;
+    scheme = canonicalScheme;
     bindpoint = bindpointValue;
   };
 
   # Check the bindUrl argument of `function`, throwing for any other kind.
   bindUrlArgument = function: errors.expectKind "bindUrl.${function}" "bindUrl";
 
-  parseError = detail: types.tryErr (errors.message "bindUrl.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a bind URL without throwing, for callers that want to report
-    or recover from invalid input.
+    Parse a bind URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://<bindpoint>` string; `tcp`, `udp`, and `sctp`
     take `[address]:port` or a port range, `unix` takes a socket path;
     the scheme is matched case-insensitively.
 
-    Returns a tryResult: `{ success = true; value; }` with a bindUrl
-    value, or `{ success = false; error; }` naming `bindUrl.parse`. An
-    unknown scheme is reported before an invalid bind address.
+    Returns a tryResult holding a bindUrl value, or the detail of the
+    failure. An unknown scheme is reported before an invalid bind
+    address.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "://" input;
-      in
-      if builtins.length parts < 2 then
-        parseError "missing '<scheme>://': \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt parts 0;
-          schemeName = lowerAscii rawScheme;
-          # Rejoin the remainder so a stray '://' inside a path is kept.
-          rest = builtins.concatStringsSep "://" (builtins.tail parts);
-        in
-        if !(schemes ? ${schemeName}) then
-          parseError "unknown scheme \"${rawScheme}\" (${schemeHint})"
-        else
-          let
-            bindpointResult = bindpoint.tryParse rest;
-            bindpointValue = bindpointResult.value;
-          in
-          if !bindpointResult.success then
-            parseError (errors.detail "bindpoint.parse" bindpointResult.error)
-          else if schemeName == unixScheme then
-            if types.isUnixSocket bindpointValue then
-              types.tryOk (mk schemeName bindpointValue)
-            else
-              parseError "'unix://' requires a socket path: \"${input}\""
-          else if types.isUnixSocket bindpointValue then
-            parseError "'${schemeName}://' requires [addr]:port, not a socket path: \"${input}\""
-          else
-            types.tryOk (mk schemeName bindpointValue);
-
-  /*
-    Parse a bind URL.
-
-    `input`: `<scheme>://<bindpoint>` string; `tcp`, `udp`, and `sctp`
-    take `[address]:port` or a port range, `unix` takes a socket path;
-    the scheme is matched case-insensitively.
-
-    Returns a bindUrl value; throws on malformed input, an unknown
-    scheme, or a scheme that does not match the address kind.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if result.success then result.value else throw result.error;
+    if !schemeResult.success then
+      schemeResult
+    else
+      let
+        bindpointResult = bindpoint.tryParseDetail rest;
+        bindpointValue = bindpointResult.value;
+      in
+      if !bindpointResult.success then
+        bindpointResult
+      else if canonicalScheme == unixScheme then
+        if types.isUnixSocket bindpointValue then
+          types.tryOk (mk canonicalScheme bindpointValue)
+        else
+          types.tryErr "'unix://' requires a socket path: \"${input}\""
+      else if types.isUnixSocket bindpointValue then
+        types.tryErr "'${canonicalScheme}://' requires [addr]:port, not a socket path: \"${input}\""
+      else
+        types.tryOk (mk canonicalScheme bindpointValue);
+
+  parsers = parsing.suite "bindUrl" tryParseDetail;
 
   /*
     Render a bind URL in canonical text form.
@@ -180,15 +158,6 @@ let
       mk canonicalScheme checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a bind URL, without throwing.
-
-    `input`: value to check.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a bindUrl value.
@@ -269,12 +238,14 @@ in
     is
     isSecure
     isUnix
-    isValid
     make
-    parse
     scheme
     schemes
     toString
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

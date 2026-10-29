@@ -28,17 +28,12 @@ let
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     addressValue: prefixLength:
-    builtins.seq addressValue (
-      builtins.seq prefixLength {
-        _type = "interfaceAddress";
-        address = addressValue;
-        prefix = prefixLength;
-      }
-    );
+    types.mkStrict "interfaceAddress" {
+      address = addressValue;
+      prefix = prefixLength;
+    };
 
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";
@@ -66,61 +61,23 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an interface address without throwing, so callers can handle
-    invalid input themselves.
+    Parse an interface address, such as a per-NIC address assignment,
+    keeping the host bits: the detail parser of the parsing suite.
 
     `input`: "<address>/<prefix>", such as "192.168.1.5/24" or
     "2001:db8::5/64"; the prefix must fit the address family.
 
-    Returns a tryResult: `{ success = true; value = <interfaceAddress>; }`
-    or `{ success = false; error = <message>; }`.
+    Returns a tryResult whose `value` is an interfaceAddress value, or
+    whose `error` is the detail of the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
     let
-      parseError = detail: types.tryErr (errors.message "interfaceAddress.parse" detail);
+      result = parsing.addressPrefix ip.tryParseDetail input;
     in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "/" input;
-      in
-      if builtins.length parts != 2 then
-        parseError "missing '/': \"${input}\""
-      else
-        let
-          addressInput = builtins.elemAt parts 0;
-          prefixInput = builtins.elemAt parts 1;
-          isV6Input = parsing.countOccurrences ":" addressInput > 0;
-          addressResult = if isV6Input then ipv6.tryParse addressInput else ipv4.tryParse addressInput;
-          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
-        in
-        if !addressResult.success then
-          parseError (errors.detail (if isV6Input then "ipv6.parse" else "ipv4.parse") addressResult.error)
-        else if !(parsing.isDecimal prefixInput) then
-          parseError "invalid prefix \"${prefixInput}\""
-        else if prefixLength == null then
-          parseError "prefix /${prefixInput} out of range"
-        else
-          types.tryOk (mk addressResult.value prefixLength);
+    if result.success then types.tryOk (mk result.value.address result.value.prefix) else result;
 
-  /*
-    Parse an interface address from text, such as a per-NIC address
-    assignment. The host bits are kept, not zeroed to the network address.
-
-    `input`: "<address>/<prefix>", such as "192.168.1.5/24" or
-    "2001:db8::5/64"; the prefix must fit the address family.
-
-    Returns an interfaceAddress value; throws on malformed input or a
-    missing or out-of-range prefix.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "interfaceAddress" tryParseDetail;
 
   # ===== Formatting =====
 
@@ -156,7 +113,7 @@ let
     addressValue: prefixLength:
     let
       checkedAddress = addressArgument "make" addressValue;
-      checkedPrefix = errors.expectType "interfaceAddress.make" "int" prefixLength;
+      checkedPrefix = errors.intArgument "interfaceAddress.make" prefixLength;
       prefixMax = maxPrefix checkedAddress;
     in
     if checkedPrefix < 0 || checkedPrefix > prefixMax then
@@ -206,15 +163,6 @@ let
       mk checkedAddress block.prefix;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an interface address.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is an interfaceAddress value.
@@ -398,9 +346,11 @@ let
   /*
     Derive the IPv4 broadcast address of the CIDR the address sits on.
 
-    `interfaceAddress`: IPv4 interfaceAddress value.
+    `interfaceAddress`: IPv4 interfaceAddress value of prefix /30 or
+    shorter.
 
-    Returns an ipv4 value; throws for IPv6, which has no broadcast.
+    Returns an ipv4 value; throws for IPv6, which has no broadcast, and
+    for /31 and /32, whose addresses are all hosts (RFC 3021).
   */
   broadcast =
     interfaceAddress:
@@ -409,6 +359,10 @@ let
     in
     if !(isV4 checked.address) then
       errors.fail "interfaceAddress.broadcast" "IPv6 has no broadcast"
+    else if checked.prefix == 31 then
+      errors.fail "interfaceAddress.broadcast" "/31 has no broadcast (RFC 3021)"
+    else if checked.prefix == 32 then
+      errors.fail "interfaceAddress.broadcast" "/32 has no broadcast"
     else
       cidr.broadcast (cidrOf checked);
 
@@ -455,15 +409,17 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     make
     netmask
-    parse
     prefix
     toArpa
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

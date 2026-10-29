@@ -48,10 +48,15 @@ let
   bits =
     offset: width: x:
     builtins.bitAnd (shr offset x) (mask width);
+
+  # The integer of a list of bytes, most significant first, such as the
+  # bytes of an IPv4 or a MAC address.
+  fromBytes = builtins.foldl' (accumulated: byte: accumulated * pow2_8 + byte) 0;
 in
 {
   inherit
     bits
+    fromBytes
     mask
     mask16
     mask24

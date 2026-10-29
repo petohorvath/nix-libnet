@@ -39,18 +39,17 @@ let
   # RFC 3986 §3.2.1: userinfo = *( unreserved / pct-encoded / sub-delims /
   # ":" ). The bracket expression admits only ASCII, so a non-ASCII byte,
   # a space or a control character fails the match.
-  userinfoPattern = "([-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f])*";
+  isUserinfo =
+    text:
+    text == "" || parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f]" text;
 
-  isUserinfo = text: builtins.match userinfoPattern text != null;
-
-  parseError = detail: types.tryErr (errors.message "authority.parse" detail);
-
-  mk = userinfoValue: hostValue: portValue: {
-    _type = "authority";
-    userinfo = userinfoValue;
-    host = hostValue;
-    port = portValue;
-  };
+  mk =
+    userinfoValue: hostValue: portValue:
+    types.mkStrict "authority" {
+      userinfo = userinfoValue;
+      host = hostValue;
+      port = portValue;
+    };
 
   # ===== Parsing =====
 
@@ -101,64 +100,47 @@ let
         null;
 
   /*
-    Parse an authority without throwing, for callers that branch on
-    validity.
+    Parse an authority: the detail parser of the parsing suite.
 
     `input`: `[userinfo@]host[:port]` text; the host may be a bracketed IPv6
     literal.
 
-    Returns a tryResult: `{ success = true; value = <authority>; }` or
-    `{ success = false; error = <string>; }` for an empty or invalid host,
-    multiple `@`, userinfo outside the RFC 3986 grammar, or a bad port.
-    Never throws.
+    Returns a tryResult holding an authority value, or the detail of the
+    failure: an empty or invalid host, multiple `@`, userinfo outside the
+    RFC 3986 grammar, or a bad port.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        atParts = parsing.splitOn "@" input;
-        atPartCount = builtins.length atParts;
-      in
-      if atPartCount > 2 then
-        parseError "malformed userinfo (multiple '@')"
-      else
-        let
-          userinfoValue = if atPartCount == 2 then builtins.elemAt atParts 0 else null;
-          hostPort = splitHostPort (builtins.elemAt atParts (atPartCount - 1));
-        in
-        if userinfoValue != null && !(isUserinfo userinfoValue) then
-          parseError "invalid userinfo \"${userinfoValue}\""
-        else if hostPort == null then
-          parseError "malformed authority \"${input}\""
-        else
-          let
-            hostResult = urlHost.tryParse hostPort.hostText;
-            portResult = if hostPort.portText == null then null else port.tryParse hostPort.portText;
-          in
-          if !hostResult.success then
-            parseError "invalid host \"${hostPort.hostText}\""
-          else if portResult != null && !portResult.success then
-            parseError "invalid port \"${hostPort.portText}\""
-          else
-            types.tryOk (
-              mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
-            );
-
-  /*
-    Parse an authority, for values that must be valid.
-
-    `input`: `[userinfo@]host[:port]` text as accepted by `tryParse`.
-
-    Returns an authority value; throws on invalid input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      atParts = parsing.splitOn "@" input;
+      atPartCount = builtins.length atParts;
     in
-    if result.success then result.value else throw result.error;
+    if atPartCount > 2 then
+      types.tryErr "malformed userinfo (multiple '@')"
+    else
+      let
+        userinfoValue = if atPartCount == 2 then builtins.elemAt atParts 0 else null;
+        hostPort = splitHostPort (builtins.elemAt atParts (atPartCount - 1));
+      in
+      if userinfoValue != null && !(isUserinfo userinfoValue) then
+        types.tryErr "invalid userinfo \"${userinfoValue}\""
+      else if hostPort == null then
+        types.tryErr "malformed authority \"${input}\""
+      else
+        let
+          hostResult = urlHost.tryParse hostPort.hostText;
+          portResult = if hostPort.portText == null then null else port.tryParse hostPort.portText;
+        in
+        if !hostResult.success then
+          types.tryErr "invalid host \"${hostPort.hostText}\""
+        else if portResult != null && !portResult.success then
+          types.tryErr "invalid port \"${hostPort.portText}\""
+        else
+          types.tryOk (
+            mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
+          );
+
+  parsers = parsing.suite "authority" tryParseDetail;
 
   /*
     Render an authority as `[userinfo@]host[:port]`.
@@ -211,22 +193,12 @@ let
         checked.port or null
       );
     in
-    # Force the guards, which `mk` would otherwise store unevaluated.
     if userinfoValue != null && !(isUserinfo userinfoValue) then
       errors.fail caller "invalid userinfo \"${userinfoValue}\""
     else
-      builtins.seq hostValue (builtins.seq portValue (mk userinfoValue hostValue portValue));
+      mk userinfoValue hostValue portValue;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an authority.
-
-    `input`: candidate authority text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is an authority value.
@@ -264,18 +236,6 @@ let
   # `[userinfo@]host[:port]` — and the port is compared as-stored, since
   # an authority has no scheme and therefore no default port.
 
-  # Order nullable values with null first, the rest by `compareValues`.
-  compareOptional =
-    compareValues: a: b:
-    if a == null && b == null then
-      0
-    else if a == null then
-      -1
-    else if b == null then
-      1
-    else
-      compareValues a b;
-
   portEq =
     a: b:
     if a == null && b == null then
@@ -312,8 +272,8 @@ let
     in
     comparison.lexicographic [
       (urlHost.compare left.host right.host)
-      (compareOptional port.compare left.port right.port)
-      (compareOptional comparison.order left.userinfo right.userinfo)
+      (comparison.optional port.compare left.port right.port)
+      (comparison.optional comparison.order left.userinfo right.userinfo)
     ]
   );
 in
@@ -322,12 +282,15 @@ in
     eq
     host
     is
-    isValid
     make
-    parse
     toString
-    tryParse
+    tryParseDetail
     userinfo
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

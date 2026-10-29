@@ -16,6 +16,8 @@
 */
 { lib }:
 let
+  errors = import ./internal/errors.nix;
+
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   ip = import ./ip.nix;
@@ -85,12 +87,11 @@ let
       */
       mk =
         input:
-        if !(builtins.isString input) then
-          throw "libnet.types.${typeName}.mk: expected string, got ${builtins.typeOf input}"
-        else if !(validator input) then
-          throw "libnet.types.${typeName}.mk: invalid value \"${input}\""
-        else
-          input;
+        let
+          caller = "types.${typeName}.mk";
+          string = errors.expectType caller "string" input;
+        in
+        if validator string then string else errors.fail caller "invalid value \"${string}\"";
     };
 
   /*
@@ -130,22 +131,20 @@ let
       */
       mk =
         value:
+        let
+          caller = "types.${typeName}.mk";
+        in
         if builtins.isInt value then
           (
             if isValidInt value then
               value
             else
-              throw "libnet.types.${typeName}.mk: out of range [${toString scalar.minValue}, ${toString scalar.maxValue}]: ${toString value}"
+              errors.fail caller "out of range [${toString scalar.minValue}, ${toString scalar.maxValue}]: ${toString value}"
           )
         else if builtins.isString value then
-          (
-            if scalar.isValid value then
-              fromString value
-            else
-              throw "libnet.types.${typeName}.mk: invalid value \"${value}\""
-          )
+          (if scalar.isValid value then fromString value else errors.fail caller "invalid value \"${value}\"")
         else
-          throw "libnet.types.${typeName}.mk: expected int or string, got ${builtins.typeOf value}";
+          errors.fail caller "expected int or string, got ${errors.describe value}";
     };
 
   ipv4Type = mkStringType {

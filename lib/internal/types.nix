@@ -65,6 +65,15 @@ let
   isIp = value: isIpv4 value || isIpv6 value;
   isUrlHost = value: isIp value || isRegName value;
 
+  # A value tagged `tag` holding `fields`, each forced to weak head normal
+  # form in name order, so a constructor throws for a bad argument when it
+  # builds the value rather than when a field is read.
+  mkStrict =
+    tag: fields:
+    builtins.seq (builtins.foldl' (_: name: builtins.seq fields.${name} null) null (
+      builtins.attrNames fields
+    )) (fields // { _type = tag; });
+
   tryOk = value: {
     success = true;
     inherit value;
@@ -109,6 +118,7 @@ in
     isUrl
     isUrlHost
     isVlanId
+    mkStrict
     tags
     tryErr
     tryOk

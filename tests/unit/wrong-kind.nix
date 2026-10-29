@@ -462,6 +462,7 @@ let
           toString.ipv4Operand = dnsName.toString (libnet.ipv4.parse "192.0.2.1");
           compare.regNameOperand = dnsName.compare value (libnet.regName.parse "example.com");
           gt.string = dnsName.gt "example.com" value;
+          lt.numericHostname = dnsName.lt (libnet.hostname.parse "1234") value;
         };
       };
     host =
@@ -476,6 +477,7 @@ let
           toString.regNameOperand = host.toString (libnet.regName.parse "example.com");
           compare.string = host.compare value "example.com";
           min.portOperand = host.min (libnet.port.fromInt 80) value;
+          toString.numericHostname = host.toString (libnet.hostname.parse "0x7f");
         };
       };
     regName =
@@ -583,6 +585,7 @@ let
           make = {
             stringName = dnsEndpoint.make "nas" port;
             ipv4Name = dnsEndpoint.make (libnet.ipv4.parse "192.0.2.1") port;
+            numericHostname = dnsEndpoint.make (libnet.hostname.parse "1234") port;
             intPort = dnsEndpoint.make (libnet.dnsName.parse "nas") 22;
           };
           name.string = dnsEndpoint.name "nas:22";

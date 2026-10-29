@@ -14,7 +14,6 @@
 */
 let
   address = import ./internal/address.nix;
-  bits = import ./internal/bits.nix;
   comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   ipv4 = import ./ipv4.nix;
@@ -25,62 +24,48 @@ let
   # An address argument of `function`, which throws for any other kind.
   ipArgument = function: errors.expect "ip.${function}" "ipv4 or ipv6 value" types.isIp;
 
-  # The family arithmetic, run under the `ip` function's name so its
-  # errors name the function the caller called.
-  ipv4Arithmetic = address.scalar {
-    typeName = "ipv4";
-    maxValue = bits.mask32;
-    format = ipv4.toString;
-  };
-  ipv6Arithmetic = address.words { format = ipv6.toString; };
-
   # Call the family's implementation for the public function `function`,
   # which throws for an argument that is not an address.
   dispatch =
     function: onIpv4: onIpv6: ip:
     if types.isIpv4 (ipArgument function ip) then onIpv4 ip else onIpv6 ip;
 
-  # Report a member's parse failure as `ip.parse`, keeping its detail.
-  fromMember =
-    member: result:
-    if result.success then
-      result
-    else
-      types.tryErr (errors.message "ip.parse" (errors.detail "${member}.parse" result.error));
-
   # ===== Parsing =====
 
   /*
-    Parse an address of either family without throwing, for callers that
-    validate untrusted text.
-
-    `input`: address string; any ':' selects IPv6, otherwise IPv4.
-
-    Returns a tryParse result whose `value` is an ipv4 or ipv6 value.
-  */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      types.tryErr (errors.message "ip.parse" (errors.notString input))
-    else if parsing.countOccurrences ":" input > 0 then
-      fromMember "ipv6" (ipv6.tryParse input)
-    else
-      fromMember "ipv4" (ipv4.tryParse input);
-
-  /*
     Parse an address of either family when the family is not known in
-    advance.
+    advance: the detail parser of the parsing suite.
 
     `input`: address string; any ':' selects IPv6, otherwise IPv4.
 
-    Returns an ipv4 or ipv6 value; throws on invalid input.
+    Returns a tryResult whose `value` is an ipv4 or ipv6 value, or whose
+    `error` is the detail of the family parser. Colon text that is not
+    plausibly IPv6 names the syntax it belongs to instead: a bracketed
+    literal, or a host other than an IPv6 group followed by a port.
   */
-  parse =
+  tryParseDetail =
     input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+    if parsing.countOccurrences ":" input > 0 then
+      let
+        ipv6Result = ipv6.tryParseDetail input;
+        parts = parsing.splitOn ":" input;
+        isHostAndPort =
+          builtins.length parts == 2
+          && parsing.hexGroup (builtins.head parts) == null
+          && parsing.isRepetitionOf "[0-9]" (builtins.elemAt parts 1);
+      in
+      if ipv6Result.success then
+        ipv6Result
+      else if parsing.startsWith "[" input then
+        types.tryErr "\"${input}\" is bracketed, which is URL and endpoint syntax"
+      else if isHostAndPort then
+        types.tryErr "\"${input}\" reads as host:port, which is endpoint syntax"
+      else
+        ipv6Result
+    else
+      ipv4.tryParseDetail input;
+
+  parsers = parsing.suite "ip" tryParseDetail;
 
   /*
     Format an address of either family in its canonical text form.
@@ -99,15 +84,6 @@ let
     Returns 4 or 6; throws for any other value.
   */
   version = dispatch "version" (_: 4) (_: 6);
-
-  /*
-    Check whether a string parses as an address of either family.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Structural check for a tagged address of either family.
@@ -241,6 +217,10 @@ let
 
   # ===== Arithmetic (dispatched) =====
 
+  # The families share their arithmetic with `ip`, which runs it under
+  # the `ip` function's name so its errors name the function the caller
+  # called.
+
   /*
     Offset an address within its family.
 
@@ -250,7 +230,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  add = n: dispatch "add" (ipv4Arithmetic.add "ip.add" n) (ipv6Arithmetic.add "ip.add" n);
+  add = n: dispatch "add" (address.ipv4.add "ip.add" n) (address.ipv6.add "ip.add" n);
 
   /*
     Offset an address downward within its family.
@@ -261,7 +241,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  sub = n: dispatch "sub" (ipv4Arithmetic.sub "ip.sub" n) (ipv6Arithmetic.sub "ip.sub" n);
+  sub = n: dispatch "sub" (address.ipv4.sub "ip.sub" n) (address.ipv6.sub "ip.sub" n);
 
   /*
     Step to the following address in the same family.
@@ -271,7 +251,7 @@ let
     Returns an address of the same family; throws past the family's highest
     address or for a non-address value.
   */
-  next = dispatch "next" (ipv4Arithmetic.add "ip.next" 1) (ipv6Arithmetic.add "ip.next" 1);
+  next = dispatch "next" (address.ipv4.add "ip.next" 1) (address.ipv6.add "ip.next" 1);
 
   /*
     Step to the preceding address in the same family.
@@ -281,7 +261,7 @@ let
     Returns an address of the same family; throws below the family's lowest
     address or for a non-address value.
   */
-  prev = dispatch "prev" (ipv4Arithmetic.sub "ip.prev" 1) (ipv6Arithmetic.sub "ip.prev" 1);
+  prev = dispatch "prev" (address.ipv4.sub "ip.prev" 1) (address.ipv6.sub "ip.prev" 1);
 
   /*
     Measure the distance between two addresses of the same family.
@@ -300,9 +280,9 @@ let
     if left._type != right._type then
       errors.fail "ip.diff" "cross-family difference is undefined"
     else if types.isIpv4 left then
-      ipv4.diff left right
+      address.ipv4.diff "ip.diff" left right
     else
-      ipv6Arithmetic.diff "ip.diff" left right;
+      address.ipv6.diff "ip.diff" left right;
 in
 {
   inherit
@@ -319,15 +299,18 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     next
-    parse
     prev
     sub
     toArpa
     toString
-    tryParse
+    tryParseDetail
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

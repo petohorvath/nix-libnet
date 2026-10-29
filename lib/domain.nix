@@ -46,38 +46,6 @@ let
 
   labelsOf = function: domain: parsing.splitOn "." (valueOf function domain);
 
-  # Validate a domain, naming `function` in the error, so that
-  # `fromLabels` reports itself rather than `parse`.
-  tryParseFor =
-    function: input:
-    let
-      failure = detail: types.tryErr (errors.message "domain.${function}" detail);
-    in
-    if !(builtins.isString input) then
-      failure (errors.notString input)
-    else if builtins.stringLength input > maxLength then
-      failure "too long (max ${builtins.toString maxLength} chars): \"${input}\""
-    else
-      let
-        parts = parsing.splitOn "." input;
-        partCount = builtins.length parts;
-      in
-      if partCount < minLabels then
-        failure "needs at least ${builtins.toString minLabels} labels (got ${builtins.toString partCount}): \"${input}\""
-      else if !(builtins.all dnsLabel.isValidLabel parts) then
-        failure "invalid label in \"${input}\" (each label must be 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
-      else if dnsLabel.isNumericLabel (builtins.elemAt parts (partCount - 1)) then
-        failure "\"${input}\" reads as an IPv4 address (numeric rightmost label)"
-      else
-        types.tryOk (mk (dnsLabel.toLowerAscii input));
-
-  parseFor =
-    function: input:
-    let
-      result = tryParseFor function input;
-    in
-    if result.success then result.value else throw result.error;
-
   # Whether `a` lies within `b`'s zone, for the zone relation named
   # `function`.
   subdomainFor =
@@ -94,26 +62,35 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a domain without throwing, for callers that branch on
-    validity or report the error themselves.
-
-    `input`: candidate domain string.
-
-    Returns a tryResult `{ success, value, error }` holding the domain
-    on success or an error message on failure.
-  */
-  tryParse = tryParseFor "parse";
-
-  /*
-    Parse a multi-label domain, lowercasing it.
+    Parse a multi-label domain, lowercasing it: the detail parser of the
+    parsing suite.
 
     `input`: at least two dot-separated RFC 1123 labels, at most 253
     characters, without leading or trailing dot, whose rightmost label
     is neither all digits nor `0x` followed by hex digits.
 
-    Returns a domain value; throws on non-string or invalid input.
+    Returns a tryResult holding the domain on success, or the detail of
+    the failure.
   */
-  parse = parseFor "parse";
+  tryParseDetail =
+    input:
+    if builtins.stringLength input > maxLength then
+      types.tryErr "too long (max ${builtins.toString maxLength} chars): \"${input}\""
+    else
+      let
+        parts = parsing.splitOn "." input;
+        partCount = builtins.length parts;
+      in
+      if partCount < minLabels then
+        types.tryErr "needs at least ${builtins.toString minLabels} labels (got ${builtins.toString partCount}): \"${input}\""
+      else if !(builtins.all dnsLabel.isValidLabel parts) then
+        types.tryErr "invalid label in \"${input}\" (each label must be 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+      else if dnsLabel.isNumericLabel (builtins.elemAt parts (partCount - 1)) then
+        types.tryErr "\"${input}\" reads as an IPv4 address (numeric rightmost label)"
+      else
+        types.tryOk (mk (dnsLabel.toLowerAscii input));
+
+  parsers = parsing.suite "domain" tryParseDetail;
 
   /*
     Render a domain as a string.
@@ -150,18 +127,12 @@ let
       in
       errors.fail caller "expected list of strings, got ${errors.describe (builtins.elemAt labels index)} at index ${builtins.toString index}"
     else
-      parseFor "fromLabels" (builtins.concatStringsSep "." labels);
+      let
+        result = tryParseDetail (builtins.concatStringsSep "." labels);
+      in
+      if result.success then result.value else errors.fail caller result.error;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a value parses as a domain.
-
-    `input`: any value; non-strings are invalid.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Recognize a tagged domain value without validating its payload.
@@ -261,12 +232,15 @@ in
     is
     isSubdomainOf
     isSuperdomainOf
-    isValid
     labels
     parent
-    parse
     toHostname
     toString
+    tryParseDetail
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

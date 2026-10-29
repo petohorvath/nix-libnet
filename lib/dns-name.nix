@@ -27,13 +27,11 @@ let
   domain = import ./domain.nix;
   dnsLabel = import ./internal/dns-label.nix;
   parsing = import ./internal/parse.nix;
-  errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
 
   # Return a DNS name argument of `function`, throwing for any other value.
-  dnsNameArgument = function: errors.expect "dnsName.${function}" "hostname or domain value" is;
-
-  parseError = detail: types.tryErr (errors.message "dnsName.parse" detail);
+  dnsNameArgument =
+    function: dnsLabel.expectDnsName "dnsName.${function}" "hostname or domain value" is;
 
   # Well-formed labels whose rightmost one is numeric, such as `127.1` or
   # `2130706433`, which `inet_aton` reads as an IPv4 address (ADR 0021).
@@ -45,57 +43,41 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a DNS name without throwing, for callers that branch on
-    validity or report the error themselves.
+    Parse a DNS name that is not an IP literal: the detail parser of the
+    parsing suite.
 
-    `input`: candidate hostname or domain string.
+    `input`: single-label hostname or multi-label domain string.
 
-    Returns a tryResult `{ success, value, error }` holding the
-    hostname or domain value on success, or an error message for IP
-    literals, text that reads as an IPv4 address, and invalid names.
+    Returns a tryResult holding a hostname value for one label or a domain
+    value for several, or the detail of the failure for IP literals, text
+    that reads as an IPv4 address, and invalid names.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if ip.isValid input then
-      parseError "\"${input}\" is an IP address, not a DNS name"
+    if ip.isValid input then
+      types.tryErr "\"${input}\" is an IP address, not a DNS name"
     else if readsAsIpv4 input then
-      parseError "\"${input}\" reads as an IPv4 address, not a DNS name"
+      types.tryErr "\"${input}\" reads as an IPv4 address, not a DNS name"
     else
       let
-        hostnameResult = hostname.tryParse input;
+        hostnameResult = hostname.tryParseDetail input;
       in
       if hostnameResult.success then
         hostnameResult
       else
         let
-          domainResult = domain.tryParse input;
+          domainResult = domain.tryParseDetail input;
         in
         if domainResult.success then
           domainResult
         # Keep the detail of the member whose shape the text has: a domain
         # has a dot and a hostname does not.
         else if parsing.countOccurrences "." input > 0 then
-          parseError (errors.detail "domain.parse" domainResult.error)
+          domainResult
         else
-          parseError (errors.detail "hostname.parse" hostnameResult.error);
+          hostnameResult;
 
-  /*
-    Parse a DNS name that is not an IP literal.
-
-    `input`: single-label hostname or multi-label domain string.
-
-    Returns a lowercase hostname value for one label or domain value
-    for several; throws on IP literals, text that reads as an IPv4
-    address, and invalid names.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "dnsName" tryParseDetail;
 
   /*
     Render a DNS name as a string.
@@ -109,31 +91,25 @@ let
   # ===== Predicates =====
 
   /*
-    Check whether a value parses as a DNS name.
+    Recognize a tagged hostname value that is a DNS name.
 
-    `input`: any value; non-strings are invalid.
+    `value`: any value.
 
-    Returns true when `parse` would succeed.
+    Returns true when `value` carries the `hostname` tag on a label that
+    is not numeric.
   */
-  isValid = input: (tryParse input).success;
+  isHostname = value: types.isHostname value && !dnsLabel.isNumericHostname value;
 
   /*
     Recognize a tagged DNS name value.
 
     `value`: any value.
 
-    Returns true when `value` carries the `hostname` or `domain` tag.
+    Returns true when `value` carries the `domain` tag, or the `hostname`
+    tag on a label that is not numeric: `hostname.parse "1234"` is not a
+    DNS name, since a resolver reads it as an IPv4 address (ADR 0021).
   */
-  is = value: types.isHostname value || types.isDomain value;
-
-  /*
-    Recognize a tagged hostname value.
-
-    `value`: any value.
-
-    Returns true when `value` carries the `hostname` tag.
-  */
-  isHostname = value: types.isHostname value;
+  is = value: types.isDomain value || isHostname value;
 
   /*
     Recognize a tagged domain value.
@@ -157,11 +133,12 @@ let
     `a`, `b`: values to compare.
 
     Returns true when both are hostnames or both are domains with the
-    same text; false otherwise, without throwing.
+    same text; false otherwise, including for a numeric hostname, which
+    is not a DNS name, without throwing.
   */
   eq =
     a: b:
-    if types.isHostname a && types.isHostname b then
+    if isHostname a && isHostname b then
       hostname.eq a b
     else if types.isDomain a && types.isDomain b then
       domain.eq a b
@@ -181,9 +158,12 @@ in
     is
     isDomain
     isHostname
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

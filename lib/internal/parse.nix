@@ -1,4 +1,7 @@
 let
+  errors = import ./errors.nix;
+  types = import ./types.nix;
+
   digitValues = {
     "0" = 0;
     "1" = 1;
@@ -40,8 +43,27 @@ let
   # Parsers return null on malformed input so callers can build tryParse
   # results without catching errors.
 
+  /*
+    Whether `input` is one or more occurrences of `token`, a regular
+    expression that matches no empty text. builtins.split matches one
+    occurrence at a time, whereas a repetition in builtins.match recurses
+    once per occurrence and exhausts the stack on long input.
+  */
+  isRepetitionOf =
+    token: input:
+    input != ""
+    && builtins.all (part: part == "") (builtins.filter builtins.isString (builtins.split token input));
+
   # Canonical decimal text: digits only, without a leading zero.
-  isDecimal = input: builtins.match "0|[1-9][0-9]*" input != null;
+  isDecimal =
+    input: input == "0" || (builtins.substring 0 1 input != "0" && isRepetitionOf "[0-9]" input);
+
+  # Digits with a leading zero, which canonical decimal text forbids.
+  hasLeadingZero =
+    input:
+    builtins.stringLength input > 1
+    && builtins.substring 0 1 input == "0"
+    && isRepetitionOf "[0-9]" input;
 
   # Canonical decimal text at most `max`. Text with more digits than `max`
   # is rejected before it is read, so the accumulator cannot overflow;
@@ -71,9 +93,7 @@ let
 
   hexInt =
     input:
-    if input == "" then
-      null
-    else if builtins.match "[0-9a-fA-F]+" input == null then
+    if !(isRepetitionOf "[0-9a-fA-F]" input) then
       null
     else
       let
@@ -107,37 +127,138 @@ let
     else
       hexInt input;
 
+  # Escape the characters special in builtins.split's POSIX extended
+  # regular expressions. `]` stays bare: it is literal outside a bracket
+  # expression, and builtins.split rejects `\]`.
+  escapeRegex =
+    builtins.replaceStrings
+      [
+        "\\"
+        "."
+        "["
+        "("
+        ")"
+        "{"
+        "*"
+        "+"
+        "?"
+        "|"
+        "^"
+        "$"
+      ]
+      [
+        "\\\\"
+        "\\."
+        "\\["
+        "\\("
+        "\\)"
+        "\\{"
+        "\\*"
+        "\\+"
+        "\\?"
+        "\\|"
+        "\\^"
+        "\\$"
+      ];
+
+  # builtins.split, rather than recursion per character, so long input
+  # cannot exceed the maximum call depth.
   splitOn =
     delimiter: input:
-    let
-      delimiterLength = builtins.stringLength delimiter;
-      inputLength = builtins.stringLength input;
-      go =
-        start: i: parts:
-        if i > inputLength - delimiterLength then
-          parts ++ [ (builtins.substring start (inputLength - start) input) ]
-        else if builtins.substring i delimiterLength input == delimiter then
-          go (i + delimiterLength) (i + delimiterLength) (
-            parts ++ [ (builtins.substring start (i - start) input) ]
-          )
-        else
-          go start (i + 1) parts;
-    in
-    if inputLength == 0 then
-      [ "" ]
-    else if delimiterLength == 0 then
+    if delimiter == "" then
       [ input ]
     else
-      go 0 0 [ ];
+      builtins.filter builtins.isString (builtins.split (escapeRegex delimiter) input);
 
   /*
     Text shaped like an IPv4 address: digits and dots only. A union whose
     members all reject such text reports the IP member's error, since no
     name is written that way (ADR 0021).
   */
-  isDottedDigits = input: builtins.match "[0-9.]+" input != null;
+  isDottedDigits = isRepetitionOf "[0-9.]";
 
   countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
+
+  # Split a URL at its first `://` into the scheme, as written, and the
+  # rest, or return null when `input` has no `://`.
+  splitScheme =
+    input:
+    let
+      parts = splitOn "://" input;
+    in
+    if builtins.length parts < 2 then
+      null
+    else
+      {
+        scheme = builtins.head parts;
+        rest = builtins.concatStringsSep "://" (builtins.tail parts);
+      };
+
+  /*
+    Parse `address/prefix` text, for the kinds that pair an address with
+    a prefix length. `tryParseAddress` is the address's detail parser,
+    such as `ip.tryParseDetail`, and the prefix must fit the family of
+    the address it returns.
+
+    Returns a tryResult whose `value` is `{ address, prefix }`, or whose
+    `error` is the detail of the failure.
+  */
+  addressPrefix =
+    tryParseAddress: input:
+    let
+      parts = splitOn "/" input;
+    in
+    if builtins.length parts != 2 then
+      types.tryErr "missing '/': \"${input}\""
+    else
+      let
+        addressResult = tryParseAddress (builtins.elemAt parts 0);
+        prefixText = builtins.elemAt parts 1;
+        maxPrefix = if addressResult.value._type == "ipv4" then 32 else 128;
+        prefix = decimal maxPrefix prefixText;
+      in
+      if !addressResult.success then
+        addressResult
+      else if !(isDecimal prefixText) then
+        types.tryErr "invalid prefix \"${prefixText}\""
+      else if prefix == null then
+        types.tryErr "prefix /${prefixText} out of range"
+      else
+        types.tryOk {
+          address = addressResult.value;
+          inherit prefix;
+        };
+
+  /*
+    Split a URL with `splitScheme` and check its scheme against a closed
+    registry, for the URL forms whose unknown-scheme error carries a hint.
+    `canonicalize` maps the scheme as written to a registry key, such as
+    by lowercasing it, `schemes` is the registry keyed by canonical
+    scheme, and `hint` lists the accepted schemes.
+
+    Returns a tryResult whose `value` is `{ scheme, rest }` with the
+    canonical scheme, or whose `error` is the detail of the failure.
+  */
+  splitKnownScheme =
+    {
+      canonicalize,
+      schemes,
+      hint,
+    }:
+    input:
+    let
+      split = splitScheme input;
+      canonicalScheme = canonicalize split.scheme;
+    in
+    if split == null then
+      types.tryErr "missing '<scheme>://': \"${input}\""
+    else if !(schemes ? ${canonicalScheme}) then
+      types.tryErr "unknown scheme \"${split.scheme}\" (${hint})"
+    else
+      types.tryOk {
+        scheme = canonicalScheme;
+        inherit (split) rest;
+      };
 
   startsWith =
     prefix: input:
@@ -162,28 +283,89 @@ let
     in
     builtins.substring prefixLength (builtins.stringLength input - prefixLength) input;
 
-  stripSuffix =
-    suffix: input:
+  /*
+    `suite namespace tryParseDetail` builds the parsing suite of the kind
+    `namespace`, such as `ipv4`, from its detail parser, as
+    `comparison.suite` builds ordering from one comparison.
+
+    `tryParseDetail` takes a string and returns a tryResult whose `error`
+    is the detail alone, without the `libnet.<namespace>.parse: ` prefix,
+    so a union or a composite can report a member's failure under its
+    own name. The suite rejects a non-string before calling it and adds
+    the prefix once.
+
+    The public namespaces export the returned functions, so their headers
+    describe public API.
+  */
+  suite =
+    namespace: tryParseDetail:
     let
-      suffixLength = builtins.stringLength suffix;
-      inputLength = builtins.stringLength input;
+      caller = "${namespace}.parse";
+
+      /*
+        Parse text without throwing, for validating untrusted input or
+        reporting the error yourself.
+
+        `input`: any value; a non-string fails.
+
+        Returns a tryResult `{ success, value, error }`, whose `error` is
+        the message `parse` would throw, naming `<namespace>.parse`.
+      */
+      tryParse =
+        input:
+        let
+          result =
+            if builtins.isString input then tryParseDetail input else types.tryErr (errors.notString input);
+        in
+        if result.success then result else types.tryErr (errors.message caller result.error);
     in
-    builtins.substring 0 (inputLength - suffixLength) input;
+    {
+      inherit tryParse;
+
+      /*
+        Parse text, for trusted configuration values.
+
+        `input`: text of the kind.
+
+        Returns a value of the kind; throws on a non-string or invalid
+        input.
+      */
+      parse =
+        input:
+        let
+          result = tryParse input;
+        in
+        if result.success then result.value else throw result.error;
+
+      /*
+        Check whether a value is text that parses as the kind.
+
+        `input`: any value; non-strings yield false.
+
+        Returns a Boolean; never throws.
+      */
+      isValid = input: (tryParse input).success;
+    };
 in
 {
   inherit
+    addressPrefix
     countOccurrences
     decimal
     endsWith
+    hasLeadingZero
     hexByte
     hexGroup
     hexInt
     isDecimal
     isDottedDigits
+    isRepetitionOf
     octet
+    splitKnownScheme
     splitOn
+    splitScheme
     startsWith
     stripPrefix
-    stripSuffix
+    suite
     ;
 }

@@ -67,10 +67,6 @@ in
   };
 
   # ===== Reject =====
-  testRejectNoScheme = {
-    expr = throws (parse "1.2.3.4:443");
-    expected = true;
-  };
   testRejectPlaintextTcp = {
     expr = throws (parse "tcp://1.2.3.4:443");
     expected = true;
@@ -83,9 +79,13 @@ in
     expr = throws (parse "unix:///run/foo.sock");
     expected = true;
   };
+  testRejectNoScheme = {
+    expr = parse "1.2.3.4:443";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: missing '<scheme>://': \"1\\.2\\.3\\.4:443\"$";
+  };
   testRejectTlsPath = {
-    expr = throws (parse "tls:///run/foo.sock");
-    expected = true;
+    expr = parse "TLS:///run/foo.sock";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: 'tls://' requires host:port, not a socket path: \"TLS:///run/foo\\.sock\"$";
   };
   testRejectBadEndpoint = {
     expr = parse "tls://host_name:1";

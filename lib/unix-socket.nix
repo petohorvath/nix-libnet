@@ -45,8 +45,6 @@ let
   valueOf =
     function: unixSocket: (errors.expectKind "unixSocket.${function}" "unixSocket" unixSocket).value;
 
-  parseError = detail: types.tryErr (errors.message "unixSocket.parse" detail);
-
   isPathnameString =
     input:
     let
@@ -64,38 +62,22 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a Unix socket address without throwing, for callers that want
-    to report or recover from invalid input.
+    Parse a Unix socket address: the detail parser of the parsing suite.
 
     `input`: an absolute path `/...` (2-107 bytes) or an abstract name
     `@...` (2-108 bytes).
 
-    Returns a tryResult: `{ success = true; value; }` with a unixSocket
-    value, or `{ success = false; error; }` describing the problem.
+    Returns a tryResult holding a unixSocket value, or the detail of the
+    failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if isPathnameString input || isAbstractString input then
+    if isPathnameString input || isAbstractString input then
       types.tryOk (mk input)
     else
-      parseError "invalid socket \"${input}\" (expected an absolute path '/...' (<=107 bytes) or an abstract name '@...' (<=108 bytes))";
+      types.tryErr "invalid socket \"${input}\" (expected an absolute path '/...' (<=107 bytes) or an abstract name '@...' (<=108 bytes))";
 
-  /*
-    Parse a Unix socket address.
-
-    `input`: an absolute path `/...` (2-107 bytes) or an abstract name
-    `@...` (2-108 bytes).
-
-    Returns a unixSocket value; throws on a non-string or invalid path.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "unixSocket" tryParseDetail;
 
   /*
     Render a Unix socket as its path.
@@ -107,15 +89,6 @@ let
   toString = valueOf "toString";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a Unix socket, without throwing.
-
-    `input`: value to check.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a unixSocket value.
@@ -171,9 +144,12 @@ in
     is
     isAbstract
     isPathname
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

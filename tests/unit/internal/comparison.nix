@@ -79,6 +79,30 @@ in
     expected = 1;
   };
 
+  # ===== optional =====
+  # Null sorts before any value; two values compare by the given order.
+  testOptional = {
+    expr = [
+      (comparison.optional comparison.order null null)
+      (comparison.optional comparison.order null "a")
+      (comparison.optional comparison.order "a" null)
+      (comparison.optional comparison.order "a" "b")
+      (comparison.optional comparison.order "b" "b")
+    ];
+    expected = [
+      0
+      (-1)
+      1
+      (-1)
+      0
+    ];
+  };
+  # The given order sees only non-null values.
+  testOptionalSkipsOrderForNull = {
+    expr = comparison.optional (_: _: throw "compared") null 1;
+    expected = -1;
+  };
+
   # ===== suite =====
   testSuiteRelations = {
     expr = [
