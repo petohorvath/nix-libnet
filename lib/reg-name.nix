@@ -8,19 +8,45 @@
   valid IPv4 address is an IP literal, not a registered name (RFC 3986
   §3.2.2). A member of the `libnet.urlHost` union.
 
-  Equality and ordering are case-insensitive, like DNS names; `toString`
-  preserves the input case.
+  Registered names are case-insensitive, like DNS names, so `parse`
+  folds them to the RFC 3986 §6.2.2.1 canonical form (ADR 0020): letters
+  lowercase and the hex digits of percent-encodings uppercase. `toString`
+  prints canonical text, and equality and ordering compare the stored
+  text.
 
   Example:
-    libnet.regName.parse "my_host"
-    => { _type = "regName"; value = "my_host"; }
+    libnet.regName.parse "My_Host%2f"
+    => { _type = "regName"; value = "my_host%2F"; }
 */
 let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
   ipv4 = import ./ipv4.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
+  parsing = import ./internal/parse.nix;
 
-  lowerAscii = dnsLabel.toLowerAscii;
+  upperHex = builtins.replaceStrings [ "a" "b" "c" "d" "e" "f" ] [ "A" "B" "C" "D" "E" "F" ];
+
+  # Lowercase the text, then uppercase the two hex digits after each `%`.
+  # Validation guarantees that every `%` starts a full escape.
+  fold =
+    input:
+    let
+      segments = parsing.splitOn "%" (dnsLabel.toLowerAscii input);
+      foldEscape =
+        segment:
+        upperHex (builtins.substring 0 2 segment)
+        + builtins.substring 2 (builtins.stringLength segment) segment;
+    in
+    builtins.concatStringsSep "%" (
+      [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
+    );
+
+  # The stored text of a regName argument of `caller`.
+  valueOf = caller: regName: (errors.expectKind caller "regName" regName).value;
+
+  parseError = detail: types.tryErr (errors.message "regName.parse" detail);
 
   # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
   regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
@@ -39,19 +65,20 @@ let
     `input`: a non-empty string of unreserved characters, sub-delimiters,
     and `%XX` escapes that is not a valid IPv4 address.
 
-    Returns a tryResult: `{ success = true; value = <regName>; }` or
+    Returns a tryResult: `{ success = true; value = <regName>; }`, with
+    letters lowercase and percent-encoding hex digits uppercase, or
     `{ success = false; error = <string>; }`. Never throws.
   */
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.regName.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if builtins.match regNamePattern input == null then
-      types.tryErr "libnet.regName.parse: invalid registered name \"${input}\""
+      parseError "invalid registered name \"${input}\""
     else if ipv4.isValid input then
-      types.tryErr "libnet.regName.parse: \"${input}\" is an IPv4 address, not a registered name"
+      parseError "\"${input}\" is an IPv4 address, not a registered name"
     else
-      types.tryOk (mk input);
+      types.tryOk (mk (fold input));
 
   /*
     Parse a registered name, for values that must be valid.
@@ -72,9 +99,10 @@ let
 
     `regName`: a regName value.
 
-    Returns the name exactly as parsed, preserving case.
+    Returns the name in canonical form: letters lowercase,
+    percent-encoding hex digits uppercase.
   */
-  toString = regName: regName.value;
+  toString = valueOf "regName.toString";
 
   # ===== Predicates =====
 
@@ -99,103 +127,39 @@ let
   # ===== Comparison =====
 
   /*
-    Test two registered names for equality, ignoring case.
+    Test two registered names for equality.
 
     `a`, `b`: values to compare.
 
-    Returns true when both are regName values whose names match
-    case-insensitively; false for values of different types.
+    Returns true when both are regName values with the same text; false
+    for values of different types.
   */
-  eq = a: b: types.hasSameTag a b && lowerAscii a.value == lowerAscii b.value;
+  eq = a: b: types.hasSameTag a b && a.value == b.value;
 
-  /*
-    Order two registered names case-insensitively.
-
-    `a`, `b`: regName values.
-
-    Returns -1, 0, or 1.
-  */
-  compare =
-    a: b:
-    let
-      lowerA = lowerAscii a.value;
-      lowerB = lowerAscii b.value;
-    in
-    if lowerA < lowerB then
-      -1
-    else if lowerA > lowerB then
-      1
-    else
-      0;
-
-  /*
-    Check whether one registered name sorts before another.
-
-    `a`, `b`: regName values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Check whether one registered name sorts before or equal to another.
-
-    `a`, `b`: regName values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Check whether one registered name sorts after another.
-
-    `a`, `b`: regName values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Check whether one registered name sorts after or equal to another.
-
-    `a`, `b`: regName values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lesser of two registered names by `compare`.
-
-    `a`, `b`: regName values.
-
-    Returns `a` when it sorts first or equal, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the greater of two registered names by `compare`.
-
-    `a`, `b`: regName values.
-
-    Returns `a` when it sorts last or equal, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  # Byte-wise on the folded text.
+  ordering = comparison.suite {
+    namespace = "regName";
+    compareFor =
+      caller: a: b:
+      comparison.order (valueOf caller a) (valueOf caller b);
+  };
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    parse
-    toString
-    tryParse
     ;
 }

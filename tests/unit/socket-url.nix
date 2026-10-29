@@ -300,6 +300,14 @@ in
     expr = socketUrl.eq (parse "TCP://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
     expected = true;
   };
+  testToStringDnsLowercase = {
+    expr = socketUrl.toString (parse "tcp://Pool.NTP.org:123");
+    expected = "tcp://pool.ntp.org:123";
+  };
+  testToStringUnixPathKeepsCase = {
+    expr = socketUrl.toString (parse "unix:///run/App.sock");
+    expected = "unix:///run/App.sock";
+  };
   testEqDnsCaseInsensitive = {
     expr = socketUrl.eq (parse "tcp://Pool.NTP.org:123") (parse "tcp://pool.ntp.org:123");
     expected = true;

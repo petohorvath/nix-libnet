@@ -135,16 +135,16 @@ in
 
   # ===== Parse: negative =====
   testRejectEmpty = {
-    expr = throws (parse "");
-    expected = true;
+    expr = parse "";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: empty string$";
   };
   testRejectTripleColon = {
     expr = throws (parse ":::");
     expected = true;
   };
   testRejectTwoCompressions = {
-    expr = throws (parse "::1::");
-    expected = true;
+    expr = parse "::1::";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: more than one \"::\" in \"::1::\"$";
   };
   testRejectNineGroups = {
     expr = throws (parse "1:2:3:4:5:6:7:8:9");
@@ -155,8 +155,8 @@ in
     expected = true;
   };
   testRejectNonHex = {
-    expr = throws (parse "gggg::");
-    expected = true;
+    expr = parse "gggg::";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid \"gggg::\"$";
   };
   testRejectV4InLeft = {
     expr = throws (parse "1.2.3.4::1");
@@ -167,8 +167,16 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (ipv6.parse 123);
-    expected = true;
+    expr = ipv6.parse 123;
+    expectedError.msg = "^libnet\\.ipv6\\.parse: expected string, got int$";
+  };
+  testTryParseErrorNamesParse = {
+    expr = (ipv6.tryParse "::1::").error;
+    expected = "libnet.ipv6.parse: more than one \"::\" in \"::1::\"";
+  };
+  testTryParseNonStringError = {
+    expr = (ipv6.tryParse { }).error;
+    expected = "libnet.ipv6.parse: expected string, got set";
   };
   testRejectCompressionWithEightGroups = {
     expr = throws (parse "1:2:3:4::5:6:7:8");
@@ -331,55 +339,68 @@ in
 
   # ===== fromWords / fromGroups / fromBytes errors =====
   testFromWordsShort = {
-    expr = throws (
-      ipv6.fromWords [
-        1
-        2
-        3
-      ]
-    );
-    expected = true;
+    expr = ipv6.fromWords [
+      1
+      2
+      3
+    ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromWords: expected 4 words, got 3$";
   };
   testFromWordsOverflow = {
-    expr = throws (
-      ipv6.fromWords [
-        4294967296
-        0
-        0
-        0
-      ]
-    );
-    expected = true;
+    expr = ipv6.fromWords [
+      4294967296
+      0
+      0
+      0
+    ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromWords: word out of range \\[0, 4294967295\\]: 4294967296$";
   };
   testFromGroupsShort = {
-    expr = throws (
-      ipv6.fromGroups [
-        1
-        2
-        3
-        4
-      ]
-    );
-    expected = true;
+    expr = ipv6.fromGroups [
+      1
+      2
+      3
+      4
+    ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromGroups: expected 8 groups, got 4$";
   };
   testFromGroupsOverflow = {
-    expr = throws (
-      ipv6.fromGroups [
-        65536
-        0
-        0
-        0
-        0
-        0
-        0
-        0
-      ]
-    );
-    expected = true;
+    expr = ipv6.fromGroups [
+      65536
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+    ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromGroups: group out of range \\[0, 65535\\]: 65536$";
   };
   testFromBytesShort = {
-    expr = throws (ipv6.fromBytes [ 0 ]);
-    expected = true;
+    expr = ipv6.fromBytes [ 0 ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromBytes: expected 16 bytes, got 1$";
+  };
+  testFromWordsRejectsSet = {
+    expr = ipv6.fromWords { };
+    expectedError.msg = "^libnet\\.ipv6\\.fromWords: expected list, got set$";
+  };
+  testFromGroupsRejectsStringGroup = {
+    expr = ipv6.fromGroups [
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      "1"
+    ];
+    expectedError.msg = "^libnet\\.ipv6\\.fromGroups: expected int group, got string$";
+  };
+  testFromBytesRejectsFloatByte = {
+    expr = ipv6.fromBytes (builtins.genList (_: 0) 15 ++ [ 1.0 ]);
+    expectedError.msg = "^libnet\\.ipv6\\.fromBytes: expected int byte, got float$";
   };
 
   # ===== Predicates =====
@@ -577,12 +598,12 @@ in
     expected = "1.2.3.4";
   };
   testToIpv4RejectsNonMapped = {
-    expr = throws (ipv6.toIpv4 (parse "::1"));
-    expected = true;
+    expr = ipv6.toIpv4 (parse "::1");
+    expectedError.msg = "^libnet\\.ipv6\\.toIpv4: address is not in ::ffff:0:0/96: ::1$";
   };
   testFromIpv4RejectsIpv6 = {
-    expr = throws (ipv6.fromIpv4 (parse "::1"));
-    expected = true;
+    expr = ipv6.fromIpv4 (parse "::1");
+    expectedError.msg = "^libnet\\.ipv6\\.fromIpv4: expected ipv4 value, got ipv6 value$";
   };
 
   # ===== fromMac (modified EUI-64) =====
@@ -598,28 +619,28 @@ in
     expected = "2001:db8::a8bb:ccff:fedd:eeff";
   };
   testFromMacPrefixTooBig = {
-    expr = throws (
-      ipv6.fromMac {
-        _type = "cidr";
-        networkAddress = parse "2001:db8::";
-        prefix = 96;
-      } (mac.parse "aa:bb:cc:dd:ee:ff")
-    );
-    expected = true;
+    expr = ipv6.fromMac {
+      _type = "cidr";
+      networkAddress = parse "2001:db8::";
+      prefix = 96;
+    } (mac.parse "aa:bb:cc:dd:ee:ff");
+    expectedError.msg = "^libnet\\.ipv6\\.fromMac: CIDR prefix must be <= 64, got /96$";
   };
   testFromMacWrongType = {
-    expr = throws (ipv6.fromMac (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
-    expected = true;
+    expr = ipv6.fromMac (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff");
+    expectedError.msg = "^libnet\\.ipv6\\.fromMac: expected cidr value, got ipv6 value$";
   };
   testFromMacNonMac = {
-    expr = throws (
-      ipv6.fromMac {
-        _type = "cidr";
-        networkAddress = parse "2001:db8::";
-        prefix = 64;
-      } "aa:bb:cc:dd:ee:ff"
-    );
-    expected = true;
+    expr = ipv6.fromMac {
+      _type = "cidr";
+      networkAddress = parse "2001:db8::";
+      prefix = 64;
+    } "aa:bb:cc:dd:ee:ff";
+    expectedError.msg = "^libnet\\.ipv6\\.fromMac: expected mac value, got string$";
+  };
+  testFromMacRejectsIpv4Cidr = {
+    expr = ipv6.fromMac (libnet.cidr.parse "10.0.0.0/8") (mac.parse "aa:bb:cc:dd:ee:ff");
+    expectedError.msg = "^libnet\\.ipv6\\.fromMac: expected an IPv6 cidr, got an IPv4 one$";
   };
 
   # ===== Arithmetic =====
@@ -636,8 +657,8 @@ in
     expected = "::1";
   };
   testAddOverflow = {
-    expr = throws (ipv6.add 1 (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-    expected = true;
+    expr = ipv6.add 1 (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipv6\\.add: out of range: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff \\+ 1$";
   };
   testSubOne = {
     expr = ipv6.toString (ipv6.sub 1 (parse "::2"));
@@ -660,8 +681,8 @@ in
     expected = "::ffff:192.0.2.1";
   };
   testSubUnderflow = {
-    expr = throws (ipv6.sub 1 (parse "::"));
-    expected = true;
+    expr = ipv6.sub 1 (parse "::");
+    expectedError.msg = "^libnet\\.ipv6\\.sub: out of range: :: - 1$";
   };
   testNext = {
     expr = ipv6.toString (ipv6.next (parse "::1"));
@@ -682,6 +703,90 @@ in
   testDiffNegative = {
     expr = ipv6.diff (parse "::10") (parse "::1");
     expected = -15;
+  };
+  testNextAtMaxNamesNext = {
+    expr = ipv6.next (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipv6\\.next: out of range: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff \\+ 1$";
+  };
+  testPrevAtMinNamesPrev = {
+    expr = ipv6.prev (parse "::");
+    expectedError.msg = "^libnet\\.ipv6\\.prev: out of range: :: - 1$";
+  };
+  testAddRejectsFloatOffset = {
+    expr = ipv6.add 1.5 (parse "::1");
+    expectedError.msg = "^libnet\\.ipv6\\.add: expected int, got float$";
+  };
+  testAddNegativeOffset = {
+    expr = ipv6.toString (ipv6.add (-1) (parse "::1:0:0"));
+    expected = "::ffff:ffff";
+  };
+  testSubNegativeOffset = {
+    expr = ipv6.toString (ipv6.sub (-1) (parse "::ffff:ffff"));
+    expected = "::1:0:0";
+  };
+  testAddCarryAcrossEveryWord = {
+    expr = ipv6.toString (ipv6.add 1 (parse "0:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+    expected = "1::";
+  };
+  # The offsets at the integer limits, 2^63 - 1 and -2^63, span the
+  # lower two words.
+  testAddLargestIntegerOffset = {
+    expr = ipv6.toString (ipv6.add 9223372036854775807 (parse "::"));
+    expected = "::7fff:ffff:ffff:ffff";
+  };
+  testAddSmallestIntegerOffset = {
+    expr = ipv6.toString (ipv6.add (-9223372036854775807 - 1) (parse "::8000:0:0:0"));
+    expected = "::";
+  };
+  testAddSmallestIntegerOffsetUnderflow = {
+    expr = ipv6.add (-9223372036854775807 - 1) (parse "::7fff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipv6\\.add: out of range: ::7fff:ffff:ffff:ffff \\+ -9223372036854775808$";
+  };
+  testAddLargestIntegerOffsetToMax = {
+    expr = ipv6.toString (ipv6.add 9223372036854775807 (parse "ffff:ffff:ffff:ffff:8000::"));
+    expected = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
+  };
+  testAddLargestIntegerOffsetOverflow = {
+    expr = ipv6.add 9223372036854775807 (parse "ffff:ffff:ffff:ffff:8000::1");
+    expectedError.msg = "^libnet\\.ipv6\\.add: out of range: ffff:ffff:ffff:ffff:8000::1 \\+ 9223372036854775807$";
+  };
+  testSubLargestIntegerOffset = {
+    expr = ipv6.toString (ipv6.sub 9223372036854775807 (parse "::7fff:ffff:ffff:ffff"));
+    expected = "::";
+  };
+  # Negating this offset would overflow.
+  testSubSmallestIntegerOffset = {
+    expr = ipv6.toString (ipv6.sub (-9223372036854775807 - 1) (parse "::"));
+    expected = "::8000:0:0:0";
+  };
+  testSubSmallestIntegerOffsetOverflow = {
+    expr = ipv6.sub (-9223372036854775807 - 1) (parse "ffff:ffff:ffff:ffff:8000::");
+    expectedError.msg = "^libnet\\.ipv6\\.sub: out of range: ffff:ffff:ffff:ffff:8000:: - -9223372036854775808$";
+  };
+  # A difference fits when it lies in [-2^63, 2^63 - 1].
+  testDiffLargest = {
+    expr = ipv6.diff (parse "::") (parse "::7fff:ffff:ffff:ffff");
+    expected = 9223372036854775807;
+  };
+  testDiffSmallest = {
+    expr = ipv6.diff (parse "::8000:0:0:0") (parse "::");
+    expected = -9223372036854775807 - 1;
+  };
+  testDiffSmallestOffsetFromNonZero = {
+    expr = ipv6.diff (parse "1::8000:0:0:1") (parse "1::1");
+    expected = -9223372036854775807 - 1;
+  };
+  testDiffAboveLargest = {
+    expr = ipv6.diff (parse "::") (parse "::8000:0:0:0");
+    expectedError.msg = "^libnet\\.ipv6\\.diff: difference out of the Nix integer range: ::8000:0:0:0 - ::$";
+  };
+  testDiffBelowSmallest = {
+    expr = ipv6.diff (parse "::8000:0:0:1") (parse "::");
+    expectedError.msg = "^libnet\\.ipv6\\.diff: difference out of the Nix integer range: :: - ::8000:0:0:1$";
+  };
+  testDiffAcrossUpperWords = {
+    expr = ipv6.diff (parse "::") (parse "1::");
+    expectedError.msg = "^libnet\\.ipv6\\.diff: difference out of the Nix integer range: 1:: - ::$";
   };
 
   # ===== Comparison helpers =====
@@ -738,6 +843,24 @@ in
   testMaxLarger = {
     expr = ipv6.toString (ipv6.max (parse "::1") (parse "::2"));
     expected = "::2";
+  };
+  # A single-family namespace orders only its own family; `ip` orders
+  # IPv4 before IPv6.
+  testCompareRejectsIpv4 = {
+    expr = ipv6.compare (parse "::1") (libnet.ipv4.parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.ipv6\\.compare: expected ipv6 value, got ipv4 value$";
+  };
+  testGeRejectsIpv4 = {
+    expr = ipv6.ge (libnet.ipv4.parse "0.0.0.1") (parse "::1");
+    expectedError.msg = "^libnet\\.ipv6\\.ge: expected ipv6 value, got ipv4 value$";
+  };
+  testMinRejectsIpv4 = {
+    expr = ipv6.min (parse "::1") (libnet.ipv4.parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.ipv6\\.min: expected ipv6 value, got ipv4 value$";
+  };
+  testEqIpv4IsFalse = {
+    expr = ipv6.eq (parse "::1") (libnet.ipv4.parse "0.0.0.1");
+    expected = false;
   };
 
   # ===== Constants =====

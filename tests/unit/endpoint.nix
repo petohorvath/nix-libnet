@@ -82,9 +82,9 @@ in
   };
 
   # ===== toString =====
-  testToStringNamePreservesCase = {
+  testToStringNameLowercase = {
     expr = endpoint.toString (parse "MyHost.example.com:443");
-    expected = "MyHost.example.com:443";
+    expected = "myhost.example.com:443";
   };
 
   # ===== Predicates =====

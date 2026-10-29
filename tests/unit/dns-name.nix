@@ -22,9 +22,13 @@ in
     expr = (parse "example.com").value;
     expected = "example.com";
   };
-  testParseMixedCase = {
+  testParseHostnameFoldsCase = {
     expr = (parse "MyHost").value;
-    expected = "MyHost";
+    expected = "myhost";
+  };
+  testParseDomainFoldsCase = {
+    expr = (parse "Example.COM").value;
+    expected = "example.com";
   };
 
   # ===== IP literals rejected =====
@@ -60,8 +64,16 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (dnsName.parse 42);
-    expected = true;
+    expr = dnsName.parse 42;
+    expectedError.msg = "^libnet\\.dnsName\\.parse: expected string, got int$";
+  };
+  testRejectIpNamesDnsName = {
+    expr = parse "192.0.2.1";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: \"192\\.0\\.2\\.1\" is an IP address, not a DNS name$";
+  };
+  testRejectInvalidNamesDnsName = {
+    expr = parse "host_name";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: \"host_name\" is not a valid hostname or domain$";
   };
 
   testTryParseOkHostname = {
@@ -86,9 +98,13 @@ in
     expr = dnsName.toString (parse "example.com");
     expected = "example.com";
   };
-  testToStringPreservesCase = {
+  testToStringLowercase = {
     expr = dnsName.toString (parse "Example.COM");
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  testToStringRejectsIp = {
+    expr = dnsName.toString (libnet.ip.parse "192.0.2.1");
+    expectedError.msg = "^libnet\\.dnsName\\.toString: expected hostname or domain value, got ipv4 value$";
   };
 
   # ===== Predicates =====
@@ -137,14 +153,9 @@ in
     expected = false;
   };
 
-  # ===== Normalize =====
-  testNormalizeHostname = {
-    expr = (dnsName.normalize (parse "MyHost")).value;
-    expected = "myhost";
-  };
-  testNormalizeDomain = {
-    expr = (dnsName.normalize (parse "Example.COM")).value;
-    expected = "example.com";
+  testNoNormalize = {
+    expr = dnsName ? normalize;
+    expected = false;
   };
 
   # ===== Comparison helpers =====
@@ -171,6 +182,14 @@ in
   testMax = {
     expr = dnsName.toString (dnsName.max (dnsName.parse "alpha") (dnsName.parse "beta"));
     expected = "beta";
+  };
+  testLtNamesItself = {
+    expr = dnsName.lt (parse "nas") "nas";
+    expectedError.msg = "^libnet\\.dnsName\\.lt: expected hostname or domain value, got string$";
+  };
+  testMaxNamesItself = {
+    expr = dnsName.max (libnet.ip.parse "192.0.2.1") (parse "nas");
+    expectedError.msg = "^libnet\\.dnsName\\.max: expected hostname or domain value, got ipv4 value$";
   };
 
   # ===== eq =====
@@ -206,6 +225,10 @@ in
   };
   testCompareWithinDomain = {
     expr = dnsName.compare (parse "alpha.com") (parse "beta.com");
+    expected = -1;
+  };
+  testCompareFoldedOrder = {
+    expr = dnsName.compare (parse "alpha") (parse "Beta");
     expected = -1;
   };
   testCompareEqualCase = {

@@ -26,12 +26,16 @@ in
     expected = true;
   };
   testTryParseNotString = {
-    expr = (tryParse 42).success;
-    expected = false;
+    expr = tryParse 42;
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.regName.parse: expected string, got int";
+    };
   };
   testParseThrows = {
-    expr = throws (parse "bad host");
-    expected = true;
+    expr = parse "bad host";
+    expectedError.msg = "^libnet\\.regName\\.parse: invalid registered name \"bad host\"$";
   };
 
   # ===== Grammar (RFC 3986 reg-name) =====
@@ -50,6 +54,20 @@ in
   testPercentEncoded = {
     expr = regName.toString (parse "a%20b");
     expected = "a%20b";
+  };
+  # RFC 3986 §6.2.2.1: letters fold to lowercase, percent-encoding hex
+  # digits to uppercase.
+  testPercentEncodingHexUppercased = {
+    expr = regName.toString (parse "a%2fb%C3%a9");
+    expected = "a%2Fb%C3%A9";
+  };
+  testPercentEncodingFoldsAroundEscapes = {
+    expr = regName.toString (parse "AB%2fCD%eFx");
+    expected = "ab%2Fcd%EFx";
+  };
+  testPercentEncodingCaseEqual = {
+    expr = parse "x%3a" == parse "X%3A";
+    expected = true;
   };
   testNoLabelStructure = {
     expr = regName.isValid "..a..";
@@ -99,9 +117,13 @@ in
   };
 
   # ===== toString / predicates =====
-  testToStringPreservesCase = {
+  testToStringLowercase = {
     expr = regName.toString (parse "Example.COM");
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  testToStringRejectsDomain = {
+    expr = regName.toString (libnet.domain.parse "example.com");
+    expectedError.msg = "^libnet\\.regName\\.toString: expected regName value, got domain value$";
   };
   testIsValidOk = {
     expr = regName.isValid "example.com";
@@ -124,8 +146,8 @@ in
     expected = false;
   };
 
-  # ===== Comparison (case-insensitive) =====
-  testEqCaseInsensitive = {
+  # ===== Comparison (structural on the folded text) =====
+  testEqMixedCaseSpellings = {
     expr = regName.eq (parse "Example.COM") (parse "example.com");
     expected = true;
   };
@@ -141,7 +163,7 @@ in
     expr = regName.compare (parse "alpha") (parse "beta");
     expected = -1;
   };
-  testCompareCaseInsensitiveEqual = {
+  testCompareMixedCaseSpellingsEqual = {
     expr = regName.compare (parse "Example.COM") (parse "example.com");
     expected = 0;
   };
@@ -181,6 +203,14 @@ in
         (parse "b")
       ]
     );
-    expected = [ "C" ];
+    expected = [ "c" ];
+  };
+  testLeNamesItself = {
+    expr = regName.le (parse "a") "a";
+    expectedError.msg = "^libnet\\.regName\\.le: expected regName value, got string$";
+  };
+  testMaxNamesItself = {
+    expr = regName.max (libnet.ip.parse "192.0.2.1") (parse "a");
+    expectedError.msg = "^libnet\\.regName\\.max: expected regName value, got ipv4 value$";
   };
 }

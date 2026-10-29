@@ -23,9 +23,13 @@ in
     expr = (parse "nas")._type;
     expected = "hostname";
   };
-  testParseHostnameMixedCase = {
-    expr = (parse "MyHost")._type;
-    expected = "hostname";
+  testParseHostnameFoldsCase = {
+    expr = parse "MyHost";
+    expected = hostname.parse "myhost";
+  };
+  testParseDomainFoldsCase = {
+    expr = parse "Example.COM";
+    expected = domain.parse "example.com";
   };
   testParseDomainTagged = {
     expr = (parse "example.com")._type;
@@ -75,8 +79,12 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (host.parse 42);
-    expected = true;
+    expr = host.parse 42;
+    expectedError.msg = "^libnet\\.host\\.parse: expected string, got int$";
+  };
+  testRejectInvalidNamesHost = {
+    expr = parse "host_name";
+    expectedError.msg = "^libnet\\.host\\.parse: \"host_name\" is not a valid IP, hostname, or domain$";
   };
 
   testTryParseOkIp = {
@@ -117,13 +125,13 @@ in
     expr = host.toString (parse "example.com");
     expected = "example.com";
   };
-  testToStringHostnamePreservesCase = {
+  testToStringHostnameLowercase = {
     expr = host.toString (parse "MyHost");
-    expected = "MyHost";
+    expected = "myhost";
   };
   testToStringUntaggedThrows = {
-    expr = throws (host.toString { value = "nope"; });
-    expected = true;
+    expr = host.toString { value = "nope"; };
+    expectedError.msg = "^libnet\\.host\\.toString: expected ip, hostname or domain value, got set$";
   };
 
   # ===== Predicates =====
@@ -298,6 +306,18 @@ in
   testMaxPicksLargerFamily = {
     expr = (host.max (parse "10.0.0.1") (parse "example.com"))._type;
     expected = "domain";
+  };
+  testCompareFoldedOrder = {
+    expr = host.compare (parse "alpha") (parse "Beta");
+    expected = -1;
+  };
+  testGtNamesItself = {
+    expr = host.gt (parse "nas") "nas";
+    expectedError.msg = "^libnet\\.host\\.gt: expected ip, hostname or domain value, got string$";
+  };
+  testMinNamesItself = {
+    expr = host.min (libnet.port.fromInt 80) (parse "nas");
+    expectedError.msg = "^libnet\\.host\\.min: expected ip, hostname or domain value, got port value$";
   };
 
   # Sanity: structural .is checks recognise values from each underlying module

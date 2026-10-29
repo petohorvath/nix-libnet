@@ -51,9 +51,9 @@ in
     expr = (authority.host (parse "my_host")).value;
     expected = "my_host";
   };
-  testParseHostCasePreserved = {
-    expr = (authority.host (parse "Example.COM")).value;
-    expected = "Example.COM";
+  testParseHostFoldsCase = {
+    expr = authority.toString (parse "U@Example.COM:8080");
+    expected = "U@example.com:8080";
   };
 
   # ===== Accessors =====

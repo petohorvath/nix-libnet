@@ -2,6 +2,8 @@
 
 Every URL form is bounded: a closed scheme registry, components stored verbatim, and no relative or opaque URIs ([ADR 0011](../adr/0011-bounded-url-forms.md)). Every form matches schemes case-insensitively and prints them lowercase; `transport` stays case-sensitive ([ADR 0012](../adr/0012-transport-enum.md)).
 
+Hosts are case-insensitive, so every form folds its host at parse, as `regName`, `hostname` and `domain` do, and prints it in lowercase ([ADR 0020](../adr/0020-case-folded-at-parse.md)). Userinfo, path, query, fragment and Unix socket paths keep their case.
+
 | Form              | Text                                               | Schemes                                                   | Holds                                    |
 | ----------------- | -------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------- |
 | `socketUrl`       | `<scheme>://<endpoint>`                            | `sctp`, `tcp`, `udp`, `unix`                              | scheme and endpoint                      |
@@ -81,7 +83,7 @@ Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bra
 | IPv6 text | `::1`                             | `[::1]`                                        |
 | Used by   | targets, interface addresses      | `authority`, `url`, `proxyUrl`                 |
 
-Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registered names; names case-insensitive).
+Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registered names by their folded text).
 
 | Function    | Signature                | Notes                                                |
 | ----------- | ------------------------ | ---------------------------------------------------- |
@@ -91,9 +93,9 @@ Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registe
 
 ## `libnet.regName`
 
-Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text that is a valid IPv4 address, such as `192.0.2.1`, is rejected, since RFC 3986 reads it as an IP literal. Text is the name verbatim.
+Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text that is a valid IPv4 address, such as `192.0.2.1`, is rejected, since RFC 3986 reads it as an IP literal. `parse` folds the name to its RFC 3986 §6.2.2.1 canonical form, lowercase letters and uppercase percent-encoding hex digits, so `regName.parse "My_Host%2f"` prints `my_host%2F` ([ADR 0020](../adr/0020-case-folded-at-parse.md)).
 
-Suites: parsing, comparison (case-insensitive). `toString` preserves the input's case.
+Suites: parsing, comparison (byte-wise on the folded text).
 
 ## `libnet.authority`
 
