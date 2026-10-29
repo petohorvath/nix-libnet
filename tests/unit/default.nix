@@ -25,6 +25,7 @@ in
   interface-address = import ./interface-address.nix testContext;
   interface-name = import ./interface-name.nix testContext;
   internal = {
+    address = import ./internal/address.nix testContext;
     bits = import ./internal/bits.nix testContext;
     bounded-int = import ./internal/bounded-int.nix testContext;
     carry = import ./internal/carry.nix testContext;
