@@ -27,6 +27,13 @@ let
   dnsName = import ./dns-name.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
+
+  # Return a URL host argument of `caller`, throwing for any other value.
+  expectUrlHost = caller: errors.expect caller "ip or regName value" types.isUrlHost;
+
+  parseError = detail: types.tryErr (errors.message "urlHost.parse" detail);
 
   # ===== Parsing =====
 
@@ -42,21 +49,18 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.urlHost.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if input == "" then
-      types.tryErr "libnet.urlHost.parse: empty host"
+      parseError "empty host"
     else if parsing.startsWith "[" input then
       if parsing.endsWith "]" input then
         let
           inner = builtins.substring 1 (builtins.stringLength input - 2) input;
           result = ipv6.tryParse inner;
         in
-        if result.success then
-          result
-        else
-          types.tryErr "libnet.urlHost.parse: invalid IPv6 literal \"${input}\""
+        if result.success then result else parseError "invalid IPv6 literal \"${input}\""
       else
-        types.tryErr "libnet.urlHost.parse: unclosed IPv6 literal \"${input}\""
+        parseError "unclosed IPv6 literal \"${input}\""
     else
       let
         ipv4Result = ipv4.tryParse input;
@@ -67,7 +71,7 @@ let
       else if regNameResult.success then
         regNameResult
       else
-        types.tryErr "libnet.urlHost.parse: invalid host \"${input}\"";
+        parseError "invalid host \"${input}\"";
 
   /*
     Parse a URL host, for values that must be valid.
@@ -88,19 +92,20 @@ let
 
     `urlHost`: an ipv4, ipv6, or regName value.
 
-    Returns the host text: IPv6 addresses bracketed, registered names
-    verbatim (case preserved); throws for any other value.
+    Returns the host text: IPv6 addresses bracketed, registered names in
+    their canonical lowercase form; throws for any other value.
   */
   toString =
     urlHost:
-    if types.isIpv6 urlHost then
-      "[${ipv6.toString urlHost}]"
-    else if types.isIpv4 urlHost then
-      ipv4.toString urlHost
-    else if regName.is urlHost then
-      regName.toString urlHost
+    let
+      checked = expectUrlHost "urlHost.toString" urlHost;
+    in
+    if types.isIpv6 checked then
+      "[${ipv6.toString checked}]"
+    else if types.isIpv4 checked then
+      ipv4.toString checked
     else
-      throw "libnet.urlHost.toString: expected ip or regName value";
+      regName.toString checked;
 
   # ===== Predicates =====
 
@@ -150,22 +155,25 @@ let
 
     Returns the IP value itself, or the `dnsName` value when the registered
     name is a valid DNS name; null otherwise (for example, names containing
-    underscores).
+    underscores). Throws for any other value.
   */
   toHost =
     urlHost:
-    if types.isIp urlHost then
-      urlHost
+    let
+      checked = expectUrlHost "urlHost.toHost" urlHost;
+      result = dnsName.tryParse checked.value;
+    in
+    if types.isIp checked then
+      checked
+    else if result.success then
+      result.value
     else
-      let
-        result = dnsName.tryParse (regName.toString urlHost);
-      in
-      if result.success then result.value else null;
+      null;
 
   # ===== Comparison =====
   #
   # Cross-kind order: ip < regName. Within IPs, ipv4 < ipv6 (delegated
-  # to ip.compare); registered names compare case-insensitively.
+  # to ip.compare); registered names by their folded text.
 
   rank = value: if types.isIp value then 0 else 1;
 
@@ -175,8 +183,8 @@ let
     `a`, `b`: values to compare.
 
     Returns true when both are IPs equal under `ip.eq` or both are
-    registered names equal under `regName.eq` (case-insensitive); false
-    across kinds. Never throws on mismatched types.
+    registered names equal under `regName.eq`; false across kinds. Never
+    throws on mismatched types.
   */
   eq =
     a: b:
@@ -187,100 +195,44 @@ let
     else
       false;
 
-  /*
-    Order two URL hosts: IPs before registered names, IPs by `ip.compare`
-    (IPv4 first), and registered names case-insensitively.
-
-    `a`, `b`: ipv4, ipv6, or regName values.
-
-    Returns -1, 0, or 1.
-  */
-  compare =
-    a: b:
-    let
-      rankA = rank a;
-      rankB = rank b;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ip.compare a b
-    else
-      regName.compare a b;
-
-  /*
-    Check whether one URL host sorts before another.
-
-    `a`, `b`: urlHost values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Check whether one URL host sorts before or equal to another.
-
-    `a`, `b`: urlHost values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Check whether one URL host sorts after another.
-
-    `a`, `b`: urlHost values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Check whether one URL host sorts after or equal to another.
-
-    `a`, `b`: urlHost values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lesser of two URL hosts by `compare`.
-
-    `a`, `b`: urlHost values.
-
-    Returns `a` when it sorts first or equal, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the greater of two URL hosts by `compare`.
-
-    `a`, `b`: urlHost values.
-
-    Returns `a` when it sorts last or equal, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  # The operands are checked first, so the delegated comparison cannot
+  # fail and name itself.
+  ordering = comparison.suite {
+    namespace = "urlHost";
+    compareFor =
+      caller: a: b:
+      let
+        left = expectUrlHost caller a;
+        right = expectUrlHost caller b;
+        rankOrder = comparison.order (rank left) (rank right);
+      in
+      if rankOrder != 0 then
+        rankOrder
+      else if rank left == 0 then
+        ip.compare left right
+      else
+        regName.compare left right;
+  };
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isIp
     isRegName
     isValid
-    le
-    lt
-    max
-    min
     parse
     toHost
     toString
     tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

@@ -350,6 +350,10 @@ else
       expr = types.endpoint.mk "pool.ntp.org:123";
       expected = "pool.ntp.org:123";
     };
+    testEndpointMkRejectsSet = {
+      expr = types.endpoint.mk { };
+      expectedError.msg = "^libnet\\.types\\.endpoint\\.mk: expected string, got set$";
+    };
     testEndpointDescription = {
       expr = builtins.isString types.endpoint.description;
       expected = true;
@@ -381,8 +385,28 @@ else
       expected = "/run/foo.sock";
     };
     testUnixSocketMkBad = {
-      expr = throws (types.unixSocket.mk "foo.sock");
-      expected = true;
+      expr = types.unixSocket.mk "foo.sock";
+      expectedError.msg = "^libnet\\.types\\.unixSocket\\.mk: invalid value \"foo\\.sock\"$";
+    };
+    # One character must follow the leading `/` or `@`.
+    testUnixSocketMinimum = {
+      expr = map types.unixSocket.check [
+        "/a"
+        "@a"
+        "/"
+        "@"
+      ];
+      expected = [
+        true
+        true
+        false
+        false
+      ];
+    };
+    # Unix socket paths are case-sensitive, so the merged value keeps case.
+    testUnixSocketMergeKeepsCase = {
+      expr = merged types.unixSocket "/run/Foo.sock";
+      expected = "/run/Foo.sock";
     };
     testUnixSocketDescription = {
       expr = builtins.isString types.unixSocket.description;
@@ -722,6 +746,10 @@ else
       expr = types.ipBindpoint.check "/run/foo.sock";
       expected = false;
     };
+    testIpBindpointMkBad = {
+      expr = types.ipBindpoint.mk "::1:80";
+      expectedError.msg = "^libnet\\.types\\.ipBindpoint\\.mk: invalid value \"::1:80\"$";
+    };
     testIpBindpointDescription = {
       expr = builtins.isString types.ipBindpoint.description;
       expected = true;
@@ -751,6 +779,10 @@ else
     testBindpointBad = {
       expr = types.bindpoint.check "host_name:1";
       expected = false;
+    };
+    testBindpointMkNameRejected = {
+      expr = types.bindpoint.mk "localhost:80";
+      expectedError.msg = "^libnet\\.types\\.bindpoint\\.mk: invalid value \"localhost:80\"$";
     };
     testBindpointMkUnix = {
       expr = types.bindpoint.mk "/run/foo.sock";
@@ -1426,6 +1458,58 @@ else
     testMkPreservesCase = {
       expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
       expected = "AA:BB:CC:DD:EE:FF";
+    };
+    # Parsing folds the case of names (ADR 0020), but string types merge
+    # to the definition as written (ADR 0016).
+    testMergeKeepsNameSpelling = {
+      expr = map ({ type, value }: merged types.${type} value) [
+        {
+          type = "hostname";
+          value = "MyHost";
+        }
+        {
+          type = "domain";
+          value = "Example.COM";
+        }
+        {
+          type = "dnsName";
+          value = "Pool.NTP.org";
+        }
+        {
+          type = "host";
+          value = "NAS";
+        }
+        {
+          type = "regName";
+          value = "My_Host%2f";
+        }
+        {
+          type = "urlHost";
+          value = "Example.COM";
+        }
+        {
+          type = "interfaceName";
+          value = "Eth0";
+        }
+        {
+          type = "url";
+          value = "https://Example.COM/Path";
+        }
+      ];
+      expected = [
+        "MyHost"
+        "Example.COM"
+        "Pool.NTP.org"
+        "NAS"
+        "My_Host%2f"
+        "Example.COM"
+        "Eth0"
+        "https://Example.COM/Path"
+      ];
+    };
+    testInterfaceNameCheckByte160 = {
+      expr = types.interfaceName.check "wlà0";
+      expected = false;
     };
     testMkCidrThrowsBad = {
       expr = throws (types.cidr.mk "bad");

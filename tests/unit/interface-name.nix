@@ -3,6 +3,12 @@ let
   inherit (libnet) interfaceName;
   inherit (helpers) throws;
   inherit (interfaceName) parse;
+
+  # Nix string literals cannot spell these bytes, so decode them from JSON.
+  # U+00A0 is the UTF-8 sequence C3 A0, so its second byte is byte 160.
+  verticalTab = builtins.fromJSON ''"\u000b"'';
+  formFeed = builtins.fromJSON ''"\u000c"'';
+  byte160 = builtins.substring 1 1 (builtins.fromJSON ''"\u00a0"'');
 in
 {
   # ===== parse / toString / accessor =====
@@ -17,6 +23,14 @@ in
   testToStringRoundTrip = {
     expr = interfaceName.toString (parse "br-home");
     expected = "br-home";
+  };
+  testToStringKeepsCase = {
+    expr = interfaceName.toString (parse "Eth0");
+    expected = "Eth0";
+  };
+  testToStringRejectsString = {
+    expr = interfaceName.toString "eth0";
+    expectedError.msg = "^libnet\\.interfaceName\\.toString: expected interfaceName value, got string$";
   };
 
   # ===== isValid — kernel dev_valid_name parity =====
@@ -68,6 +82,29 @@ in
     expr = interfaceName.isValid "eth\r0";
     expected = false;
   };
+  testIsValidRejectVerticalTab = {
+    expr = interfaceName.isValid "eth${verticalTab}0";
+    expected = false;
+  };
+  testIsValidRejectFormFeed = {
+    expr = interfaceName.isValid "eth${formFeed}0";
+    expected = false;
+  };
+  # The kernel's isspace treats byte 160 as space, so dev_valid_name
+  # rejects it, even inside the UTF-8 sequence for "à".
+  testIsValidRejectByte160 = {
+    expr = interfaceName.isValid "eth${byte160}0";
+    expected = false;
+  };
+  testIsValidRejectUtf8WithByte160 = {
+    expr = interfaceName.isValid "wlà0";
+    expected = false;
+  };
+  # Other non-ASCII bytes are not space to the kernel.
+  testIsValidAcceptsOtherUtf8 = {
+    expr = interfaceName.isValid "wlé0";
+    expected = true;
+  };
   testIsValidAcceptsDash = {
     expr = interfaceName.isValid "br-home";
     expected = true;
@@ -99,8 +136,12 @@ in
     expected = true;
   };
   testParseNotString = {
-    expr = throws (parse 42);
-    expected = true;
+    expr = parse 42;
+    expectedError.msg = "^libnet\\.interfaceName\\.parse: expected string, got int$";
+  };
+  testParseRejectSpaceNamesParse = {
+    expr = parse "a b";
+    expectedError.msg = "^libnet\\.interfaceName\\.parse: name contains '/', ':' or a space byte: \"a b\"$";
   };
   testTryParseOk = {
     expr = (interfaceName.tryParse "eth0").success;
@@ -153,6 +194,14 @@ in
   testMax = {
     expr = interfaceName.toString (interfaceName.max (parse "eth1") (parse "eth0"));
     expected = "eth1";
+  };
+  testLtCaseSensitiveOrder = {
+    expr = interfaceName.lt (parse "Eth0") (parse "eth0");
+    expected = true;
+  };
+  testGeNamesItself = {
+    expr = interfaceName.ge (parse "eth0") "eth0";
+    expectedError.msg = "^libnet\\.interfaceName\\.ge: expected interfaceName value, got string$";
   };
 
   # ===== Constant =====

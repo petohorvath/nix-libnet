@@ -238,6 +238,10 @@ in
     expr = proxyUrl.eq (parse "socks5://u@h:1080") (parse "socks5://h:1080");
     expected = false;
   };
+  testToStringHostLowercase = {
+    expr = proxyUrl.toString (parse "socks5://User@Example.COM:1080");
+    expected = "socks5://User@example.com:1080";
+  };
   testEqHostCaseInsensitive = {
     expr = proxyUrl.eq (parse "socks5://Example.COM:1080") (parse "socks5://example.com:1080");
     expected = true;

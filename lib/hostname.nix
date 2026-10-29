@@ -10,14 +10,13 @@
   end with an alphanumeric character, no dots, no underscores. Leading
   digit allowed (RFC 1123 §2.1 relaxed the older RFC 952 rule).
 
-  Equality and ordering are case-insensitive (DNS semantics — two
-  hostnames that differ only in case refer to the same host).
-  `toString` preserves the input case verbatim; `normalize` returns a
-  lowercase value.
+  Hostnames are case-insensitive (DNS semantics), so `parse` lowercases
+  them (ADR 0020): `toString` prints canonical text, and equality and
+  ordering compare the stored text.
 
   Example:
     libnet.hostname.parse "MyHost"
-    => { _type = "hostname"; value = "MyHost"; }
+    => { _type = "hostname"; value = "myhost"; }
 
     libnet.hostname.eq (libnet.hostname.parse "NAS")
                        (libnet.hostname.parse "nas")
@@ -26,11 +25,16 @@
 let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
 
   mk = value: {
     _type = "hostname";
     inherit value;
   };
+
+  # The stored text of a hostname argument of `caller`.
+  valueOf = caller: hostname: (errors.expectKind caller "hostname" hostname).value;
 
   # ===== Parsing =====
 
@@ -46,14 +50,16 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.hostname.parse: input must be a string"
+      types.tryErr (errors.message "hostname.parse" "expected string, got ${errors.describe input}")
     else if !(dnsLabel.isValidLabel input) then
-      types.tryErr "libnet.hostname.parse: invalid hostname \"${input}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+      types.tryErr (
+        errors.message "hostname.parse" "invalid hostname \"${input}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+      )
     else
-      types.tryOk (mk input);
+      types.tryOk (mk (dnsLabel.toLowerAscii input));
 
   /*
-    Parse a single-label hostname, keeping its case verbatim.
+    Parse a single-label hostname, lowercasing it.
 
     `input`: 1-63 ASCII alphanumerics or hyphens, starting and ending
     with an alphanumeric.
@@ -72,9 +78,9 @@ let
 
     `hostname`: hostname value.
 
-    Returns the hostname exactly as parsed, preserving case.
+    Returns the hostname in lowercase.
   */
-  toString = hostname: hostname.value;
+  toString = valueOf "hostname.toString";
 
   # ===== Predicates =====
 
@@ -96,121 +102,42 @@ let
   */
   is = value: types.isHostname value;
 
-  # ===== Normalization =====
-
-  /*
-    Lowercase a hostname so equal names share one spelling.
-
-    `hostname`: hostname value.
-
-    Returns a hostname value with an ASCII-lowercased `value`.
-  */
-  normalize = hostname: mk (dnsLabel.toLowerAscii hostname.value);
-
   # ===== Comparison =====
-  #
-  # Case-insensitive per DNS semantics. `toString` still preserves the
-  # verbatim input case; only `eq` / `compare` and friends fold case.
 
   /*
-    Test two hostnames for equality, ignoring case.
+    Test two hostnames for equality.
 
     `a`, `b`: values to compare.
 
-    Returns true when both carry the same tag and their values match
-    case-insensitively; false for values of different types.
+    Returns true when both are hostnames with the same text; false for
+    values of different types.
   */
-  eq = a: b: types.hasSameTag a b && dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
+  eq = a: b: types.hasSameTag a b && a.value == b.value;
 
-  /*
-    Order two hostnames case-insensitively, for sorting.
-
-    `a`, `b`: hostname values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
-    a: b:
-    let
-      lowerA = dnsLabel.toLowerAscii a.value;
-      lowerB = dnsLabel.toLowerAscii b.value;
-    in
-    if lowerA < lowerB then
-      -1
-    else if lowerA > lowerB then
-      1
-    else
-      0;
-
-  /*
-    Test whether one hostname sorts strictly before another.
-
-    `a`, `b`: hostname values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one hostname sorts before or equal to another.
-
-    `a`, `b`: hostname values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one hostname sorts strictly after another.
-
-    `a`, `b`: hostname values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one hostname sorts after or equal to another.
-
-    `a`, `b`: hostname values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the hostname that sorts first.
-
-    `a`, `b`: hostname values.
-
-    Returns `a` when `le a b`, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the hostname that sorts last.
-
-    `a`, `b`: hostname values.
-
-    Returns `a` when `ge a b`, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  # Byte-wise on the lowercase text.
+  ordering = comparison.suite {
+    namespace = "hostname";
+    compareFor =
+      caller: a: b:
+      comparison.order (valueOf caller a) (valueOf caller b);
+  };
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    normalize
-    parse
-    toString
-    tryParse
     ;
 }

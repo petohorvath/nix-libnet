@@ -18,7 +18,7 @@ Suites: parsing, comparison (by family, address, then port), address predicates.
 
 Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the DNS name is unresolved, so there are no address predicates.
 
-Suites: parsing, comparison (by name case-insensitively, then port).
+Suites: parsing, comparison (hostnames before domains, then by name, then by port).
 
 | Function                 | Signature                      | Notes              |
 | ------------------------ | ------------------------------ | ------------------ |
@@ -28,18 +28,17 @@ Suites: parsing, comparison (by name case-insensitively, then port).
 
 ## `libnet.unixSocket`
 
-Value: `{ _type = "unixSocket"; path = String; }`: a pathname starting with `/` of at most 107 bytes, or an abstract name starting with `@` of at most 108 bytes (Linux `sun_path`). Text is the path verbatim.
+Value: `{ _type = "unixSocket"; value = String; }`: a pathname starting with `/` of at most 107 bytes, or an abstract name starting with `@` of at most 108 bytes (Linux `sun_path`), with at least one character after the `/` or `@`. Text is the path verbatim; read it with `toString`.
 
 Suites: parsing, comparison (byte-wise, case-sensitive).
 
-| Function                   | Signature             | Notes |
-| -------------------------- | --------------------- | ----- |
-| `path`                     | `UnixSocket → String` |       |
-| `isPathname`, `isAbstract` | `UnixSocket → Bool`   |       |
+| Function                   | Signature           | Notes |
+| -------------------------- | ------------------- | ----- |
+| `isPathname`, `isAbstract` | `UnixSocket → Bool` |       |
 
 ## `libnet.endpoint`
 
-Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint.
+Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint. Its errors name `endpoint.parse`, so `endpoint.parse "@"` reports `libnet.endpoint.parse: invalid socket "@" …` with the Unix socket's detail.
 
 Suites: parsing, comparison (IP, DNS, then Unix kinds; `eq` is `false` across kinds).
 
@@ -53,20 +52,20 @@ Value: `{ _type = "ipBindpoint"; address = Ip or null; portRange = PortRange; }`
 
 Suites: parsing, comparison (null address first, then by family, address and port range), address predicates (`false` for a null address; `toArpa` throws).
 
-| Function               | Signature                              | Notes                                              |
-| ---------------------- | -------------------------------------- | -------------------------------------------------- |
-| `make`                 | `Ip or null → PortRange → IpBindpoint` |                                                    |
-| `address`, `portRange` |                                        | Accessors.                                         |
-| `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                         |
-| `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                        |
-| `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.     |
-| `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Offset into the port range.                        |
-| `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports. |
-| `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard.                                     |
+| Function               | Signature                              | Notes                                                 |
+| ---------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `make`                 | `Ip or null → PortRange → IpBindpoint` |                                                       |
+| `address`, `portRange` |                                        | Accessors.                                            |
+| `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                            |
+| `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                           |
+| `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.        |
+| `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Index into the port range; throws for a null address. |
+| `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports.    |
+| `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard; throws for a null address.             |
 
 ## `libnet.bindpoint`
 
-Pass-through union over `ipBindpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`. DNS names, including `localhost`, are rejected.
+Pass-through union over `ipBindpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`. DNS names, including `localhost`, are rejected. Its errors name `bindpoint.parse` and keep the member's detail: `bindpoint.parse "x"` reports `libnet.bindpoint.parse: missing ':port' in "x"`.
 
 Suites: parsing, comparison (IP before Unix kinds; `eq` is `false` across kinds).
 
