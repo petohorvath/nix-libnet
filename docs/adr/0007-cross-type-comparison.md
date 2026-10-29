@@ -3,7 +3,7 @@
 Comparison follows one rule set everywhere, so mixed inputs behave predictably:
 
 - `eq` returns `false` for values of different kinds or families, and for operands that are not tagged values (`{ }`, `null`, `1`). It never throws. A malformed tagged value such as `{ _type = "cidr"; }` gives undefined results.
-- Ordering (`lt`, `compare`, `min` and the rest) sorts IPv4 before IPv6, so `sort` works on mixed-family lists without partitioning. Union namespaces define a fixed order between their members.
+- Ordering (`lt`, `compare`, `min` and the rest) in a namespace that spans both families, the union `ip` or a kind such as `cidr`, sorts IPv4 before IPv6, so `sort` works on mixed-family lists without partitioning. Union namespaces define a fixed order between their members. The single-family namespaces `ipv4` and `ipv6` order only their own family and throw for the other, as for any wrong kind.
 - Containment and overlap predicates return `false` across families.
 - Arithmetic throws on overflow, and `ip.diff` across families throws.
 

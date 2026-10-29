@@ -34,6 +34,39 @@ in
   };
 
   # ===== Parse: negative =====
+  # The address's failure keeps its detail under cidr.parse alone.
+  testParseBadAddressNamesCidrParseOnce = {
+    expr =
+      map
+        (
+          input:
+          let
+            inherit (cidr.tryParse input) error;
+          in
+          [
+            (builtins.match "libnet[.]cidr[.]parse: .*" error != null)
+            (builtins.match ".*libnet[.]ipv[46].*" error == null)
+          ]
+        )
+        [
+          "300.0.0.0/8"
+          "2001:db8:::/32"
+        ];
+    expected = [
+      [
+        true
+        true
+      ]
+      [
+        true
+        true
+      ]
+    ];
+  };
+  testParseHostBitsNamesParse = {
+    expr = parse "10.0.0.5/24";
+    expectedError.msg = "^libnet\\.cidr\\.parse: host bits set in \"10\\.0\\.0\\.5/24\"; the CIDR is 10\\.0\\.0\\.0/24";
+  };
   testRejectNoSlash = {
     expr = throws (parse "10.0.0.0");
     expected = true;
@@ -221,8 +254,8 @@ in
     expr = cidr.size (parse "10.0.0.0/24");
     expected = 256;
   };
-  testNumHostsV4Prefix24 = {
-    expr = cidr.numHosts (parse "10.0.0.0/24");
+  testHostCountV4Prefix24 = {
+    expr = cidr.hostCount (parse "10.0.0.0/24");
     expected = 254;
   };
 
@@ -239,8 +272,8 @@ in
     expr = cidr.size (parse "10.0.0.0/30");
     expected = 4;
   };
-  testNumHostsV4Prefix30 = {
-    expr = cidr.numHosts (parse "10.0.0.0/30");
+  testHostCountV4Prefix30 = {
+    expr = cidr.hostCount (parse "10.0.0.0/30");
     expected = 2;
   };
 
@@ -257,8 +290,8 @@ in
     expr = cidr.size (parse "10.0.0.0/31");
     expected = 2;
   };
-  testNumHostsV4Prefix31 = {
-    expr = cidr.numHosts (parse "10.0.0.0/31");
+  testHostCountV4Prefix31 = {
+    expr = cidr.hostCount (parse "10.0.0.0/31");
     expected = 2;
   };
 
@@ -275,8 +308,8 @@ in
     expr = cidr.size (parse "1.2.3.4/32");
     expected = 1;
   };
-  testNumHostsV4Prefix32 = {
-    expr = cidr.numHosts (parse "1.2.3.4/32");
+  testHostCountV4Prefix32 = {
+    expr = cidr.hostCount (parse "1.2.3.4/32");
     expected = 1;
   };
 
@@ -300,8 +333,8 @@ in
     expected = "2001:db8::1";
   };
   testBroadcastV6Throws = {
-    expr = throws (cidr.broadcast (parse "2001:db8::/64"));
-    expected = true;
+    expr = cidr.broadcast (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.broadcast: IPv6 has no broadcast$";
   };
 
   # ===== v6 /127 (point-to-point) =====
@@ -330,8 +363,8 @@ in
 
   # ===== v6 /0 and /65 overflow =====
   testSizeV6Prefix65Throws = {
-    expr = throws (cidr.size (parse "::/65"));
-    expected = true;
+    expr = cidr.size (parse "::/65");
+    expectedError.msg = "^libnet\\.cidr\\.size: block too large for a Nix integer \\(2\\^63 addresses\\)$";
   };
   testSizeV6Prefix0Throws = {
     expr = throws (cidr.size (parse "::/0"));
@@ -341,24 +374,32 @@ in
     expr = cidr.size (parse "::/66");
     expected = 4611686018427387904;
   };
-  testNumHostsV6Prefix120 = {
-    expr = cidr.numHosts (parse "2001:db8::/120");
+  testHostCountV6Prefix120 = {
+    expr = cidr.hostCount (parse "2001:db8::/120");
     expected = 255;
   };
-  testNumHostsV6Prefix64Throws = {
-    expr = throws (cidr.numHosts (parse "2001:db8::/64"));
-    expected = true;
+  testHostCountV6Prefix64Throws = {
+    expr = cidr.hostCount (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.hostCount: block too large for a Nix integer \\(2\\^64 addresses\\)$";
   };
-  testNumHostsV6Prefix126 = {
-    expr = cidr.numHosts (parse "2001:db8::/126");
+  testHostCountV6Prefix66 = {
+    expr = cidr.hostCount (parse "::/66");
+    expected = 4611686018427387903;
+  };
+  testHostCountRejectsIpv4 = {
+    expr = cidr.hostCount (ipv4.parse "10.0.0.0");
+    expectedError.msg = "^libnet\\.cidr\\.hostCount: expected cidr value, got ipv4 value$";
+  };
+  testHostCountV6Prefix126 = {
+    expr = cidr.hostCount (parse "2001:db8::/126");
     expected = 3;
   };
-  testNumHostsV6Prefix127 = {
-    expr = cidr.numHosts (parse "2001:db8::/127");
+  testHostCountV6Prefix127 = {
+    expr = cidr.hostCount (parse "2001:db8::/127");
     expected = 2;
   };
-  testNumHostsV6Prefix128 = {
-    expr = cidr.numHosts (parse "::1/128");
+  testHostCountV6Prefix128 = {
+    expr = cidr.hostCount (parse "::1/128");
     expected = 1;
   };
   testLastHostV6Prefix120 = {
@@ -404,12 +445,44 @@ in
     expected = "2001:db8::ff";
   };
   testAddressAtOutOfRangePositive = {
-    expr = throws (cidr.addressAt 16 (parse "10.0.0.0/28"));
-    expected = true;
+    expr = cidr.addressAt 16 (parse "10.0.0.0/28");
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[0, 16\\): 16$";
   };
   testAddressAtOutOfRangeNegative = {
-    expr = throws (cidr.addressAt (-17) (parse "10.0.0.0/28"));
-    expected = true;
+    expr = cidr.addressAt (-17) (parse "10.0.0.0/28");
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[0, 16\\): -17$";
+  };
+  testAddressAtRejectsFloat = {
+    expr = cidr.addressAt 1.0 (parse "10.0.0.0/28");
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: expected int, got float$";
+  };
+  testAddressAtV6Prefix64NamesAddressAt = {
+    expr = cidr.addressAt 0 (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: block too large for a Nix integer \\(2\\^64 addresses\\)$";
+  };
+  testAddressAtV6Prefix66Ends = {
+    expr = map (n: formatIpv6 (cidr.addressAt n (parse "::/66"))) [
+      0
+      (-1)
+      (-4611686018427387904)
+    ];
+    expected = [
+      "::"
+      "::3fff:ffff:ffff:ffff"
+      "::"
+    ];
+  };
+  testAddressAtV4Prefix0Ends = {
+    expr = map (n: formatIpv4 (cidr.addressAt n (parse "0.0.0.0/0"))) [
+      0
+      (-1)
+      4294967295
+    ];
+    expected = [
+      "0.0.0.0"
+      "255.255.255.255"
+      "255.255.255.255"
+    ];
   };
 
   testHostsPrefix24 = {
@@ -447,8 +520,20 @@ in
     ];
   };
   testHostsTooLargeThrows = {
-    expr = throws (cidr.hosts (parse "10.0.0.0/15"));
-    expected = true;
+    expr = cidr.hosts (parse "10.0.0.0/15");
+    expectedError.msg = "^libnet\\.cidr\\.hosts: block too large \\(131072 addresses > 2\\^16\\); use addressAt or hostsUnbounded$";
+  };
+  testHostsAtLimit = {
+    expr = builtins.length (cidr.hosts (parse "10.0.0.0/16"));
+    expected = 65534;
+  };
+  testHostsV6Prefix64NamesHosts = {
+    expr = cidr.hosts (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.hosts: block too large for a Nix integer \\(2\\^64 addresses\\)$";
+  };
+  testHostsUnboundedV6Prefix64NamesItself = {
+    expr = cidr.hostsUnbounded (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.hostsUnbounded: block too large for a Nix integer \\(2\\^64 addresses\\)$";
   };
   testHostsUnbounded = {
     expr = builtins.length (cidr.hostsUnbounded (parse "10.0.0.0/24"));
@@ -478,12 +563,20 @@ in
   };
   # A block is not an element; the throw points callers at isSupernetOf.
   testContainsCidrThrows = {
-    expr = throws (cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16"));
-    expected = true;
+    expr = cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16");
+    expectedError.msg = "^libnet\\.cidr\\.contains: expected ipv4 or ipv6 value, got cidr value; test a block with isSupernetOf$";
   };
   testContainsNonAddress = {
     expr = cidr.contains (parse "10.0.0.0/24") "10.0.0.5";
-    expected = false;
+    expectedError.msg = "^libnet\\.cidr\\.contains: expected ipv4 or ipv6 value, got string$";
+  };
+  testContainsMac = {
+    expr = cidr.contains (parse "10.0.0.0/24") (libnet.mac.parse "00:00:5e:00:53:01");
+    expectedError.msg = "^libnet\\.cidr\\.contains: expected ipv4 or ipv6 value, got mac value$";
+  };
+  testContainsAddressAsBlock = {
+    expr = cidr.contains (ipv4.parse "10.0.0.0") (ipv4.parse "10.0.0.5");
+    expectedError.msg = "^libnet\\.cidr\\.contains: expected cidr value, got ipv4 value$";
   };
   testContainsCrossFamily = {
     expr = cidr.contains (parse "10.0.0.0/24") (ipv6.parse "::1");
@@ -528,6 +621,14 @@ in
   testIsSubnetOfCrossFamily = {
     expr = cidr.isSubnetOf (parse "10.0.0.0/24") (parse "::/0");
     expected = false;
+  };
+  testIsSubnetOfRejectsAddress = {
+    expr = cidr.isSubnetOf (ipv4.parse "10.0.0.1") (parse "10.0.0.0/24");
+    expectedError.msg = "^libnet\\.cidr\\.isSubnetOf: expected cidr value, got ipv4 value$";
+  };
+  testIsSupernetOfRejectsAddress = {
+    expr = cidr.isSupernetOf (parse "10.0.0.0/24") (ipv4.parse "10.0.0.1");
+    expectedError.msg = "^libnet\\.cidr\\.isSupernetOf: expected cidr value, got ipv4 value$";
   };
   testIsSupernetOfTrue = {
     expr = cidr.isSupernetOf (parse "10.0.0.0/8") (parse "10.0.0.0/24");
@@ -601,12 +702,20 @@ in
     expected = [ "10.0.0.0/24" ];
   };
   testSubnetsExceedsMax = {
-    expr = throws (cidr.subnets 1 (parse "10.0.0.0/32"));
-    expected = true;
+    expr = cidr.subnets 1 (parse "10.0.0.0/32");
+    expectedError.msg = "^libnet\\.cidr\\.subnets: resulting prefix /33 exceeds max /32$";
   };
   testSubnetsTooMany = {
-    expr = throws (cidr.subnets 17 (parse "10.0.0.0/8"));
-    expected = true;
+    expr = cidr.subnets 17 (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.subnets: n too large \\(>16\\); would produce > 2\\^16 subnets$";
+  };
+  testSubnetsNegative = {
+    expr = cidr.subnets (-1) (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.subnets: n must not be negative: -1$";
+  };
+  testSubnetsRejectsString = {
+    expr = cidr.subnets "1" (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.subnets: expected int, got string$";
   };
   testSubnetsV6SplitsInTwo = {
     expr = map cidr.toString (cidr.subnets 1 (parse "2001:db8::/64"));
@@ -661,8 +770,27 @@ in
     expected = "10.1.0.0/16";
   };
   testSupernetFromPrefix0Throws = {
-    expr = throws (cidr.supernet 1 (parse "0.0.0.0/0"));
-    expected = true;
+    expr = cidr.supernet 1 (parse "0.0.0.0/0");
+    expectedError.msg = "^libnet\\.cidr\\.supernet: n exceeds current prefix /0: 1$";
+  };
+  testSupernetNegative = {
+    expr = cidr.supernet (-1) (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.supernet: n must not be negative: -1$";
+  };
+  testSupernetRejectsFloat = {
+    expr = cidr.supernet 1.0 (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.supernet: expected int, got float$";
+  };
+  testSummarizeRejectsSet = {
+    expr = cidr.summarize { };
+    expectedError.msg = "^libnet\\.cidr\\.summarize: expected list, got set$";
+  };
+  testSummarizeRejectsAddress = {
+    expr = cidr.summarize [
+      (parse "10.0.0.0/8")
+      (ipv4.parse "10.0.0.0")
+    ];
+    expectedError.msg = "^libnet\\.cidr\\.summarize: expected cidr value, got ipv4 value$";
   };
 
   # ===== Set algebra =====
@@ -730,8 +858,8 @@ in
     expected = [ ];
   };
   testExcludeNotParent = {
-    expr = throws (cidr.exclude (parse "10.0.0.0/24") (parse "11.0.0.0/25"));
-    expected = true;
+    expr = cidr.exclude (parse "10.0.0.0/24") (parse "11.0.0.0/25");
+    expectedError.msg = "^libnet\\.cidr\\.exclude: child not contained in parent$";
   };
   testExcludeV4Quarter = {
     expr = map cidr.toString (cidr.exclude (parse "10.0.0.0/24") (parse "10.0.0.0/26"));
@@ -792,6 +920,14 @@ in
     expr = cidr.intersect (parse "10.0.0.0/24") (parse "::/0");
     expected = null;
   };
+  testIntersectRejectsString = {
+    expr = cidr.intersect (parse "10.0.0.0/24") "10.0.0.0/24";
+    expectedError.msg = "^libnet\\.cidr\\.intersect: expected cidr value, got string$";
+  };
+  testExcludeCrossFamily = {
+    expr = cidr.exclude (parse "10.0.0.0/24") (parse "::/0");
+    expectedError.msg = "^libnet\\.cidr\\.exclude: family mismatch$";
+  };
 
   # ===== make / fromAddress / accessors / direct containment =====
   testMakeOk = {
@@ -799,16 +935,20 @@ in
     expected = "10.0.0.0/24";
   };
   testMakeBadPrefix = {
-    expr = throws (cidr.make (ipv4.parse "10.0.0.0") 33);
-    expected = true;
+    expr = cidr.make (ipv4.parse "10.0.0.0") 33;
+    expectedError.msg = "^libnet\\.cidr\\.make: prefix out of range \\[0, 32\\]: 33$";
+  };
+  testMakeNegativePrefix = {
+    expr = cidr.make (ipv6.parse "::") (-1);
+    expectedError.msg = "^libnet\\.cidr\\.make: prefix out of range \\[0, 128\\]: -1$";
   };
   testMakeBadAddress = {
-    expr = throws (cidr.make "10.0.0.0" 24);
-    expected = true;
+    expr = cidr.make "10.0.0.0" 24;
+    expectedError.msg = "^libnet\\.cidr\\.make: expected ipv4 or ipv6 value, got string$";
   };
   testMakeHostBits = {
-    expr = throws (cidr.make (ipv4.parse "10.0.0.5") 24);
-    expected = true;
+    expr = cidr.make (ipv4.parse "10.0.0.5") 24;
+    expectedError.msg = "^libnet\\.cidr\\.make: host bits set in \"10\\.0\\.0\\.5/24\"";
   };
   testMakeV6HostBits = {
     expr = throws (cidr.make (ipv6.parse "2001:db8::1") 64);
@@ -819,8 +959,8 @@ in
     expected = "2001:db8::/32";
   };
   testMakeNonIntPrefix = {
-    expr = throws (cidr.make (ipv4.parse "10.0.0.0") "24");
-    expected = true;
+    expr = cidr.make (ipv4.parse "10.0.0.0") "24";
+    expectedError.msg = "^libnet\\.cidr\\.make: expected int, got string$";
   };
   testFromAddressV4 = {
     expr = cidr.toString (cidr.fromAddress (ipv4.parse "10.0.0.5"));
@@ -831,8 +971,12 @@ in
     expected = "2001:db8::1/128";
   };
   testFromAddressBad = {
-    expr = throws (cidr.fromAddress "10.0.0.5");
-    expected = true;
+    expr = cidr.fromAddress "10.0.0.5";
+    expectedError.msg = "^libnet\\.cidr\\.fromAddress: expected ipv4 or ipv6 value, got string$";
+  };
+  testFromAddressRejectsCidr = {
+    expr = cidr.fromAddress (parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.cidr\\.fromAddress: expected ipv4 or ipv6 value, got cidr value$";
   };
   testNetworkAddressField = {
     expr = ipv4.toString (parse "10.0.0.0/24").networkAddress;
@@ -905,5 +1049,17 @@ in
   testComparePrefixLt = {
     expr = cidr.compare (parse "10.0.0.0/24") (parse "10.0.0.0/25");
     expected = -1;
+  };
+  testCompareRejectsAddress = {
+    expr = cidr.compare (parse "10.0.0.0/24") (ipv4.parse "10.0.0.0");
+    expectedError.msg = "^libnet\\.cidr\\.compare: expected cidr value, got ipv4 value$";
+  };
+  testGeRejectsInterfaceAddress = {
+    expr = cidr.ge (libnet.interfaceAddress.parse "10.0.0.1/24") (parse "10.0.0.0/24");
+    expectedError.msg = "^libnet\\.cidr\\.ge: expected cidr value, got interfaceAddress value$";
+  };
+  testMaxMixedFamilies = {
+    expr = cidr.toString (cidr.max (parse "::/0") (parse "10.0.0.0/8"));
+    expected = "::/0";
   };
 }

@@ -1,7 +1,6 @@
-{ helpers, libnet, ... }:
+{ libnet, ... }:
 let
   inherit (libnet) ip;
-  inherit (helpers) throws;
   inherit (ip) parse;
 in
 {
@@ -15,8 +14,21 @@ in
     expected = 6;
   };
   testParseRejectsBad = {
-    expr = throws (parse "bogus");
-    expected = true;
+    expr = parse "bogus";
+    expectedError.msg = "^libnet\\.ip\\.parse: must have 4 octets, got 1: \"bogus\"$";
+  };
+  # A union names itself and keeps its member's detail.
+  testParseInvalidOctetNamesIp = {
+    expr = parse "300.1.1.1";
+    expectedError.msg = "^libnet\\.ip\\.parse: invalid octet in \"300\\.1\\.1\\.1\"$";
+  };
+  testParseIpv4WithPortNamesIp = {
+    expr = parse "1.2.3.4:5";
+    expectedError.msg = "^libnet\\.ip\\.parse: invalid \"1\\.2\\.3\\.4:5\"$";
+  };
+  testParseNonStringNamesIp = {
+    expr = ip.parse 1;
+    expectedError.msg = "^libnet\\.ip\\.parse: expected string, got int$";
   };
   testTryParseV4 = {
     expr = (ip.tryParse "1.2.3.4").success;
@@ -29,6 +41,14 @@ in
   testTryParseBad = {
     expr = (ip.tryParse "bad").success;
     expected = false;
+  };
+  testTryParseErrorNamesIp = {
+    expr = (ip.tryParse "300.1.1.1").error;
+    expected = "libnet.ip.parse: invalid octet in \"300.1.1.1\"";
+  };
+  testTryParseIpv6ErrorNamesIp = {
+    expr = (ip.tryParse "::1::").error;
+    expected = "libnet.ip.parse: more than one \"::\" in \"::1::\"";
   };
 
   # ===== version / is predicates =====
@@ -247,26 +267,119 @@ in
     expected = 15;
   };
   testDiffCrossFamilyThrows = {
-    expr = throws (ip.diff (parse "1.2.3.4") (parse "::1"));
-    expected = true;
+    expr = ip.diff (parse "1.2.3.4") (parse "::1");
+    expectedError.msg = "^libnet\\.ip\\.diff: cross-family difference is undefined$";
+  };
+  testDiffV6Smallest = {
+    expr = ip.diff (parse "::8000:0:0:0") (parse "::");
+    expected = -9223372036854775807 - 1;
+  };
+  testDiffV6OutOfRangeNamesIp = {
+    expr = ip.diff (parse "::") (parse "1::");
+    expectedError.msg = "^libnet\\.ip\\.diff: difference out of the Nix integer range: 1:: - ::$";
+  };
+  testDiffRejectsNonIp = {
+    expr = ip.diff (parse "::") (libnet.cidr.parse "::/0");
+    expectedError.msg = "^libnet\\.ip\\.diff: expected ipv4 or ipv6 value, got cidr value$";
+  };
+  # Range errors name the `ip` function called, not the family's.
+  testAddV4OverflowNamesIp = {
+    expr = ip.add 1 (parse "255.255.255.255");
+    expectedError.msg = "^libnet\\.ip\\.add: out of range: 255\\.255\\.255\\.255 \\+ 1$";
+  };
+  testSubV6UnderflowNamesIp = {
+    expr = ip.sub 1 (parse "::");
+    expectedError.msg = "^libnet\\.ip\\.sub: out of range: :: - 1$";
+  };
+  testNextV6OverflowNamesIp = {
+    expr = ip.next (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ip\\.next: out of range: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff \\+ 1$";
+  };
+  testPrevV4UnderflowNamesIp = {
+    expr = ip.prev (parse "0.0.0.0");
+    expectedError.msg = "^libnet\\.ip\\.prev: out of range: 0\\.0\\.0\\.0 - 1$";
+  };
+  testAddRejectsFloatOffset = {
+    expr = ip.add 1.5 (parse "::1");
+    expectedError.msg = "^libnet\\.ip\\.add: expected int, got float$";
+  };
+  testAddV4LargestIntegerOffset = {
+    expr = ip.add 9223372036854775807 (parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.ip\\.add: out of range: 0\\.0\\.0\\.1 \\+ 9223372036854775807$";
+  };
+  testSubV6SmallestIntegerOffset = {
+    expr = ip.toString (ip.sub (-9223372036854775807 - 1) (parse "::"));
+    expected = "::8000:0:0:0";
+  };
+  testSubV6 = {
+    expr = ip.toString (ip.sub 1 (parse "::2"));
+    expected = "::1";
+  };
+  testPrevV6 = {
+    expr = ip.toString (ip.prev (parse "::2"));
+    expected = "::1";
   };
 
   # ===== Non-IP input throws (dispatch / accessor guards) =====
   testToStringNonIpThrows = {
-    expr = throws (ip.toString 42);
-    expected = true;
+    expr = ip.toString 42;
+    expectedError.msg = "^libnet\\.ip\\.toString: expected ipv4 or ipv6 value, got int$";
   };
   testVersionNonIpThrows = {
-    expr = throws (ip.version "nope");
-    expected = true;
+    expr = ip.version "nope";
+    expectedError.msg = "^libnet\\.ip\\.version: expected ipv4 or ipv6 value, got string$";
   };
   testIsLoopbackNonIpThrows = {
-    expr = throws (ip.isLoopback 42);
-    expected = true;
+    expr = ip.isLoopback 42;
+    expectedError.msg = "^libnet\\.ip\\.isLoopback: expected ipv4 or ipv6 value, got int$";
   };
   testAddNonIpThrows = {
-    expr = throws (ip.add 1 "nope");
-    expected = true;
+    expr = ip.add 1 "nope";
+    expectedError.msg = "^libnet\\.ip\\.add: expected ipv4 or ipv6 value, got string$";
+  };
+  testCompareRejectsPort = {
+    expr = ip.compare (parse "1.2.3.4") (libnet.port.fromInt 80);
+    expectedError.msg = "^libnet\\.ip\\.compare: expected ipv4 or ipv6 value, got port value$";
+  };
+  testGtRejectsString = {
+    expr = ip.gt "1.2.3.4" (parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ip\\.gt: expected ipv4 or ipv6 value, got string$";
+  };
+  testMaxRejectsNull = {
+    expr = ip.max (parse "::1") null;
+    expectedError.msg = "^libnet\\.ip\\.max: expected ipv4 or ipv6 value, got null$";
+  };
+  testIsIpv4AcceptsAnyValue = {
+    expr = map ip.isIpv4 [
+      1
+      "1.2.3.4"
+      null
+      { }
+      (parse "::1")
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  testIsIpv6AcceptsAnyValue = {
+    expr = map ip.isIpv6 [
+      1
+      "::1"
+      null
+      { }
+      (parse "1.2.3.4")
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+    ];
   };
 
   # ===== Sort mixed list (stable v4-before-v6) =====

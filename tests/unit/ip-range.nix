@@ -90,8 +90,30 @@ in
     expected = 16;
   };
   testSizeV6Overflow = {
-    expr = throws (ipRange.size (parse "::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-    expected = true;
+    expr = ipRange.size (parse "::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipRange\\.size: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  # 2^63 addresses: the difference fits a Nix integer, but adding one
+  # does not.
+  testSizeV6Exactly2To63Throws = {
+    expr = ipRange.size (parse "::-::7fff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipRange\\.size: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  testSizeV6Below2To63 = {
+    expr = ipRange.size (parse "::-::7fff:ffff:ffff:fffe");
+    expected = 9223372036854775807;
+  };
+  testSizeV6Exactly2To63HighWords = {
+    expr = ipRange.size (parse "1::8000:0:0:0-1::ffff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipRange\\.size: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  testSizeV4Full = {
+    expr = ipRange.size (parse "0.0.0.0-255.255.255.255");
+    expected = 4294967296;
+  };
+  testSizeRejectsCidr = {
+    expr = ipRange.size (cidr.parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.ipRange\\.size: expected ipRange value, got cidr value$";
   };
 
   # ===== Containment =====
@@ -114,6 +136,18 @@ in
   testContainsAboveTo = {
     expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.11");
     expected = false;
+  };
+  testContainsRejectsCidr = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (cidr.parse "1.2.3.4/32");
+    expectedError.msg = "^libnet\\.ipRange\\.contains: expected ipv4 or ipv6 value, got cidr value$";
+  };
+  testContainsRejectsString = {
+    expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") "1.2.3.5";
+    expectedError.msg = "^libnet\\.ipRange\\.contains: expected ipv4 or ipv6 value, got string$";
+  };
+  testContainsRejectsCidrAsRange = {
+    expr = ipRange.contains (cidr.parse "1.2.3.0/24") (ipv4.parse "1.2.3.5");
+    expectedError.msg = "^libnet\\.ipRange\\.contains: expected ipRange value, got cidr value$";
   };
   testContainsCrossFamily = {
     expr = ipRange.contains (parse "1.2.3.4-1.2.3.10") (ipv6.parse "::1");
@@ -182,8 +216,28 @@ in
     ];
   };
   testAddressesTooLarge = {
-    expr = throws (ipRange.addresses (parse "1.0.0.0-2.0.0.0"));
-    expected = true;
+    expr = ipRange.addresses (parse "1.0.0.0-2.0.0.0");
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(16777217 > 2\\^16\\); use addressesUnbounded$";
+  };
+  testAddressesAtLimit = {
+    expr = builtins.length (ipRange.addresses (parse "10.0.0.0-10.0.255.255"));
+    expected = 65536;
+  };
+  testAddressesAboveLimit = {
+    expr = ipRange.addresses (parse "10.0.0.0-10.1.0.0");
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large \\(65537 > 2\\^16\\)";
+  };
+  testAddressesV6Exactly2To63NamesAddresses = {
+    expr = ipRange.addresses (parse "::-::7fff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  testAddressesV6HugeNamesAddresses = {
+    expr = ipRange.addresses (parse "::-ffff::");
+    expectedError.msg = "^libnet\\.ipRange\\.addresses: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  testAddressesUnboundedV6HugeNamesItself = {
+    expr = ipRange.addressesUnbounded (parse "::-ffff::");
+    expectedError.msg = "^libnet\\.ipRange\\.addressesUnbounded: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
   };
   testAddressAtFirst = {
     expr = ipv4.toString (ipRange.addressAt 0 (parse "1.2.3.4-1.2.3.6"));
@@ -198,8 +252,32 @@ in
     expected = "::3";
   };
   testAddressAtOutOfBounds = {
-    expr = throws (ipRange.addressAt 3 (parse "1.2.3.4-1.2.3.6"));
-    expected = true;
+    expr = ipRange.addressAt 3 (parse "1.2.3.4-1.2.3.6");
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[0, 3\\): 3$";
+  };
+  testAddressAtNegativeOutOfBounds = {
+    expr = ipRange.addressAt (-4) (parse "1.2.3.4-1.2.3.6");
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[0, 3\\): -4$";
+  };
+  testAddressAtRejectsFloat = {
+    expr = ipRange.addressAt 0.0 (parse "1.2.3.4-1.2.3.6");
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: expected int, got float$";
+  };
+  testAddressAtV6Exactly2To63NamesAddressAt = {
+    expr = ipRange.addressAt 0 (parse "::-::7fff:ffff:ffff:ffff");
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: range too large for a Nix integer \\(2\\^63 or more addresses\\)$";
+  };
+  testAddressAtV6Below2To63Ends = {
+    expr = map (n: ipv6.toString (ipRange.addressAt n (parse "::-::7fff:ffff:ffff:fffe"))) [
+      0
+      (-1)
+      9223372036854775806
+    ];
+    expected = [
+      "::"
+      "::7fff:ffff:ffff:fffe"
+      "::7fff:ffff:ffff:fffe"
+    ];
   };
 
   # ===== toCidrs =====
@@ -252,20 +330,28 @@ in
     expected = "1.2.3.4-1.2.3.10";
   };
   testMakeReversed = {
-    expr = throws (ipRange.make (ipv4.parse "1.2.3.10") (ipv4.parse "1.2.3.4"));
-    expected = true;
+    expr = ipRange.make (ipv4.parse "1.2.3.10") (ipv4.parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ipRange\\.make: from > to: 1\\.2\\.3\\.10-1\\.2\\.3\\.4$";
   };
   testMakeMixed = {
-    expr = throws (ipRange.make (ipv4.parse "1.2.3.4") (ipv6.parse "::1"));
-    expected = true;
+    expr = ipRange.make (ipv4.parse "1.2.3.4") (ipv6.parse "::1");
+    expectedError.msg = "^libnet\\.ipRange\\.make: mixed families$";
+  };
+  testMakeRejectsCidr = {
+    expr = ipRange.make (cidr.parse "1.2.3.0/24") (ipv4.parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ipRange\\.make: expected ipv4 or ipv6 value, got cidr value$";
+  };
+  testMakeRejectsStringTo = {
+    expr = ipRange.make (ipv4.parse "1.2.3.4") "1.2.3.5";
+    expectedError.msg = "^libnet\\.ipRange\\.make: expected ipv4 or ipv6 value, got string$";
   };
   testFromAddressOk = {
     expr = ipRange.toString (ipRange.fromAddress (ipv4.parse "1.2.3.4"));
     expected = "1.2.3.4-1.2.3.4";
   };
   testFromAddressBad = {
-    expr = throws (ipRange.fromAddress "1.2.3.4");
-    expected = true;
+    expr = ipRange.fromAddress "1.2.3.4";
+    expectedError.msg = "^libnet\\.ipRange\\.fromAddress: expected ipv4 or ipv6 value, got string$";
   };
   testVersionV4 = {
     expr = ipRange.version (parse "1.2.3.4-1.2.3.10");
@@ -376,5 +462,48 @@ in
   testCompareV4V6 = {
     expr = ipRange.compare (parse "1.2.3.4-1.2.3.10") (parse "::1-::ff");
     expected = -1;
+  };
+  testCompareV6V4 = {
+    expr = ipRange.compare (parse "::1-::ff") (parse "1.2.3.4-1.2.3.10");
+    expected = 1;
+  };
+  testCompareRejectsAddress = {
+    expr = ipRange.compare (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ipRange\\.compare: expected ipRange value, got ipv4 value$";
+  };
+  testMaxRejectsPortRange = {
+    expr = ipRange.max (libnet.portRange.parse "80-90") (parse "1.2.3.4-1.2.3.10");
+    expectedError.msg = "^libnet\\.ipRange\\.max: expected ipRange value, got portRange value$";
+  };
+  testMergeRejectsCidr = {
+    expr = ipRange.merge (parse "1.2.3.4-1.2.3.10") (cidr.parse "1.2.3.0/24");
+    expectedError.msg = "^libnet\\.ipRange\\.merge: expected ipRange value, got cidr value$";
+  };
+  testIsSuperrangeOfNamesItself = {
+    expr = ipRange.isSuperrangeOf (parse "1.2.3.4-1.2.3.10") (ipv4.parse "1.2.3.5");
+    expectedError.msg = "^libnet\\.ipRange\\.isSuperrangeOf: expected ipRange value, got ipv4 value$";
+  };
+  testToCidrsRejectsCidr = {
+    expr = ipRange.toCidrs (cidr.parse "10.0.0.0/24");
+    expectedError.msg = "^libnet\\.ipRange\\.toCidrs: expected ipRange value, got cidr value$";
+  };
+  testFromCidrRejectsRange = {
+    expr = ipRange.fromCidr (parse "10.0.0.0-10.0.0.255");
+    expectedError.msg = "^libnet\\.ipRange\\.fromCidr: expected cidr value, got ipRange value$";
+  };
+  # The address's failure keeps its detail under ipRange.parse alone.
+  testParseBadAddressNamesIpRangeParseOnce = {
+    expr =
+      let
+        inherit (ipRange.tryParse "300.0.0.0-1.2.3.4") error;
+      in
+      [
+        (builtins.match "libnet[.]ipRange[.]parse: .*" error != null)
+        (builtins.match ".*libnet[.]ipv4.*" error == null)
+      ];
+    expected = [
+      true
+      true
+    ];
   };
 }

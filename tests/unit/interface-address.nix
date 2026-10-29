@@ -188,14 +188,31 @@ in
     expected = "192.168.1.255";
   };
   testBroadcastV6Throws = {
-    expr = throws (interfaceAddress.broadcast (parse "::1/64"));
-    expected = true;
+    expr = interfaceAddress.broadcast (parse "::1/64");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.broadcast: IPv6 has no broadcast$";
+  };
+  testNetmaskV6 = {
+    expr = ipv6.toString (interfaceAddress.netmask (parse "2001:db8::5/64"));
+    expected = "ffff:ffff:ffff:ffff::";
+  };
+  testHostmaskV6 = {
+    expr = ipv6.toString (interfaceAddress.hostmask (parse "2001:db8::5/120"));
+    expected = "::ff";
+  };
+  testNetmaskRejectsCidr = {
+    expr = interfaceAddress.netmask (cidr.parse "192.168.1.0/24");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.netmask: expected interfaceAddress value, got cidr value$";
+  };
+  testCidrRejectsAddress = {
+    expr = interfaceAddress.cidr (ipv4.parse "192.168.1.5");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.cidr: expected interfaceAddress value, got ipv4 value$";
   };
 
-  # ===== Conversions =====
-  testToRange = {
-    expr = (interfaceAddress.toRange (parse "192.168.1.5/24")).to.value;
-    expected = (ipv4.parse "192.168.1.255").value;
+  # ===== Removed =====
+  # `ipRange.fromCidr (interfaceAddress.cidr ia)` replaces `toRange`.
+  testRemovedFunctions = {
+    expr = builtins.filter (name: interfaceAddress ? ${name}) [ "toRange" ];
+    expected = [ ];
   };
 
   # ===== Constructors =====
@@ -204,12 +221,24 @@ in
     expected = "10.0.0.1/24";
   };
   testMakeBadPrefixThrows = {
-    expr = throws (interfaceAddress.make (ipv4.parse "10.0.0.1") 33);
-    expected = true;
+    expr = interfaceAddress.make (ipv4.parse "10.0.0.1") 33;
+    expectedError.msg = "^libnet\\.interfaceAddress\\.make: prefix out of range \\[0, 32\\]: 33$";
+  };
+  testMakeV6Prefix128 = {
+    expr = interfaceAddress.toString (interfaceAddress.make (ipv6.parse "::1") 128);
+    expected = "::1/128";
+  };
+  testMakeV6Prefix129Throws = {
+    expr = interfaceAddress.make (ipv6.parse "::1") 129;
+    expectedError.msg = "^libnet\\.interfaceAddress\\.make: prefix out of range \\[0, 128\\]: 129$";
   };
   testMakeNonIpThrows = {
-    expr = throws (interfaceAddress.make "10.0.0.1" 24);
-    expected = true;
+    expr = interfaceAddress.make "10.0.0.1" 24;
+    expectedError.msg = "^libnet\\.interfaceAddress\\.make: expected ipv4 or ipv6 value, got string$";
+  };
+  testMakeFloatPrefixThrows = {
+    expr = interfaceAddress.make (ipv4.parse "10.0.0.1") 24.0;
+    expectedError.msg = "^libnet\\.interfaceAddress\\.make: expected int, got float$";
   };
 
   # ===== fromAddress =====
@@ -222,8 +251,8 @@ in
     expected = "2001:db8::1/128";
   };
   testFromAddressNonIpThrows = {
-    expr = throws (interfaceAddress.fromAddress "10.0.0.1");
-    expected = true;
+    expr = interfaceAddress.fromAddress "10.0.0.1";
+    expectedError.msg = "^libnet\\.interfaceAddress\\.fromAddress: expected ipv4 or ipv6 value, got string$";
   };
 
   # ===== fromCidrAndAddress =====
@@ -254,22 +283,20 @@ in
     ];
   };
   testFromCidrAndAddressOutside = {
-    expr = throws (
-      interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") (ipv4.parse "10.0.0.1")
-    );
-    expected = true;
+    expr = interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") (ipv4.parse "10.0.0.1");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.fromCidrAndAddress: address not in cidr$";
   };
   testFromCidrAndAddressMixedFamilies = {
-    expr = throws (interfaceAddress.fromCidrAndAddress (cidr.parse "::/0") (ipv4.parse "192.168.1.5"));
-    expected = true;
+    expr = interfaceAddress.fromCidrAndAddress (cidr.parse "::/0") (ipv4.parse "192.168.1.5");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.fromCidrAndAddress: family mismatch$";
   };
   testFromCidrAndAddressNonCidr = {
-    expr = throws (interfaceAddress.fromCidrAndAddress "192.168.1.0/24" (ipv4.parse "192.168.1.5"));
-    expected = true;
+    expr = interfaceAddress.fromCidrAndAddress "192.168.1.0/24" (ipv4.parse "192.168.1.5");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.fromCidrAndAddress: expected cidr value, got string$";
   };
   testFromCidrAndAddressNonAddress = {
-    expr = throws (interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") "192.168.1.5");
-    expected = true;
+    expr = interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") "192.168.1.5";
+    expectedError.msg = "^libnet\\.interfaceAddress\\.fromCidrAndAddress: expected ipv4 or ipv6 value, got string$";
   };
 
   # ===== Distinction from CIDR =====
@@ -402,6 +429,39 @@ in
   testForwardedToArpaV6 = {
     expr = interfaceAddress.toArpa (parse "::1/128");
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+  };
+
+  testForwardedRejectsAddress = {
+    expr = interfaceAddress.isLoopback (ipv4.parse "127.0.0.1");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.isLoopback: expected interfaceAddress value, got ipv4 value$";
+  };
+  testToArpaRejectsCidr = {
+    expr = interfaceAddress.toArpa (cidr.parse "10.0.0.0/8");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.toArpa: expected interfaceAddress value, got cidr value$";
+  };
+  testCompareRejectsCidr = {
+    expr = interfaceAddress.compare (parse "10.0.0.1/24") (cidr.parse "10.0.0.0/24");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.compare: expected interfaceAddress value, got cidr value$";
+  };
+  testMinRejectsString = {
+    expr = interfaceAddress.min "10.0.0.1/24" (parse "10.0.0.1/24");
+    expectedError.msg = "^libnet\\.interfaceAddress\\.min: expected interfaceAddress value, got string$";
+  };
+  # The address's failure keeps its detail under interfaceAddress.parse
+  # alone.
+  testParseBadAddressNamesParseOnce = {
+    expr =
+      let
+        inherit (interfaceAddress.tryParse "300.0.0.1/24") error;
+      in
+      [
+        (builtins.match "libnet[.]interfaceAddress[.]parse: .*" error != null)
+        (builtins.match ".*libnet[.]ipv4.*" error == null)
+      ];
+    expected = [
+      true
+      true
+    ];
   };
 
   # ===== Round-trip =====

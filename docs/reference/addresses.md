@@ -1,5 +1,11 @@
 # Addresses
 
+Every function on this page except `is`, `ip.isIpv4`, `ip.isIpv6`, `eq`, `isValid` and `tryParse` throws `libnet.<ns>.<fn>: expected <kind>, got <kind>` for an argument of the wrong kind. `ipv4` and `ipv6` accept only their own family, so `ipv4.compare` and `ipv4.lt` throw for an IPv6 value; `ip` accepts both and orders IPv4 before IPv6.
+
+`add`, `sub`, `next` and `prev` throw for a non-integer offset, and for any offset whose result leaves the address space, checked before any arithmetic so that an offset near the integer limits cannot overflow. Errors name the function called, such as `libnet.ipv4.next: out of range: 255.255.255.255 + 1`.
+
+`fromBytes`, `fromWords` and `fromGroups` throw for a non-list, a list of the wrong length, and an element that is not an integer in range, such as `libnet.ipv4.fromBytes: byte out of range [0, 255]: 256`.
+
 ## `libnet.ipv4`
 
 Value: `{ _type = "ipv4"; value = Int; }` with `value` in `[0, 2³² − 1]`. Canonical text is the dotted quad. `parse` rejects leading zeros, octets above 255, and any count other than four octets.
@@ -8,7 +14,7 @@ Suites: parsing, comparison, arithmetic (`next` throws at `255.255.255.255`, `pr
 
 | Function               | Signature       | Notes                                                    |
 | ---------------------- | --------------- | -------------------------------------------------------- |
-| `fromInt`, `toInt`     | `Int ↔ Ipv4`    | `fromInt` throws out of range.                           |
+| `fromInt`, `toInt`     | `Int ↔ Ipv4`    | `fromInt` throws for a non-integer or out of range.      |
 | `fromBytes`, `toBytes` | `[Int] ↔ Ipv4`  | Four bytes (the RFC 791 octets), most significant first. |
 | `toArpa`               | `Ipv4 → String` | `1.2.3.4` → `4.3.2.1.in-addr.arpa`.                      |
 
@@ -37,19 +43,19 @@ Predicates, each `Ipv4 → Bool`:
 
 Value: `{ _type = "ipv6"; words = [Int Int Int Int]; }`, four 32-bit words with the most significant first; `2001:db8::1` is `[ 536939960 0 0 1 ]`. `parse` accepts compression, mixed case, and embedded IPv4 (`::ffff:1.2.3.4`). Canonical text follows RFC 5952.
 
-Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cross words; `diff` throws when the result does not fit in a Nix integer). There is no `toInt` or `fromInt`.
+Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cross words; `diff` throws when the result falls outside the Nix integer range `[−2⁶³, 2⁶³ − 1]`, so a difference of exactly −2⁶³ is returned). There is no `toInt` or `fromInt`.
 
-| Function                 | Signature           | Notes                                                                                                    |
-| ------------------------ | ------------------- | -------------------------------------------------------------------------------------------------------- |
-| `toStringExpanded`       | `Ipv6 → String`     | `2001:0db8:0000:0000:0000:0000:0000:0001`.                                                               |
-| `toStringBracketed`      | `Ipv6 → String`     | `[2001:db8::1]`.                                                                                         |
-| `fromWords`, `toWords`   | `[Int] ↔ Ipv6`      | Four 32-bit words.                                                                                       |
-| `fromGroups`, `toGroups` | `[Int] ↔ Ipv6`      | Eight 16-bit groups.                                                                                     |
-| `fromBytes`, `toBytes`   | `[Int] ↔ Ipv6`      | Sixteen bytes.                                                                                           |
-| `toArpa`                 | `Ipv6 → String`     | 32 reversed nibbles under `ip6.arpa`.                                                                    |
-| `fromMac`                | `Cidr → Mac → Ipv6` | Upper 64 bits from the CIDR, lower 64 from the MAC's modified EUI-64. Throws when the prefix exceeds 64. |
-| `fromIpv4`               | `Ipv4 → Ipv6`       | The IPv4-mapped form (RFC 4291 §2.5.5.2): `1.2.3.4` → `::ffff:1.2.3.4`.                                  |
-| `toIpv4`                 | `Ipv6 → Ipv4`       | Inverse of `fromIpv4`. Throws outside `::ffff:0:0/96`.                                                   |
+| Function                 | Signature           | Notes                                                                                                                         |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `toStringExpanded`       | `Ipv6 → String`     | `2001:0db8:0000:0000:0000:0000:0000:0001`.                                                                                    |
+| `toStringBracketed`      | `Ipv6 → String`     | `[2001:db8::1]`.                                                                                                              |
+| `fromWords`, `toWords`   | `[Int] ↔ Ipv6`      | Four 32-bit words.                                                                                                            |
+| `fromGroups`, `toGroups` | `[Int] ↔ Ipv6`      | Eight 16-bit groups.                                                                                                          |
+| `fromBytes`, `toBytes`   | `[Int] ↔ Ipv6`      | Sixteen bytes.                                                                                                                |
+| `toArpa`                 | `Ipv6 → String`     | 32 reversed nibbles under `ip6.arpa`.                                                                                         |
+| `fromMac`                | `Cidr → Mac → Ipv6` | Upper 64 bits from the CIDR, lower 64 from the MAC's modified EUI-64. Throws for an IPv4 CIDR and when the prefix exceeds 64. |
+| `fromIpv4`               | `Ipv4 → Ipv6`       | The IPv4-mapped form (RFC 4291 §2.5.5.2): `1.2.3.4` → `::ffff:1.2.3.4`.                                                       |
+| `toIpv4`                 | `Ipv6 → Ipv4`       | Inverse of `fromIpv4`. Throws outside `::ffff:0:0/96`.                                                                        |
 
 Constants: `unspecified` (`::`), `loopback` (`::1`). IPv6 has no broadcast.
 
@@ -74,9 +80,9 @@ Predicates, each `Ipv6 → Bool`:
 
 ## `libnet.ip`
 
-Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`.
+Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`. A parse error names `ip.parse` and keeps the member's detail: `ip.parse "300.1.1.1"` throws `libnet.ip.parse: invalid octet in "300.1.1.1"`.
 
-Suites: parsing, comparison, arithmetic (dispatched by family; `diff` across families throws), address predicates.
+Suites: parsing, comparison (IPv4 before IPv6), arithmetic (dispatched by family, with errors naming the `ip` function called; `diff` across families throws), address predicates.
 
 | Function           | Signature    | Notes       |
 | ------------------ | ------------ | ----------- |
@@ -92,10 +98,10 @@ Suites: parsing, comparison, arithmetic.
 | Function                                                 | Signature         | Notes                                                                                            |
 | -------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ |
 | `toStringHyphen`, `toStringCisco`, `toStringBare`        | `Mac → String`    | The other three input forms.                                                                     |
-| `fromInt`, `toInt`                                       | `Int ↔ Mac`       |                                                                                                  |
+| `fromInt`, `toInt`                                       | `Int ↔ Mac`       | `fromInt` throws for a non-integer or out of range.                                              |
 | `fromBytes`, `toBytes`                                   | `[Int] ↔ Mac`     | Six bytes, most significant first.                                                               |
 | `oui`, `nic`                                             | `Mac → Int`       | Upper and lower 24 bits.                                                                         |
-| `fromOuiNic`                                             | `Int → Int → Mac` | Inverse of `oui` and `nic`.                                                                      |
+| `fromOuiNic`                                             | `Int → Int → Mac` | Inverse of `oui` and `nic`. Throws for a non-integer or out-of-range half.                       |
 | `ouiToString`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
 | `isUnicast`, `isMulticast`                               | `Mac → Bool`      | Bit 0 of the first octet clear or set.                                                           |
 | `isUniversal`, `isLocal`                                 | `Mac → Bool`      | Bit 1 of the first octet clear or set.                                                           |

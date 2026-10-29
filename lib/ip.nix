@@ -13,10 +13,39 @@
     => 6
 */
 let
+  address = import ./internal/address.nix;
+  bits = import ./internal/bits.nix;
+  errors = import ./internal/errors.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+
+  # An address argument of `function`, which throws for any other kind.
+  checked = function: errors.expect "ip.${function}" "ipv4 or ipv6 value" types.isIp;
+
+  # The family arithmetic, run under the `ip` function's name so its
+  # errors name the function the caller called.
+  ipv4Arithmetic = address.scalar {
+    typeName = "ipv4";
+    maxValue = bits.mask32;
+    format = ipv4.toString;
+  };
+  ipv6Arithmetic = address.words { format = ipv6.toString; };
+
+  # Call the family's implementation for the public function `function`,
+  # which throws for an argument that is not an address.
+  dispatch =
+    function: onIpv4: onIpv6: ip:
+    if types.isIpv4 (checked function ip) then onIpv4 ip else onIpv6 ip;
+
+  # Report a member's parse failure as `ip.parse`, keeping its detail.
+  fromMember =
+    member: result:
+    if result.success then
+      result
+    else
+      types.tryErr (errors.message "ip.parse" (errors.detail "${member}.parse" result.error));
 
   # ===== Parsing =====
 
@@ -31,11 +60,11 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.ip.parse: input must be a string"
+      types.tryErr (errors.message "ip.parse" "expected string, got ${errors.describe input}")
     else if parsing.countOccurrences ":" input > 0 then
-      ipv6.tryParse input
+      fromMember "ipv6" (ipv6.tryParse input)
     else
-      ipv4.tryParse input;
+      fromMember "ipv4" (ipv4.tryParse input);
 
   /*
     Parse an address of either family when the family is not known in
@@ -59,14 +88,7 @@ let
 
     Returns the family's canonical string; throws for any other value.
   */
-  toString =
-    ip:
-    if types.isIpv4 ip then
-      ipv4.toString ip
-    else if types.isIpv6 ip then
-      ipv6.toString ip
-    else
-      throw "libnet.ip.toString: expected ipv4 or ipv6 value";
+  toString = dispatch "toString" ipv4.toString ipv6.toString;
 
   /*
     Report the family of an address.
@@ -75,14 +97,7 @@ let
 
     Returns 4 or 6; throws for any other value.
   */
-  version =
-    ip:
-    if types.isIpv4 ip then
-      4
-    else if types.isIpv6 ip then
-      6
-    else
-      throw "libnet.ip.version: expected ipv4 or ipv6 value";
+  version = dispatch "version" (_: 4) (_: 6);
 
   /*
     Check whether a string parses as an address of either family.
@@ -121,17 +136,6 @@ let
   isIpv6 = value: types.isIpv6 value;
 
   # ===== Forwarded predicates =====
-
-  # Calls the family-specific implementation; `functionName` only labels the
-  # error for non-address input.
-  dispatch =
-    functionName: onIpv4: onIpv6: ip:
-    if types.isIpv4 ip then
-      onIpv4 ip
-    else if types.isIpv6 ip then
-      onIpv6 ip
-    else
-      throw "libnet.ip.${functionName}: expected ipv4 or ipv6 value";
 
   /*
     Check whether an address is a loopback address of its family.
@@ -208,6 +212,23 @@ let
 
   # ===== Comparison (lenient cross-family) =====
 
+  # Order two addresses for the public function `function`, IPv4 before
+  # IPv6, throwing for an argument that is not an address.
+  compareFor =
+    function: a: b:
+    let
+      left = checked function a;
+      right = checked function b;
+    in
+    if types.isIpv4 left && types.isIpv6 right then
+      -1
+    else if types.isIpv6 left && types.isIpv4 right then
+      1
+    else if types.isIpv4 left then
+      ipv4.compare left right
+    else
+      ipv6.compare left right;
+
   /*
     Test two addresses for equality; different families are never equal.
 
@@ -232,16 +253,7 @@ let
 
     Returns -1, 0, or 1.
   */
-  compare =
-    a: b:
-    if types.isIpv4 a && types.isIpv6 b then
-      -1
-    else if types.isIpv6 a && types.isIpv4 b then
-      1
-    else if types.isIpv4 a then
-      ipv4.compare a b
-    else
-      ipv6.compare a b;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` orders before `b` (IPv4 before IPv6).
@@ -250,7 +262,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` orders before or equal to `b` (IPv4 before IPv6).
@@ -259,7 +271,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` orders after `b` (IPv4 before IPv6).
@@ -268,7 +280,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` orders after or equal to `b` (IPv4 before IPv6).
@@ -277,7 +289,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lower of two addresses (IPv4 before IPv6).
@@ -286,7 +298,7 @@ let
 
     Returns `a` when the two compare equal.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the higher of two addresses (IPv4 before IPv6).
@@ -295,7 +307,7 @@ let
 
     Returns `a` when the two compare equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   # ===== Arithmetic (dispatched) =====
 
@@ -308,7 +320,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  add = n: ip: dispatch "add" (ipv4.add n) (ipv6.add n) ip;
+  add = n: dispatch "add" (ipv4Arithmetic.add "ip.add" n) (ipv6Arithmetic.add "ip.add" n);
 
   /*
     Offset an address downward within its family.
@@ -319,7 +331,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  sub = n: ip: dispatch "sub" (ipv4.sub n) (ipv6.sub n) ip;
+  sub = n: dispatch "sub" (ipv4Arithmetic.sub "ip.sub" n) (ipv6Arithmetic.sub "ip.sub" n);
 
   /*
     Step to the following address in the same family.
@@ -329,7 +341,7 @@ let
     Returns an address of the same family; throws past the family's highest
     address or for a non-address value.
   */
-  next = ip: dispatch "next" ipv4.next ipv6.next ip;
+  next = dispatch "next" (ipv4Arithmetic.add "ip.next" 1) (ipv6Arithmetic.add "ip.next" 1);
 
   /*
     Step to the preceding address in the same family.
@@ -339,7 +351,7 @@ let
     Returns an address of the same family; throws below the family's lowest
     address or for a non-address value.
   */
-  prev = ip: dispatch "prev" ipv4.prev ipv6.prev ip;
+  prev = dispatch "prev" (ipv4Arithmetic.sub "ip.prev" 1) (ipv6Arithmetic.sub "ip.prev" 1);
 
   /*
     Measure the distance between two addresses of the same family.
@@ -351,12 +363,16 @@ let
   */
   diff =
     a: b:
-    if a._type != b._type then
-      throw "libnet.ip.diff: cross-family difference is undefined"
-    else if types.isIpv4 a then
-      ipv4.diff a b
+    let
+      left = checked "diff" a;
+      right = checked "diff" b;
+    in
+    if left._type != right._type then
+      errors.fail "ip.diff" "cross-family difference is undefined"
+    else if types.isIpv4 left then
+      ipv4.diff left right
     else
-      ipv6.diff a b;
+      ipv6Arithmetic.diff "ip.diff" left right;
 in
 {
   inherit
