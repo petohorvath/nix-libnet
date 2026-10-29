@@ -192,6 +192,153 @@ let
           min.set = interfaceName.min { } value;
         };
       };
+    unixSocket =
+      let
+        inherit (libnet) unixSocket;
+        value = unixSocket.parse "/run/foo.sock";
+      in
+      {
+        module = unixSocket;
+        inherit value;
+        rejects = {
+          toString = {
+            string = unixSocket.toString "/run/foo.sock";
+            untagged = unixSocket.toString { value = "/run/foo.sock"; };
+          };
+          isPathname.ipEndpointOperand = unixSocket.isPathname (libnet.ipEndpoint.parse "192.0.2.1:80");
+          isAbstract.string = unixSocket.isAbstract "@foo";
+          compare.stringOperand = unixSocket.compare value "/run/foo.sock";
+          lt.intOperand = unixSocket.lt 1 value;
+          max.stringOperand = unixSocket.max value "/run/foo.sock";
+        };
+      };
+    ipEndpoint =
+      let
+        inherit (libnet) ipEndpoint;
+        value = ipEndpoint.parse "192.0.2.1:80";
+        address = libnet.ipv4.parse "192.0.2.1";
+        port = libnet.port.fromInt 80;
+      in
+      {
+        module = ipEndpoint;
+        inherit value;
+        rejects = {
+          toString.string = ipEndpoint.toString "192.0.2.1:80";
+          make = {
+            stringAddress = ipEndpoint.make "192.0.2.1" port;
+            macAddress = ipEndpoint.make (libnet.mac.parse "00:00:5e:00:53:01") port;
+            intPort = ipEndpoint.make address 80;
+          };
+          address.dnsEndpointOperand = ipEndpoint.address (libnet.dnsEndpoint.parse "nas:22");
+          port.ipBindpointOperand = ipEndpoint.port (libnet.ipBindpoint.parse "192.0.2.1:80");
+          version.ipv4Operand = ipEndpoint.version address;
+          isIpv6.string = ipEndpoint.isIpv6 "[::1]:80";
+          isLoopback.ipv4Operand = ipEndpoint.isLoopback address;
+          toArpa.null = ipEndpoint.toArpa null;
+          compare.unixSocketOperand = ipEndpoint.compare value (libnet.unixSocket.parse "/run/foo.sock");
+          le.stringOperand = ipEndpoint.le "192.0.2.1:80" value;
+          min.intOperand = ipEndpoint.min value 80;
+        };
+      };
+    dnsEndpoint =
+      let
+        inherit (libnet) dnsEndpoint;
+        value = dnsEndpoint.parse "nas:22";
+        port = libnet.port.fromInt 22;
+      in
+      {
+        module = dnsEndpoint;
+        inherit value;
+        rejects = {
+          toString.ipEndpointOperand = dnsEndpoint.toString (libnet.ipEndpoint.parse "192.0.2.1:22");
+          make = {
+            stringName = dnsEndpoint.make "nas" port;
+            ipv4Name = dnsEndpoint.make (libnet.ipv4.parse "192.0.2.1") port;
+            intPort = dnsEndpoint.make (libnet.dnsName.parse "nas") 22;
+          };
+          name.string = dnsEndpoint.name "nas:22";
+          port.null = dnsEndpoint.port null;
+          isHostname.hostnameOperand = dnsEndpoint.isHostname (libnet.hostname.parse "nas");
+          isDomain.set = dnsEndpoint.isDomain { };
+          compare.stringOperand = dnsEndpoint.compare "nas:22" value;
+          gt.ipEndpointOperand = dnsEndpoint.gt value (libnet.ipEndpoint.parse "192.0.2.1:22");
+          max.intOperand = dnsEndpoint.max 22 value;
+        };
+      };
+    endpoint =
+      let
+        inherit (libnet) endpoint;
+        value = endpoint.parse "/run/foo.sock";
+      in
+      {
+        module = endpoint;
+        inherit value;
+        rejects = {
+          toString = {
+            string = endpoint.toString "/run/foo.sock";
+            ipBindpointOperand = endpoint.toString (libnet.ipBindpoint.parse ":80");
+          };
+          compare.stringOperand = endpoint.compare value "/run/foo.sock";
+          lt.ipv4Operand = endpoint.lt (libnet.ipv4.parse "192.0.2.1") value;
+          min.intOperand = endpoint.min value 80;
+        };
+      };
+    ipBindpoint =
+      let
+        inherit (libnet) ipBindpoint;
+        value = ipBindpoint.parse "192.0.2.1:80-82";
+        address = libnet.ipv4.parse "192.0.2.1";
+        portRange = libnet.portRange.parse "80-82";
+        endpoint = libnet.ipEndpoint.parse "192.0.2.1:80";
+      in
+      {
+        module = ipBindpoint;
+        inherit value;
+        rejects = {
+          toString.string = ipBindpoint.toString ":80";
+          make = {
+            stringAddress = ipBindpoint.make "192.0.2.1" portRange;
+            macAddress = ipBindpoint.make (libnet.mac.parse "00:00:5e:00:53:01") portRange;
+            portOperand = ipBindpoint.make address (libnet.port.fromInt 80);
+            stringPortRange = ipBindpoint.make null "80-82";
+          };
+          address.ipEndpointOperand = ipBindpoint.address endpoint;
+          portRange.portRangeOperand = ipBindpoint.portRange portRange;
+          version.null = ipBindpoint.version null;
+          isWildcard.string = ipBindpoint.isWildcard ":80";
+          isIpv4.ipEndpointOperand = ipBindpoint.isIpv4 endpoint;
+          isGlobal.ipv4Operand = ipBindpoint.isGlobal address;
+          toArpa.ipEndpointOperand = ipBindpoint.toArpa endpoint;
+          endpoints.string = ipBindpoint.endpoints "192.0.2.1:80-82";
+          endpointsUnbounded.ipEndpointOperand = ipBindpoint.endpointsUnbounded endpoint;
+          endpointAt = {
+            floatIndex = ipBindpoint.endpointAt 1.5 value;
+            stringIndex = ipBindpoint.endpointAt "1" value;
+            ipEndpointOperand = ipBindpoint.endpointAt 0 endpoint;
+          };
+          compare.unixSocketOperand = ipBindpoint.compare value (libnet.unixSocket.parse "/run/foo.sock");
+          ge.stringOperand = ipBindpoint.ge ":80" value;
+          max.intOperand = ipBindpoint.max value 80;
+        };
+      };
+    bindpoint =
+      let
+        inherit (libnet) bindpoint;
+        value = bindpoint.parse ":80";
+      in
+      {
+        module = bindpoint;
+        inherit value;
+        rejects = {
+          toString = {
+            string = bindpoint.toString ":80";
+            ipEndpointOperand = bindpoint.toString (libnet.ipEndpoint.parse "192.0.2.1:80");
+          };
+          compare.dnsEndpointOperand = bindpoint.compare value (libnet.dnsEndpoint.parse "nas:22");
+          le.intOperand = bindpoint.le 80 value;
+          max.stringOperand = bindpoint.max value ":80";
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a

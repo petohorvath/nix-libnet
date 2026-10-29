@@ -19,12 +19,13 @@
 
   Example:
     libnet.unixSocket.parse "/run/postgresql/.s.PGSQL.5432"
-    => { _type = "unixSocket"; path = "/run/postgresql/.s.PGSQL.5432"; }
+    => { _type = "unixSocket"; value = "/run/postgresql/.s.PGSQL.5432"; }
 
     libnet.unixSocket.isAbstract (libnet.unixSocket.parse "@foo")
     => true
 */
 let
+  errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
 
@@ -34,10 +35,16 @@ let
   pathnameMaxLength = 107;
   abstractMaxLength = 108;
 
-  mk = socketPath: {
+  mk = value: {
     _type = "unixSocket";
-    path = socketPath;
+    inherit value;
   };
+
+  # Unwrap the socket argument of `function`, throwing for any other kind.
+  valueOf =
+    function: unixSocket: (errors.expectKind "unixSocket.${function}" "unixSocket" unixSocket).value;
+
+  parseError = detail: types.tryErr (errors.message "unixSocket.parse" detail);
 
   isPathnameString =
     input:
@@ -68,11 +75,11 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.unixSocket.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if isPathnameString input || isAbstractString input then
       types.tryOk (mk input)
     else
-      types.tryErr "libnet.unixSocket.parse: invalid socket \"${input}\" (expected an absolute path '/...' (<=107 bytes) or an abstract name '@...' (<=108 bytes))";
+      parseError "invalid socket \"${input}\" (expected an absolute path '/...' (<=107 bytes) or an abstract name '@...' (<=108 bytes))";
 
   /*
     Parse a Unix socket address.
@@ -96,7 +103,7 @@ let
 
     Returns the path, with a leading `@` for abstract sockets.
   */
-  toString = unixSocket: unixSocket.path;
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -126,7 +133,7 @@ let
 
     Returns true when the path starts with `/`.
   */
-  isPathname = unixSocket: parsing.startsWith "/" unixSocket.path;
+  isPathname = unixSocket: parsing.startsWith "/" (valueOf "isPathname" unixSocket);
 
   /*
     Check whether a Unix socket is in the Linux abstract namespace.
@@ -135,22 +142,25 @@ let
 
     Returns true when the path starts with `@`.
   */
-  isAbstract = unixSocket: parsing.startsWith "@" unixSocket.path;
-
-  # ===== Accessor =====
-
-  /*
-    Get the socket path.
-
-    `unixSocket`: unixSocket value.
-
-    Returns the path string, with a leading `@` for abstract sockets.
-  */
-  path = unixSocket: unixSocket.path;
+  isAbstract = unixSocket: parsing.startsWith "@" (valueOf "isAbstract" unixSocket);
 
   # ===== Comparison =====
   #
-  # Byte-wise on the path; case-sensitive (filesystem paths are).
+  # Byte-wise on the path; case-sensitive (filesystem paths are). Each
+  # ordering function passes its own name, which its errors report.
+
+  compareFor =
+    function: a: b:
+    let
+      left = valueOf function a;
+      right = valueOf function b;
+    in
+    if left < right then
+      -1
+    else if left > right then
+      1
+    else
+      0;
 
   /*
     Compare two Unix sockets for equality.
@@ -159,7 +169,7 @@ let
 
     Returns true when both carry the same type tag and path.
   */
-  eq = a: b: types.hasSameTag a b && a.path == b.path;
+  eq = a: b: types.hasSameTag a b && a.value == b.value;
 
   /*
     Order two Unix sockets byte-wise by path.
@@ -168,14 +178,7 @@ let
 
     Returns -1, 0, or 1 when `a` sorts before, equal to, or after `b`.
   */
-  compare =
-    a: b:
-    if a.path < b.path then
-      -1
-    else if a.path > b.path then
-      1
-    else
-      0;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` sorts strictly before `b`.
@@ -184,7 +187,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` sorts before or equal to `b`.
@@ -193,7 +196,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` sorts strictly after `b`.
@@ -202,7 +205,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` sorts after or equal to `b`.
@@ -211,7 +214,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two Unix sockets.
@@ -220,7 +223,7 @@ let
 
     Returns the one that sorts first; `a` when they are equal.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two Unix sockets.
@@ -229,7 +232,7 @@ let
 
     Returns the one that sorts last; `a` when they are equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
@@ -246,7 +249,6 @@ in
     max
     min
     parse
-    path
     toString
     tryParse
     ;
