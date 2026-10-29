@@ -18,6 +18,7 @@
     => { _type = "dnsEndpoint"; name = <hostname>; port = <port 22>; }
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
@@ -191,9 +192,13 @@ let
     let
       left = dnsEndpointArgument function a;
       right = dnsEndpointArgument function b;
-      nameOrder = dnsName.compare left.name right.name;
     in
-    if nameOrder != 0 then nameOrder else port.compare left.port right.port;
+    comparison.lexicographic [
+      (dnsName.compare left.name right.name)
+      (port.compare left.port right.port)
+    ];
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two endpoints for equality of name and port.
@@ -205,90 +210,28 @@ let
   eq =
     a: b:
     types.bothHaveTag types.tags.dnsEndpoint a b && dnsName.eq a.name b.name && port.eq a.port b.port;
-
-  /*
-    Order two endpoints by name, hostnames before domains and then by
-    name, then by port.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns `-1`, `0`, or `1`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two endpoints under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two endpoints under `compare`.
-
-    `a`, `b`: dnsEndpoint values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isDomain
     isHostname
     isValid
-    le
-    lt
     make
-    max
-    min
     name
     parse
     toString
     tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `port` names the port module.

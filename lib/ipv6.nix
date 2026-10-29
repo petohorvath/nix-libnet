@@ -19,6 +19,7 @@
 let
   address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   formatting = import ./internal/format.nix;
   mac = import ./mac.nix;
@@ -758,28 +759,12 @@ let
     let
       left = wordsOf function a;
       right = wordsOf function b;
-      compareFrom =
-        i:
-        if i == 4 then
-          0
-        else if wordAt i left < wordAt i right then
-          -1
-        else if wordAt i left > wordAt i right then
-          1
-        else
-          compareFrom (i + 1);
     in
-    compareFrom 0;
+    comparison.lexicographic (
+      builtins.genList (i: comparison.order (wordAt i left) (wordAt i right)) 4
+    );
 
-  /*
-    Order two addresses numerically, comparing words most significant
-    first.
-
-    `a`, `b`: IPv6 values.
-
-    Returns -1 if `a < b`, 0 if equal, 1 if `a > b`.
-  */
-  compare = compareFor "compare";
+  ordering = comparison.suite compareFor;
 
   /*
     Check whether two values are the same address. Never throws for
@@ -790,60 +775,6 @@ let
     Returns true when both tag and words match.
   */
   eq = a: b: types.bothHaveTag types.tags.ipv6 a b && a.words == b.words;
-
-  /*
-    Check whether `a` sorts before `b`.
-
-    `a`, `b`: IPv6 values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Check whether `a` sorts before or equal to `b`.
-
-    `a`, `b`: IPv6 values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Check whether `a` sorts after `b`.
-
-    `a`, `b`: IPv6 values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Check whether `a` sorts after or equal to `b`.
-
-    `a`, `b`: IPv6 values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lower of two addresses.
-
-    `a`, `b`: IPv6 values.
-
-    Returns `a` when the two are equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the higher of two addresses.
-
-    `a`, `b`: IPv6 values.
-
-    Returns `a` when the two are equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   # ===== Constants =====
 
@@ -863,7 +794,6 @@ in
 {
   inherit
     add
-    compare
     diff
     eq
     fromBytes
@@ -871,8 +801,6 @@ in
     fromIpv4
     fromMac
     fromWords
-    ge
-    gt
     is
     is6to4
     isBogon
@@ -889,11 +817,7 @@ in
     isUniqueLocal
     isUnspecified
     isValid
-    le
     loopback
-    lt
-    max
-    min
     next
     parse
     prev
@@ -908,5 +832,14 @@ in
     toWords
     tryParse
     unspecified
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

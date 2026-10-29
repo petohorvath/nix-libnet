@@ -12,7 +12,9 @@
     => "[2001:db8::1]:80"
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
+  ip = import ./ip.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
@@ -306,27 +308,19 @@ let
 
   # ===== Comparison =====
 
-  # The order behind `compare`; each ordering function passes its own
-  # name, which its errors report.
+  # By address, IPv4 first, then by port.
   compareFor =
     function: a: b:
     let
       left = ipEndpointArgument function a;
       right = ipEndpointArgument function b;
     in
-    if types.isIpv4 left.address && types.isIpv6 right.address then
-      -1
-    else if types.isIpv6 left.address && types.isIpv4 right.address then
-      1
-    else
-      let
-        addressOrder =
-          if types.isIpv4 left.address then
-            ipv4.compare left.address right.address
-          else
-            ipv6.compare left.address right.address;
-      in
-      if addressOrder != 0 then addressOrder else port.compare left.port right.port;
+    comparison.lexicographic [
+      (ip.compare left.address right.address)
+      (port.compare left.port right.port)
+    ];
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two endpoints for equality of family, address, and port.
@@ -341,77 +335,11 @@ let
     && a.address._type == b.address._type
     && (if types.isIpv4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address)
     && port.eq a.port b.port;
-
-  /*
-    Order two endpoints by family (IPv4 first), then address, then port.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns `-1`, `0`, or `1`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two endpoints under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two endpoints under `compare`.
-
-    `a`, `b`: ipEndpoint values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
     address
-    compare
     eq
-    ge
-    gt
     is
     isBogon
     isDocumentation
@@ -423,16 +351,21 @@ in
     isMulticast
     isUnspecified
     isValid
-    le
-    lt
     make
-    max
-    min
     parse
     toArpa
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `port` names the port module.

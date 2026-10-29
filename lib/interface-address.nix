@@ -19,9 +19,11 @@
     => { _type = "interfaceAddress"; address = <ipv4>; prefix = 24; }
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
@@ -428,98 +430,20 @@ let
 
   order =
     a: b:
-    if isV4 a.address && !(isV4 b.address) then
-      -1
-    else if !(isV4 a.address) && isV4 b.address then
-      1
-    else
-      let
-        addressOrder =
-          if isV4 a.address then ipv4.compare a.address b.address else ipv6.compare a.address b.address;
-      in
-      if addressOrder != 0 then
-        addressOrder
-      else if a.prefix < b.prefix then
-        -1
-      else if a.prefix > b.prefix then
-        1
-      else
-        0;
+    comparison.lexicographic [
+      (ip.compare a.address b.address)
+      (comparison.order a.prefix b.prefix)
+    ];
 
-  /*
-    Order two interface addresses: IPv4 before IPv6, then by address,
-    then by prefix.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare = binary "compare" order;
-
-  /*
-    Test whether one interface address sorts before another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = binary "lt" (a: b: order a b == -1);
-
-  /*
-    Test whether one interface address sorts before or equal to another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = binary "le" (a: b: order a b <= 0);
-
-  /*
-    Test whether one interface address sorts after another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = binary "gt" (a: b: order a b == 1);
-
-  /*
-    Test whether one interface address sorts after or equal to another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = binary "ge" (a: b: order a b >= 0);
-
-  /*
-    Pick the earlier of two interface addresses in sort order.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns the lesser value; `a` when they compare equal.
-  */
-  min = binary "min" (a: b: if order a b <= 0 then a else b);
-
-  /*
-    Pick the later of two interface addresses in sort order.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns the greater value; `a` when they compare equal.
-  */
-  max = binary "max" (a: b: if order a b >= 0 then a else b);
+  ordering = comparison.suite (function: binary function order);
 in
 {
   inherit
     address
     broadcast
-    compare
     eq
     fromAddress
     fromCidrAndAddress
-    ge
-    gt
     hostmask
     is
     isBogon
@@ -532,11 +456,7 @@ in
     isMulticast
     isUnspecified
     isValid
-    le
-    lt
     make
-    max
-    min
     netmask
     parse
     prefix
@@ -544,6 +464,15 @@ in
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `cidr` names the cidr module.

@@ -25,6 +25,7 @@
     => true
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
@@ -151,16 +152,9 @@ let
 
   compareFor =
     function: a: b:
-    let
-      left = valueOf function a;
-      right = valueOf function b;
-    in
-    if left < right then
-      -1
-    else if left > right then
-      1
-    else
-      0;
+    comparison.order (valueOf function a) (valueOf function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Compare two Unix sockets for equality.
@@ -170,86 +164,25 @@ let
     Returns true when both carry the same type tag and path.
   */
   eq = a: b: types.bothHaveTag types.tags.unixSocket a b && a.value == b.value;
-
-  /*
-    Order two Unix sockets byte-wise by path.
-
-    `a`, `b`: unixSocket values.
-
-    Returns -1, 0, or 1 when `a` sorts before, equal to, or after `b`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` sorts strictly before `b`.
-
-    `a`, `b`: unixSocket values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` sorts before or equal to `b`.
-
-    `a`, `b`: unixSocket values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` sorts strictly after `b`.
-
-    `a`, `b`: unixSocket values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` sorts after or equal to `b`.
-
-    `a`, `b`: unixSocket values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two Unix sockets.
-
-    `a`, `b`: unixSocket values.
-
-    Returns the one that sorts first; `a` when they are equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two Unix sockets.
-
-    `a`, `b`: unixSocket values.
-
-    Returns the one that sorts last; `a` when they are equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isAbstract
     isPathname
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    parse
-    toString
-    tryParse
     ;
 }

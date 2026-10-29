@@ -20,6 +20,7 @@
     => { _type = "proxyUrl"; scheme = "socks5"; authority = <authority>; }
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
@@ -258,12 +259,12 @@ let
       left = proxyUrlArgument function a;
       right = proxyUrlArgument function b;
     in
-    if left.scheme < right.scheme then
-      -1
-    else if left.scheme > right.scheme then
-      1
-    else
-      authority.compare left.authority right.authority;
+    comparison.lexicographic [
+      (comparison.order left.scheme right.scheme)
+      (authority.compare left.authority right.authority)
+    ];
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two proxy URLs for equality.
@@ -279,86 +280,15 @@ let
     types.bothHaveTag types.tags.proxyUrl a b
     && a.scheme == b.scheme
     && authority.eq a.authority b.authority;
-
-  /*
-    Order two proxy URLs by scheme name (http < https < socks4 < socks4a <
-    socks5 < socks5h), then by authority.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns -1, 0, or 1.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Check whether one proxy URL sorts before another.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Check whether one proxy URL sorts before or equal to another.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Check whether one proxy URL sorts after another.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Check whether one proxy URL sorts after or equal to another.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two proxy URLs by `compare`.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns `a` when it sorts first or equal, otherwise `b`.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two proxy URLs by `compare`.
-
-    `a`, `b`: proxyUrl values.
-
-    Returns `a` when it sorts last or equal, otherwise `b`.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     host
     is
     isSecure
     isValid
-    le
-    lt
     make
-    max
-    min
     parse
     scheme
     schemes
@@ -366,6 +296,15 @@ in
     toString
     tryParse
     userinfo
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `authority`, `port` and

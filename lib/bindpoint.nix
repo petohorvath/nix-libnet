@@ -27,6 +27,7 @@
     libnet.bindpoint.parse "/run/foo.sock"   # tagged unixSocket
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
@@ -149,20 +150,12 @@ let
 
   compareFor =
     function: a: b:
-    let
-      left = bindpointArgument function a;
-      right = bindpointArgument function b;
-      rankA = rank left;
-      rankB = rank right;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ipBindpoint.compare left right
-    else
-      unixSocket.compare left right;
+    comparison.byRank rank (
+      left: right:
+      if types.isIpBindpoint left then ipBindpoint.compare left right else unixSocket.compare left right
+    ) (bindpointArgument function a) (bindpointArgument function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two bindpoints for equality using their member module's `eq`.
@@ -179,88 +172,25 @@ let
       unixSocket.eq a b
     else
       false;
-
-  /*
-    Order two bindpoints by kind (ipBindpoint < unixSocket), then by the
-    member module's `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns `-1`, `0`, or `1`; throws if either is not a bindpoint
-    member.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two bindpoints under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two bindpoints under `compare`.
-
-    `a`, `b`: bindpoint member values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isIpBindpoint
     isUnixSocket
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    parse
-    toString
-    tryParse
     ;
 }

@@ -16,6 +16,7 @@
 */
 let
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
@@ -416,90 +417,22 @@ let
     in
     if fromOrder != 0 then fromOrder else port.compare a.to b.to;
 
-  /*
-    Order two ranges lexicographically on (from, to).
-
-    `a`, `b`: portRange values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare = binary "compare" order;
-
-  /*
-    Test whether one range sorts before another.
-
-    `a`, `b`: portRange values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = binary "lt" (a: b: order a b == -1);
-
-  /*
-    Test whether one range sorts before or equal to another.
-
-    `a`, `b`: portRange values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = binary "le" (a: b: order a b <= 0);
-
-  /*
-    Test whether one range sorts after another.
-
-    `a`, `b`: portRange values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = binary "gt" (a: b: order a b == 1);
-
-  /*
-    Test whether one range sorts after or equal to another.
-
-    `a`, `b`: portRange values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = binary "ge" (a: b: order a b >= 0);
-
-  /*
-    Pick the earlier of two ranges in sort order.
-
-    `a`, `b`: portRange values.
-
-    Returns the lesser range; `a` when they compare equal.
-  */
-  min = binary "min" (a: b: if order a b <= 0 then a else b);
-
-  /*
-    Pick the later of two ranges in sort order.
-
-    `a`, `b`: portRange values.
-
-    Returns the greater range; `a` when they compare equal.
-  */
-  max = binary "max" (a: b: if order a b >= 0 then a else b);
+  ordering = comparison.suite (function: binary function order);
 in
 {
   inherit
-    compare
     contains
     eq
     from
     fromPort
-    ge
-    gt
     is
     isAdjacent
     isSingleton
     isSubrangeOf
     isSuperrangeOf
     isValid
-    le
-    lt
     make
-    max
     merge
-    min
     overlaps
     parse
     portAt
@@ -510,5 +443,14 @@ in
     toString
     toStringColon
     tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

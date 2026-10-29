@@ -19,6 +19,7 @@
   arithmetic ? false,
 }:
 let
+  comparison = import ./comparison.nix;
   errors = import ./errors.nix;
   parsing = import ./parse.nix;
   types = import ./types.nix;
@@ -45,16 +46,9 @@ let
   # taking the name of the public function its errors report.
   compareFor =
     function: a: b:
-    let
-      left = valueOf function a;
-      right = valueOf function b;
-    in
-    if left < right then
-      -1
-    else if left > right then
-      1
-    else
-      0;
+    comparison.order (valueOf function a) (valueOf function b);
+
+  ordering = comparison.suite compareFor;
 
   # Bound the offset, not the result: both bounds lie within a domain
   # width of zero, so no check can overflow a Nix integer, which Nix 2.18
@@ -187,69 +181,6 @@ let
   eq = a: b: types.bothHaveTag typeName a b && a.value == b.value;
 
   /*
-    Order two values numerically.
-
-    `a`, `b`: tagged values.
-
-    Returns -1, 0, or 1 as `a` is less than, equal to, or greater than `b`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` is less than `b`.
-
-    `a`, `b`: tagged values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` is less than or equal to `b`.
-
-    `a`, `b`: tagged values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` is greater than `b`.
-
-    `a`, `b`: tagged values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` is greater than or equal to `b`.
-
-    `a`, `b`: tagged values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Select the smaller of two values.
-
-    `a`, `b`: tagged values.
-
-    Returns the smaller value, or `a` when they are equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Select the larger of two values.
-
-    `a`, `b`: tagged values.
-
-    Returns the larger value, or `a` when they are equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
-
-  /*
     Offset a value by an integer, staying within the domain.
 
     `n`: integer offset; may be negative.
@@ -306,23 +237,25 @@ if minValue < 0 then
 else
   {
     inherit
-      compare
       eq
       fromInt
-      ge
-      gt
       is
       isValid
-      le
-      lt
-      max
       maxValue
-      min
       minValue
       parse
       toInt
       toString
       tryParse
+      ;
+    inherit (ordering)
+      compare
+      ge
+      gt
+      le
+      lt
+      max
+      min
       ;
   }
   // (

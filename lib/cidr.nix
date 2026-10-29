@@ -17,9 +17,11 @@
 let
   bits = import ./internal/bits.nix;
   carry = import ./internal/carry.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
 
@@ -734,97 +736,12 @@ let
   # Order checked blocks by family, network address, then prefix.
   order =
     a: b:
-    if isV4 a.networkAddress && isV6 b.networkAddress then
-      -1
-    else if isV6 a.networkAddress && isV4 b.networkAddress then
-      1
-    else
-      let
-        addressOrder =
-          if isV4 a.networkAddress then
-            (
-              if a.networkAddress.value < b.networkAddress.value then
-                -1
-              else if a.networkAddress.value > b.networkAddress.value then
-                1
-              else
-                0
-            )
-          else
-            ipv6.compare a.networkAddress b.networkAddress;
-      in
-      if addressOrder != 0 then
-        addressOrder
-      else if a.prefix < b.prefix then
-        -1
-      else if a.prefix > b.prefix then
-        1
-      else
-        0;
+    comparison.lexicographic [
+      (ip.compare a.networkAddress b.networkAddress)
+      (comparison.order a.prefix b.prefix)
+    ];
 
-  /*
-    Order two CIDR blocks by family (IPv4 first), network address, then
-    prefix length.
-
-    `a`, `b`: cidr values.
-
-    Returns -1, 0, or 1.
-  */
-  compare = binary "compare" order;
-
-  /*
-    Test whether `a` orders before `b` (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns a Boolean.
-  */
-  lt = binary "lt" (a: b: order a b == -1);
-
-  /*
-    Test whether `a` orders before or equal to `b` (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns a Boolean.
-  */
-  le = binary "le" (a: b: order a b <= 0);
-
-  /*
-    Test whether `a` orders after `b` (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns a Boolean.
-  */
-  gt = binary "gt" (a: b: order a b == 1);
-
-  /*
-    Test whether `a` orders after or equal to `b` (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns a Boolean.
-  */
-  ge = binary "ge" (a: b: order a b >= 0);
-
-  /*
-    Pick the lower of two CIDR blocks (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns `a` when the two compare equal.
-  */
-  min = binary "min" (a: b: if order a b <= 0 then a else b);
-
-  /*
-    Pick the higher of two CIDR blocks (see `compare`).
-
-    `a`, `b`: cidr values.
-
-    Returns `a` when the two compare equal.
-  */
-  max = binary "max" (a: b: if order a b >= 0 then a else b);
+  ordering = comparison.suite (function: binary function order);
 
   # ===== Set algebra =====
 
@@ -943,14 +860,11 @@ in
   inherit
     addressAt
     broadcast
-    compare
     contains
     eq
     exclude
     firstHost
     fromAddress
-    ge
-    gt
     hostCount
     hostmask
     hosts
@@ -963,11 +877,7 @@ in
     isSupernetOf
     isValid
     lastHost
-    le
-    lt
     make
-    max
-    min
     netmask
     networkAddress
     overlaps
@@ -981,5 +891,14 @@ in
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

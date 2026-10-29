@@ -16,9 +16,11 @@
 let
   bits = import ./internal/bits.nix;
   carry = import ./internal/carry.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
@@ -582,29 +584,15 @@ let
 
   # ===== Comparison =====
 
-  compareAddresses = a: b: if isV4 a then ipv4.compare a b else ipv6.compare a b;
-
+  # Order checked ranges by family (IPv4 first), then `from`, then `to`.
   order =
     a: b:
-    if isV4 a.from && isV6 b.from then
-      -1
-    else if isV6 a.from && isV4 b.from then
-      1
-    else
-      let
-        fromOrder = compareAddresses a.from b.from;
-      in
-      if fromOrder != 0 then fromOrder else compareAddresses a.to b.to;
+    comparison.lexicographic [
+      (ip.compare a.from b.from)
+      (ip.compare a.to b.to)
+    ];
 
-  /*
-    Order two ranges lexicographically on (family, from, to); IPv4
-    ranges sort before IPv6 ranges.
-
-    `a`, `b`: ipRange values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare = binary "compare" order;
+  ordering = comparison.suite (function: binary function order);
 
   /*
     Test two address ranges for equality.
@@ -624,74 +612,17 @@ let
       else
         ipv6.eq a.from b.from && ipv6.eq a.to b.to
     );
-
-  /*
-    Test whether one range sorts before another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = binary "lt" (a: b: order a b == -1);
-
-  /*
-    Test whether one range sorts before or equal to another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = binary "le" (a: b: order a b <= 0);
-
-  /*
-    Test whether one range sorts after another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = binary "gt" (a: b: order a b == 1);
-
-  /*
-    Test whether one range sorts after or equal to another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = binary "ge" (a: b: order a b >= 0);
-
-  /*
-    Pick the earlier of two ranges in sort order.
-
-    `a`, `b`: ipRange values.
-
-    Returns the lesser range; `a` when they compare equal.
-  */
-  min = binary "min" (a: b: if order a b <= 0 then a else b);
-
-  /*
-    Pick the later of two ranges in sort order.
-
-    `a`, `b`: ipRange values.
-
-    Returns the greater range; `a` when they compare equal.
-  */
-  max = binary "max" (a: b: if order a b >= 0 then a else b);
 in
 {
   inherit
     addressAt
     addresses
     addressesUnbounded
-    compare
     contains
     eq
     from
     fromAddress
     fromCidr
-    ge
-    gt
     is
     isAdjacent
     isIpv4
@@ -700,12 +631,8 @@ in
     isSubrangeOf
     isSuperrangeOf
     isValid
-    le
-    lt
     make
-    max
     merge
-    min
     overlaps
     parse
     size
@@ -714,5 +641,14 @@ in
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

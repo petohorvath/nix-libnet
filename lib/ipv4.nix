@@ -17,6 +17,7 @@
 let
   address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
@@ -465,16 +466,9 @@ let
   # for any argument that is not an IPv4 value, including an IPv6 one.
   compareFor =
     function: a: b:
-    let
-      left = valueOf function a;
-      right = valueOf function b;
-    in
-    if left < right then
-      -1
-    else if left > right then
-      1
-    else
-      0;
+    comparison.order (valueOf function a) (valueOf function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Check whether two values are the same address. Never throws for
@@ -485,69 +479,6 @@ let
     Returns true when both tag and value match.
   */
   eq = a: b: types.bothHaveTag types.tags.ipv4 a b && a.value == b.value;
-
-  /*
-    Order two addresses numerically.
-
-    `a`, `b`: IPv4 values.
-
-    Returns -1 if `a < b`, 0 if equal, 1 if `a > b`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Check whether `a` sorts before `b`.
-
-    `a`, `b`: IPv4 values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Check whether `a` sorts before or equal to `b`.
-
-    `a`, `b`: IPv4 values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Check whether `a` sorts after `b`.
-
-    `a`, `b`: IPv4 values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Check whether `a` sorts after or equal to `b`.
-
-    `a`, `b`: IPv4 values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lower of two addresses.
-
-    `a`, `b`: IPv4 values.
-
-    Returns `a` when the two are equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the higher of two addresses.
-
-    `a`, `b`: IPv4 values.
-
-    Returns `a` when the two are equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   # ===== Constants =====
 
@@ -564,13 +495,10 @@ in
   inherit
     add
     broadcast
-    compare
     diff
     eq
     fromBytes
     fromInt
-    ge
-    gt
     is
     isBenchmarking
     isBogon
@@ -587,11 +515,7 @@ in
     isThisNetwork
     isUnspecified
     isValid
-    le
     loopback
-    lt
-    max
-    min
     next
     parse
     prev
@@ -602,5 +526,14 @@ in
     toString
     tryParse
     unspecified
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

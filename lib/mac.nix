@@ -18,6 +18,7 @@
 let
   address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   formatting = import ./internal/format.nix;
   parsing = import ./internal/parse.nix;
@@ -559,16 +560,9 @@ let
   # throws for any argument that is not a mac value.
   compareFor =
     function: a: b:
-    let
-      left = valueOf function a;
-      right = valueOf function b;
-    in
-    if left < right then
-      -1
-    else if left > right then
-      1
-    else
-      0;
+    comparison.order (valueOf function a) (valueOf function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two MAC addresses for equality.
@@ -579,69 +573,6 @@ let
   */
   eq = a: b: types.bothHaveTag types.tags.mac a b && a.value == b.value;
 
-  /*
-    Order two MAC addresses by integer value.
-
-    `a`, `b`: mac values.
-
-    Returns -1, 0, or 1.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders before `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders after `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lower of two MAC addresses.
-
-    `a`, `b`: mac values.
-
-    Returns `a` when the two compare equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the higher of two MAC addresses.
-
-    `a`, `b`: mac values.
-
-    Returns `a` when the two compare equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
-
   # ===== Constants =====
 
   unspecified = mk 0;
@@ -651,14 +582,11 @@ in
   inherit
     add
     broadcast
-    compare
     diff
     eq
     fromBytes
     fromInt
     fromOuiNic
-    ge
-    gt
     is
     isBroadcast
     isLocal
@@ -667,10 +595,6 @@ in
     isUniversal
     isUnspecified
     isValid
-    le
-    lt
-    max
-    min
     next
     nic
     oui
@@ -691,5 +615,14 @@ in
     toStringHyphen
     tryParse
     unspecified
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

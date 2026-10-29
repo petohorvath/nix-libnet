@@ -26,6 +26,7 @@
     libnet.endpoint.parse "/run/foo.sock"      # tagged unixSocket
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
@@ -192,22 +193,17 @@ let
 
   compareFor =
     function: a: b:
-    let
-      left = endpointArgument function a;
-      right = endpointArgument function b;
-      rankA = rank left;
-      rankB = rank right;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ipEndpoint.compare left right
-    else if rankA == 1 then
-      dnsEndpoint.compare left right
-    else
-      unixSocket.compare left right;
+    comparison.byRank rank (
+      left: right:
+      if types.isIpEndpoint left then
+        ipEndpoint.compare left right
+      else if types.isDnsEndpoint left then
+        dnsEndpoint.compare left right
+      else
+        unixSocket.compare left right
+    ) (endpointArgument function a) (endpointArgument function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two endpoints for equality using their member module's `eq`.
@@ -226,89 +222,26 @@ let
       unixSocket.eq a b
     else
       false;
-
-  /*
-    Order two endpoints by kind (ipEndpoint < dnsEndpoint < unixSocket),
-    then by the member module's `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns `-1`, `0`, or `1`; throws if either is not an endpoint
-    member.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two endpoints under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two endpoints under `compare`.
-
-    `a`, `b`: endpoint member values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isDnsEndpoint
     isIpEndpoint
     isUnixSocket
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    parse
-    toString
-    tryParse
     ;
 }

@@ -17,7 +17,9 @@
     => 3
 */
 let
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
+  ip = import ./ip.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
@@ -504,35 +506,26 @@ let
 
   # ===== Comparison =====
 
-  # The order behind `compare`; each ordering function passes its own
-  # name, which its errors report.
+  # The wildcard (null address) first, then by address, IPv4 first, then
+  # by port range.
   compareFor =
     function: a: b:
     let
       left = ipBindpointArgument function a;
       right = ipBindpointArgument function b;
+      wildcardRank = bindpoint: if bindpoint.address == null then 0 else 1;
+      addressOrder =
+        if left.address == null || right.address == null then
+          comparison.order (wildcardRank left) (wildcardRank right)
+        else
+          ip.compare left.address right.address;
     in
-    if left.address == null && right.address != null then
-      -1
-    else if left.address != null && right.address == null then
-      1
-    else if
-      left.address == null # both null
-    then
-      portRange.compare left.portRange right.portRange
-    else if isV4 left.address && isV6 right.address then
-      -1
-    else if isV6 left.address && isV4 right.address then
-      1
-    else
-      let
-        addressOrder =
-          if isV4 left.address then
-            ipv4.compare left.address right.address
-          else
-            ipv6.compare left.address right.address;
-      in
-      if addressOrder != 0 then addressOrder else portRange.compare left.portRange right.portRange;
+    comparison.lexicographic [
+      addressOrder
+      (portRange.compare left.portRange right.portRange)
+    ];
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two bindpoints for equality of address and port range.
@@ -555,81 +548,14 @@ let
       )
     )
     && portRange.eq a.portRange b.portRange;
-
-  /*
-    Order two bindpoints: null address first, then IPv4 before IPv6,
-    then address, then port range.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `-1`, `0`, or `1`.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lesser of two bindpoints under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the greater of two bindpoints under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
     address
-    compare
     endpointAt
     endpoints
     endpointsUnbounded
     eq
-    ge
-    gt
     is
     isBogon
     isDocumentation
@@ -642,16 +568,21 @@ in
     isUnspecified
     isValid
     isWildcard
-    le
-    lt
     make
-    max
-    min
     parse
     toArpa
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `portRange` names the

@@ -15,6 +15,7 @@
 let
   address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
@@ -212,22 +213,15 @@ let
 
   # ===== Comparison (lenient cross-family) =====
 
-  # Order two addresses for the public function `function`, IPv4 before
-  # IPv6, throwing for an argument that is not an address.
+  # IPv4 before IPv6, then by address. The operands are checked first, so
+  # the family comparison cannot fail and name itself.
   compareFor =
     function: a: b:
-    let
-      left = ipArgument function a;
-      right = ipArgument function b;
-    in
-    if types.isIpv4 left && types.isIpv6 right then
-      -1
-    else if types.isIpv6 left && types.isIpv4 right then
-      1
-    else if types.isIpv4 left then
-      ipv4.compare left right
-    else
-      ipv6.compare left right;
+    comparison.byRank (address: if types.isIpv4 address then 0 else 1) (
+      left: right: if types.isIpv4 left then ipv4.compare left right else ipv6.compare left right
+    ) (ipArgument function a) (ipArgument function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two addresses for equality; different families are never equal.
@@ -244,70 +238,6 @@ let
       ipv6.eq a b
     else
       false;
-
-  /*
-    Order two addresses, placing every IPv4 address before every IPv6
-    address so mixed lists sort without throwing.
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns -1, 0, or 1.
-  */
-  compare = compareFor "compare";
-
-  /*
-    Test whether `a` orders before `b` (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compareFor "lt" a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compareFor "le" a b <= 0;
-
-  /*
-    Test whether `a` orders after `b` (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compareFor "gt" a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compareFor "ge" a b >= 0;
-
-  /*
-    Pick the lower of two addresses (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns `a` when the two compare equal.
-  */
-  min = a: b: if compareFor "min" a b <= 0 then a else b;
-
-  /*
-    Pick the higher of two addresses (IPv4 before IPv6).
-
-    `a`, `b`: ipv4 or ipv6 values.
-
-    Returns `a` when the two compare equal.
-  */
-  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   # ===== Arithmetic (dispatched) =====
 
@@ -377,11 +307,8 @@ in
 {
   inherit
     add
-    compare
     diff
     eq
-    ge
-    gt
     is
     isBogon
     isDocumentation
@@ -393,10 +320,6 @@ in
     isMulticast
     isUnspecified
     isValid
-    le
-    lt
-    max
-    min
     next
     parse
     prev
@@ -405,5 +328,14 @@ in
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }
