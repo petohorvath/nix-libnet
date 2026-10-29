@@ -18,6 +18,18 @@ let
     in
     if value == null then types.tryErr "not a digit: \"${input}\"" else types.tryOk value
   );
+
+  # An address detail parser that reads "v4" and "v6" as tagged
+  # addresses of each family.
+  addressStub =
+    input:
+    if input == "v4" then
+      types.tryOk { _type = "ipv4"; }
+    else if input == "v6" then
+      types.tryOk { _type = "ipv6"; }
+    else
+      types.tryErr "bad address \"${input}\"";
+  addressPrefix = parsing.addressPrefix addressStub;
 in
 {
   # ===== suite =====
@@ -628,6 +640,67 @@ in
       null
       null
       null
+    ];
+  };
+
+  # ===== addressPrefix =====
+  testAddressPrefixSplits = {
+    expr = map addressPrefix [
+      "v4/0"
+      "v4/32"
+      "v6/128"
+    ];
+    expected = map types.tryOk [
+      {
+        address._type = "ipv4";
+        prefix = 0;
+      }
+      {
+        address._type = "ipv4";
+        prefix = 32;
+      }
+      {
+        address._type = "ipv6";
+        prefix = 128;
+      }
+    ];
+  };
+  testAddressPrefixMissingSlash = {
+    expr = map addressPrefix [
+      "v4"
+      "v4/1/2"
+    ];
+    expected = [
+      (types.tryErr "missing '/': \"v4\"")
+      (types.tryErr "missing '/': \"v4/1/2\"")
+    ];
+  };
+  # The address's detail comes back unchanged.
+  testAddressPrefixKeepsAddressDetail = {
+    expr = addressPrefix "x/24";
+    expected = types.tryErr "bad address \"x\"";
+  };
+  testAddressPrefixInvalidPrefix = {
+    expr = map addressPrefix [
+      "v4/"
+      "v4/x"
+      "v4/08"
+    ];
+    expected = [
+      (types.tryErr "invalid prefix \"\"")
+      (types.tryErr "invalid prefix \"x\"")
+      (types.tryErr "invalid prefix \"08\"")
+    ];
+  };
+  # The prefix must fit the parsed address's family.
+  testAddressPrefixOutOfRange = {
+    expr = map addressPrefix [
+      "v4/33"
+      "v6/129"
+    ];
+    expected = [
+      (types.tryErr "prefix /33 out of range")
+      (types.tryErr "prefix /129 out of range")
     ];
   };
 

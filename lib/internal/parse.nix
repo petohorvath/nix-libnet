@@ -196,6 +196,41 @@ let
         rest = builtins.concatStringsSep "://" (builtins.tail parts);
       };
 
+  /*
+    Parse `address/prefix` text, for the kinds that pair an address with
+    a prefix length. `tryParseAddress` is the address's detail parser,
+    such as `ip.tryParseDetail`, and the prefix must fit the family of
+    the address it returns.
+
+    Returns a tryResult whose `value` is `{ address, prefix }`, or whose
+    `error` is the detail of the failure.
+  */
+  addressPrefix =
+    tryParseAddress: input:
+    let
+      parts = splitOn "/" input;
+    in
+    if builtins.length parts != 2 then
+      types.tryErr "missing '/': \"${input}\""
+    else
+      let
+        addressResult = tryParseAddress (builtins.elemAt parts 0);
+        prefixText = builtins.elemAt parts 1;
+        maxPrefix = if addressResult.value._type == "ipv4" then 32 else 128;
+        prefix = decimal maxPrefix prefixText;
+      in
+      if !addressResult.success then
+        addressResult
+      else if !(isDecimal prefixText) then
+        types.tryErr "invalid prefix \"${prefixText}\""
+      else if prefix == null then
+        types.tryErr "prefix /${prefixText} out of range"
+      else
+        types.tryOk {
+          address = addressResult.value;
+          inherit prefix;
+        };
+
   startsWith =
     prefix: input:
     let
@@ -285,6 +320,7 @@ let
 in
 {
   inherit
+    addressPrefix
     countOccurrences
     decimal
     endsWith

@@ -134,27 +134,15 @@ let
   tryParseDetail =
     input:
     let
-      parts = parsing.splitOn "/" input;
+      result = parsing.addressPrefix ip.tryParseDetail input;
+      inherit (result.value) address prefix;
     in
-    if builtins.length parts != 2 then
-      types.tryErr "missing '/': \"${input}\""
+    if !result.success then
+      result
+    else if hasHostBits address prefix then
+      types.tryErr (hostBitsError address prefix)
     else
-      let
-        addressText = builtins.elemAt parts 0;
-        prefixText = builtins.elemAt parts 1;
-        addressResult = ip.tryParseDetail addressText;
-        prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixText;
-      in
-      if !addressResult.success then
-        addressResult
-      else if !(parsing.isDecimal prefixText) then
-        types.tryErr "invalid prefix \"${prefixText}\""
-      else if prefixLength == null then
-        types.tryErr "prefix /${prefixText} out of range"
-      else if hasHostBits addressResult.value prefixLength then
-        types.tryErr (hostBitsError addressResult.value prefixLength)
-      else
-        types.tryOk (mk addressResult.value prefixLength);
+      types.tryOk (mk address prefix);
 
   parsers = parsing.suite "cidr" tryParseDetail;
 

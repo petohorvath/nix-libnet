@@ -73,25 +73,9 @@ let
   tryParseDetail =
     input:
     let
-      parts = parsing.splitOn "/" input;
+      result = parsing.addressPrefix ip.tryParseDetail input;
     in
-    if builtins.length parts != 2 then
-      types.tryErr "missing '/': \"${input}\""
-    else
-      let
-        addressInput = builtins.elemAt parts 0;
-        prefixInput = builtins.elemAt parts 1;
-        addressResult = ip.tryParseDetail addressInput;
-        prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
-      in
-      if !addressResult.success then
-        addressResult
-      else if !(parsing.isDecimal prefixInput) then
-        types.tryErr "invalid prefix \"${prefixInput}\""
-      else if prefixLength == null then
-        types.tryErr "prefix /${prefixInput} out of range"
-      else
-        types.tryOk (mk addressResult.value prefixLength);
+    if result.success then types.tryOk (mk result.value.address result.value.prefix) else result;
 
   parsers = parsing.suite "interfaceAddress" tryParseDetail;
 
