@@ -16,7 +16,7 @@
     bindpoint = ipBindpoint | unixSocket
 
   The local-bind peer of `endpoint` (the connect-side union). `bindUrl`
-  adds a transport tag on top, mirroring how `socketUrl` tags `endpoint`.
+  adds a scheme on top, mirroring how `socketUrl` tags `endpoint`.
 
   No DNS-name member (unlike `endpoint`): you bind to a local address,
   not a name — `localhost` and other names are rejected; use

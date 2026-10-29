@@ -643,6 +643,128 @@ let
           max.stringOperand = bindpoint.max value ":80";
         };
       };
+    socketUrl =
+      let
+        inherit (libnet) socketUrl;
+        value = socketUrl.parse "tcp://192.0.2.1:80";
+        endpoint = libnet.endpoint.parse "192.0.2.1:80";
+      in
+      {
+        module = socketUrl;
+        inherit value;
+        rejects = {
+          toString = {
+            string = socketUrl.toString "tcp://192.0.2.1:80";
+            bindUrlOperand = socketUrl.toString (libnet.bindUrl.parse "tcp://:80");
+          };
+          make = {
+            transportScheme = socketUrl.make (libnet.transport.parse "tcp") endpoint;
+            nullScheme = socketUrl.make null (libnet.unixSocket.parse "/run/foo.sock");
+            stringEndpoint = socketUrl.make "tcp" "192.0.2.1:80";
+            ipBindpointEndpoint = socketUrl.make "tcp" (libnet.ipBindpoint.parse ":80");
+          };
+          scheme.secureSocketUrlOperand = socketUrl.scheme (
+            libnet.secureSocketUrl.parse "tls://192.0.2.1:443"
+          );
+          transport.string = socketUrl.transport "tcp://192.0.2.1:80";
+          endpoint.ipEndpointOperand = socketUrl.endpoint endpoint;
+          isUnix.unixSocketOperand = socketUrl.isUnix (libnet.unixSocket.parse "/run/foo.sock");
+          isSecure.null = socketUrl.isSecure null;
+          compare.stringOperand = socketUrl.compare value "tcp://192.0.2.1:80";
+          lt.bindUrlOperand = socketUrl.lt (libnet.bindUrl.parse "tcp://:80") value;
+          max.intOperand = socketUrl.max value 80;
+        };
+      };
+    bindUrl =
+      let
+        inherit (libnet) bindUrl;
+        value = bindUrl.parse "tcp://:80";
+        bindpoint = libnet.bindpoint.parse ":80";
+      in
+      {
+        module = bindUrl;
+        inherit value;
+        rejects = {
+          toString = {
+            string = bindUrl.toString "tcp://:80";
+            socketUrlOperand = bindUrl.toString (libnet.socketUrl.parse "tcp://192.0.2.1:80");
+          };
+          make = {
+            transportScheme = bindUrl.make (libnet.transport.parse "tcp") bindpoint;
+            nullScheme = bindUrl.make null (libnet.unixSocket.parse "/run/foo.sock");
+            stringBindpoint = bindUrl.make "tcp" ":80";
+            ipEndpointBindpoint = bindUrl.make "tcp" (libnet.ipEndpoint.parse "192.0.2.1:80");
+          };
+          scheme.int = bindUrl.scheme 80;
+          transport.socketUrlOperand = bindUrl.transport (libnet.socketUrl.parse "tcp://192.0.2.1:80");
+          bindpoint.ipBindpointOperand = bindUrl.bindpoint bindpoint;
+          isUnix.string = bindUrl.isUnix "unix:///run/foo.sock";
+          isSecure.set = bindUrl.isSecure { };
+          compare.socketUrlOperand = bindUrl.compare value (libnet.socketUrl.parse "tcp://192.0.2.1:80");
+          ge.stringOperand = bindUrl.ge ":80" value;
+          min.intOperand = bindUrl.min value 80;
+        };
+      };
+    secureSocketUrl =
+      let
+        inherit (libnet) secureSocketUrl;
+        value = secureSocketUrl.parse "tls://192.0.2.1:443";
+        endpoint = libnet.endpoint.parse "192.0.2.1:443";
+      in
+      {
+        module = secureSocketUrl;
+        inherit value;
+        rejects = {
+          toString = {
+            string = secureSocketUrl.toString "tls://192.0.2.1:443";
+            socketUrlOperand = secureSocketUrl.toString (libnet.socketUrl.parse "tcp://192.0.2.1:443");
+          };
+          make = {
+            intScheme = secureSocketUrl.make 443 endpoint;
+            stringEndpoint = secureSocketUrl.make "tls" "192.0.2.1:443";
+            unixSocketEndpoint = secureSocketUrl.make "tls" (libnet.unixSocket.parse "/run/foo.sock");
+          };
+          scheme.socketUrlOperand = secureSocketUrl.scheme (libnet.socketUrl.parse "tcp://192.0.2.1:443");
+          transport.string = secureSocketUrl.transport "tls://192.0.2.1:443";
+          endpoint.ipEndpointOperand = secureSocketUrl.endpoint endpoint;
+          isSecure.proxyUrlOperand = secureSocketUrl.isSecure (libnet.proxyUrl.parse "https://192.0.2.1:443");
+          compare.stringOperand = secureSocketUrl.compare value "tls://192.0.2.1:443";
+          gt.socketUrlOperand = secureSocketUrl.gt (libnet.socketUrl.parse "tcp://192.0.2.1:443") value;
+          max.null = secureSocketUrl.max value null;
+        };
+      };
+    proxyUrl =
+      let
+        inherit (libnet) proxyUrl;
+        value = proxyUrl.parse "socks5://u@192.0.2.1:1080";
+        authority = libnet.authority.parse "u@192.0.2.1:1080";
+      in
+      {
+        module = proxyUrl;
+        inherit value;
+        rejects = {
+          toString = {
+            string = proxyUrl.toString "socks5://192.0.2.1:1080";
+            urlOperand = proxyUrl.toString (libnet.url.parse "http://192.0.2.1:1080");
+          };
+          make = {
+            intScheme = proxyUrl.make 5 authority;
+            stringAuthority = proxyUrl.make "socks5" "192.0.2.1:1080";
+            urlAuthority = proxyUrl.make "http" (libnet.url.parse "http://192.0.2.1:1080");
+          };
+          scheme.urlOperand = proxyUrl.scheme (libnet.url.parse "http://192.0.2.1:1080");
+          authority.authorityOperand = proxyUrl.authority authority;
+          host.string = proxyUrl.host "socks5://192.0.2.1:1080";
+          port.authorityOperand = proxyUrl.port authority;
+          userinfo.null = proxyUrl.userinfo null;
+          transport.int = proxyUrl.transport 1080;
+          isSecure.urlOperand = proxyUrl.isSecure (libnet.url.parse "https://192.0.2.1");
+          toEndpoint.ipEndpointOperand = proxyUrl.toEndpoint (libnet.ipEndpoint.parse "192.0.2.1:1080");
+          compare.stringOperand = proxyUrl.compare value "socks5://192.0.2.1:1080";
+          le.urlOperand = proxyUrl.le (libnet.url.parse "http://192.0.2.1:1080") value;
+          min.intOperand = proxyUrl.min value 1080;
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a

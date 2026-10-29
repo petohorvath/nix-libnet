@@ -451,8 +451,17 @@ else
       expected = "tcp://1.2.3.4:80";
     };
     testSocketUrlMkBad = {
-      expr = throws (types.socketUrl.mk "ftp://x:1");
-      expected = true;
+      expr = types.socketUrl.mk "ftp://x:1";
+      expectedError.msg = "^libnet\\.types\\.socketUrl\\.mk: invalid value \"ftp://x:1\"$";
+    };
+    testSocketUrlUnixHostPortRejected = {
+      expr = types.socketUrl.check "unix://1.2.3.4:80";
+      expected = false;
+    };
+    # The merged value keeps the scheme's input spelling (ADR 0016).
+    testSocketUrlMergeKeepsSpelling = {
+      expr = merged types.socketUrl "TCP://1.2.3.4:80";
+      expected = "TCP://1.2.3.4:80";
     };
     testSocketUrlDescription = {
       expr = builtins.isString types.socketUrl.description;
@@ -493,8 +502,16 @@ else
       expected = "tcp://:8080";
     };
     testBindUrlMkBad = {
-      expr = throws (types.bindUrl.mk "ftp://:1");
-      expected = true;
+      expr = types.bindUrl.mk "ftp://:1";
+      expectedError.msg = "^libnet\\.types\\.bindUrl\\.mk: invalid value \"ftp://:1\"$";
+    };
+    testBindUrlUnixHostPortRejected = {
+      expr = types.bindUrl.check "unix://:80";
+      expected = false;
+    };
+    testBindUrlMergeKeepsSpelling = {
+      expr = merged types.bindUrl "Udp://:53";
+      expected = "Udp://:53";
     };
     testBindUrlDescription = {
       expr = builtins.isString types.bindUrl.description;
@@ -527,8 +544,13 @@ else
       expected = "tls://1.2.3.4:443";
     };
     testSecureSocketUrlMkBad = {
-      expr = throws (types.secureSocketUrl.mk "tcp://x:1");
-      expected = true;
+      expr = types.secureSocketUrl.mk "tcp://x:1";
+      expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: invalid value \"tcp://x:1\"$";
+    };
+    # `ssl` is an input spelling of `tls`; the merged value keeps it.
+    testSecureSocketUrlMergeKeepsSpelling = {
+      expr = merged types.secureSocketUrl "SSL://h:443";
+      expected = "SSL://h:443";
     };
     testSecureSocketUrlDescription = {
       expr = builtins.isString types.secureSocketUrl.description;
@@ -735,8 +757,16 @@ else
       expected = "socks5://h:1080";
     };
     testProxyUrlMkBad = {
-      expr = throws (types.proxyUrl.mk "socks5://h");
-      expected = true;
+      expr = types.proxyUrl.mk "socks5://h";
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: invalid value \"socks5://h\"$";
+    };
+    testProxyUrlMkRejectsSet = {
+      expr = types.proxyUrl.mk { };
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: expected string, got set$";
+    };
+    testProxyUrlMergeKeepsSpelling = {
+      expr = merged types.proxyUrl "Socks5://h:1080";
+      expected = "Socks5://h:1080";
     };
     testProxyUrlDescription = {
       expr = builtins.isString types.proxyUrl.description;

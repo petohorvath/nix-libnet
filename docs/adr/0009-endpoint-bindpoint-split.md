@@ -4,7 +4,7 @@ An endpoint answers "connect to where?" and a bindpoint answers "bind where?". K
 
 The split has deliberate asymmetries:
 
-- A bindpoint is what `bind(2)` takes: an optional address and a port range. It carries no transport (a bound UDP socket never listens), so `bindUrl` adds the transport, as `socketUrl` does for endpoints.
+- A bindpoint is what `bind(2)` takes: an optional address and a port range. It carries no transport (a bound UDP socket never listens), so `bindUrl` adds a scheme that names the transport, as `socketUrl` does for endpoints.
 - A bindpoint has no DNS-name member: a host binds an address it owns, so `localhost` is rejected.
 - Endpoints split by resolution: an IP endpoint is resolved, so address predicates such as `isLoopback` are meaningful; a DNS endpoint is not and exposes none.
 - A Unix socket belongs to both unions because the same path serves bind and connect.
