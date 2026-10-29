@@ -31,7 +31,7 @@ let
 
   # Build a value from a checked integer, forcing the check so a bad
   # argument throws at the call rather than when the value is read.
-  mkStrict = value: types.mkStrict "mac" { inherit value; };
+  mkChecked = value: types.mkStrict "mac" { inherit value; };
 
   # A MAC argument of `function`, which throws for any other kind.
   macArgument = function: errors.expectKind "mac.${function}" "mac";
@@ -86,7 +86,7 @@ let
 
     Returns a mac value; throws on a non-integer or out-of-range value.
   */
-  fromInt = value: mkStrict (boundedInt "fromInt" "out of range" bits.mask48 value);
+  fromInt = value: mkChecked (boundedInt "fromInt" "out of range" bits.mask48 value);
 
   /*
     Read the 48-bit integer value of a MAC address.
@@ -113,7 +113,7 @@ let
         maxValue = 255;
       } bytes;
     in
-    mkStrict (builtins.foldl' (acc: byte: acc * 256 + byte) 0 checkedBytes);
+    mkChecked (bits.fromBytes checkedBytes);
 
   /*
     Split a MAC address into its six octets.
@@ -136,10 +136,7 @@ let
     let
       bytes = map parsing.hexByte pairs;
     in
-    if builtins.elem null bytes then
-      null
-    else
-      mk (builtins.foldl' (acc: byte: acc * 256 + byte) 0 bytes);
+    if builtins.elem null bytes then null else mk (bits.fromBytes bytes);
 
   parseBare = input: fromHexPairs (builtins.genList (i: builtins.substring (i * 2) 2 input) 6);
 
@@ -406,7 +403,7 @@ let
   */
   fromOuiNic =
     ouiValue: nicValue:
-    mkStrict (
+    mkChecked (
       boundedInt "fromOuiNic" "OUI out of range" bits.mask24 ouiValue * bits.pow2_24
       + boundedInt "fromOuiNic" "NIC out of range" bits.mask24 nicValue
     );

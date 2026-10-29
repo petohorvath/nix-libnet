@@ -96,9 +96,7 @@ let
         maxValue = 255;
       } bytes;
     in
-    builtins.seq checkedBytes (
-      mk (builtins.foldl' (accumulated: byte: accumulated * bits.pow2_8 + byte) 0 checkedBytes)
-    );
+    builtins.seq checkedBytes (mk (bits.fromBytes checkedBytes));
 
   /*
     Split an address into its four bytes, named like `ipv6.toBytes` and
