@@ -236,18 +236,6 @@ let
   # `[userinfo@]host[:port]` — and the port is compared as-stored, since
   # an authority has no scheme and therefore no default port.
 
-  # Order nullable values with null first, the rest by `compareValues`.
-  compareOptional =
-    compareValues: a: b:
-    if a == null && b == null then
-      0
-    else if a == null then
-      -1
-    else if b == null then
-      1
-    else
-      compareValues a b;
-
   portEq =
     a: b:
     if a == null && b == null then
@@ -284,8 +272,8 @@ let
     in
     comparison.lexicographic [
       (urlHost.compare left.host right.host)
-      (compareOptional port.compare left.port right.port)
-      (compareOptional comparison.order left.userinfo right.userinfo)
+      (comparison.optional port.compare left.port right.port)
+      (comparison.optional comparison.order left.userinfo right.userinfo)
     ]
   );
 in

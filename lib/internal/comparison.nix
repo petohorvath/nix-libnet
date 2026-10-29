@@ -29,6 +29,19 @@ let
   # in turn. A key is evaluated only when every earlier key ties.
   lexicographic = builtins.foldl' (result: next: if result != 0 then result else next) 0;
 
+  # Order values that may be null, null first and the rest by
+  # `compareValues`, for optional components such as a URL's query.
+  optional =
+    compareValues: a: b:
+    if a == null && b == null then
+      0
+    else if a == null then
+      -1
+    else if b == null then
+      1
+    else
+      compareValues a b;
+
   /*
     `compareFor function a b` checks the kinds of `a` and `b`, reporting
     the public function named `function`, such as `lt` for `hostname.lt`,
@@ -106,6 +119,7 @@ in
   inherit
     byRank
     lexicographic
+    optional
     order
     suite
     ;

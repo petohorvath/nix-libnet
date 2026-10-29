@@ -387,18 +387,6 @@ let
 
   # ===== Comparison =====
 
-  # Order nullable strings with null first.
-  compareOptionalStrings =
-    a: b:
-    if a == null && b == null then
-      0
-    else if a == null then
-      -1
-    else if b == null then
-      1
-    else
-      comparison.order a b;
-
   # The authority with the scheme default filled in, so `https://h` and
   # `https://h:443` compare alike.
   effectiveAuthority = url: url.authority // { port = effectivePortOf url; };
@@ -441,8 +429,8 @@ let
       (comparison.order left.scheme right.scheme)
       (authority.compare (effectiveAuthority left) (effectiveAuthority right))
       (comparison.order (effectivePath left) (effectivePath right))
-      (compareOptionalStrings left.query right.query)
-      (compareOptionalStrings left.fragment right.fragment)
+      (comparison.optional comparison.order left.query right.query)
+      (comparison.optional comparison.order left.fragment right.fragment)
     ]
   );
 in
