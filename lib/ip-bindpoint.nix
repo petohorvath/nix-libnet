@@ -228,13 +228,14 @@ let
   is = value: types.isIpBindpoint value;
 
   /*
-    Test whether the bindpoint binds on every interface.
+    Test whether the bindpoint binds on every interface: its address is
+    the wildcard address.
 
     `bindpoint`: ipBindpoint value.
 
     Returns true iff the address is null, `0.0.0.0`, or `::`.
   */
-  isAnyAddress =
+  isWildcard =
     bindpoint:
     bindpoint.address == null
     || (isV4 bindpoint.address && bindpoint.address.value == 0)
@@ -248,15 +249,6 @@ let
           0
         ]
     );
-
-  /*
-    Alias of `isAnyAddress`.
-
-    `bindpoint`: ipBindpoint value.
-
-    Returns true iff the address is null, `0.0.0.0`, or `::`.
-  */
-  isWildcard = isAnyAddress;
 
   /*
     Test whether the bindpoint covers more than one port.
@@ -591,7 +583,6 @@ in
     ge
     gt
     is
-    isAnyAddress
     isBogon
     isDocumentation
     isGlobal

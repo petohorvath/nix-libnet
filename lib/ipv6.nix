@@ -545,16 +545,6 @@ let
         "${prefixText}::${suffixText}";
 
   /*
-    Alias of `toString`, named to contrast with `toStringExpanded` when
-    both forms appear in the same code.
-
-    `ip`: IPv6 value.
-
-    Returns the RFC 5952 canonical string.
-  */
-  toStringCompressed = toString;
-
-  /*
     Format an address with all eight groups as four hex digits and no
     compression.
 
@@ -999,7 +989,6 @@ in
     toIpv4Mapped
     toString
     toStringBracketed
-    toStringCompressed
     toStringExpanded
     toWords
     tryParse

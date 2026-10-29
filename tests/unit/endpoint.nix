@@ -125,8 +125,8 @@ in
     expr = libnet.port.toInt (ipEndpoint.port (parse "192.0.2.1:80"));
     expected = 80;
   };
-  testAddressViaMember = {
-    expr = (dnsEndpoint.address (parse "nas:22")).value;
+  testNameViaMember = {
+    expr = (dnsEndpoint.name (parse "nas:22")).value;
     expected = "nas";
   };
 

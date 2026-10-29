@@ -219,11 +219,7 @@ in
     expected = "1:0:2:0:3:0:4:5";
   }; # no run of >=2, no compression
 
-  # ===== toStringCompressed / Expanded / Bracketed =====
-  testFormatCompressed = {
-    expr = ipv6.toStringCompressed (parse "2001:db8:0:0:0:0:0:1");
-    expected = "2001:db8::1";
-  };
+  # ===== toStringExpanded / Bracketed =====
   testFormatExpanded = {
     expr = ipv6.toStringExpanded (parse "::1");
     expected = "0000:0000:0000:0000:0000:0000:0000:0001";

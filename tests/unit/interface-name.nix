@@ -18,10 +18,6 @@ in
     expr = interfaceName.toString (parse "br-home");
     expected = "br-home";
   };
-  testValueAccessor = {
-    expr = interfaceName.value (parse "wg0");
-    expected = "wg0";
-  };
 
   # ===== isValid — kernel dev_valid_name parity =====
   testIsValidOk = {
@@ -160,8 +156,8 @@ in
   };
 
   # ===== Constant =====
-  testIfnamsiz = {
-    expr = interfaceName.ifnamsiz;
-    expected = 16;
+  testMaxLength = {
+    expr = interfaceName.maxLength;
+    expected = 15;
   };
 }

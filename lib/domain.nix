@@ -138,15 +138,6 @@ let
   */
   labels = domain: parsing.splitOn "." domain.value;
 
-  /*
-    Count the labels of a domain.
-
-    `domain`: domain value.
-
-    Returns the number of labels, always at least 2.
-  */
-  labelCount = domain: builtins.length (labels domain);
-
   # ===== Zone arithmetic =====
 
   /*
@@ -307,7 +298,6 @@ in
     is
     isSubdomainOf
     isValid
-    labelCount
     labels
     le
     lt

@@ -14,11 +14,11 @@
 
     endpoint = ipEndpoint | dnsEndpoint | unixSocket
 
-  The three members are heterogeneous — `ipEndpoint`/`dnsEndpoint` have
-  `address` + `port`, `unixSocket` has `path` — so this union exposes
-  predicates + `toString` + comparison rather than uniform accessors.
-  Branch with `isIpEndpoint` / `isDnsEndpoint` / `isUnixSocket` and use
-  the member module's accessors.
+  The three members are heterogeneous — `ipEndpoint` has `address` +
+  `port`, `dnsEndpoint` has `name` + `port`, `unixSocket` has `path` —
+  so this union exposes predicates + `toString` + comparison rather
+  than uniform accessors. Branch with `isIpEndpoint` / `isDnsEndpoint`
+  / `isUnixSocket` and use the member module's accessors.
 
   Example:
     libnet.endpoint.parse "192.0.2.1:80"      # tagged ipEndpoint

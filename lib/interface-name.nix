@@ -17,9 +17,9 @@
 let
   types = import ./internal/types.nix;
 
-  # IFNAMSIZ from <linux/if.h>: the kernel stores names in a 16-byte
-  # buffer including the terminating NUL, so the on-wire length is < 16.
-  ifnamsiz = 16;
+  # IFNAMSIZ from <linux/if.h> is a 16-byte buffer including the
+  # terminating NUL, so a valid name has at most 15 bytes.
+  maxLength = 15;
 
   mk = name: {
     _type = "interfaceName";
@@ -48,7 +48,7 @@ let
       types.tryErr "libnet.interfaceName.parse: input must be a string"
     else if input == "" then
       types.tryErr "libnet.interfaceName.parse: empty name"
-    else if builtins.stringLength input >= ifnamsiz then
+    else if builtins.stringLength input > maxLength then
       types.tryErr "libnet.interfaceName.parse: name too long (max 15 bytes): \"${input}\""
     else if input == "." || input == ".." then
       types.tryErr "libnet.interfaceName.parse: reserved name \"${input}\""
@@ -101,17 +101,6 @@ let
     Returns true when `value` is tagged `_type = "interfaceName"`.
   */
   is = value: types.isInterfaceName value;
-
-  # ===== Accessor =====
-
-  /*
-    Get the name string.
-
-    `interfaceName`: interfaceName value.
-
-    Returns the name verbatim.
-  */
-  value = interfaceName: interfaceName.value;
 
   # ===== Comparison =====
   #
@@ -203,16 +192,15 @@ in
     eq
     ge
     gt
-    ifnamsiz
     is
     isValid
     le
     lt
     max
+    maxLength
     min
     parse
     toString
     tryParse
-    value
     ;
 }

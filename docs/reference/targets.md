@@ -16,14 +16,14 @@ Suites: parsing, comparison (by family, address, then port), address predicates.
 
 ## `libnet.dnsEndpoint`
 
-Value: `{ _type = "dnsEndpoint"; address = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the address is unresolved, so there are no address predicates.
+Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the name is unresolved, so there are no address predicates.
 
 Suites: parsing, comparison (by name case-insensitively, then port).
 
 | Function                 | Signature                      | Notes              |
 | ------------------------ | ------------------------------ | ------------------ |
 | `make`                   | `DnsName → Port → DnsEndpoint` |                    |
-| `address`, `port`        |                                | Accessors.         |
+| `name`, `port`           |                                | Accessors.         |
 | `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held. |
 
 ## `libnet.unixSocket`
@@ -36,8 +36,6 @@ Suites: parsing, comparison (byte-wise, case-sensitive).
 | -------------------------- | --------------------- | ----- |
 | `path`                     | `UnixSocket → String` |       |
 | `isPathname`, `isAbstract` | `UnixSocket → Bool`   |       |
-
-Constant: `sunPathMax` (`108`).
 
 ## `libnet.endpoint`
 
@@ -55,17 +53,17 @@ Value: `{ _type = "ipBindpoint"; address = Ip or null; portRange = PortRange; }`
 
 Suites: parsing, comparison (null address first, then by family, address and port range), address predicates (`false` for a null address; `toArpa` throws).
 
-| Function                     | Signature                              | Notes                                              |
-| ---------------------------- | -------------------------------------- | -------------------------------------------------- |
-| `make`                       | `Ip or null → PortRange → IpBindpoint` |                                                    |
-| `address`, `portRange`       |                                        | Accessors.                                         |
-| `version`                    | `IpBindpoint → Int or null`            | `null` for a null address.                         |
-| `isIpv4`, `isIpv6`           | `IpBindpoint → Bool`                   | `false` for a null address.                        |
-| `isAnyAddress`, `isWildcard` | `IpBindpoint → Bool`                   | Null, `0.0.0.0` or `::`.                           |
-| `isRange`                    | `IpBindpoint → Bool`                   | More than one port.                                |
-| `endpointAt`                 | `Int → IpBindpoint → IpEndpoint`       | Offset into the port range.                        |
-| `endpoints`                  | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports. |
-| `endpointsUnbounded`         | `IpBindpoint → [IpEndpoint]`           | No size guard.                                     |
+| Function               | Signature                              | Notes                                              |
+| ---------------------- | -------------------------------------- | -------------------------------------------------- |
+| `make`                 | `Ip or null → PortRange → IpBindpoint` |                                                    |
+| `address`, `portRange` |                                        | Accessors.                                         |
+| `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                         |
+| `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                        |
+| `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.     |
+| `isRange`              | `IpBindpoint → Bool`                   | More than one port.                                |
+| `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Offset into the port range.                        |
+| `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports. |
+| `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard.                                     |
 
 ## `libnet.bindpoint`
 

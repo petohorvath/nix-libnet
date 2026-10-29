@@ -2,7 +2,7 @@
   libnet.dnsEndpoint
 
   A DNS name (hostname or domain) paired with a port — the name-only
-  counterpart to libnet.ipEndpoint. The address is a `dnsName`, so IP
+  counterpart to libnet.ipEndpoint. The name is a `dnsName`, so IP
   literals are rejected (use `ipEndpoint`, or the `endpoint` union,
   for those).
 
@@ -12,10 +12,10 @@
 
   Example:
     libnet.dnsEndpoint.parse "pool.ntp.org:123"
-    => { _type = "dnsEndpoint"; address = <domain>; port = <port 123>; }
+    => { _type = "dnsEndpoint"; name = <domain>; port = <port 123>; }
 
     libnet.dnsEndpoint.parse "nas:22"
-    => { _type = "dnsEndpoint"; address = <hostname>; port = <port 22>; }
+    => { _type = "dnsEndpoint"; name = <hostname>; port = <port 22>; }
 */
 let
   parsing = import ./internal/parse.nix;
@@ -23,9 +23,9 @@ let
   dnsName = import ./dns-name.nix;
   port = import ./port.nix;
 
-  mk = addressValue: portValue: {
+  mk = nameValue: portValue: {
     _type = "dnsEndpoint";
-    address = addressValue;
+    name = nameValue;
     port = portValue;
   };
 
@@ -46,23 +46,23 @@ let
     if !(builtins.isString input) then
       types.tryErr "libnet.dnsEndpoint.parse: input must be a string"
     else if parsing.startsWith "[" input then
-      types.tryErr "libnet.dnsEndpoint.parse: bracketed form is for IPv6; a dnsEndpoint addresses a name: \"${input}\""
+      types.tryErr "libnet.dnsEndpoint.parse: bracketed form is for IPv6; a dnsEndpoint holds a name: \"${input}\""
     else if parsing.countOccurrences ":" input != 1 then
       types.tryErr "libnet.dnsEndpoint.parse: expected exactly one ':' (name:port): \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
-        addressString = builtins.elemAt parts 0;
+        nameString = builtins.elemAt parts 0;
         portString = builtins.elemAt parts 1;
-        addressResult = dnsName.tryParse addressString;
+        nameResult = dnsName.tryParse nameString;
         portResult = port.tryParse portString;
       in
-      if !addressResult.success then
-        types.tryErr "libnet.dnsEndpoint.parse: ${addressResult.error}"
+      if !nameResult.success then
+        types.tryErr "libnet.dnsEndpoint.parse: ${nameResult.error}"
       else if !portResult.success then
         types.tryErr "libnet.dnsEndpoint.parse: invalid port in \"${input}\""
       else
-        types.tryOk (mk addressResult.value portResult.value);
+        types.tryOk (mk nameResult.value portResult.value);
 
   /*
     Parse a DNS endpoint from its text form.
@@ -86,25 +86,25 @@ let
 
     Returns `"<name>:<port>"`, preserving the name's input case.
   */
-  toString = endpoint: "${dnsName.toString endpoint.address}:${port.toString endpoint.port}";
+  toString = endpoint: "${dnsName.toString endpoint.name}:${port.toString endpoint.port}";
 
   /*
     Combine an already-parsed DNS name and port into an endpoint.
 
-    `addressValue`: hostname or domain value.
+    `nameValue`: hostname or domain value.
     `portValue`: port value.
 
     Returns a dnsEndpoint value; throws if either argument has the wrong
     type.
   */
   make =
-    addressValue: portValue:
-    if !(dnsName.is addressValue) then
-      throw "libnet.dnsEndpoint.make: address must be a hostname or domain"
+    nameValue: portValue:
+    if !(dnsName.is nameValue) then
+      throw "libnet.dnsEndpoint.make: name must be a hostname or domain"
     else if !(types.isPort portValue) then
       throw "libnet.dnsEndpoint.make: expected port value"
     else
-      mk addressValue portValue;
+      mk nameValue portValue;
 
   # ===== Predicates =====
 
@@ -127,22 +127,22 @@ let
   is = value: types.isDnsEndpoint value;
 
   /*
-    Test whether the endpoint's address is a single-label hostname.
+    Test whether the endpoint's name is a single-label hostname.
 
     `endpoint`: dnsEndpoint value.
 
     Returns a Boolean.
   */
-  isHostname = endpoint: types.isHostname endpoint.address;
+  isHostname = endpoint: types.isHostname endpoint.name;
 
   /*
-    Test whether the endpoint's address is a multi-label domain.
+    Test whether the endpoint's name is a multi-label domain.
 
     `endpoint`: dnsEndpoint value.
 
     Returns a Boolean.
   */
-  isDomain = endpoint: types.isDomain endpoint.address;
+  isDomain = endpoint: types.isDomain endpoint.name;
 
   # ===== Accessors =====
 
@@ -153,11 +153,11 @@ let
 
     Returns a hostname or domain value.
   */
-  address = endpoint: endpoint.address;
+  name = endpoint: endpoint.name;
 
   # ===== Comparison =====
   #
-  # Dispatch on the name address (case-insensitive per DNS), then port.
+  # Dispatch on the name (case-insensitive per DNS), then port.
 
   /*
     Test two endpoints for equality of name (case-insensitive) and port.
@@ -166,7 +166,7 @@ let
 
     Returns a Boolean; false across types.
   */
-  eq = a: b: types.hasSameTag a b && dnsName.eq a.address b.address && port.eq a.port b.port;
+  eq = a: b: types.hasSameTag a b && dnsName.eq a.name b.name && port.eq a.port b.port;
 
   /*
     Order two endpoints by name (case-insensitive), then port.
@@ -178,9 +178,9 @@ let
   compare =
     a: b:
     let
-      addressOrder = dnsName.compare a.address b.address;
+      nameOrder = dnsName.compare a.name b.name;
     in
-    if addressOrder != 0 then addressOrder else port.compare a.port b.port;
+    if nameOrder != 0 then nameOrder else port.compare a.port b.port;
 
   /*
     Test whether `a` orders strictly before `b` under `compare`.
@@ -238,7 +238,6 @@ let
 in
 {
   inherit
-    address
     compare
     eq
     ge
@@ -252,6 +251,7 @@ in
     make
     max
     min
+    name
     parse
     toString
     tryParse

@@ -150,15 +150,6 @@ let
   isDynamic = port: port.value >= 49152 && port.value <= portMax;
 
   /*
-    Alias of `isDynamic` under the common "ephemeral" name.
-
-    `port`: port value.
-
-    Returns true for ports 49152..65535.
-  */
-  isEphemeral = isDynamic;
-
-  /*
     Check whether a port is the reserved port 0 (RFC 6335). Port 0 also
     satisfies `isWellKnown`; these classes are not a partition.
 
@@ -326,7 +317,6 @@ in
     highestValue
     is
     isDynamic
-    isEphemeral
     isRegistered
     isReserved
     isValid

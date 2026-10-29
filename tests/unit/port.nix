@@ -139,10 +139,6 @@ in
     expr = port.isReserved (parse "1");
     expected = false;
   };
-  testIsEphemeralAlias = {
-    expr = port.isEphemeral (parse "49152");
-    expected = true;
-  };
 
   # ===== Arithmetic =====
   testAddOne = {

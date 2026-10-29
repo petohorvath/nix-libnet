@@ -246,7 +246,6 @@ in
     min
     parse
     path
-    sunPathMax
     toString
     tryParse
     ;

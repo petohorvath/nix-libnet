@@ -161,42 +161,16 @@ in
     expected = false;
   };
 
-  testIsHostnameHostname = {
-    expr = host.isHostname (parse "nas");
+  testIsDnsNameHostname = {
+    expr = host.isDnsName (parse "nas");
     expected = true;
   };
-  testIsHostnameIp = {
-    expr = host.isHostname (parse "10.0.0.1");
-    expected = false;
-  };
-  testIsHostnameDomain = {
-    expr = host.isHostname (parse "example.com");
-    expected = false;
-  };
-
-  testIsDomainDomain = {
-    expr = host.isDomain (parse "example.com");
+  testIsDnsNameDomain = {
+    expr = host.isDnsName (parse "example.com");
     expected = true;
   };
-  testIsDomainHostname = {
-    expr = host.isDomain (parse "nas");
-    expected = false;
-  };
-  testIsDomainIp = {
-    expr = host.isDomain (parse "10.0.0.1");
-    expected = false;
-  };
-
-  testIsNameHostname = {
-    expr = host.isName (parse "nas");
-    expected = true;
-  };
-  testIsNameDomain = {
-    expr = host.isName (parse "example.com");
-    expected = true;
-  };
-  testIsNameIp = {
-    expr = host.isName (parse "10.0.0.1");
+  testIsDnsNameIp = {
+    expr = host.isDnsName (parse "10.0.0.1");
     expected = false;
   };
 

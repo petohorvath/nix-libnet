@@ -117,9 +117,9 @@ in
     expr = ipv4.toInt (ipv4.fromInt 16909060);
     expected = 16909060;
   };
-  testRoundTripOctets = {
-    expr = ipv4.toOctets (
-      ipv4.fromOctets [
+  testRoundTripBytes = {
+    expr = ipv4.toBytes (
+      ipv4.fromBytes [
         1
         2
         3
@@ -133,8 +133,8 @@ in
       4
     ];
   };
-  testRoundTripStringThroughOctets = {
-    expr = ipv4.toString (ipv4.fromOctets (ipv4.toOctets (parse "10.0.0.1")));
+  testRoundTripStringThroughBytes = {
+    expr = ipv4.toString (ipv4.fromBytes (ipv4.toBytes (parse "10.0.0.1")));
     expected = "10.0.0.1";
   };
 
@@ -160,10 +160,10 @@ in
     expected = true;
   };
 
-  # ===== fromOctets / toOctets =====
-  testFromOctetsZero = {
+  # ===== fromBytes / toBytes =====
+  testFromBytesZero = {
     expr = ipv4.toString (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         0
         0
         0
@@ -172,9 +172,9 @@ in
     );
     expected = "0.0.0.0";
   };
-  testFromOctetsMax = {
+  testFromBytesMax = {
     expr = ipv4.toString (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         255
         255
         255
@@ -183,9 +183,9 @@ in
     );
     expected = "255.255.255.255";
   };
-  testFromOctetsShort = {
+  testFromBytesShort = {
     expr = throws (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         1
         2
         3
@@ -193,9 +193,9 @@ in
     );
     expected = true;
   };
-  testFromOctetsLong = {
+  testFromBytesLong = {
     expr = throws (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         1
         2
         3
@@ -205,9 +205,9 @@ in
     );
     expected = true;
   };
-  testFromOctetsOver255 = {
+  testFromBytesOver255 = {
     expr = throws (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         1
         2
         3
@@ -216,9 +216,9 @@ in
     );
     expected = true;
   };
-  testFromOctetsNegative = {
+  testFromBytesNegative = {
     expr = throws (
-      ipv4.fromOctets [
+      ipv4.fromBytes [
         1
         2
         3
@@ -228,8 +228,8 @@ in
     expected = true;
   };
 
-  # ===== fromBytes / toBytes (aliases) =====
-  testFromBytesAlias = {
+  # ===== fromBytes / toBytes formatting =====
+  testFromBytesToString = {
     expr = ipv4.toString (
       ipv4.fromBytes [
         10
@@ -240,7 +240,7 @@ in
     );
     expected = "10.0.0.1";
   };
-  testToBytesAlias = {
+  testToBytesParsed = {
     expr = ipv4.toBytes (parse "10.0.0.1");
     expected = [
       10
