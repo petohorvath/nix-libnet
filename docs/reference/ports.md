@@ -6,13 +6,13 @@ Value: `{ _type = "port"; value = Int; }` with `value` in `[0, 65535]`. `parse` 
 
 Suites: parsing, comparison, arithmetic.
 
-| Function                   | Signature     | Notes                                                        |
-| -------------------------- | ------------- | ------------------------------------------------------------ |
-| `fromInt`, `toInt`         | `Int ↔ Port`  | `fromInt` throws out of range.                               |
-| `isWellKnown`              | `Port → Bool` | `0`–`1023`.                                                  |
-| `isRegistered`             | `Port → Bool` | `1024`–`49151`.                                              |
-| `isDynamic`, `isEphemeral` | `Port → Bool` | `49152`–`65535`.                                             |
-| `isReserved`               | `Port → Bool` | `0`, which is also well-known: the RFC 6335 classes overlap. |
+| Function           | Signature     | Notes                                                        |
+| ------------------ | ------------- | ------------------------------------------------------------ |
+| `fromInt`, `toInt` | `Int ↔ Port`  | `fromInt` throws out of range.                               |
+| `isWellKnown`      | `Port → Bool` | `0`–`1023`.                                                  |
+| `isRegistered`     | `Port → Bool` | `1024`–`49151`.                                              |
+| `isDynamic`        | `Port → Bool` | `49152`–`65535`.                                             |
+| `isReserved`       | `Port → Bool` | `0`, which is also well-known: the RFC 6335 classes overlap. |
 
 Constants, as plain integers: `lowestValue` (`0`), `highestValue` (`65535`), `wellKnownMax` (`1023`), `registeredMax` (`49151`). Service names live in [`registry.ports`](registry.md).
 

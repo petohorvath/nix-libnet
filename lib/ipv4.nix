@@ -51,29 +51,31 @@ let
   toInt = ip: ip.value;
 
   /*
-    Build an address from its four octets, most significant first.
+    Build an address from its four bytes (the RFC 791 octets), most
+    significant first, named like `ipv6.fromBytes` and `mac.fromBytes`.
 
-    `octets`: list of exactly 4 integers, each in [0, 255].
+    `bytes`: list of exactly 4 integers, each in [0, 255].
 
-    Returns an IPv4 value; throws on a wrong length or an invalid octet.
+    Returns an IPv4 value; throws on a wrong length or an invalid byte.
   */
-  fromOctets =
-    octets:
-    if !(builtins.isList octets) || builtins.length octets != 4 then
-      throw "libnet.ipv4.fromOctets: expected list of 4 ints"
-    else if builtins.any (octet: !(builtins.isInt octet) || octet < 0 || octet > 255) octets then
-      throw "libnet.ipv4.fromOctets: each octet must be int in [0, 255]"
+  fromBytes =
+    bytes:
+    if !(builtins.isList bytes) || builtins.length bytes != 4 then
+      throw "libnet.ipv4.fromBytes: expected list of 4 ints"
+    else if builtins.any (byte: !(builtins.isInt byte) || byte < 0 || byte > 255) bytes then
+      throw "libnet.ipv4.fromBytes: each byte must be int in [0, 255]"
     else
-      mk (builtins.foldl' (accumulated: octet: accumulated * bits.pow2_8 + octet) 0 octets);
+      mk (builtins.foldl' (accumulated: byte: accumulated * bits.pow2_8 + byte) 0 bytes);
 
   /*
-    Split an address into its four octets.
+    Split an address into its four bytes, named like `ipv6.toBytes` and
+    `mac.toBytes`.
 
     `ip`: IPv4 value.
 
     Returns a list of 4 integers in [0, 255], most significant first.
   */
-  toOctets =
+  toBytes =
     ip:
     let
       inherit (ip) value;
@@ -84,26 +86,6 @@ let
       (bits.bits 8 8 value)
       (bits.bits 0 8 value)
     ];
-
-  /*
-    Alias of `fromOctets`. "Octet" is the IPv4 term (RFC 791); "byte"
-    matches `mac` and `ipv6` for cross-family discoverability.
-
-    `octets`: list of exactly 4 integers, each in [0, 255].
-
-    Returns an IPv4 value; throws on a wrong length or an invalid octet.
-  */
-  fromBytes = fromOctets;
-
-  /*
-    Alias of `toOctets`, named like `mac.toBytes` and `ipv6.toBytes` for
-    cross-family discoverability.
-
-    `ip`: IPv4 value.
-
-    Returns a list of 4 integers in [0, 255], most significant first.
-  */
-  toBytes = toOctets;
 
   # ===== Parsing & formatting =====
 
@@ -131,7 +113,7 @@ let
       else if builtins.elem null octets then
         types.tryErr "libnet.ipv4.parse: invalid octet in \"${input}\""
       else
-        types.tryOk (fromOctets octets);
+        types.tryOk (fromBytes octets);
 
   /*
     Parse a dotted-quad string, for trusted configuration values.
@@ -154,7 +136,7 @@ let
 
     Returns a string such as "192.0.2.1".
   */
-  toString = ip: builtins.concatStringsSep "." (map builtins.toString (toOctets ip));
+  toString = ip: builtins.concatStringsSep "." (map builtins.toString (toBytes ip));
 
   /*
     Format an address as its reverse-DNS name.
@@ -166,10 +148,10 @@ let
   toArpa =
     ip:
     let
-      octets = toOctets ip;
-      octetText = i: builtins.toString (builtins.elemAt octets i);
+      bytes = toBytes ip;
+      byteText = i: builtins.toString (builtins.elemAt bytes i);
     in
-    "${octetText 3}.${octetText 2}.${octetText 1}.${octetText 0}.in-addr.arpa";
+    "${byteText 3}.${byteText 2}.${byteText 1}.${byteText 0}.in-addr.arpa";
 
   # ===== Predicates =====
 
@@ -525,7 +507,7 @@ let
 
   unspecified = mk 0;
   broadcast = mk bits.mask32;
-  loopback = fromOctets [
+  loopback = fromBytes [
     127
     0
     0
@@ -541,7 +523,6 @@ in
     eq
     fromBytes
     fromInt
-    fromOctets
     ge
     gt
     is
@@ -572,7 +553,6 @@ in
     toArpa
     toBytes
     toInt
-    toOctets
     toString
     tryParse
     unspecified

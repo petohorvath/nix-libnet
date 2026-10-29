@@ -18,12 +18,12 @@ in
     expr = (parse "nas:22")._type;
     expected = "dnsEndpoint";
   };
-  testParseAddressHostname = {
-    expr = (dnsEndpoint.address (parse "nas:22")).value;
+  testParseNameHostname = {
+    expr = (dnsEndpoint.name (parse "nas:22")).value;
     expected = "nas";
   };
-  testParseAddressDomain = {
-    expr = (dnsEndpoint.address (parse "pool.ntp.org:123")).value;
+  testParseNameDomain = {
+    expr = (dnsEndpoint.name (parse "pool.ntp.org:123")).value;
     expected = "pool.ntp.org";
   };
   testParsePort = {

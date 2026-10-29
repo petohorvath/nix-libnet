@@ -219,14 +219,6 @@ in
       "com"
     ];
   };
-  testLabelCountThree = {
-    expr = domain.labelCount (parse "foo.example.com");
-    expected = 3;
-  };
-  testLabelCountTwo = {
-    expr = domain.labelCount (parse "example.com");
-    expected = 2;
-  };
 
   # ===== parent =====
   testParentThree = {

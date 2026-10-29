@@ -95,24 +95,6 @@ let
   isIp = value: types.isIp value;
 
   /*
-    Recognize a tagged hostname value.
-
-    `value`: any value.
-
-    Returns true when `value` carries the `hostname` tag.
-  */
-  isHostname = value: types.isHostname value;
-
-  /*
-    Recognize a tagged domain value.
-
-    `value`: any value.
-
-    Returns true when `value` carries the `domain` tag.
-  */
-  isDomain = value: types.isDomain value;
-
-  /*
     Recognize a DNS name, the common "not an IP" branch in
     configuration code.
 
@@ -120,7 +102,7 @@ let
 
     Returns true when `value` carries the `hostname` or `domain` tag.
   */
-  isName = value: dnsName.is value;
+  isDnsName = value: dnsName.is value;
 
   /*
     Recognize a tagged host value.
@@ -250,10 +232,8 @@ in
     ge
     gt
     is
-    isDomain
-    isHostname
+    isDnsName
     isIp
-    isName
     isValid
     le
     lt

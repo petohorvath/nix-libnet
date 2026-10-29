@@ -287,7 +287,6 @@ in
     max
     min
     parse
-    regNamePattern
     toHost
     toString
     tryParse

@@ -119,7 +119,7 @@ _Avoid_: address, destination, socket address
 An address and a port, such as `[::1]:443`.
 
 **DNS endpoint**:
-A DNS name and a port, such as `pool.ntp.org:123`; its address is unresolved.
+A DNS name and a port, such as `pool.ntp.org:123`; its DNS name is unresolved.
 
 **Unix socket**:
 A Unix domain socket path, either a pathname (`/run/foo.sock`) or an abstract name (`@foo`). It is a complete target with no port and serves both connect and bind.

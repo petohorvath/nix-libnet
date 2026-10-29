@@ -99,38 +99,34 @@ in
     expected = true;
   };
 
-  # ===== isAnyAddress variants =====
-  testIsAnyAddressNull = {
-    expr = ipBindpoint.isAnyAddress (parse ":80");
-    expected = true;
-  };
-  testIsAnyAddressStar = {
-    expr = ipBindpoint.isAnyAddress (parse "*:80");
-    expected = true;
-  };
-  testIsAnyAddressAny = {
-    expr = ipBindpoint.isAnyAddress (parse "any:80");
-    expected = true;
-  };
-  testIsAnyAddressV4Unspecified = {
-    expr = ipBindpoint.isAnyAddress (parse "0.0.0.0:80");
-    expected = true;
-  };
-  testIsAnyAddressV6Unspecified = {
-    expr = ipBindpoint.isAnyAddress (parse "[::]:80");
-    expected = true;
-  };
-  testIsAnyAddressNo = {
-    expr = ipBindpoint.isAnyAddress (parse "1.2.3.4:80");
-    expected = false;
-  };
-  testIsAnyAddressV6Loopback = {
-    expr = ipBindpoint.isAnyAddress (parse "[::1]:80");
-    expected = false;
-  };
-  testIsWildcardAlias = {
+  # ===== isWildcard variants =====
+  testIsWildcardNull = {
     expr = ipBindpoint.isWildcard (parse ":80");
     expected = true;
+  };
+  testIsWildcardStar = {
+    expr = ipBindpoint.isWildcard (parse "*:80");
+    expected = true;
+  };
+  testIsWildcardAny = {
+    expr = ipBindpoint.isWildcard (parse "any:80");
+    expected = true;
+  };
+  testIsWildcardV4Unspecified = {
+    expr = ipBindpoint.isWildcard (parse "0.0.0.0:80");
+    expected = true;
+  };
+  testIsWildcardV6Unspecified = {
+    expr = ipBindpoint.isWildcard (parse "[::]:80");
+    expected = true;
+  };
+  testIsWildcardNo = {
+    expr = ipBindpoint.isWildcard (parse "1.2.3.4:80");
+    expected = false;
+  };
+  testIsWildcardV6Loopback = {
+    expr = ipBindpoint.isWildcard (parse "[::1]:80");
+    expected = false;
   };
 
   # ===== isRange =====

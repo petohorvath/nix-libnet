@@ -6,12 +6,11 @@ Value: `{ _type = "ipv4"; value = Int; }` with `value` in `[0, 2³² − 1]`. Ca
 
 Suites: parsing, comparison, arithmetic (`next` throws at `255.255.255.255`, `prev` at `0.0.0.0`).
 
-| Function                 | Signature       | Notes                                                         |
-| ------------------------ | --------------- | ------------------------------------------------------------- |
-| `fromInt`, `toInt`       | `Int ↔ Ipv4`    | `fromInt` throws out of range.                                |
-| `fromOctets`, `toOctets` | `[Int] ↔ Ipv4`  | Four octets, most significant first.                          |
-| `fromBytes`, `toBytes`   | `[Int] ↔ Ipv4`  | Aliases of the octet functions, named as in `ipv6` and `mac`. |
-| `toArpa`                 | `Ipv4 → String` | `1.2.3.4` → `4.3.2.1.in-addr.arpa`.                           |
+| Function               | Signature       | Notes                                                    |
+| ---------------------- | --------------- | -------------------------------------------------------- |
+| `fromInt`, `toInt`     | `Int ↔ Ipv4`    | `fromInt` throws out of range.                           |
+| `fromBytes`, `toBytes` | `[Int] ↔ Ipv4`  | Four bytes (the RFC 791 octets), most significant first. |
+| `toArpa`               | `Ipv4 → String` | `1.2.3.4` → `4.3.2.1.in-addr.arpa`.                      |
 
 Constants: `unspecified` (`0.0.0.0`), `broadcast` (`255.255.255.255`), `loopback` (`127.0.0.1`).
 
@@ -42,7 +41,6 @@ Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cro
 
 | Function                 | Signature           | Notes                                                                                                    |
 | ------------------------ | ------------------- | -------------------------------------------------------------------------------------------------------- |
-| `toStringCompressed`     | `Ipv6 → String`     | Alias of `toString`.                                                                                     |
 | `toStringExpanded`       | `Ipv6 → String`     | `2001:0db8:0000:0000:0000:0000:0000:0001`.                                                               |
 | `toStringBracketed`      | `Ipv6 → String`     | `[2001:db8::1]`.                                                                                         |
 | `fromWords`, `toWords`   | `[Int] ↔ Ipv6`      | Four 32-bit words.                                                                                       |

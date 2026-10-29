@@ -70,8 +70,6 @@ Suites: parsing (`toString` re-brackets IPv6), comparison (IP literals before re
 | `isIp`, `isRegName` | `UrlHost → Bool`         |                                                      |
 | `toHost`            | `UrlHost → Host or null` | `null` for a registered name that is not a DNS name. |
 
-Constant: `regNamePattern`.
-
 ## `libnet.authority`
 
 Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port = Port or null; }`. Text is `[userinfo@]host[:port]`: `example.com`, `host:8443`, `user@[::1]:443`. `userinfo` is opaque and may carry credentials; a missing port stays `null`, because an authority has no scheme default.

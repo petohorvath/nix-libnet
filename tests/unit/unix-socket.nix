@@ -196,10 +196,4 @@ in
     expr = (unixSocket.max (parse "/run/b.sock") (parse "/run/a.sock")).path;
     expected = "/run/b.sock";
   };
-
-  # ===== Constant =====
-  testSunPathMax = {
-    expr = unixSocket.sunPathMax;
-    expected = 108;
-  };
 }

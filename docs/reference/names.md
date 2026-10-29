@@ -20,7 +20,6 @@ Suites: parsing, comparison (case-insensitive). `toString` preserves the input's
 | --------------- | ------------------------- | -------------------------------------------------------------------------- |
 | `fromLabels`    | `[String] → Domain`       | Joins and validates.                                                       |
 | `labels`        | `Domain → [String]`       | Leftmost first.                                                            |
-| `labelCount`    | `Domain → Int`            | At least 2.                                                                |
 | `parent`        | `Domain → Domain or null` | Drops the leftmost label; `null` when fewer than two would remain.         |
 | `isSubdomainOf` | `Domain → Domain → Bool`  | `isSubdomainOf a b` is true when `a` is `b` or below it. Case-insensitive. |
 | `toHostname`    | `Domain → Hostname`       | The leftmost label.                                                        |
@@ -45,10 +44,10 @@ Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dott
 
 Suites: parsing, comparison (IPv4, IPv6, hostname, then domain; within a kind, that kind's order).
 
-| Function                         | Signature    | Notes               |
-| -------------------------------- | ------------ | ------------------- |
-| `isIp`, `isHostname`, `isDomain` | `Any → Bool` |                     |
-| `isName`                         | `Any → Bool` | Hostname or domain. |
+| Function    | Signature    | Notes                           |
+| ----------- | ------------ | ------------------------------- |
+| `isIp`      | `Any → Bool` | An `ipv4` or `ipv6` value.      |
+| `isDnsName` | `Any → Bool` | A `hostname` or `domain` value. |
 
 ## `libnet.interfaceName`
 
@@ -56,8 +55,4 @@ Value: `{ _type = "interfaceName"; value = String; }`, valid under the kernel's 
 
 Suites: parsing, comparison (byte-wise, case-sensitive).
 
-| Function | Signature                | Notes |
-| -------- | ------------------------ | ----- |
-| `value`  | `InterfaceName → String` |       |
-
-Constant: `ifnamsiz` (`16`).
+Constant: `maxLength` (`15`), the longest valid name in bytes.

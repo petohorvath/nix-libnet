@@ -56,7 +56,10 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 ## Conventions
 
 - **Curry order**: the parameter comes first and the operand last, so `map (ipv4.add 1) addresses` and `map (cidr.addressAt 1) blocks` work.
-- **Accessors** share their name with the field they read, such as `cidr.prefix`.
+- **One name per operation**: the library has no function aliases. Input spellings, such as `ssl` for `tls` or `any` for the wildcard address, are not aliases.
+- **Accessors** share their name with the field they read, such as `cidr.prefix`. A scalar's generic `value` field has no accessor; read it with `toString` or `toInt`.
+- **Union predicates**: a pass-through union has one `is<Member>` predicate per direct member, such as `host.isIp` and `host.isDnsName`. Test a leaf kind with its own `is`, such as `hostname.is`.
+- **Constants** are tagged values of the kind, such as `ipv4.loopback`; integer domain bounds, such as `port.highestValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
 - **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
 - **Errors** throw messages that begin with `libnet` and name the function. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
 - **Enumeration** functions throw above a size guard and have an `*Unbounded` sibling ([ADR 0015](../adr/0015-enumeration-size-guards.md)).
