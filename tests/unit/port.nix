@@ -51,6 +51,10 @@ in
     expr = throws (parse "80 ");
     expected = true;
   };
+  testRejectLeadingZero = {
+    expr = throws (parse "0080");
+    expected = true;
+  };
   testRejectNotString = {
     expr = throws (port.parse 80);
     expected = true;
@@ -62,6 +66,11 @@ in
   };
   testTryParseBad = {
     expr = (port.tryParse "65536").success;
+    expected = false;
+  };
+
+  testTryParseOverlong = {
+    expr = (port.tryParse "99999999999999999999").success;
     expected = false;
   };
 

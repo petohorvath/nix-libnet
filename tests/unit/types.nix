@@ -133,6 +133,14 @@ else
       expr = types.cidr.check "10.0.0.5/24";
       expected = false;
     };
+    testCidrRejectsLeadingZeroPrefix = {
+      expr = types.cidr.check "10.0.0.0/08";
+      expected = false;
+    };
+    testCidrRejectsOverlongPrefix = {
+      expr = types.cidr.check "10.0.0.0/99999999999999999999";
+      expected = false;
+    };
     testIpv6CidrRejectsHostBits = {
       expr = types.ipv6Cidr.check "2001:db8::1/64";
       expected = false;
@@ -180,6 +188,14 @@ else
       ];
       expected = false;
     };
+    testPortCheckLeadingZero = {
+      expr = types.port.check "0080";
+      expected = false;
+    };
+    testPortCheckOverlongString = {
+      expr = types.port.check "99999999999999999999";
+      expected = false;
+    };
     testPortMergesStringToInt = {
       expr = merged types.port "8080";
       expected = 8080;
@@ -210,8 +226,16 @@ else
       expr = types.portRange.check "80-90";
       expected = true;
     };
+    testPortRangeLeadingZero = {
+      expr = types.portRange.check "080-90";
+      expected = false;
+    };
     testPortRangeBad = {
       expr = types.portRange.check "90-80";
+      expected = false;
+    };
+    testPortRangeOverlong = {
+      expr = types.portRange.check "80-99999999999999999999";
       expected = false;
     };
 
@@ -1024,6 +1048,10 @@ else
     testVlanIdCheckString = {
       expr = types.vlanId.check "100";
       expected = true;
+    };
+    testVlanIdCheckRejectsLeadingZero = {
+      expr = types.vlanId.check "0100";
+      expected = false;
     };
     testVlanIdCheckRejectsInvalidStrings = {
       expr = builtins.any types.vlanId.check [

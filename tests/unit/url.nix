@@ -124,6 +124,10 @@ in
     expr = throws (parse "https://h:99999");
     expected = true;
   };
+  testRejectPortLeadingZero = {
+    expr = throws (parse "https://h:0443");
+    expected = true;
+  };
   testRejectMultipleAt = {
     expr = throws (parse "https://a@b@h");
     expected = true;

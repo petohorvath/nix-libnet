@@ -65,13 +65,13 @@ let
           prefixInput = builtins.elemAt parts 1;
           isV6Input = parsing.countOccurrences ":" addressInput > 0;
           addressResult = if isV6Input then ipv6.tryParse addressInput else ipv4.tryParse addressInput;
-          prefixLength = parsing.decimal prefixInput;
+          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
         in
         if !addressResult.success then
           types.tryErr "libnet.interfaceAddress.parse: ${addressResult.error}"
-        else if prefixLength == null then
+        else if !(parsing.isDecimal prefixInput) then
           types.tryErr "libnet.interfaceAddress.parse: invalid prefix \"${prefixInput}\""
-        else if prefixLength > maxPrefix addressResult.value then
+        else if prefixLength == null then
           types.tryErr "libnet.interfaceAddress.parse: prefix /${prefixInput} out of range"
         else
           types.tryOk (mk addressResult.value prefixLength);

@@ -105,6 +105,10 @@ in
     ];
     expected = true;
   };
+  testParseRejectsLeadingZero = {
+    expr = throws (vlanId.parse "0100");
+    expected = true;
+  };
   testParseRejectsInt = {
     expr = throws (vlanId.parse 100);
     expected = true;

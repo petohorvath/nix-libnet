@@ -39,23 +39,35 @@ let
 
   # Parsers return null on malformed input so callers can build tryParse
   # results without catching errors.
+
+  # Canonical decimal text: digits only, without a leading zero.
+  isDecimal = input: builtins.match "0|[1-9][0-9]*" input != null;
+
+  # Canonical decimal text at most `max`. Text with more digits than `max`
+  # is rejected before it is read, so the accumulator cannot overflow;
+  # that holds only for a `max` below 10^18, so a larger one throws.
   decimal =
-    input:
-    if input == "" then
-      null
-    else if builtins.match "[0-9]+" input == null then
-      null
+    max:
+    if max >= 1000000000000000000 then
+      throw "libnet.internal.parse.decimal: max must be below 10^18: ${builtins.toString max}"
     else
-      let
-        length = builtins.stringLength input;
-        go =
-          i: total:
-          if i >= length then
-            total
-          else
-            go (i + 1) (total * 10 + digitValues.${builtins.substring i 1 input});
-      in
-      go 0 0;
+      input:
+      if !(isDecimal input) then
+        null
+      else if builtins.stringLength input > builtins.stringLength (builtins.toString max) then
+        null
+      else
+        let
+          length = builtins.stringLength input;
+          go =
+            i: total:
+            if i >= length then
+              total
+            else
+              go (i + 1) (total * 10 + digitValues.${builtins.substring i 1 input});
+          value = go 0 0;
+        in
+        if value > max then null else value;
 
   hexInt =
     input:
@@ -72,20 +84,8 @@ let
       in
       go 0 0;
 
-  # Dotted-quad octet: 1 to 3 digits, no leading zero, at most 255.
-  octet =
-    input:
-    if input == "" then
-      null
-    else if builtins.stringLength input > 3 then
-      null
-    else if builtins.stringLength input > 1 && builtins.substring 0 1 input == "0" then
-      null
-    else
-      let
-        value = decimal input;
-      in
-      if value == null || value > 255 then null else value;
+  # Dotted-quad octet: decimal without a leading zero, at most 255.
+  octet = decimal 255;
 
   # IPv6 group: 1 to 4 hex digits.
   hexGroup =
@@ -171,6 +171,7 @@ in
     hexByte
     hexGroup
     hexInt
+    isDecimal
     octet
     splitOn
     startsWith

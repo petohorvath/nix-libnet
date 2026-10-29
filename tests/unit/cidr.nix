@@ -95,6 +95,37 @@ in
     expected = true;
   };
 
+  testRejectLeadingZeroPrefix = {
+    expr = map (input: (cidr.tryParse input).success) [
+      "10.0.0.0/08"
+      "0.0.0.0/00"
+      "2001:db8::/032"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
+  testRejectLeadingZeroPrefixError = {
+    expr = (cidr.tryParse "10.0.0.0/08").error;
+    expected = "libnet.cidr.parse: invalid prefix \"08\"";
+  };
+  testTryParseOverlongPrefix = {
+    expr = map (input: (cidr.tryParse input).success) [
+      "10.0.0.0/99999999999999999999"
+      "::/99999999999999999999"
+    ];
+    expected = [
+      false
+      false
+    ];
+  };
+  testTryParseOverlongPrefixError = {
+    expr = (cidr.tryParse "10.0.0.0/99999999999999999999").error;
+    expected = "libnet.cidr.parse: prefix /99999999999999999999 out of range";
+  };
+
   # ===== tryParse =====
   testTryParseOk = {
     expr = (cidr.tryParse "10.0.0.0/24").success;

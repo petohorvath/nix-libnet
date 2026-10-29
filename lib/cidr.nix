@@ -114,13 +114,13 @@ let
           prefixText = builtins.elemAt parts 1;
           isIpv6Text = parsing.countOccurrences ":" addressText > 0;
           addressResult = if isIpv6Text then ipv6.tryParse addressText else ipv4.tryParse addressText;
-          prefixLength = parsing.decimal prefixText;
+          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixText;
         in
         if !addressResult.success then
           types.tryErr "libnet.cidr.parse: ${addressResult.error}"
-        else if prefixLength == null then
+        else if !(parsing.isDecimal prefixText) then
           types.tryErr "libnet.cidr.parse: invalid prefix \"${prefixText}\""
-        else if prefixLength > (maxPrefix addressResult.value) then
+        else if prefixLength == null then
           types.tryErr "libnet.cidr.parse: prefix /${prefixText} out of range"
         else if hasHostBits addressResult.value prefixLength then
           types.tryErr (hostBitsError "parse" addressResult.value prefixLength)

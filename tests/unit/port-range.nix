@@ -35,6 +35,24 @@ in
     expr = throws (parse "0-65536");
     expected = true;
   };
+  testRejectLeadingZeros = {
+    expr = map (input: (portRange.tryParse input).success) [
+      "080"
+      "0080-0090"
+      "80-090"
+      "080:90"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+    ];
+  };
+  testParseZeroBound = {
+    expr = portRange.toString (parse "0-10");
+    expected = "0-10";
+  };
   testRejectEmpty = {
     expr = throws (parse "");
     expected = true;
@@ -48,6 +66,19 @@ in
   testTryParseBad = {
     expr = (portRange.tryParse "nope").success;
     expected = false;
+  };
+
+  testTryParseOverlong = {
+    expr = map (input: (portRange.tryParse input).success) [
+      "99999999999999999999"
+      "80-99999999999999999999"
+      "99999999999999999999:90"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
   };
 
   # ===== Formatting =====

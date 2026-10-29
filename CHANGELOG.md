@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** every URL form sorts schemes by name: `socketUrl` and `bindUrl` as `sctp < tcp < udp < unix`, and `secureSocketUrl` as `dtls < quic < tls`.
 - **Breaking:** every URL form's `schemes` is an attribute set from scheme name to `{ transport; secure; }`, with `url` adding `defaultPort`. `socketUrl.schemes`, `bindUrl.schemes` and `proxyUrl.schemes` were lists of names; use `builtins.attrNames`.
 - **Breaking:** `transport.values` holds the tagged transports in sorted order, `[ sctp tcp udp ]`, instead of the name strings `[ "tcp" "udp" "sctp" ]`.
+- **Breaking:** every decimal number in parsed text rejects leading zeros, as IPv4 octets already did: bounded integers, port ranges, bindpoint, endpoint and URL ports, and `cidr` and `interfaceAddress` prefix lengths. `port.parse "0080"`, `portRange.parse "0080-0090"` and `cidr.parse "10.0.0.0/08"` now throw, and the matching module types reject such strings, so `toString (parse s)` gives back `s` ([ADR 0013](docs/adr/0013-strict-input-canonical-output.md)).
 - Format through treefmt-nix: `nix fmt` runs nixfmt, deadnix, actionlint, and prettier instead of only nixfmt, and `checks.<system>.treefmt` replaces `checks.<system>.formatting`.
 
 ### Removed
@@ -55,6 +56,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** `ipBindpoint.isRange`, since a single port is also a port range; use `portRange.isSingleton (ipBindpoint.portRange b)`.
 - **Breaking:** the constants `urlHost.regNamePattern`, the parser's internal grammar, and `unixSocket.sunPathMax`, which gave one limit for two: a pathname socket allows 107 bytes and an abstract name 108.
 - **Breaking:** `secureSocketUrl.aliases`; `ssl` remains an input spelling of `tls` that `parse` and `make` accept.
+
+### Fixed
+
+- `tryParse` and `isValid` fail on a decimal number too long for a 64-bit integer, such as `port.tryParse "99999999999999999999"`, instead of throwing an integer overflow error. On Nix versions that wrap overflow silently, such text no longer parses as a small value.
 
 ## [0.1.0] - 2026-10-13
 

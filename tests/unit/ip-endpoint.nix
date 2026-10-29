@@ -57,6 +57,20 @@ in
     expr = throws (parse "1.2.3.4:70000");
     expected = true;
   };
+  testRejectPortLeadingZero = {
+    expr = map (input: throws (parse input)) [
+      "1.2.3.4:0080"
+      "[::1]:080"
+    ];
+    expected = [
+      true
+      true
+    ];
+  };
+  testTryParseOverlongPort = {
+    expr = (ipEndpoint.tryParse "1.2.3.4:99999999999999999999").success;
+    expected = false;
+  };
   testRejectBadV6 = {
     expr = throws (parse "[:::1]:80");
     expected = true;

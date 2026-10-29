@@ -1,40 +1,114 @@
-{ internal, ... }:
+{ helpers, internal, ... }:
 let
   parsing = internal.parse;
+  inherit (helpers) throws;
 in
 {
+  # ===== isDecimal =====
+  testIsDecimalAccepts = {
+    expr = map parsing.isDecimal [
+      "0"
+      "7"
+      "65535"
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testIsDecimalRejects = {
+    expr = map parsing.isDecimal [
+      ""
+      "00"
+      "07"
+      "-1"
+      "+1"
+      " 1"
+      "1a"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+
   # ===== decimal =====
   testDecimal0 = {
-    expr = parsing.decimal "0";
+    expr = parsing.decimal 255 "0";
     expected = 0;
   };
   testDecimal42 = {
-    expr = parsing.decimal "42";
+    expr = parsing.decimal 255 "42";
     expected = 42;
   };
-  testDecimal255 = {
-    expr = parsing.decimal "255";
+  testDecimalAtMaximum = {
+    expr = parsing.decimal 255 "255";
     expected = 255;
   };
+  testDecimalAboveMaximum = {
+    expr = parsing.decimal 255 "256";
+    expected = null;
+  };
+  testDecimalMoreDigitsThanMaximum = {
+    expr = parsing.decimal 255 "1000";
+    expected = null;
+  };
+  testDecimalOverflowingDigits = {
+    expr = parsing.decimal 65535 "99999999999999999999";
+    expected = null;
+  };
+  testDecimalWrappingDigits = {
+    # 2^64 + 80, which wraps to 80 where integer overflow is silent.
+    expr = parsing.decimal 65535 "18446744073709551696";
+    expected = null;
+  };
   testDecimalLeadingZero = {
-    expr = parsing.decimal "007";
-    expected = 7;
+    expr = parsing.decimal 255 "007";
+    expected = null;
+  };
+  testDecimalDoubleZero = {
+    expr = parsing.decimal 255 "00";
+    expected = null;
   };
   testDecimalEmpty = {
-    expr = parsing.decimal "";
+    expr = parsing.decimal 255 "";
     expected = null;
   };
   testDecimalAlpha = {
-    expr = parsing.decimal "a";
+    expr = parsing.decimal 255 "a";
     expected = null;
   };
   testDecimalMixed = {
-    expr = parsing.decimal "12a";
+    expr = parsing.decimal 255 "12a";
     expected = null;
   };
   testDecimalNegative = {
-    expr = parsing.decimal "-1";
+    expr = parsing.decimal 255 "-1";
     expected = null;
+  };
+  testDecimalBelowOverflowLimit = {
+    expr = parsing.decimal 999999999999999999 "999999999999999999";
+    expected = 999999999999999999;
+  };
+  testDecimalMaximumAtOverflowLimitThrows = {
+    expr = throws (parsing.decimal 1000000000000000000 "1");
+    expected = true;
+  };
+  testDecimalPartialApplication = {
+    expr = map (parsing.decimal 9) [
+      "9"
+      "10"
+    ];
+    expected = [
+      9
+      null
+    ];
   };
 
   # ===== hexInt =====

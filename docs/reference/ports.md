@@ -15,7 +15,7 @@ Constants, as plain integers: `wellKnownMax` (`1023`) and `registeredMax` (`4915
 
 ## `libnet.portRange`
 
-Value: `{ _type = "portRange"; from = Port; to = Port; }` with `from ≤ to`. `parse` accepts `8080`, `5500-6000`, and the iptables form `5500:6000`. Canonical text uses `-`, and a single port prints without one.
+Value: `{ _type = "portRange"; from = Port; to = Port; }` with `from ≤ to`. `parse` accepts `8080`, `5500-6000`, and the iptables form `5500:6000`, and rejects leading zeros (`080`). Canonical text uses `-`, and a single port prints without one.
 
 Suites: parsing, comparison (by `from`, then `to`).
 
