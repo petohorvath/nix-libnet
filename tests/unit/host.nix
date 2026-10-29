@@ -99,10 +99,15 @@ in
     expr = parse "::g";
     expectedError.msg = "^libnet\\.host\\.parse: invalid group \"g\" in \"::g\"$";
   };
-  # No DNS name holds a colon, so a name with a port fails as IPv6.
+  # No DNS name holds a colon or brackets, so the error names the syntax
+  # the text belongs to.
   testRejectNameWithPort = {
     expr = parse "example.com:80";
-    expectedError.msg = "^libnet\\.host\\.parse: invalid group \"example\\.com\" in \"example\\.com:80\"$";
+    expectedError.msg = "^libnet\\.host\\.parse: \"example\\.com:80\" reads as host:port, which is endpoint syntax$";
+  };
+  testRejectBracketed = {
+    expr = parse "[::1]";
+    expectedError.msg = "^libnet\\.host\\.parse: \"\\[::1]\" is bracketed, which is URL and endpoint syntax$";
   };
   testRejectNumericHostname = {
     expr = map host.isValid [
@@ -143,8 +148,8 @@ in
   };
   # Text with a colon or only digits and dots keeps the IP's detail.
   testTryParseColonKeepsIpDetail = {
-    expr = (host.tryParse "nas:22").error;
-    expected = "libnet.host.parse: invalid group \"nas\" in \"nas:22\"";
+    expr = (host.tryParse "nas::g").error;
+    expected = "libnet.host.parse: invalid group \"nas\" in \"nas::g\"";
   };
   testTryParseDottedDigitsKeepsIpDetail = {
     expr = (host.tryParse "1.2.3.256").error;

@@ -22,9 +22,31 @@ in
     expr = parse "300.1.1.1";
     expectedError.msg = "^libnet\\.ip\\.parse: invalid octet in \"300\\.1\\.1\\.1\"$";
   };
-  testParseIpv4WithPortNamesIp = {
+  # Colon text that is not plausibly IPv6 names the syntax it belongs to.
+  testParseIpv4WithPortNamesEndpointSyntax = {
     expr = parse "1.2.3.4:5";
-    expectedError.msg = "^libnet\\.ip\\.parse: invalid group \"1\\.2\\.3\\.4\" in \"1\\.2\\.3\\.4:5\"$";
+    expectedError.msg = "^libnet\\.ip\\.parse: \"1\\.2\\.3\\.4:5\" reads as host:port, which is endpoint syntax$";
+  };
+  testParseNameWithPortNamesEndpointSyntax = {
+    expr = parse "nas:80";
+    expectedError.msg = "^libnet\\.ip\\.parse: \"nas:80\" reads as host:port, which is endpoint syntax$";
+  };
+  testParseBracketedNamesUrlSyntax = {
+    expr = parse "[::1]";
+    expectedError.msg = "^libnet\\.ip\\.parse: \"\\[::1]\" is bracketed, which is URL and endpoint syntax$";
+  };
+  testParseBracketedWithPortNamesUrlSyntax = {
+    expr = parse "[::1]:80";
+    expectedError.msg = "^libnet\\.ip\\.parse: \"\\[::1]:80\" is bracketed, which is URL and endpoint syntax$";
+  };
+  # A hex group before the colon is plausibly IPv6, so the detail stays.
+  testParseHexGroupWithPortKeepsIpv6Detail = {
+    expr = parse "cafe:80";
+    expectedError.msg = "^libnet\\.ip\\.parse: must have 8 groups, got 2: \"cafe:80\"$";
+  };
+  testParseBadIpv6KeepsDetail = {
+    expr = parse "::1:g";
+    expectedError.msg = "^libnet\\.ip\\.parse: invalid group \"g\" in \"::1:g\"$";
   };
   testParseNonStringNamesIp = {
     expr = ip.parse 1;

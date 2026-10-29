@@ -36,7 +36,7 @@ Suites: parsing, comparison (hostnames before domains, then by the lowercase tex
 
 ## `libnet.host`
 
-Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it. A parse error names `host.parse` and keeps the IP's detail for text with a colon or only digits and dots, and the DNS name's otherwise: `host.parse "010.0.0.1"` reports `libnet.host.parse: invalid octet in "010.0.0.1"`, and `host.parse "example.com:80"`, which has a colon, reports `libnet.host.parse: invalid group "example.com" in "example.com:80"`. A numeric hostname value is not a host, as it is not a DNS name.
+Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it. A parse error names `host.parse` and keeps the IP's detail for text with a colon or only digits and dots, and the DNS name's otherwise: `host.parse "010.0.0.1"` reports `libnet.host.parse: invalid octet in "010.0.0.1"`, and `host.parse "::g"`, which has a colon, reports `libnet.host.parse: invalid group "g" in "::g"`. Bracketed text and a name followed by a port name the syntax they belong to, as `ip` does: `host.parse "example.com:80"` reports `libnet.host.parse: "example.com:80" reads as host:port, which is endpoint syntax`. A numeric hostname value is not a host, as it is not a DNS name.
 
 Suites: parsing, comparison (IPv4, IPv6, hostname, then domain; within a kind, that kind's order).
 

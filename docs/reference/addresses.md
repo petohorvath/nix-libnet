@@ -80,7 +80,7 @@ Predicates, each `Ipv6 → Bool`:
 
 ## `libnet.ip`
 
-Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`. A parse error names `ip.parse` and keeps the member's detail: `ip.parse "300.1.1.1"` throws `libnet.ip.parse: invalid octet in "300.1.1.1"`.
+Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input contains `:`. A parse error names `ip.parse` and keeps the member's detail: `ip.parse "300.1.1.1"` throws `libnet.ip.parse: invalid octet in "300.1.1.1"`. Colon text that is not plausibly IPv6 names the syntax it belongs to instead: bracketed text, as in `ip.parse "[::1]"`, throws `libnet.ip.parse: "[::1]" is bracketed, which is URL and endpoint syntax`, and a host other than an IPv6 group followed by a port, as in `ip.parse "1.2.3.4:5"`, throws `libnet.ip.parse: "1.2.3.4:5" reads as host:port, which is endpoint syntax`.
 
 Suites: parsing, comparison (IPv4 before IPv6), arithmetic (dispatched by family, with errors naming the `ip` function called; `diff` across families throws), address predicates.
 

@@ -39,12 +39,29 @@ let
     `input`: address string; any ':' selects IPv6, otherwise IPv4.
 
     Returns a tryResult whose `value` is an ipv4 or ipv6 value, or whose
-    `error` is the detail of the family parser.
+    `error` is the detail of the family parser. Colon text that is not
+    plausibly IPv6 names the syntax it belongs to instead: a bracketed
+    literal, or a host other than an IPv6 group followed by a port.
   */
   tryParseDetail =
     input:
     if parsing.countOccurrences ":" input > 0 then
-      ipv6.tryParseDetail input
+      let
+        ipv6Result = ipv6.tryParseDetail input;
+        parts = parsing.splitOn ":" input;
+        isHostAndPort =
+          builtins.length parts == 2
+          && parsing.hexGroup (builtins.head parts) == null
+          && parsing.isRepetitionOf "[0-9]" (builtins.elemAt parts 1);
+      in
+      if ipv6Result.success then
+        ipv6Result
+      else if parsing.startsWith "[" input then
+        types.tryErr "\"${input}\" is bracketed, which is URL and endpoint syntax"
+      else if isHostAndPort then
+        types.tryErr "\"${input}\" reads as host:port, which is endpoint syntax"
+      else
+        ipv6Result
     else
       ipv4.tryParseDetail input;
 
