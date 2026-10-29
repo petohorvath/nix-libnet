@@ -11,16 +11,16 @@
   Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
   matching the other scalar modules for consistency.
 
-  Tagged like `libnet.port` so a validated MTU is distinguishable from
-  a bare int (`is`). There is no string `parse`: MTUs are written as
-  integers, so the constructor is `fromInt`. The opt-in module type
-  `libnet.types.mtu` validates and returns a bare int (coerced, like
-  `types.port`), so NixOS configs stay `mtu = 1500;`.
+  A bounded integer like `libnet.port`: `parse` reads decimal text,
+  `fromInt` lifts a computed integer, and `is` tells a validated MTU
+  from a bare int. The opt-in module type `libnet.types.mtu` accepts an
+  integer or its decimal string and merges to an integer, so NixOS
+  configs stay `mtu = 1500;`.
 
   Example:
-    libnet.mtu.fromInt 1500   # => { _type = "mtu"; value = 1500; }
-    libnet.mtu.isValid 9000   # => true   (jumbo frames)
-    libnet.mtu.isValid 67     # => false  (below RFC 791 floor)
+    libnet.mtu.parse "1500"   # => { _type = "mtu"; value = 1500; }
+    libnet.mtu.isValid "9000" # => true   (jumbo frames)
+    libnet.mtu.isValid "67"   # => false  (below RFC 791 floor)
 */
 import ./internal/bounded-int.nix {
   typeName = "mtu";

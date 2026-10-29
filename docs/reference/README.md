@@ -10,7 +10,7 @@ This reference is the contract for libnet's public API: the value each namespace
 | [Names](names.md)                       | `hostname`, `domain`, `dnsName`, `host`, `interfaceName`                             |
 | [Targets](targets.md)                   | `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`, `ipBindpoint`, `bindpoint`    |
 | [URL forms](urls.md)                    | `socketUrl`, `bindUrl`, `secureSocketUrl`, `urlHost`, `authority`, `url`, `proxyUrl` |
-| [Bounded integers](bounded-integers.md) | `vlanId`, `mtu`, `icmpType`                                                          |
+| [Bounded integers](bounded-integers.md) | `port`, `vlanId`, `mtu`, `icmpType`                                                  |
 | [Registry](registry.md)                 | `registry`                                                                           |
 | [Module types](module-types.md)         | `withLib`, `types`                                                                   |
 

@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The `treefmt-nix` flake input, which builds `nix fmt` and the `treefmt` check. Its `nixpkgs` follows libnet's, so a consumer's lock file gains one `treefmt-nix` entry and no second nixpkgs. Consumers can drop it with `inputs.nix-libnet.inputs.treefmt-nix.follows = "";` ([ADR 0019](docs/adr/0019-treefmt-nix.md)).
 - A `lint` check that runs `statix check`.
 - `domain.isSuperdomainOf`, the converse of `isSubdomainOf`, so either side of the relation can be partially applied.
+- `vlanId.parse`, `mtu.parse` and `icmpType.parse`, with `tryParse`, over decimal text, so every bounded integer has the parsing suite that `port` has.
+- `types.vlanId`, `types.mtu` and `types.icmpType` accept a decimal string as well as an integer and merge to an integer, like `types.port`.
 
 ### Changed
 
@@ -27,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** rename `dnsEndpoint.address` to `dnsEndpoint.name`, along with the stored field, because a DNS endpoint holds an unresolved name, not an address. `dnsEndpoint.make` is positional and does not change.
 - **Breaking:** rename `host.isName` to `host.isDnsName`, so each union's predicates name its direct members.
 - **Breaking:** replace `interfaceName.ifnamsiz` (`16`, the kernel buffer size) with `interfaceName.maxLength` (`15`, the longest valid name).
+- **Breaking:** `vlanId.isValid`, `mtu.isValid` and `icmpType.isValid` take decimal text, like every other `isValid`, so `vlanId.isValid 100` is now `false`. Integer callers use `fromInt` or the module types.
 - Format through treefmt-nix: `nix fmt` runs nixfmt, deadnix, actionlint, and prettier instead of only nixfmt, and `checks.<system>.treefmt` replaces `checks.<system>.formatting`.
 
 ### Removed

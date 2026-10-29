@@ -93,39 +93,58 @@ let
     };
 
   /*
-    Build an integer option type for a bounded libnet scalar. It keeps
-    nixpkgs' integer type metadata and merge behavior, but delegates
-    validation to the same domain rules the core constructors use.
+    Build an integer option type for a bounded integer. It accepts an
+    integer or its decimal string and merges to an integer, validating
+    both forms with the same `isValid` the core parsers use.
 
     `typeName`: option type name, used in `mk` error messages.
-    `scalar`: bounded scalar module providing `lowestValue`,
-    `highestValue`, and `isValid`, such as `libnet.vlanId`.
+    `scalar`: bounded-integer module providing `lowestValue`,
+    `highestValue`, `isValid`, `parse` and `toInt`, such as
+    `libnet.vlanId`.
 
     Returns a nixpkgs option type extended with `mk`.
   */
   mkIntType =
     typeName: scalar:
-    lib.types.ints.between scalar.lowestValue scalar.highestValue
+    let
+      # An integer is valid when its decimal text is, so text and
+      # integer definitions share one validator.
+      isValidInt = value: builtins.isInt value && scalar.isValid (toString value);
+      fromString = input: scalar.toInt (scalar.parse input);
+    in
+    lib.types.coercedTo
+      (lib.types.addCheck lib.types.str scalar.isValid // { description = "decimal string"; })
+      fromString
+      (lib.types.addCheck (lib.types.ints.between scalar.lowestValue scalar.highestValue) isValidInt)
     // {
-      check = scalar.isValid;
-
       /*
-        Validate an integer against this option type, so `default` and
+        Validate a value against this option type, so `default` and
         `example` values fail early instead of during module evaluation.
 
-        `value`: candidate integer.
+        `value`: integer within the scalar's inclusive bounds, or its
+        decimal string.
 
-        Returns `value` unchanged; throws when it is not an integer or
-        lies outside the scalar's inclusive bounds.
+        Returns the integer; throws on any other type or on an invalid or
+        out-of-range value.
       */
       mk =
         value:
-        if !(builtins.isInt value) then
-          throw "libnet.types.${typeName}.mk: expected int, got ${builtins.typeOf value}"
-        else if !(scalar.isValid value) then
-          throw "libnet.types.${typeName}.mk: out of range [${toString scalar.lowestValue}, ${toString scalar.highestValue}]: ${toString value}"
+        if builtins.isInt value then
+          (
+            if isValidInt value then
+              value
+            else
+              throw "libnet.types.${typeName}.mk: out of range [${toString scalar.lowestValue}, ${toString scalar.highestValue}]: ${toString value}"
+          )
+        else if builtins.isString value then
+          (
+            if scalar.isValid value then
+              fromString value
+            else
+              throw "libnet.types.${typeName}.mk: invalid value \"${value}\""
+          )
         else
-          value;
+          throw "libnet.types.${typeName}.mk: expected int or string, got ${builtins.typeOf value}";
     };
 
   ipv4Type = mkStringType {
@@ -316,39 +335,11 @@ let
     validator = host.isValid;
   };
 
+  portType = mkIntType "port" port;
   vlanIdType = mkIntType "vlanId" vlanId;
   mtuType = mkIntType "mtu" mtu;
   icmpTypeType = mkIntType "icmpType" icmpType;
 
-  # Ports merge as integers, so string definitions are coerced to ints.
-  portType =
-    lib.types.coercedTo (lib.types.strMatching "[0-9]+") lib.toInt (lib.types.ints.between 0 65535)
-    // {
-      /*
-        Validate a port for this option type, so `default` and `example`
-        values fail early instead of during module evaluation.
-
-        `value`: integer in [0, 65535], or its decimal string form.
-
-        Returns the port as an integer; throws on any other type or on an
-        invalid or out-of-range value.
-      */
-      mk =
-        value:
-        if builtins.isInt value then
-          (
-            if value >= 0 && value <= 65535 then
-              value
-            else
-              throw "libnet.types.port.mk: out of range: ${toString value}"
-          )
-        else if builtins.isString value then
-          (
-            if port.isValid value then lib.toInt value else throw "libnet.types.port.mk: invalid: \"${value}\""
-          )
-        else
-          throw "libnet.types.port.mk: expected int or string";
-    };
 in
 {
   types = {

@@ -15,6 +15,18 @@ let
   allIcmpTypesCheck =
     icmpTypes:
     builtins.all (name: types.icmpType.check icmpTypes.${name}) (builtins.attrNames icmpTypes);
+
+  # Merge one definition through the module system, as an option would.
+  merged =
+    type: value:
+    (lib.evalModules {
+      modules = [
+        {
+          options.value = lib.mkOption { inherit type; };
+          config = { inherit value; };
+        }
+      ];
+    }).config.value;
 in
 if lib == null then
   { }
@@ -158,6 +170,19 @@ else
     testPortCheckNegative = {
       expr = types.port.check (-1);
       expected = false;
+    };
+    testPortCheckInvalidString = {
+      expr = builtins.any types.port.check [
+        "70000"
+        "-1"
+        "0x50"
+        ""
+      ];
+      expected = false;
+    };
+    testPortMergesStringToInt = {
+      expr = merged types.port "8080";
+      expected = 8080;
     };
     testPortMkInt = {
       expr = types.port.mk 80;
@@ -960,9 +985,31 @@ else
     };
     testVlanIdCheckString = {
       expr = types.vlanId.check "100";
+      expected = true;
+    };
+    testVlanIdCheckRejectsInvalidStrings = {
+      expr = builtins.any types.vlanId.check [
+        "0"
+        "4095"
+        "-1"
+        "abc"
+        ""
+      ];
       expected = false;
     };
-    testVlanIdCheckRejectsNonInts = {
+    testVlanIdMergesStringToInt = {
+      expr = merged types.vlanId "100";
+      expected = 100;
+    };
+    testVlanIdMergesInt = {
+      expr = merged types.vlanId 100;
+      expected = 100;
+    };
+    testVlanIdMergeRejectsInvalidString = {
+      expr = throws (merged types.vlanId "0");
+      expected = true;
+    };
+    testVlanIdCheckRejectsOtherTypes = {
       expr = builtins.any types.vlanId.check [
         null
         true
@@ -975,7 +1022,7 @@ else
       ];
       expected = false;
     };
-    testVlanIdMkRejectsNonInts = {
+    testVlanIdMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.vlanId.mk value)) [
         null
         true
@@ -1008,8 +1055,12 @@ else
       expr = throws (types.vlanId.mk 4095);
       expected = true;
     };
-    testVlanIdMkStringThrows = {
-      expr = throws (types.vlanId.mk "100");
+    testVlanIdMkString = {
+      expr = types.vlanId.mk "100";
+      expected = 100;
+    };
+    testVlanIdMkInvalidStringThrows = {
+      expr = throws (types.vlanId.mk "0");
       expected = true;
     };
     testVlanIdDescription = {
@@ -1048,9 +1099,31 @@ else
     };
     testMtuCheckString = {
       expr = types.mtu.check "1500";
+      expected = true;
+    };
+    testMtuCheckRejectsInvalidStrings = {
+      expr = builtins.any types.mtu.check [
+        "67"
+        "65536"
+        "-1"
+        "abc"
+        ""
+      ];
       expected = false;
     };
-    testMtuCheckRejectsNonInts = {
+    testMtuMergesStringToInt = {
+      expr = merged types.mtu "1500";
+      expected = 1500;
+    };
+    testMtuMergesInt = {
+      expr = merged types.mtu 1500;
+      expected = 1500;
+    };
+    testMtuMergeRejectsInvalidString = {
+      expr = throws (merged types.mtu "67");
+      expected = true;
+    };
+    testMtuCheckRejectsOtherTypes = {
       expr = builtins.any types.mtu.check [
         null
         true
@@ -1063,7 +1136,7 @@ else
       ];
       expected = false;
     };
-    testMtuMkRejectsNonInts = {
+    testMtuMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.mtu.mk value)) [
         null
         true
@@ -1096,8 +1169,12 @@ else
       expr = throws (types.mtu.mk 65536);
       expected = true;
     };
-    testMtuMkStringThrows = {
-      expr = throws (types.mtu.mk "1500");
+    testMtuMkString = {
+      expr = types.mtu.mk "1500";
+      expected = 1500;
+    };
+    testMtuMkInvalidStringThrows = {
+      expr = throws (types.mtu.mk "67");
       expected = true;
     };
     testMtuDescription = {
@@ -1128,9 +1205,30 @@ else
     };
     testIcmpTypeCheckString = {
       expr = types.icmpType.check "8";
+      expected = true;
+    };
+    testIcmpTypeCheckRejectsInvalidStrings = {
+      expr = builtins.any types.icmpType.check [
+        "256"
+        "-1"
+        "abc"
+        ""
+      ];
       expected = false;
     };
-    testIcmpTypeCheckRejectsNonInts = {
+    testIcmpTypeMergesStringToInt = {
+      expr = merged types.icmpType "8";
+      expected = 8;
+    };
+    testIcmpTypeMergesInt = {
+      expr = merged types.icmpType 8;
+      expected = 8;
+    };
+    testIcmpTypeMergeRejectsInvalidString = {
+      expr = throws (merged types.icmpType "256");
+      expected = true;
+    };
+    testIcmpTypeCheckRejectsOtherTypes = {
       expr = builtins.any types.icmpType.check [
         null
         true
@@ -1143,7 +1241,7 @@ else
       ];
       expected = false;
     };
-    testIcmpTypeMkRejectsNonInts = {
+    testIcmpTypeMkRejectsOtherTypes = {
       expr = builtins.all (value: throws (types.icmpType.mk value)) [
         null
         true
@@ -1176,8 +1274,12 @@ else
       expr = throws (types.icmpType.mk (-1));
       expected = true;
     };
-    testIcmpTypeMkStringThrows = {
-      expr = throws (types.icmpType.mk "8");
+    testIcmpTypeMkString = {
+      expr = types.icmpType.mk "8";
+      expected = 8;
+    };
+    testIcmpTypeMkInvalidStringThrows = {
+      expr = throws (types.icmpType.mk "256");
       expected = true;
     };
     testIcmpTypeDescription = {

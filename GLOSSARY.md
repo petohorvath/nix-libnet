@@ -167,10 +167,10 @@ A proxy server address, `<scheme>://<authority>`, with an HTTP or SOCKS scheme a
 **Scheme registry**:
 The closed set of schemes a URL form accepts, with any per-scheme facts such as a default port or transport.
 
-## Link and IP scalars
+## Bounded integers
 
 **Bounded integer**:
-A tagged integer restricted to a protocol-defined range and built with `fromInt`: VLAN ID, MTU and ICMP type.
+A tagged integer restricted to a protocol-defined range, written in decimal: port, VLAN ID, MTU and ICMP type.
 
 **VLAN ID**:
 An IEEE 802.1Q VLAN identifier from 1 to 4094.

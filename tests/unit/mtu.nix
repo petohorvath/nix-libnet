@@ -6,59 +6,59 @@ in
 {
   # ===== valid range =====
   testIsValidMin = {
-    expr = mtu.isValid 68;
+    expr = mtu.isValid "68";
     expected = true;
   };
   testIsValidEthernet = {
-    expr = mtu.isValid 1500;
+    expr = mtu.isValid "1500";
     expected = true;
   };
   testIsValidIpv6Min = {
-    expr = mtu.isValid 1280;
+    expr = mtu.isValid "1280";
     expected = true;
   };
   testIsValidWireGuardTypical = {
-    expr = mtu.isValid 1420;
+    expr = mtu.isValid "1420";
     expected = true;
   };
   testIsValidJumbo = {
-    expr = mtu.isValid 9000;
+    expr = mtu.isValid "9000";
     expected = true;
   };
   testIsValidLoopbackAboveMax = {
-    expr = mtu.isValid 65536; # Linux loopback default, one above max
+    expr = mtu.isValid "65536"; # Linux loopback default, one above max
     expected = false;
   };
   testIsValidMax = {
-    expr = mtu.isValid 65535;
+    expr = mtu.isValid "65535";
     expected = true;
   };
 
   # ===== boundary rejects =====
   testIsValidBelowMin = {
-    expr = mtu.isValid 67;
+    expr = mtu.isValid "67";
     expected = false;
   };
   testIsValidTiny = {
-    expr = mtu.isValid 5;
+    expr = mtu.isValid "5";
     expected = false;
   };
   testIsValidZero = {
-    expr = mtu.isValid 0;
+    expr = mtu.isValid "0";
     expected = false;
   };
   testIsValidNegative = {
-    expr = mtu.isValid (-1);
+    expr = mtu.isValid "-1";
     expected = false;
   };
   testIsValidHuge = {
-    expr = mtu.isValid 100000;
+    expr = mtu.isValid "100000";
     expected = false;
   };
 
   # ===== type rejects =====
-  testIsValidString = {
-    expr = mtu.isValid "1500";
+  testIsValidInt = {
+    expr = mtu.isValid 1500;
     expected = false;
   };
   testIsValidNull = {
@@ -76,6 +76,70 @@ in
   testIsValidList = {
     expr = mtu.isValid [ 1500 ];
     expected = false;
+  };
+
+  # ===== Parsing =====
+  testParseTypical = {
+    expr = mtu.parse "1500";
+    expected = {
+      _type = "mtu";
+      value = 1500;
+    };
+  };
+  testParseBounds = {
+    expr = map (input: mtu.toInt (mtu.parse input)) [
+      "68"
+      "65535"
+    ];
+    expected = [
+      68
+      65535
+    ];
+  };
+  testParseRoundTrip = {
+    expr = mtu.toString (mtu.parse "1500");
+    expected = "1500";
+  };
+  testParseOutOfRangeThrows = {
+    expr = builtins.all (input: throws (mtu.parse input)) [
+      "67"
+      "65536"
+    ];
+    expected = true;
+  };
+  testParseRejectsNonDecimal = {
+    expr = builtins.all (input: throws (mtu.parse input)) [
+      ""
+      "-1"
+      "+1500"
+      " 1500"
+      "0x1500"
+    ];
+    expected = true;
+  };
+  testParseRejectsInt = {
+    expr = throws (mtu.parse 1500);
+    expected = true;
+  };
+  testTryParseOk = {
+    expr = mtu.toInt (mtu.tryParse "1500").value;
+    expected = 1500;
+  };
+  testTryParseOutOfRange = {
+    expr = (mtu.tryParse "65536").success;
+    expected = false;
+  };
+  testParsePartialApplication = {
+    expr = map (mtu.eq (mtu.parse "1500")) (
+      map mtu.parse [
+        "1500"
+        "9000"
+      ]
+    );
+    expected = [
+      true
+      false
+    ];
   };
 
   # ===== Constants =====

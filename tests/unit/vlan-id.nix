@@ -6,47 +6,47 @@ in
 {
   # ===== valid range =====
   testIsValidMin = {
-    expr = vlanId.isValid 1;
+    expr = vlanId.isValid "1";
     expected = true;
   };
   testIsValidLow = {
-    expr = vlanId.isValid 2;
+    expr = vlanId.isValid "2";
     expected = true;
   };
   testIsValidTypical = {
-    expr = vlanId.isValid 100;
+    expr = vlanId.isValid "100";
     expected = true;
   };
   testIsValidMid = {
-    expr = vlanId.isValid 2000;
+    expr = vlanId.isValid "2000";
     expected = true;
   };
   testIsValidMax = {
-    expr = vlanId.isValid 4094;
+    expr = vlanId.isValid "4094";
     expected = true;
   };
 
   # ===== boundary rejects =====
   testIsValidZero = {
-    expr = vlanId.isValid 0;
+    expr = vlanId.isValid "0";
     expected = false;
   };
   testIsValid4095 = {
-    expr = vlanId.isValid 4095;
+    expr = vlanId.isValid "4095";
     expected = false;
   };
   testIsValidNegative = {
-    expr = vlanId.isValid (-1);
+    expr = vlanId.isValid "-1";
     expected = false;
   };
   testIsValidLarge = {
-    expr = vlanId.isValid 65535;
+    expr = vlanId.isValid "65535";
     expected = false;
   };
 
   # ===== type rejects =====
-  testIsValidString = {
-    expr = vlanId.isValid "100";
+  testIsValidInt = {
+    expr = vlanId.isValid 100;
     expected = false;
   };
   testIsValidNull = {
@@ -64,6 +64,70 @@ in
   testIsValidList = {
     expr = vlanId.isValid [ 100 ];
     expected = false;
+  };
+
+  # ===== Parsing =====
+  testParseTypical = {
+    expr = vlanId.parse "100";
+    expected = {
+      _type = "vlanId";
+      value = 100;
+    };
+  };
+  testParseBounds = {
+    expr = map (input: vlanId.toInt (vlanId.parse input)) [
+      "1"
+      "4094"
+    ];
+    expected = [
+      1
+      4094
+    ];
+  };
+  testParseRoundTrip = {
+    expr = vlanId.toString (vlanId.parse "100");
+    expected = "100";
+  };
+  testParseOutOfRangeThrows = {
+    expr = builtins.all (input: throws (vlanId.parse input)) [
+      "0"
+      "4095"
+    ];
+    expected = true;
+  };
+  testParseRejectsNonDecimal = {
+    expr = builtins.all (input: throws (vlanId.parse input)) [
+      ""
+      "-1"
+      "+100"
+      " 100"
+      "0x100"
+    ];
+    expected = true;
+  };
+  testParseRejectsInt = {
+    expr = throws (vlanId.parse 100);
+    expected = true;
+  };
+  testTryParseOk = {
+    expr = vlanId.toInt (vlanId.tryParse "100").value;
+    expected = 100;
+  };
+  testTryParseOutOfRange = {
+    expr = (vlanId.tryParse "4095").success;
+    expected = false;
+  };
+  testParsePartialApplication = {
+    expr = map (vlanId.eq (vlanId.parse "100")) (
+      map vlanId.parse [
+        "100"
+        "4094"
+      ]
+    );
+    expected = [
+      true
+      false
+    ];
   };
 
   # ===== Constants =====
