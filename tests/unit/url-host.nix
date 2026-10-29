@@ -212,9 +212,31 @@ in
     expr = urlHost.toHost (parseValue "0x7g");
     expected = libnet.hostname.parse "0x7g";
   };
-  testToHostUnderscoreNull = {
-    expr = urlHost.toHost (parseValue "my_host") == null;
-    expected = true;
+  # A partial conversion throws, as `url.toEndpoint` does (ADR 0006).
+  testToHostRejectsNonDnsName = {
+    expr = urlHost.toHost (parseValue "my_host");
+    expectedError.msg = "^libnet\\.urlHost\\.toHost: registered name \"my_host\" is not a valid DNS name$";
+  };
+  # The documented guard: a registered name converts exactly when its
+  # text is a valid DNS name.
+  testToHostGuard = {
+    expr =
+      map
+        (
+          text:
+          let
+            name = parseValue text;
+          in
+          if libnet.dnsName.isValid (libnet.regName.toString name) then (urlHost.toHost name)._type else null
+        )
+        [
+          "my_host"
+          "example.com"
+        ];
+    expected = [
+      null
+      "domain"
+    ];
   };
 
   # ===== Comparison =====

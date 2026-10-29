@@ -24,7 +24,7 @@ in
   };
   testParseIpv4WithPortNamesIp = {
     expr = parse "1.2.3.4:5";
-    expectedError.msg = "^libnet\\.ip\\.parse: invalid \"1\\.2\\.3\\.4:5\"$";
+    expectedError.msg = "^libnet\\.ip\\.parse: invalid group \"1\\.2\\.3\\.4\" in \"1\\.2\\.3\\.4:5\"$";
   };
   testParseNonStringNamesIp = {
     expr = ip.parse 1;
