@@ -2,19 +2,16 @@
 
 ## `libnet.port`
 
-Value: `{ _type = "port"; value = Int; }` with `value` in `[0, 65535]`. `parse` accepts decimal digits only: no sign, whitespace or hex.
+A [bounded integer](bounded-integers.md) in `[0, 65535]`: `{ _type = "port"; value = Int; }`. That page documents the functions every bounded integer shares; ports add the RFC 6335 classes below.
 
-Suites: parsing, comparison, arithmetic.
+| Function       | Signature     | Notes                                                        |
+| -------------- | ------------- | ------------------------------------------------------------ |
+| `isWellKnown`  | `Port → Bool` | `0`–`1023`.                                                  |
+| `isRegistered` | `Port → Bool` | `1024`–`49151`.                                              |
+| `isDynamic`    | `Port → Bool` | `49152`–`65535`.                                             |
+| `isReserved`   | `Port → Bool` | `0`, which is also well-known: the RFC 6335 classes overlap. |
 
-| Function           | Signature     | Notes                                                        |
-| ------------------ | ------------- | ------------------------------------------------------------ |
-| `fromInt`, `toInt` | `Int ↔ Port`  | `fromInt` throws out of range.                               |
-| `isWellKnown`      | `Port → Bool` | `0`–`1023`.                                                  |
-| `isRegistered`     | `Port → Bool` | `1024`–`49151`.                                              |
-| `isDynamic`        | `Port → Bool` | `49152`–`65535`.                                             |
-| `isReserved`       | `Port → Bool` | `0`, which is also well-known: the RFC 6335 classes overlap. |
-
-Constants, as plain integers: `lowestValue` (`0`), `highestValue` (`65535`), `wellKnownMax` (`1023`), `registeredMax` (`49151`). Service names live in [`registry.ports`](registry.md).
+Constants, as plain integers: `wellKnownMax` (`1023`) and `registeredMax` (`49151`), besides the bounds `lowestValue` (`0`) and `highestValue` (`65535`). Service names live in [`registry.ports`](registry.md).
 
 ## `libnet.portRange`
 

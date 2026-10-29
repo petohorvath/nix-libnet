@@ -6,39 +6,39 @@ in
 {
   # ===== valid range =====
   testIsValidMin = {
-    expr = icmpType.isValid 0;
+    expr = icmpType.isValid "0";
     expected = true;
   };
   testIsValidTypical = {
-    expr = icmpType.isValid 8;
+    expr = icmpType.isValid "8";
     expected = true;
   };
   testIsValidMid = {
-    expr = icmpType.isValid 128;
+    expr = icmpType.isValid "128";
     expected = true;
   };
   testIsValidMax = {
-    expr = icmpType.isValid 255;
+    expr = icmpType.isValid "255";
     expected = true;
   };
 
   # ===== boundary rejects =====
   testIsValidNegative = {
-    expr = icmpType.isValid (-1);
+    expr = icmpType.isValid "-1";
     expected = false;
   };
   testIsValid256 = {
-    expr = icmpType.isValid 256;
+    expr = icmpType.isValid "256";
     expected = false;
   };
   testIsValidLarge = {
-    expr = icmpType.isValid 65535;
+    expr = icmpType.isValid "65535";
     expected = false;
   };
 
   # ===== type rejects =====
-  testIsValidString = {
-    expr = icmpType.isValid "8";
+  testIsValidInt = {
+    expr = icmpType.isValid 8;
     expected = false;
   };
   testIsValidNull = {
@@ -56,6 +56,69 @@ in
   testIsValidList = {
     expr = icmpType.isValid [ 8 ];
     expected = false;
+  };
+
+  # ===== Parsing =====
+  testParseTypical = {
+    expr = icmpType.parse "8";
+    expected = {
+      _type = "icmpType";
+      value = 8;
+    };
+  };
+  testParseBounds = {
+    expr = map (input: icmpType.toInt (icmpType.parse input)) [
+      "0"
+      "255"
+    ];
+    expected = [
+      0
+      255
+    ];
+  };
+  testParseRoundTrip = {
+    expr = icmpType.toString (icmpType.parse "8");
+    expected = "8";
+  };
+  testParseOutOfRangeThrows = {
+    expr = builtins.all (input: throws (icmpType.parse input)) [
+      "256"
+    ];
+    expected = true;
+  };
+  testParseRejectsNonDecimal = {
+    expr = builtins.all (input: throws (icmpType.parse input)) [
+      ""
+      "-1"
+      "+8"
+      " 8"
+      "0x8"
+    ];
+    expected = true;
+  };
+  testParseRejectsInt = {
+    expr = throws (icmpType.parse 8);
+    expected = true;
+  };
+  testTryParseOk = {
+    expr = icmpType.toInt (icmpType.tryParse "8").value;
+    expected = 8;
+  };
+  testTryParseOutOfRange = {
+    expr = (icmpType.tryParse "256").success;
+    expected = false;
+  };
+  testParsePartialApplication = {
+    expr = map icmpType.toInt (
+      map icmpType.parse [
+        "0"
+        "255"
+      ]
+    );
+    expected = [
+      0
+      255
+    ];
   };
 
   # ===== Constants =====

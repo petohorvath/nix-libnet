@@ -3,11 +3,11 @@ let
   inherit (internal) boundedInt;
   inherit (helpers) throws;
 
-  # A domain that crosses zero, unlike the public scalars built on it.
-  signed = boundedInt {
-    typeName = "signed";
-    lowestValue = -3;
-    highestValue = 3;
+  # A domain whose lower bound sits above zero, like `vlanId` and `mtu`.
+  offset = boundedInt {
+    typeName = "offset";
+    lowestValue = 2;
+    highestValue = 9;
     arithmetic = true;
   };
   # The defaults leave arithmetic out, as `icmpType` does.
@@ -26,8 +26,8 @@ let
   # A second domain over the same range, to tell tags apart.
   other = boundedInt {
     typeName = "other";
-    lowestValue = -3;
-    highestValue = 3;
+    lowestValue = 2;
+    highestValue = 9;
     arithmetic = true;
   };
 
@@ -45,8 +45,10 @@ let
     "lt"
     "max"
     "min"
+    "parse"
     "toInt"
     "toString"
+    "tryParse"
   ];
 in
 {
@@ -56,7 +58,7 @@ in
     expected = coreNames;
   };
   testExportsWithArithmetic = {
-    expr = builtins.attrNames signed;
+    expr = builtins.attrNames offset;
     expected = builtins.sort builtins.lessThan (
       coreNames
       ++ [
@@ -70,65 +72,156 @@ in
   };
   testBoundsPassThrough = {
     expr = [
-      signed.lowestValue
-      signed.highestValue
+      offset.lowestValue
+      offset.highestValue
     ];
     expected = [
-      (-3)
+      2
+      9
+    ];
+  };
+  testNegativeLowerBoundThrows = {
+    expr =
+      throws
+        (boundedInt {
+          typeName = "negative";
+          lowestValue = -1;
+          highestValue = 1;
+        }).lowestValue;
+    expected = true;
+  };
+
+  # ===== Parsing =====
+  testParseDecimal = {
+    expr = plain.parse "5";
+    expected = {
+      _type = "plain";
+      value = 5;
+    };
+  };
+  testParseBounds = {
+    expr = map (input: offset.toInt (offset.parse input)) [
+      "2"
+      "9"
+    ];
+    expected = [
+      2
+      9
+    ];
+  };
+  testParseRoundTrip = {
+    expr = offset.toString (offset.parse "7");
+    expected = "7";
+  };
+  testParseOutOfRangeThrows = {
+    expr = map (input: throws (offset.parse input)) [
+      "0"
+      "1"
+      "10"
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testParseRejectsNonDecimal = {
+    expr = builtins.all (input: throws (offset.parse input)) [
+      ""
+      "-2"
+      "+2"
+      " 2"
+      "2 "
+      "0x2"
+      "2.0"
+      "two"
+    ];
+    expected = true;
+  };
+  testParseRejectsNonStrings = {
+    expr = builtins.all (value: throws (offset.parse value)) [
+      2
+      null
+      [ "2" ]
+    ];
+    expected = true;
+  };
+  testParseErrorNamesTypeAndFunction = {
+    expr = builtins.match "libnet[.]offset[.]parse: out of range \\[2, 9]: 10" (offset.tryParse "10")
+    .error;
+    expected = [ ];
+  };
+  testTryParseOk = {
+    expr = offset.tryParse "3";
+    expected = {
+      success = true;
+      value = offset.fromInt 3;
+      error = null;
+    };
+  };
+  testTryParseRecovers = {
+    expr = map (value: (offset.tryParse value).success) [
+      "1"
+      "x"
       3
+    ];
+    expected = [
+      false
+      false
+      false
     ];
   };
 
   # ===== Tag =====
   testFromIntUsesTypeName = {
-    expr = signed.fromInt 2;
+    expr = offset.fromInt 2;
     expected = {
-      _type = "signed";
+      _type = "offset";
       value = 2;
     };
   };
   testIsRejectsOtherTypeName = {
-    expr = signed.is (other.fromInt 2);
+    expr = offset.is (other.fromInt 2);
     expected = false;
   };
   testIsDoesNotForcePayload = {
-    expr = signed.is {
-      _type = "signed";
+    expr = offset.is {
+      _type = "offset";
       value = throw "payload forced";
     };
     expected = true;
   };
   testEqRejectsOtherTypeName = {
-    expr = signed.eq (signed.fromInt 2) (other.fromInt 2);
+    expr = offset.eq (offset.fromInt 2) (other.fromInt 2);
     expected = false;
   };
 
   # ===== Bounds =====
-  testIsValidNegativeLowerBound = {
-    expr = signed.isValid (-3);
+  testIsValidLowerBound = {
+    expr = offset.isValid "2";
     expected = true;
   };
-  testIsValidBelowNegativeLowerBound = {
-    expr = signed.isValid (-4);
+  testIsValidBelowLowerBound = {
+    expr = offset.isValid "1";
     expected = false;
   };
   testIsValidUpperBound = {
-    expr = signed.isValid 3;
+    expr = offset.isValid "9";
     expected = true;
   };
   testIsValidAboveUpperBound = {
-    expr = signed.isValid 4;
+    expr = offset.isValid "10";
     expected = false;
   };
-  testIsValidZeroInsideSignedDomain = {
-    expr = signed.isValid 0;
-    expected = true;
+  testIsValidRejectsIntegers = {
+    expr = offset.isValid 5;
+    expected = false;
   };
   testIsValidSingleValue = {
     expr = map single.isValid [
-      6
-      7
-      8
+      "6"
+      "7"
+      "8"
     ];
     expected = [
       false
@@ -136,84 +229,80 @@ in
       false
     ];
   };
-  testFromIntBelowNegativeLowerBoundThrows = {
-    expr = throws (signed.fromInt (-4));
+  testFromIntBelowLowerBoundThrows = {
+    expr = throws (offset.fromInt 1);
     expected = true;
   };
   testFromIntAboveUpperBoundThrows = {
-    expr = throws (signed.fromInt 4);
+    expr = throws (offset.fromInt 10);
     expected = true;
   };
   testFromIntRejectsNonInts = {
-    expr = builtins.all (value: throws (signed.fromInt value)) [
-      "1"
-      1.0
+    expr = builtins.all (value: throws (offset.fromInt value)) [
+      "3"
+      3.0
       null
     ];
     expected = true;
   };
-  testToStringNegative = {
-    expr = signed.toString (signed.fromInt (-3));
-    expected = "-3";
-  };
   testToIntRoundTripsEveryValue = {
-    expr = map (n: signed.toInt (signed.fromInt n)) [
-      (-3)
-      0
-      3
+    expr = map (n: offset.toInt (offset.fromInt n)) [
+      2
+      5
+      9
     ];
     expected = [
-      (-3)
-      0
-      3
+      2
+      5
+      9
     ];
   };
 
   # ===== Comparison =====
-  testCompareAcrossZero = {
-    expr = signed.compare (signed.fromInt (-1)) (signed.fromInt 1);
+  testCompareLess = {
+    expr = offset.compare (offset.fromInt 3) (offset.fromInt 5);
     expected = -1;
   };
   testMinTieReturnsFirst = {
-    expr = (signed.min (signed.fromInt 1) (other.fromInt 1))._type;
-    expected = "signed";
+    expr = (offset.min (offset.fromInt 3) (other.fromInt 3))._type;
+    expected = "offset";
   };
   testMaxTieReturnsFirst = {
-    expr = (signed.max (signed.fromInt 1) (other.fromInt 1))._type;
-    expected = "signed";
+    expr = (offset.max (offset.fromInt 3) (other.fromInt 3))._type;
+    expected = "offset";
   };
 
   # ===== Arithmetic =====
-  testAddCrossesZero = {
-    expr = signed.toInt (signed.add (-3) (signed.fromInt 1));
-    expected = -2;
+  testAddNegative = {
+    expr = offset.toInt (offset.add (-3) (offset.fromInt 6));
+    expected = 3;
   };
-  testAddBelowNegativeLowerBoundThrows = {
-    expr = throws (signed.add (-1) (signed.fromInt (-3)));
+  testAddBelowLowerBoundThrows = {
+    expr = throws (offset.add (-1) (offset.fromInt 2));
     expected = true;
   };
   testSubIsAddNegated = {
-    expr = signed.eq (signed.sub 2 (signed.fromInt 1)) (signed.add (-2) (signed.fromInt 1));
+    expr = offset.eq (offset.sub 2 (offset.fromInt 6)) (offset.add (-2) (offset.fromInt 6));
     expected = true;
   };
   testSubNegativeAddsUp = {
-    expr = signed.toInt (signed.sub (-2) (signed.fromInt 1));
-    expected = 3;
+    expr = offset.toInt (offset.sub (-2) (offset.fromInt 3));
+    expected = 5;
   };
   testDiffIsSecondMinusFirst = {
-    expr = signed.diff (signed.fromInt 3) (signed.fromInt (-3));
-    expected = -6;
+    expr = offset.diff (offset.fromInt 9) (offset.fromInt 2);
+    expected = -7;
   };
   testAddPartialApplication = {
-    expr = map (value: signed.toInt value) (
-      map (signed.add 1) [
-        (signed.fromInt (-3))
-        (signed.fromInt 0)
+    expr = map (value: offset.toInt value) (
+      map (offset.add 1) [
+        (offset.fromInt 2)
+        (offset.fromInt 5)
       ]
     );
     expected = [
-      (-2)
-      1
+      3
+      6
     ];
   };
   testNextAtSingleValueThrows = {

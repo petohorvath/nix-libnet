@@ -1,12 +1,13 @@
 /*
-  Shared implementation for int-only scalar modules. Each domain supplies
+  Shared implementation for bounded-integer modules. Each domain supplies
   its tag and inclusive bounds; arithmetic is opt-in because it does not
   describe meaningful operations on ICMP message types.
 
-  Keep validation separate from tag inspection: `is` recognizes a tag
-  without forcing the payload, while `isValid` checks a bare integer.
+  The text form is unsigned decimal, so `lowestValue` must not be
+  negative. Keep validation separate from tag inspection: `is` recognizes
+  a tag without forcing the payload, while `isValid` checks text.
 
-  The public `vlanId`, `mtu`, and `icmpType` modules export these
+  The public `port`, `vlanId`, `mtu`, and `icmpType` modules export these
   functions, so their headers describe public API. `scalar` below means
   a value tagged with `typeName`.
 */
@@ -17,6 +18,7 @@
   arithmetic ? false,
 }:
 let
+  parsing = import ./parse.nix;
   types = import ./types.nix;
   rangeText = "[${builtins.toString lowestValue}, ${builtins.toString highestValue}]";
 
@@ -25,15 +27,57 @@ let
     inherit value;
   };
 
+  inRange = n: builtins.isInt n && n >= lowestValue && n <= highestValue;
+
   /*
-    Check a bare integer against the domain bounds, before constructing a
-    value or when validating option input.
+    Parse a value from its decimal text without throwing, so callers can
+    handle invalid input themselves.
 
-    `value`: any value.
+    `input`: decimal string within the inclusive bounds, without sign or
+    whitespace.
 
-    Returns true when `value` is an integer within the inclusive bounds.
+    Returns a tryResult: `{ success = true; value = <scalar>; }` or
+    `{ success = false; error = <message>; }`.
   */
-  isValid = value: builtins.isInt value && value >= lowestValue && value <= highestValue;
+  tryParse =
+    input:
+    if !(builtins.isString input) then
+      types.tryErr "libnet.${typeName}.parse: input must be a string"
+    else
+      let
+        number = parsing.decimal input;
+      in
+      if number == null then
+        types.tryErr "libnet.${typeName}.parse: not a decimal number: \"${input}\""
+      else if !(inRange number) then
+        types.tryErr "libnet.${typeName}.parse: out of range ${rangeText}: ${input}"
+      else
+        types.tryOk (mk number);
+
+  /*
+    Parse a value from its decimal text, for configuration values written
+    as text.
+
+    `input`: decimal string within the inclusive bounds, without sign or
+    whitespace.
+
+    Returns the tagged value; throws on malformed or out-of-range input.
+  */
+  parse =
+    input:
+    let
+      result = tryParse input;
+    in
+    if result.success then result.value else throw result.error;
+
+  /*
+    Check whether a string parses as a value of this domain.
+
+    `input`: candidate string.
+
+    Returns true when `tryParse input` succeeds.
+  */
+  isValid = input: (tryParse input).success;
 
   /*
     Recognize a constructed value by its tag, without forcing its payload,
@@ -46,8 +90,8 @@ let
   is = value: types.hasTag typeName value;
 
   /*
-    Construct a value from a bare integer; integers are the written form,
-    so there is no string parser.
+    Lift a bare integer into a value, for values computed or written as
+    numbers.
 
     `n`: integer within the inclusive bounds.
 
@@ -56,7 +100,7 @@ let
   */
   fromInt =
     n:
-    if !(isValid n) then
+    if !(inRange n) then
       throw "libnet.${typeName}.fromInt: out of range ${rangeText}: ${builtins.toString n}"
     else
       mk n;
@@ -171,7 +215,7 @@ let
     let
       result = scalar.value + n;
     in
-    if !(isValid result) then
+    if !(inRange result) then
       throw "libnet.${typeName}.add: result out of range ${rangeText}: ${builtins.toString result}"
     else
       mk result;
@@ -216,36 +260,41 @@ let
   */
   prev = scalar: sub 1 scalar;
 in
-{
-  inherit
-    compare
-    eq
-    fromInt
-    ge
-    gt
-    highestValue
-    is
-    isValid
-    le
-    lowestValue
-    lt
-    max
-    min
-    toInt
-    toString
-    ;
-}
-// (
-  if arithmetic then
-    {
-      inherit
-        add
-        diff
-        next
-        prev
-        sub
-        ;
-    }
-  else
-    { }
-)
+if lowestValue < 0 then
+  throw "libnet.${typeName}: lowestValue must not be negative, since decimal text has no sign: ${builtins.toString lowestValue}"
+else
+  {
+    inherit
+      compare
+      eq
+      fromInt
+      ge
+      gt
+      highestValue
+      is
+      isValid
+      le
+      lowestValue
+      lt
+      max
+      min
+      parse
+      toInt
+      toString
+      tryParse
+      ;
+  }
+  // (
+    if arithmetic then
+      {
+        inherit
+          add
+          diff
+          next
+          prev
+          sub
+          ;
+      }
+    else
+      { }
+  )
