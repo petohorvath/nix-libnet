@@ -43,7 +43,7 @@ let
   unixScheme = "unix";
 
   # Closed registry of socket schemes, `scheme -> { transport; secure; }`.
-  # `unix` has no L4 transport; no scheme is TLS-secured.
+  # `unix` has no transport; no scheme is TLS-secured.
   schemes = {
     sctp = {
       transport = "sctp";

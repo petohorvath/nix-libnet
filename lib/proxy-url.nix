@@ -211,7 +211,7 @@ let
   # ===== Conversions =====
 
   /*
-    Convert a proxy URL to the L4 connect target for its host and port.
+    Convert a proxy URL to the endpoint for its host and port.
 
     `proxyUrl`: a proxyUrl value.
 
@@ -367,7 +367,7 @@ in
   port = proxyUrl: proxyUrl.authority.port;
 
   /*
-    Get the L4 transport of a proxy URL's scheme.
+    Get the transport of a proxy URL's scheme.
 
     `proxyUrl`: a proxyUrl value.
 

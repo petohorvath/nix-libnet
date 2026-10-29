@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `domain.isSuperdomainOf`, the converse of `isSubdomainOf`, so either side of the relation can be partially applied.
 - `vlanId.parse`, `mtu.parse` and `icmpType.parse`, with `tryParse`, over decimal text, so every bounded integer has the parsing suite that `port` has.
 - `types.vlanId`, `types.mtu` and `types.icmpType` accept a decimal string as well as an integer and merge to an integer, like `types.port`.
-- `regName`, the RFC 3986 registered name, as `{ _type = "regName"; value = String; }` with the parsing suite and case-insensitive comparison, and `types.regName`.
+- `regName`, the RFC 3986 registered name, as `{ _type = "regName"; value = String; }` with the parsing suite and case-insensitive comparison, and `types.regName`. It rejects text that is a valid IPv4 address, which RFC 3986 reads as an IP literal.
 - `transport.compare`, `lt`, `le`, `gt`, `ge`, `min` and `max`, ordering transports by name (`sctp < tcp < udp`) for determinism only.
 - Every URL form has `scheme`, `transport` and `isSecure`: `socketUrl` and `bindUrl` gain `scheme` and `isSecure` (always `false`), and `proxyUrl` gains `transport` (always `tcp`).
 - `proxyUrl.host`, `proxyUrl.port`, `proxyUrl.userinfo` and `proxyUrl.toEndpoint`, which `url` has too, and `url.authority`.

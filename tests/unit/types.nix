@@ -546,6 +546,10 @@ else
       expr = types.regName.check "a%20b";
       expected = true;
     };
+    testRegNameIpv4 = {
+      expr = types.regName.check "192.0.2.1";
+      expected = false;
+    };
     testRegNameBracketedV6 = {
       expr = types.regName.check "[::1]";
       expected = false;

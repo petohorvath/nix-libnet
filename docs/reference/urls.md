@@ -34,6 +34,7 @@ Suites: parsing, comparison (by scheme, `sctp < tcp < udp < unix`, then endpoint
 | ----------------------- | ------------------------------------------ | ------------------------------------- |
 | `make`                  | `Transport or null → Endpoint → SocketUrl` | Enforces the transport/Unix coupling. |
 | `transport`, `endpoint` |                                            | Accessors.                            |
+| `scheme`                | `SocketUrl → String`                       | `unix` when `transport` is `null`.    |
 | `isUnix`                | `SocketUrl → Bool`                         |                                       |
 | `isSecure`              | `SocketUrl → Bool`                         | Always `false`.                       |
 
@@ -49,6 +50,7 @@ Suites: parsing, comparison (by scheme as in `socketUrl`, then bindpoint).
 | ------------------------ | ----------------------------------------- | ------------------------------------- |
 | `make`                   | `Transport or null → Bindpoint → BindUrl` | Enforces the transport/Unix coupling. |
 | `transport`, `bindpoint` |                                           | Accessors.                            |
+| `scheme`                 | `BindUrl → String`                        | `unix` when `transport` is `null`.    |
 | `isUnix`                 | `BindUrl → Bool`                          |                                       |
 | `isSecure`               | `BindUrl → Bool`                          | Always `false`.                       |
 
@@ -89,7 +91,7 @@ Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registe
 
 ## `libnet.regName`
 
-Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text is the name verbatim.
+Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text that is a valid IPv4 address, such as `192.0.2.1`, is rejected, since RFC 3986 reads it as an IP literal. Text is the name verbatim.
 
 Suites: parsing, comparison (case-insensitive). `toString` preserves the input's case.
 

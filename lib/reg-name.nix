@@ -4,8 +4,9 @@
   An RFC 3986 registered name (§3.2.2): the URL host that is not an IP
   literal. A loose ASCII set — unreserved characters, sub-delimiters,
   and `%`-encoding — with no DNS label structure, so `my_host` and
-  `a%20b` are valid where `libnet.dnsName` rejects them. A member of
-  the `libnet.urlHost` union.
+  `a%20b` are valid where `libnet.dnsName` rejects them. Text that is a
+  valid IPv4 address is an IP literal, not a registered name (RFC 3986
+  §3.2.2). A member of the `libnet.urlHost` union.
 
   Equality and ordering are case-insensitive, like DNS names; `toString`
   preserves the input case.
@@ -17,6 +18,7 @@
 let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
+  ipv4 = import ./ipv4.nix;
 
   lowerAscii = dnsLabel.toLowerAscii;
 
@@ -35,7 +37,7 @@ let
     validity.
 
     `input`: a non-empty string of unreserved characters, sub-delimiters,
-    and `%XX` escapes.
+    and `%XX` escapes that is not a valid IPv4 address.
 
     Returns a tryResult: `{ success = true; value = <regName>; }` or
     `{ success = false; error = <string>; }`. Never throws.
@@ -46,6 +48,8 @@ let
       types.tryErr "libnet.regName.parse: input must be a string"
     else if builtins.match regNamePattern input == null then
       types.tryErr "libnet.regName.parse: invalid registered name \"${input}\""
+    else if ipv4.isValid input then
+      types.tryErr "libnet.regName.parse: \"${input}\" is an IPv4 address, not a registered name"
     else
       types.tryOk (mk input);
 

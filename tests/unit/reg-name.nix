@@ -55,10 +55,19 @@ in
     expr = regName.isValid "..a..";
     expected = true;
   };
-  # A dotted quad is valid reg-name text; `urlHost` classifies it as IPv4.
-  testDottedQuadText = {
+  # RFC 3986 §3.2.2: text that matches IPv4address is an IPv4 literal,
+  # never a registered name.
+  testRejectIpv4 = {
     expr = regName.isValid "1.2.3.4";
+    expected = false;
+  };
+  testRejectIpv4Throws = {
+    expr = throws (parse "192.0.2.1");
     expected = true;
+  };
+  testOutOfRangeQuad = {
+    expr = regName.toString (parse "256.0.0.1");
+    expected = "256.0.0.1";
   };
   testRejectEmpty = {
     expr = regName.isValid "";
