@@ -40,7 +40,7 @@ Each namespace page lists which suites it provides and documents only what diffe
 | -------------- | ------------- | ------------------------------------------- |
 | `add`          | `Int → T → T` | Throws past either end of the kind's range. |
 | `sub`          | `Int → T → T` | `add` of the negated offset.                |
-| `diff`         | `T → T → Int` | `toInt b - toInt a`.                        |
+| `diff`         | `T → T → Int` | The offset `n` for which `add n a` is `b`.  |
 | `next`, `prev` | `T → T`       | `add 1` and `sub 1`.                        |
 
 **Address predicates**, forwarded to an address inside a composite value:
@@ -61,7 +61,7 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 - **Accessors** share their name with the field they read, such as `cidr.prefix`. A scalar's generic `value` field has no accessor; read it with `toString` or `toInt`.
 - **Union predicates**: a pass-through union has one `is<Member>` predicate per direct member, such as `host.isIp` and `host.isDnsName`. Test a leaf kind with its own `is`, such as `hostname.is`.
 - **Constants** are tagged values of the kind, such as `ipv4.loopback` and `transport.values`; integer domain bounds, named with `min` and `max`, such as `port.maxValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
-- **Tagged results**: functions return tagged values for tagged kinds, so `url.defaultPort` returns a `Port`. Constant tables, such as `url.schemes` and `registry.ports`, and integer domain bounds hold plain literals.
+- **Tagged results**: functions return tagged values for tagged kinds, so `url.defaultPort` returns a `Port`. Constant tables, such as `url.schemes` and `registry.ports`, and integer domain bounds hold plain literals. `toArpa` is the one deliberate exception: it returns a reverse-DNS name as a `String`, not a `Domain`, because configuration consumes it as text, such as a zone name.
 - **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
 - **Decimal text**: every decimal number in parsed text, such as a port, a port range bound or a prefix length, is digits only, without sign, whitespace or leading zeros; `0` itself is valid ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
 - **Argument kinds**: every function checks the kind of each argument, a tagged value's `_type` or a raw value's builtin type, and throws `libnet.<ns>.<fn>: expected <kind>, got <kind>` on a mismatch, such as for `port.toString 80` or `port.add 1.5 p`. A function that builds a value, `make` included, checks when it is called, not when a field of the result is read. Only `is`, the union `is<Member>` predicates, `eq`, `isValid` and `tryParse` accept any value, and they never throw. The check reads only the tag, so a value with the right `_type` and malformed fields gives undefined results ([ADR 0007](../adr/0007-cross-type-comparison.md)).

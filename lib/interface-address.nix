@@ -398,9 +398,11 @@ let
   /*
     Derive the IPv4 broadcast address of the CIDR the address sits on.
 
-    `interfaceAddress`: IPv4 interfaceAddress value.
+    `interfaceAddress`: IPv4 interfaceAddress value of prefix /30 or
+    shorter.
 
-    Returns an ipv4 value; throws for IPv6, which has no broadcast.
+    Returns an ipv4 value; throws for IPv6, which has no broadcast, and
+    for /31 and /32, whose addresses are all hosts (RFC 3021).
   */
   broadcast =
     interfaceAddress:
@@ -409,6 +411,10 @@ let
     in
     if !(isV4 checked.address) then
       errors.fail "interfaceAddress.broadcast" "IPv6 has no broadcast"
+    else if checked.prefix == 31 then
+      errors.fail "interfaceAddress.broadcast" "/31 has no broadcast (RFC 3021)"
+    else if checked.prefix == 32 then
+      errors.fail "interfaceAddress.broadcast" "/32 has no broadcast"
     else
       cidr.broadcast (cidrOf checked);
 
