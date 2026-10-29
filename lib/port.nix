@@ -30,8 +30,8 @@ let
   };
 
   # Upper ends of the RFC 6335 well-known and registered ranges.
-  wellKnownMax = 1023;
-  registeredMax = 49151;
+  lastWellKnown = 1023;
+  lastRegistered = 49151;
 
   # Unwrap the port argument of `function`, throwing for any other kind.
   valueOf = function: port: (errors.expectKind "port.${function}" "port" port).value;
@@ -45,7 +45,7 @@ let
 
     Returns true for ports 0..1023.
   */
-  isWellKnown = port: valueOf "isWellKnown" port <= wellKnownMax;
+  isWellKnown = port: valueOf "isWellKnown" port <= lastWellKnown;
 
   /*
     Check whether a port is in the RFC 6335 registered range.
@@ -59,7 +59,7 @@ let
     let
       value = valueOf "isRegistered" port;
     in
-    value > wellKnownMax && value <= registeredMax;
+    value > lastWellKnown && value <= lastRegistered;
 
   /*
     Check whether a port is in the RFC 6335 dynamic (ephemeral) range.
@@ -68,7 +68,7 @@ let
 
     Returns true for ports 49152..65535.
   */
-  isDynamic = port: valueOf "isDynamic" port > registeredMax;
+  isDynamic = port: valueOf "isDynamic" port > lastRegistered;
 
   /*
     Check whether a port is the reserved port 0 (RFC 6335). Port 0 also

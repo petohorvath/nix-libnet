@@ -38,7 +38,7 @@ With flakes, add the repository as an input and take the library from its `lib` 
 }
 ```
 
-To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.1.0`. The flake's `nix-unit` and `treefmt-nix` inputs serve only its tests and formatting, so a consumer can leave them out of its lock file with `inputs.nix-libnet.inputs.nix-unit.follows = "";` and `inputs.nix-libnet.inputs.treefmt-nix.follows = "";`.
+To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.2.0`. The flake's `nix-unit` and `treefmt-nix` inputs serve only its tests and formatting, so a consumer can leave them out of its lock file with `inputs.nix-libnet.inputs.nix-unit.follows = "";` and `inputs.nix-libnet.inputs.treefmt-nix.follows = "";`.
 
 Without flakes, import the repository root:
 
@@ -46,7 +46,7 @@ Without flakes, import the repository root:
 libnet = import (builtins.fetchTarball "https://github.com/petohorvath/nix-libnet/archive/main.tar.gz");
 ```
 
-To pin a release, replace `main` with its tag, as in `archive/v0.1.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
+To pin a release, replace `main` with its tag, as in `archive/v0.2.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
 
 ## Usage
 
