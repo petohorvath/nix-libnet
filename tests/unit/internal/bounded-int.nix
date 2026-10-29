@@ -6,30 +6,84 @@ let
   # A domain whose lower bound sits above zero, like `vlanId` and `mtu`.
   offset = boundedInt {
     typeName = "offset";
-    lowestValue = 2;
-    highestValue = 9;
+    minValue = 2;
+    maxValue = 9;
     arithmetic = true;
   };
   # The defaults leave arithmetic out, as `icmpType` does.
   plain = boundedInt {
     typeName = "plain";
-    lowestValue = 0;
-    highestValue = 9;
+    minValue = 0;
+    maxValue = 9;
   };
   # A domain of one value, where both bounds are the same integer.
   single = boundedInt {
     typeName = "single";
-    lowestValue = 7;
-    highestValue = 7;
+    minValue = 7;
+    maxValue = 7;
     arithmetic = true;
   };
   # A second domain over the same range, to tell tags apart.
   other = boundedInt {
     typeName = "other";
-    lowestValue = 2;
-    highestValue = 9;
+    minValue = 2;
+    maxValue = 9;
     arithmetic = true;
   };
+
+  valid = offset.fromInt 2;
+  wrong = other.fromInt 2;
+  kindError = function: "^libnet\\.offset\\.${function}: expected offset value, got other value$";
+
+  # Test names by function, for functions of one scalar.
+  unaryFunctions = {
+    Next = "next";
+    Prev = "prev";
+    ToInt = "toInt";
+    ToString = "toString";
+  };
+  # Test names by function, for functions of two scalars.
+  binaryFunctions = {
+    Compare = "compare";
+    Diff = "diff";
+    Ge = "ge";
+    Gt = "gt";
+    Le = "le";
+    Lt = "lt";
+    Max = "max";
+    Min = "min";
+  };
+
+  # Every function that takes a scalar names itself for another kind,
+  # including those built on the shared comparison and offset logic.
+  wrongKindTests =
+    builtins.listToAttrs (
+      map (name: {
+        name = "test${name}RejectsOtherKind";
+        value = {
+          expr = offset.${unaryFunctions.${name}} wrong;
+          expectedError.msg = kindError unaryFunctions.${name};
+        };
+      }) (builtins.attrNames unaryFunctions)
+    )
+    // builtins.listToAttrs (
+      builtins.concatMap (name: [
+        {
+          name = "test${name}RejectsOtherKindFirst";
+          value = {
+            expr = offset.${binaryFunctions.${name}} wrong valid;
+            expectedError.msg = kindError binaryFunctions.${name};
+          };
+        }
+        {
+          name = "test${name}RejectsOtherKindSecond";
+          value = {
+            expr = offset.${binaryFunctions.${name}} valid wrong;
+            expectedError.msg = kindError binaryFunctions.${name};
+          };
+        }
+      ]) (builtins.attrNames binaryFunctions)
+    );
 
   coreNames = [
     "compare"
@@ -37,21 +91,22 @@ let
     "fromInt"
     "ge"
     "gt"
-    "highestValue"
     "is"
     "isValid"
     "le"
-    "lowestValue"
     "lt"
     "max"
+    "maxValue"
     "min"
+    "minValue"
     "parse"
     "toInt"
     "toString"
     "tryParse"
   ];
 in
-{
+wrongKindTests
+// {
   # ===== Exports =====
   testExportsWithoutArithmetic = {
     expr = builtins.attrNames plain;
@@ -72,8 +127,8 @@ in
   };
   testBoundsPassThrough = {
     expr = [
-      offset.lowestValue
-      offset.highestValue
+      offset.minValue
+      offset.maxValue
     ];
     expected = [
       2
@@ -85,9 +140,9 @@ in
       throws
         (boundedInt {
           typeName = "negative";
-          lowestValue = -1;
-          highestValue = 1;
-        }).lowestValue;
+          minValue = -1;
+          maxValue = 1;
+        }).minValue;
     expected = true;
   };
 
@@ -304,12 +359,20 @@ in
     expected = -1;
   };
   testMinTieReturnsFirst = {
-    expr = (offset.min (offset.fromInt 3) (other.fromInt 3))._type;
-    expected = "offset";
+    # Mark the equal operands apart to see which one comes back.
+    expr =
+      (offset.min (offset.fromInt 3 // { operand = "first"; }) (
+        offset.fromInt 3 // { operand = "second"; }
+      )).operand;
+    expected = "first";
   };
   testMaxTieReturnsFirst = {
-    expr = (offset.max (offset.fromInt 3) (other.fromInt 3))._type;
-    expected = "offset";
+    # Mark the equal operands apart to see which one comes back.
+    expr =
+      (offset.max (offset.fromInt 3 // { operand = "first"; }) (
+        offset.fromInt 3 // { operand = "second"; }
+      )).operand;
+    expected = "first";
   };
 
   # ===== Arithmetic =====
@@ -352,6 +415,22 @@ in
   testPrevAtSingleValueThrows = {
     expr = throws (single.prev (single.fromInt 7));
     expected = true;
+  };
+  testAddRejectsOtherKind = {
+    expr = offset.add 1 wrong;
+    expectedError.msg = kindError "add";
+  };
+  testSubRejectsOtherKind = {
+    expr = offset.sub 1 wrong;
+    expectedError.msg = kindError "sub";
+  };
+  testAddRejectsFloatOffset = {
+    expr = offset.add 1.0 valid;
+    expectedError.msg = "^libnet\\.offset\\.add: expected int, got float$";
+  };
+  testSubRejectsStringOffset = {
+    expr = offset.sub "1" valid;
+    expectedError.msg = "^libnet\\.offset\\.sub: expected int, got string$";
   };
   testAddZeroAtSingleValue = {
     expr = single.toInt (single.add 0 (single.fromInt 7));

@@ -161,6 +161,24 @@ else
       expr = types.ipv6Cidr.check "10.0.0.0/24";
       expected = false;
     };
+    # The family check runs only on a string, so a parsed value is
+    # rejected rather than thrown on.
+    testCidrTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.cidr.parse "10.0.0.0/24")) [
+        types.cidr
+        types.ipv4Cidr
+        types.ipv6Cidr
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testCidrMergesToInput = {
+      expr = merged types.ipv6Cidr "2001:db8::/32";
+      expected = "2001:db8::/32";
+    };
 
     # ===== port (coerced int) =====
     testPortCheckInt = {
@@ -209,12 +227,16 @@ else
       expected = 80;
     };
     testPortMkBadInt = {
-      expr = throws (types.port.mk 70000);
-      expected = true;
+      expr = types.port.mk 70000;
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: out of range \\[0, 65535\\]: 70000$";
+    };
+    testPortMkRejectsSet = {
+      expr = types.port.mk { };
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: expected int or string, got set$";
     };
     testPortMkBadString = {
-      expr = throws (types.port.mk "abc");
-      expected = true;
+      expr = types.port.mk "abc";
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: invalid value \"abc\"$";
     };
 
     # ===== portRange =====
@@ -233,6 +255,14 @@ else
     testPortRangeBad = {
       expr = types.portRange.check "90-80";
       expected = false;
+    };
+    testPortRangeRejectsInt = {
+      expr = types.portRange.check 80;
+      expected = false;
+    };
+    testPortRangeMkRejectsParsedValue = {
+      expr = types.portRange.mk (libnet.portRange.parse "80-90");
+      expectedError.msg = "^libnet\\.types\\.portRange\\.mk: expected string, got set$";
     };
     testPortRangeOverlong = {
       expr = types.portRange.check "80-99999999999999999999";
@@ -268,6 +298,10 @@ else
     };
     testDnsEndpointIpRejected = {
       expr = types.dnsEndpoint.check "192.0.2.1:80";
+      expected = false;
+    };
+    testDnsEndpointNumericNameRejected = {
+      expr = types.dnsEndpoint.check "127.1:80";
       expected = false;
     };
     testDnsEndpointNoPort = {
@@ -320,6 +354,10 @@ else
       expr = types.endpoint.mk "pool.ntp.org:123";
       expected = "pool.ntp.org:123";
     };
+    testEndpointMkRejectsSet = {
+      expr = types.endpoint.mk { };
+      expectedError.msg = "^libnet\\.types\\.endpoint\\.mk: expected string, got set$";
+    };
     testEndpointDescription = {
       expr = builtins.isString types.endpoint.description;
       expected = true;
@@ -351,8 +389,28 @@ else
       expected = "/run/foo.sock";
     };
     testUnixSocketMkBad = {
-      expr = throws (types.unixSocket.mk "foo.sock");
-      expected = true;
+      expr = types.unixSocket.mk "foo.sock";
+      expectedError.msg = "^libnet\\.types\\.unixSocket\\.mk: invalid value \"foo\\.sock\"$";
+    };
+    # One character must follow the leading `/` or `@`.
+    testUnixSocketMinimum = {
+      expr = map types.unixSocket.check [
+        "/a"
+        "@a"
+        "/"
+        "@"
+      ];
+      expected = [
+        true
+        true
+        false
+        false
+      ];
+    };
+    # Unix socket paths are case-sensitive, so the merged value keeps case.
+    testUnixSocketMergeKeepsCase = {
+      expr = merged types.unixSocket "/run/Foo.sock";
+      expected = "/run/Foo.sock";
     };
     testUnixSocketDescription = {
       expr = builtins.isString types.unixSocket.description;
@@ -393,8 +451,17 @@ else
       expected = "tcp://1.2.3.4:80";
     };
     testSocketUrlMkBad = {
-      expr = throws (types.socketUrl.mk "ftp://x:1");
-      expected = true;
+      expr = types.socketUrl.mk "ftp://x:1";
+      expectedError.msg = "^libnet\\.types\\.socketUrl\\.mk: invalid value \"ftp://x:1\"$";
+    };
+    testSocketUrlUnixHostPortRejected = {
+      expr = types.socketUrl.check "unix://1.2.3.4:80";
+      expected = false;
+    };
+    # The merged value keeps the scheme's input spelling (ADR 0016).
+    testSocketUrlMergeKeepsSpelling = {
+      expr = merged types.socketUrl "TCP://1.2.3.4:80";
+      expected = "TCP://1.2.3.4:80";
     };
     testSocketUrlDescription = {
       expr = builtins.isString types.socketUrl.description;
@@ -435,8 +502,16 @@ else
       expected = "tcp://:8080";
     };
     testBindUrlMkBad = {
-      expr = throws (types.bindUrl.mk "ftp://:1");
-      expected = true;
+      expr = types.bindUrl.mk "ftp://:1";
+      expectedError.msg = "^libnet\\.types\\.bindUrl\\.mk: invalid value \"ftp://:1\"$";
+    };
+    testBindUrlUnixHostPortRejected = {
+      expr = types.bindUrl.check "unix://:80";
+      expected = false;
+    };
+    testBindUrlMergeKeepsSpelling = {
+      expr = merged types.bindUrl "Udp://:53";
+      expected = "Udp://:53";
     };
     testBindUrlDescription = {
       expr = builtins.isString types.bindUrl.description;
@@ -469,8 +544,13 @@ else
       expected = "tls://1.2.3.4:443";
     };
     testSecureSocketUrlMkBad = {
-      expr = throws (types.secureSocketUrl.mk "tcp://x:1");
-      expected = true;
+      expr = types.secureSocketUrl.mk "tcp://x:1";
+      expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: invalid value \"tcp://x:1\"$";
+    };
+    # `ssl` is an input spelling of `tls`; the merged value keeps it.
+    testSecureSocketUrlMergeKeepsSpelling = {
+      expr = merged types.secureSocketUrl "SSL://h:443";
+      expected = "SSL://h:443";
     };
     testSecureSocketUrlDescription = {
       expr = builtins.isString types.secureSocketUrl.description;
@@ -505,6 +585,22 @@ else
     testUrlInt = {
       expr = types.url.check 42;
       expected = false;
+    };
+    testUrlPathSpaceRejected = {
+      expr = types.url.check "https://example.com/a b";
+      expected = false;
+    };
+    testUrlSecondHashRejected = {
+      expr = types.url.check "https://example.com/p#a#b";
+      expected = false;
+    };
+    testUrlMalformedPercentRejected = {
+      expr = types.url.check "https://example.com/%zz";
+      expected = false;
+    };
+    testUrlMkKeepsSpelling = {
+      expr = types.url.mk "HTTPS://Example.COM/P?Q#F";
+      expected = "HTTPS://Example.COM/P?Q#F";
     };
     testUrlMkOk = {
       expr = types.url.mk "https://example.com/p";
@@ -574,6 +670,16 @@ else
       expr = types.regName.check "192.0.2.1";
       expected = false;
     };
+    testRegNameNumericRejected = {
+      expr = map types.regName.check [
+        "127.1"
+        "0x7f.0.0.1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
     testRegNameBracketedV6 = {
       expr = types.regName.check "[::1]";
       expected = false;
@@ -624,6 +730,14 @@ else
       expr = types.authority.check 42;
       expected = false;
     };
+    testAuthorityUserinfoSpaceRejected = {
+      expr = types.authority.check "a b@h";
+      expected = false;
+    };
+    testAuthorityUserinfoSlashRejected = {
+      expr = types.authority.check "a/b@h";
+      expected = false;
+    };
     testAuthorityMkOk = {
       expr = types.authority.mk "user@h:80";
       expected = "user@h:80";
@@ -667,8 +781,16 @@ else
       expected = "socks5://h:1080";
     };
     testProxyUrlMkBad = {
-      expr = throws (types.proxyUrl.mk "socks5://h");
-      expected = true;
+      expr = types.proxyUrl.mk "socks5://h";
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: invalid value \"socks5://h\"$";
+    };
+    testProxyUrlMkRejectsSet = {
+      expr = types.proxyUrl.mk { };
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: expected string, got set$";
+    };
+    testProxyUrlMergeKeepsSpelling = {
+      expr = merged types.proxyUrl "Socks5://h:1080";
+      expected = "Socks5://h:1080";
     };
     testProxyUrlDescription = {
       expr = builtins.isString types.proxyUrl.description;
@@ -691,6 +813,10 @@ else
     testIpBindpointUnixRejected = {
       expr = types.ipBindpoint.check "/run/foo.sock";
       expected = false;
+    };
+    testIpBindpointMkBad = {
+      expr = types.ipBindpoint.mk "::1:80";
+      expectedError.msg = "^libnet\\.types\\.ipBindpoint\\.mk: invalid value \"::1:80\"$";
     };
     testIpBindpointDescription = {
       expr = builtins.isString types.ipBindpoint.description;
@@ -722,6 +848,10 @@ else
       expr = types.bindpoint.check "host_name:1";
       expected = false;
     };
+    testBindpointMkNameRejected = {
+      expr = types.bindpoint.mk "localhost:80";
+      expectedError.msg = "^libnet\\.types\\.bindpoint\\.mk: invalid value \"localhost:80\"$";
+    };
     testBindpointMkUnix = {
       expr = types.bindpoint.mk "/run/foo.sock";
       expected = "/run/foo.sock";
@@ -744,6 +874,20 @@ else
       expr = types.ipRange.check "1.2.3.4";
       expected = false;
     };
+    testIpRangeRejectsReversedAndMixed = {
+      expr = map types.ipRange.check [
+        "1.2.3.10-1.2.3.4"
+        "1.2.3.4-::1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
+    testIpRangeMkRejectsParsedValue = {
+      expr = types.ipRange.mk (libnet.ipRange.parse "1.2.3.4-1.2.3.10");
+      expectedError.msg = "^libnet\\.types\\.ipRange\\.mk: expected string, got set$";
+    };
 
     # ===== interfaceAddress =====
     testInterfaceAddressV4 = {
@@ -761,6 +905,22 @@ else
     testIpv6InterfaceAddressRejectsV4 = {
       expr = types.ipv6InterfaceAddress.check "10.0.0.5/24";
       expected = false;
+    };
+    testInterfaceAddressTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.interfaceAddress.parse "10.0.0.5/24")) [
+        types.interfaceAddress
+        types.ipv4InterfaceAddress
+        types.ipv6InterfaceAddress
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testInterfaceAddressMergesToInput = {
+      expr = merged types.ipv4InterfaceAddress "10.0.0.5/24";
+      expected = "10.0.0.5/24";
     };
 
     # ===== interfaceName =====
@@ -869,6 +1029,10 @@ else
       expr = types.hostname.check "3com";
       expected = true;
     };
+    testHostnameCheckAllDigits = {
+      expr = types.hostname.check "1234";
+      expected = true;
+    };
     testHostnameCheckUnderscore = {
       expr = types.hostname.check "host_name";
       expected = false;
@@ -919,6 +1083,15 @@ else
       expr = types.domain.check "example.com.";
       expected = false;
     };
+    # Reads as an IPv4 address (ADR 0021).
+    testDomainCheckDottedQuad = {
+      expr = types.domain.check "192.0.2.1";
+      expected = false;
+    };
+    testDomainMkNumericThrows = {
+      expr = types.domain.mk "127.1.0x1";
+      expectedError.msg = "^libnet\\.types\\.domain\\.mk: invalid value \"127\\.1\\.0x1\"$";
+    };
     testDomainCheckUnderscore = {
       expr = types.domain.check "host_name.com";
       expected = false;
@@ -951,6 +1124,10 @@ else
     };
     testDnsNameCheckIpRejected = {
       expr = types.dnsName.check "192.0.2.1";
+      expected = false;
+    };
+    testDnsNameCheckNumericHostname = {
+      expr = types.dnsName.check "2130706433";
       expected = false;
     };
     testDnsNameCheckBad = {
@@ -990,6 +1167,18 @@ else
     testHostCheckDomain = {
       expr = types.host.check "example.com";
       expected = true;
+    };
+    testHostCheckNumericName = {
+      expr = map types.host.check [
+        "010.0.0.1"
+        "127.1"
+        "0x7f"
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
     };
     testHostCheckBad = {
       expr = types.host.check "host_name";
@@ -1114,20 +1303,20 @@ else
       expected = 4094;
     };
     testVlanIdMkZeroThrows = {
-      expr = throws (types.vlanId.mk 0);
-      expected = true;
+      expr = types.vlanId.mk 0;
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: out of range \\[1, 4094\\]: 0$";
     };
     testVlanIdMk4095Throws = {
-      expr = throws (types.vlanId.mk 4095);
-      expected = true;
+      expr = types.vlanId.mk 4095;
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: out of range \\[1, 4094\\]: 4095$";
     };
     testVlanIdMkString = {
       expr = types.vlanId.mk "100";
       expected = 100;
     };
     testVlanIdMkInvalidStringThrows = {
-      expr = throws (types.vlanId.mk "0");
-      expected = true;
+      expr = types.vlanId.mk "0";
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: invalid value \"0\"$";
     };
     testVlanIdDescription = {
       expr = builtins.isString types.vlanId.description;
@@ -1228,20 +1417,20 @@ else
       expected = 65535;
     };
     testMtuMkBelowThrows = {
-      expr = throws (types.mtu.mk 67);
-      expected = true;
+      expr = types.mtu.mk 67;
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: out of range \\[68, 65535\\]: 67$";
     };
     testMtuMkAboveThrows = {
-      expr = throws (types.mtu.mk 65536);
-      expected = true;
+      expr = types.mtu.mk 65536;
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: out of range \\[68, 65535\\]: 65536$";
     };
     testMtuMkString = {
       expr = types.mtu.mk "1500";
       expected = 1500;
     };
     testMtuMkInvalidStringThrows = {
-      expr = throws (types.mtu.mk "67");
-      expected = true;
+      expr = types.mtu.mk "67";
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: invalid value \"67\"$";
     };
     testMtuDescription = {
       expr = builtins.isString types.mtu.description;
@@ -1333,20 +1522,20 @@ else
       expected = 255;
     };
     testIcmpTypeMk256Throws = {
-      expr = throws (types.icmpType.mk 256);
-      expected = true;
+      expr = types.icmpType.mk 256;
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: out of range \\[0, 255\\]: 256$";
     };
     testIcmpTypeMkNegativeThrows = {
-      expr = throws (types.icmpType.mk (-1));
-      expected = true;
+      expr = types.icmpType.mk (-1);
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: out of range \\[0, 255\\]: -1$";
     };
     testIcmpTypeMkString = {
       expr = types.icmpType.mk "8";
       expected = 8;
     };
     testIcmpTypeMkInvalidStringThrows = {
-      expr = throws (types.icmpType.mk "256");
-      expected = true;
+      expr = types.icmpType.mk "256";
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: invalid value \"256\"$";
     };
     testIcmpTypeDescription = {
       expr = builtins.isString types.icmpType.description;
@@ -1366,6 +1555,58 @@ else
     testMkPreservesCase = {
       expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
       expected = "AA:BB:CC:DD:EE:FF";
+    };
+    # Parsing folds the case of names (ADR 0020), but string types merge
+    # to the definition as written (ADR 0016).
+    testMergeKeepsNameSpelling = {
+      expr = map ({ type, value }: merged types.${type} value) [
+        {
+          type = "hostname";
+          value = "MyHost";
+        }
+        {
+          type = "domain";
+          value = "Example.COM";
+        }
+        {
+          type = "dnsName";
+          value = "Pool.NTP.org";
+        }
+        {
+          type = "host";
+          value = "NAS";
+        }
+        {
+          type = "regName";
+          value = "My_Host%2f";
+        }
+        {
+          type = "urlHost";
+          value = "Example.COM";
+        }
+        {
+          type = "interfaceName";
+          value = "Eth0";
+        }
+        {
+          type = "url";
+          value = "https://Example.COM/Path";
+        }
+      ];
+      expected = [
+        "MyHost"
+        "Example.COM"
+        "Pool.NTP.org"
+        "NAS"
+        "My_Host%2f"
+        "Example.COM"
+        "Eth0"
+        "https://Example.COM/Path"
+      ];
+    };
+    testInterfaceNameCheckByte160 = {
+      expr = types.interfaceName.check "wlà0";
+      expected = false;
     };
     testMkCidrThrowsBad = {
       expr = throws (types.cidr.mk "bad");

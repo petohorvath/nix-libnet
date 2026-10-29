@@ -16,7 +16,10 @@
     => "a0:36:9f:1b:1e:55"
 */
 let
+  address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  comparison = import ./internal/comparison.nix;
+  errors = import ./internal/errors.nix;
   formatting = import ./internal/format.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
@@ -25,6 +28,56 @@ let
     _type = "mac";
     inherit value;
   };
+
+  # Build a value from a checked integer, forcing the check so a bad
+  # argument throws at the call rather than when the value is read.
+  mkStrict = value: builtins.seq value (mk value);
+
+  # A MAC argument of `function`, which throws for any other kind.
+  macArgument = function: errors.expectKind "mac.${function}" "mac";
+
+  valueOf = function: mac: (macArgument function mac).value;
+
+  # Apply `f` to the integer of a MAC argument of `function`.
+  withValue =
+    function: f: mac:
+    let
+      value = valueOf function mac;
+    in
+    builtins.seq value (f value);
+
+  parseError = detail: types.tryErr (errors.message "mac.parse" detail);
+
+  bytesOf = value: [
+    (bits.bits 40 8 value)
+    (bits.bits 32 8 value)
+    (bits.bits 24 8 value)
+    (bits.bits 16 8 value)
+    (bits.bits 8 8 value)
+    (bits.bits 0 8 value)
+  ];
+
+  # Join the six bytes as lowercase hex pairs.
+  hexBytes =
+    separator: value: builtins.concatStringsSep separator (map formatting.hex2 (bytesOf value));
+
+  arithmetic = address.scalar {
+    typeName = "mac";
+    maxValue = bits.mask48;
+    format = mac: hexBytes ":" mac.value;
+  };
+
+  # An integer argument of `function` in [0, maxValue]; `outOfRange`
+  # opens the error for a value outside it.
+  boundedInt =
+    function: outOfRange: maxValue: n:
+    let
+      checkedInt = errors.expectType "mac.${function}" "int" n;
+    in
+    if checkedInt < 0 || checkedInt > maxValue then
+      errors.fail "mac.${function}" "${outOfRange} [0, ${builtins.toString maxValue}]: ${builtins.toString checkedInt}"
+    else
+      checkedInt;
 
   # ===== Conversion =====
 
@@ -35,12 +88,7 @@ let
 
     Returns a mac value; throws on a non-integer or out-of-range value.
   */
-  fromInt =
-    value:
-    if !(builtins.isInt value) || value < 0 || value > bits.mask48 then
-      throw "libnet.mac.fromInt: value out of range [0, ${builtins.toString bits.mask48}]: ${builtins.toString value}"
-    else
-      mk value;
+  fromInt = value: mkStrict (boundedInt "fromInt" "out of range" bits.mask48 value);
 
   /*
     Read the 48-bit integer value of a MAC address.
@@ -49,7 +97,7 @@ let
 
     Returns an integer in [0, 2^48 - 1].
   */
-  toInt = mac: mac.value;
+  toInt = valueOf "toInt";
 
   /*
     Build a MAC address from its six octets.
@@ -60,16 +108,14 @@ let
   */
   fromBytes =
     bytes:
-    if !(builtins.isList bytes) || builtins.length bytes != 6 then
-      throw "libnet.mac.fromBytes: expected list of 6 ints"
-    else
-      let
-        invalid = builtins.any (byte: !(builtins.isInt byte) || byte < 0 || byte > 255) bytes;
-      in
-      if invalid then
-        throw "libnet.mac.fromBytes: each byte must be int in [0, 255]"
-      else
-        mk (builtins.foldl' (acc: byte: acc * 256 + byte) 0 bytes);
+    let
+      checkedBytes = address.intList "mac.fromBytes" {
+        count = 6;
+        part = "byte";
+        maxValue = 255;
+      } bytes;
+    in
+    mkStrict (builtins.foldl' (acc: byte: acc * 256 + byte) 0 checkedBytes);
 
   /*
     Split a MAC address into its six octets.
@@ -78,19 +124,7 @@ let
 
     Returns a list of six integers in [0, 255], most significant first.
   */
-  toBytes =
-    mac:
-    let
-      inherit (mac) value;
-    in
-    [
-      (bits.bits 40 8 value)
-      (bits.bits 32 8 value)
-      (bits.bits 24 8 value)
-      (bits.bits 16 8 value)
-      (bits.bits 8 8 value)
-      (bits.bits 0 8 value)
-    ];
+  toBytes = withValue "toBytes" bytesOf;
 
   # ===== Parsing =====
 
@@ -174,7 +208,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.mac.parse: input must be a string"
+      parseError (errors.notString input)
     else
       let
         inputLength = builtins.stringLength input;
@@ -196,10 +230,7 @@ let
           else
             null;
       in
-      if parsed == null then
-        types.tryErr "libnet.mac.parse: invalid MAC address \"${input}\""
-      else
-        types.tryOk parsed;
+      if parsed == null then parseError "invalid MAC address \"${input}\"" else types.tryOk parsed;
 
   /*
     Parse a MAC address written in any common notation.
@@ -225,7 +256,7 @@ let
 
     Returns a lowercase string such as `aa:bb:cc:dd:ee:ff`.
   */
-  toString = mac: builtins.concatStringsSep ":" (map formatting.hex2 (toBytes mac));
+  toString = withValue "toString" (hexBytes ":");
 
   /*
     Format a MAC address in hyphen form.
@@ -234,7 +265,7 @@ let
 
     Returns a lowercase string such as `aa-bb-cc-dd-ee-ff`.
   */
-  toStringHyphen = mac: builtins.concatStringsSep "-" (map formatting.hex2 (toBytes mac));
+  toStringHyphen = withValue "toStringHyphen" (hexBytes "-");
 
   /*
     Format a MAC address in Cisco dotted form.
@@ -246,7 +277,7 @@ let
   toStringCisco =
     mac:
     let
-      bytes = toBytes mac;
+      bytes = bytesOf (valueOf "toStringCisco" mac);
       hexByte = i: formatting.hex2 (builtins.elemAt bytes i);
     in
     "${hexByte 0}${hexByte 1}.${hexByte 2}${hexByte 3}.${hexByte 4}${hexByte 5}";
@@ -258,7 +289,7 @@ let
 
     Returns a lowercase string such as `aabbccddeeff`.
   */
-  toStringBare = mac: builtins.concatStringsSep "" (map formatting.hex2 (toBytes mac));
+  toStringBare = withValue "toStringBare" (hexBytes "");
 
   # ===== Predicates =====
 
@@ -280,7 +311,10 @@ let
   */
   is = value: types.isMac value;
 
-  firstOctet = mac: bits.bits 40 8 mac.value;
+  # Test the bits `mask` of the first octet for `function`.
+  firstOctetBits =
+    function: mask: mac:
+    builtins.bitAnd (bits.bits 40 8 (valueOf function mac)) mask;
 
   /*
     Check whether a MAC address is unicast (I/G bit, bit 0 of the first
@@ -290,7 +324,7 @@ let
 
     Returns a Boolean.
   */
-  isUnicast = mac: builtins.bitAnd (firstOctet mac) 1 == 0;
+  isUnicast = mac: firstOctetBits "isUnicast" 1 mac == 0;
 
   /*
     Check whether a MAC address is multicast (I/G bit, bit 0 of the first
@@ -300,7 +334,7 @@ let
 
     Returns a Boolean.
   */
-  isMulticast = mac: builtins.bitAnd (firstOctet mac) 1 == 1;
+  isMulticast = mac: firstOctetBits "isMulticast" 1 mac == 1;
 
   /*
     Check whether a MAC address is universally administered (U/L bit, bit 1
@@ -310,7 +344,7 @@ let
 
     Returns a Boolean.
   */
-  isUniversal = mac: builtins.bitAnd (firstOctet mac) 2 == 0;
+  isUniversal = mac: firstOctetBits "isUniversal" 2 mac == 0;
 
   /*
     Check whether a MAC address is locally administered (U/L bit, bit 1 of
@@ -320,7 +354,7 @@ let
 
     Returns a Boolean.
   */
-  isLocal = mac: builtins.bitAnd (firstOctet mac) 2 == 2;
+  isLocal = mac: firstOctetBits "isLocal" 2 mac == 2;
 
   /*
     Check whether a MAC address is the broadcast address
@@ -330,7 +364,7 @@ let
 
     Returns a Boolean.
   */
-  isBroadcast = mac: mac.value == bits.mask48;
+  isBroadcast = withValue "isBroadcast" (value: value == bits.mask48);
 
   /*
     Check whether a MAC address is the all-zero address.
@@ -339,7 +373,7 @@ let
 
     Returns a Boolean.
   */
-  isUnspecified = mac: mac.value == 0;
+  isUnspecified = withValue "isUnspecified" (value: value == 0);
 
   # ===== Bit setters =====
 
@@ -354,7 +388,7 @@ let
 
     Returns a mac value.
   */
-  setMulticast = mac: mk (builtins.bitOr mac.value multicastBit);
+  setMulticast = withValue "setMulticast" (value: mk (builtins.bitOr value multicastBit));
 
   /*
     Mark a MAC address as unicast by clearing the I/G bit.
@@ -363,7 +397,9 @@ let
 
     Returns a mac value.
   */
-  setUnicast = mac: mk (builtins.bitAnd mac.value (builtins.bitXor bits.mask48 multicastBit));
+  setUnicast = withValue "setUnicast" (
+    value: mk (builtins.bitAnd value (builtins.bitXor bits.mask48 multicastBit))
+  );
 
   /*
     Mark a MAC address as locally administered by setting the U/L bit.
@@ -372,7 +408,7 @@ let
 
     Returns a mac value.
   */
-  setLocal = mac: mk (builtins.bitOr mac.value localBit);
+  setLocal = withValue "setLocal" (value: mk (builtins.bitOr value localBit));
 
   /*
     Mark a MAC address as universally administered by clearing the U/L
@@ -382,7 +418,9 @@ let
 
     Returns a mac value.
   */
-  setUniversal = mac: mk (builtins.bitAnd mac.value (builtins.bitXor bits.mask48 localBit));
+  setUniversal = withValue "setUniversal" (
+    value: mk (builtins.bitAnd value (builtins.bitXor bits.mask48 localBit))
+  );
 
   # ===== OUI / NIC =====
 
@@ -393,7 +431,7 @@ let
 
     Returns the upper 24 bits as an integer.
   */
-  oui = mac: bits.shr 24 mac.value;
+  oui = withValue "oui" (bits.shr 24);
 
   /*
     Extract the NIC-specific part.
@@ -402,7 +440,7 @@ let
 
     Returns the lower 24 bits as an integer.
   */
-  nic = mac: builtins.bitAnd mac.value bits.mask24;
+  nic = withValue "nic" (value: builtins.bitAnd value bits.mask24);
 
   /*
     Build a MAC address from its OUI and NIC halves.
@@ -414,12 +452,10 @@ let
   */
   fromOuiNic =
     ouiValue: nicValue:
-    if !(builtins.isInt ouiValue) || ouiValue < 0 || ouiValue > bits.mask24 then
-      throw "libnet.mac.fromOuiNic: OUI out of range [0, 16777215]"
-    else if !(builtins.isInt nicValue) || nicValue < 0 || nicValue > bits.mask24 then
-      throw "libnet.mac.fromOuiNic: NIC out of range [0, 16777215]"
-    else
-      mk (ouiValue * bits.pow2_24 + nicValue);
+    mkStrict (
+      boundedInt "fromOuiNic" "OUI out of range" bits.mask24 ouiValue * bits.pow2_24
+      + boundedInt "fromOuiNic" "NIC out of range" bits.mask24 nicValue
+    );
 
   /*
     Format the OUI of a MAC address as three colon-separated octets.
@@ -431,7 +467,7 @@ let
   ouiToString =
     mac:
     let
-      ouiValue = oui mac;
+      ouiValue = bits.shr 24 (valueOf "ouiToString" mac);
       high = bits.bits 16 8 ouiValue;
       middle = bits.bits 8 8 ouiValue;
       low = bits.bits 0 8 ouiValue;
@@ -452,10 +488,11 @@ let
   toEui64 =
     mac:
     let
-      bytes = toBytes mac;
+      value = valueOf "toEui64" mac;
+      bytes = bytesOf value;
       firstByteFlipped = builtins.bitXor (builtins.elemAt bytes 0) 2;
     in
-    [
+    builtins.seq value [
       firstByteFlipped
       (builtins.elemAt bytes 1)
       (builtins.elemAt bytes 2)
@@ -474,17 +511,10 @@ let
     `n`: integer offset; may be negative.
     `mac`: mac value.
 
-    Returns a mac value; throws when the result leaves [0, 2^48 - 1].
+    Returns a mac value; throws when `n` is not an integer or the result
+    leaves [0, 2^48 - 1].
   */
-  add =
-    n: mac:
-    let
-      result = mac.value + n;
-    in
-    if result < 0 || result > bits.mask48 then
-      throw "libnet.mac.add: result out of range [0, ${builtins.toString bits.mask48}]: ${builtins.toString result}"
-    else
-      mk result;
+  add = arithmetic.add "mac.add";
 
   /*
     Offset a MAC address downward.
@@ -492,9 +522,10 @@ let
     `n`: integer to subtract; may be negative.
     `mac`: mac value.
 
-    Returns a mac value; throws when the result leaves [0, 2^48 - 1].
+    Returns a mac value; throws when `n` is not an integer or the result
+    leaves [0, 2^48 - 1].
   */
-  sub = n: mac: add (0 - n) mac;
+  sub = arithmetic.sub "mac.sub";
 
   /*
     Measure the distance between two MAC addresses.
@@ -503,7 +534,7 @@ let
 
     Returns `toInt b - toInt a`.
   */
-  diff = a: b: b.value - a.value;
+  diff = a: b: valueOf "diff" b - valueOf "diff" a;
 
   /*
     Step to the following MAC address.
@@ -512,7 +543,7 @@ let
 
     Returns a mac value; throws past `ff:ff:ff:ff:ff:ff`.
   */
-  next = mac: add 1 mac;
+  next = arithmetic.add "mac.next" 1;
 
   /*
     Step to the preceding MAC address.
@@ -521,9 +552,17 @@ let
 
     Returns a mac value; throws below `00:00:00:00:00:00`.
   */
-  prev = mac: sub 1 mac;
+  prev = arithmetic.sub "mac.prev" 1;
 
   # ===== Comparison =====
+
+  # Order two MAC addresses for the public function `function`, which
+  # throws for any argument that is not a mac value.
+  compareFor =
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b);
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two MAC addresses for equality.
@@ -532,77 +571,7 @@ let
 
     Returns true when both carry the same tag and integer value.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
-
-  /*
-    Order two MAC addresses by integer value.
-
-    `a`, `b`: mac values.
-
-    Returns -1, 0, or 1.
-  */
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
-
-  /*
-    Test whether `a` orders before `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether `a` orders after `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b`.
-
-    `a`, `b`: mac values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lower of two MAC addresses.
-
-    `a`, `b`: mac values.
-
-    Returns `a` when the two compare equal.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the higher of two MAC addresses.
-
-    `a`, `b`: mac values.
-
-    Returns `a` when the two compare equal.
-  */
-  max = a: b: if ge a b then a else b;
+  eq = a: b: types.bothHaveTag types.tags.mac a b && a.value == b.value;
 
   # ===== Constants =====
 
@@ -613,14 +582,11 @@ in
   inherit
     add
     broadcast
-    compare
     diff
     eq
     fromBytes
     fromInt
     fromOuiNic
-    ge
-    gt
     is
     isBroadcast
     isLocal
@@ -629,10 +595,6 @@ in
     isUniversal
     isUnspecified
     isValid
-    le
-    lt
-    max
-    min
     next
     nic
     oui
@@ -653,5 +615,14 @@ in
     toStringHyphen
     tryParse
     unspecified
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

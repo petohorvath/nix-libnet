@@ -25,10 +25,13 @@ in
   interface-address = import ./interface-address.nix testContext;
   interface-name = import ./interface-name.nix testContext;
   internal = {
+    address = import ./internal/address.nix testContext;
     bits = import ./internal/bits.nix testContext;
     bounded-int = import ./internal/bounded-int.nix testContext;
     carry = import ./internal/carry.nix testContext;
+    comparison = import ./internal/comparison.nix testContext;
     dns-label = import ./internal/dns-label.nix testContext;
+    errors = import ./internal/errors.nix testContext;
     format = import ./internal/format.nix testContext;
     parse = import ./internal/parse.nix testContext;
     types = import ./internal/types.nix testContext;
@@ -55,4 +58,5 @@ in
   url-host = import ./url-host.nix testContext;
   vlan-id = import ./vlan-id.nix testContext;
   with-lib = import ./with-lib.nix testContext;
+  wrong-kind = import ./wrong-kind.nix testContext;
 }

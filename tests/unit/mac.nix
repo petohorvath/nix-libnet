@@ -51,8 +51,8 @@ in
 
   # ===== Parse: negative =====
   testParse5Octets = {
-    expr = throws (parse "aa:bb:cc:dd:ee");
-    expected = true;
+    expr = parse "aa:bb:cc:dd:ee";
+    expectedError.msg = "^libnet\\.mac\\.parse: invalid MAC address \"aa:bb:cc:dd:ee\"$";
   };
   testParse7Octets = {
     expr = throws (parse "aa:bb:cc:dd:ee:ff:11");
@@ -83,12 +83,12 @@ in
     expected = true;
   };
   testParseEmpty = {
-    expr = throws (parse "");
-    expected = true;
+    expr = parse "";
+    expectedError.msg = "^libnet\\.mac\\.parse: invalid MAC address \"\"$";
   };
   testParseNotString = {
-    expr = throws (mac.parse 123);
-    expected = true;
+    expr = mac.parse 123;
+    expectedError.msg = "^libnet\\.mac\\.parse: expected string, got int$";
   };
 
   # ===== tryParse =====
@@ -151,35 +151,39 @@ in
 
   # ===== fromInt / fromBytes =====
   testFromIntOverflow = {
-    expr = throws (mac.fromInt 281474976710656);
-    expected = true;
+    expr = mac.fromInt 281474976710656;
+    expectedError.msg = "^libnet\\.mac\\.fromInt: out of range \\[0, 281474976710655\\]: 281474976710656$";
   };
   testFromIntNegative = {
-    expr = throws (mac.fromInt (-1));
-    expected = true;
+    expr = mac.fromInt (-1);
+    expectedError.msg = "^libnet\\.mac\\.fromInt: out of range \\[0, 281474976710655\\]: -1$";
   };
   testFromBytesShort = {
-    expr = throws (
-      mac.fromBytes [
-        1
-        2
-        3
-      ]
-    );
-    expected = true;
+    expr = mac.fromBytes [
+      1
+      2
+      3
+    ];
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected 6 bytes, got 3$";
   };
   testFromBytesByteOverflow = {
-    expr = throws (
-      mac.fromBytes [
-        1
-        2
-        3
-        4
-        5
-        256
-      ]
-    );
-    expected = true;
+    expr = mac.fromBytes [
+      1
+      2
+      3
+      4
+      5
+      256
+    ];
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
+  };
+  testFromIntRejectsString = {
+    expr = mac.fromInt "1";
+    expectedError.msg = "^libnet\\.mac\\.fromInt: expected int, got string$";
+  };
+  testFromBytesRejectsSet = {
+    expr = mac.fromBytes { };
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected list, got set$";
   };
 
   # ===== Predicates =====
@@ -298,8 +302,16 @@ in
     expected = "11:22:33";
   };
   testFromOuiNicOutOfRange = {
-    expr = throws (mac.fromOuiNic 16777216 0);
-    expected = true;
+    expr = mac.fromOuiNic 16777216 0;
+    expectedError.msg = "^libnet\\.mac\\.fromOuiNic: OUI out of range \\[0, 16777215\\]: 16777216$";
+  };
+  testFromOuiNicNicOutOfRange = {
+    expr = mac.fromOuiNic 0 (-1);
+    expectedError.msg = "^libnet\\.mac\\.fromOuiNic: NIC out of range \\[0, 16777215\\]: -1$";
+  };
+  testFromOuiNicRejectsFloat = {
+    expr = mac.fromOuiNic 0 1.0;
+    expectedError.msg = "^libnet\\.mac\\.fromOuiNic: expected int, got float$";
   };
 
   # ===== EUI-64 (RFC 4291 § 2.5.1) =====
@@ -342,16 +354,54 @@ in
     expected = "00:00:00:00:01:00";
   };
   testAddOverflow = {
-    expr = throws (mac.add 1 (parse "ff:ff:ff:ff:ff:ff"));
-    expected = true;
+    expr = mac.add 1 (parse "ff:ff:ff:ff:ff:ff");
+    expectedError.msg = "^libnet\\.mac\\.add: out of range: ff:ff:ff:ff:ff:ff \\+ 1$";
   };
   testSubBorrow = {
     expr = mac.toString (mac.sub 1 (parse "00:00:00:00:01:00"));
     expected = "00:00:00:00:00:ff";
   };
   testSubUnderflow = {
-    expr = throws (mac.sub 1 (parse "00:00:00:00:00:00"));
-    expected = true;
+    expr = mac.sub 1 (parse "00:00:00:00:00:00");
+    expectedError.msg = "^libnet\\.mac\\.sub: out of range: 00:00:00:00:00:00 - 1$";
+  };
+  testNextAtMaxNamesNext = {
+    expr = mac.next (parse "ff:ff:ff:ff:ff:ff");
+    expectedError.msg = "^libnet\\.mac\\.next: out of range: ff:ff:ff:ff:ff:ff \\+ 1$";
+  };
+  testPrevAtMinNamesPrev = {
+    expr = mac.prev (parse "00:00:00:00:00:00");
+    expectedError.msg = "^libnet\\.mac\\.prev: out of range: 00:00:00:00:00:00 - 1$";
+  };
+  testAddRejectsFloatOffset = {
+    expr = mac.add 1.5 (parse "00:00:00:00:00:01");
+    expectedError.msg = "^libnet\\.mac\\.add: expected int, got float$";
+  };
+  # Offsets near the integer limits throw before any arithmetic, since the
+  # sum would overflow, and Nix 2.18 wraps overflow silently.
+  testAddLargestIntegerOffset = {
+    expr = mac.add 9223372036854775807 (parse "00:00:00:00:00:01");
+    expectedError.msg = "^libnet\\.mac\\.add: out of range: 00:00:00:00:00:01 \\+ 9223372036854775807$";
+  };
+  testSubSmallestIntegerOffset = {
+    expr = mac.sub (-9223372036854775807 - 1) (parse "00:00:00:00:00:01");
+    expectedError.msg = "^libnet\\.mac\\.sub: out of range: 00:00:00:00:00:01 - -9223372036854775808$";
+  };
+  testAddToUpperBound = {
+    expr = mac.toString (mac.add 281474976710655 (parse "00:00:00:00:00:00"));
+    expected = "ff:ff:ff:ff:ff:ff";
+  };
+  testSubToLowerBound = {
+    expr = mac.toString (mac.sub 281474976710655 (parse "ff:ff:ff:ff:ff:ff"));
+    expected = "00:00:00:00:00:00";
+  };
+  testCompareRejectsIpv4 = {
+    expr = mac.compare (parse "00:00:00:00:00:01") (libnet.ipv4.parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.mac\\.compare: expected mac value, got ipv4 value$";
+  };
+  testIsLocalRejectsString = {
+    expr = mac.isLocal "02:00:00:00:00:00";
+    expectedError.msg = "^libnet\\.mac\\.isLocal: expected mac value, got string$";
   };
   testNextOk = {
     expr = mac.toString (mac.next (parse "00:00:00:00:00:01"));

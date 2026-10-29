@@ -51,9 +51,9 @@ in
     expr = (authority.host (parse "my_host")).value;
     expected = "my_host";
   };
-  testParseHostCasePreserved = {
-    expr = (authority.host (parse "Example.COM")).value;
-    expected = "Example.COM";
+  testParseHostFoldsCase = {
+    expr = authority.toString (parse "U@Example.COM:8080");
+    expected = "U@example.com:8080";
   };
 
   # ===== Accessors =====
@@ -114,8 +114,59 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (authority.parse 42);
-    expected = true;
+    expr = authority.parse 42;
+    expectedError.msg = "^libnet\\.authority\\.parse: expected string, got int$";
+  };
+
+  # ===== Userinfo grammar =====
+  # userinfo = *( unreserved / pct-encoded / sub-delims / ":" ), stored
+  # verbatim: case and percent-encoding are kept as written.
+  testUserinfoEveryAllowedCharacter = {
+    expr = authority.userinfo (parse "AZaz09-._~!$&'()*+,;=:%2f%2F@h");
+    expected = "AZaz09-._~!$&'()*+,;=:%2f%2F";
+  };
+  testUserinfoEmpty = {
+    expr = authority.toString (parse "@h");
+    expected = "@h";
+  };
+  testUserinfoRoundTrips = {
+    expr = authority.toString (parse "User:P%41ss@h:80");
+    expected = "User:P%41ss@h:80";
+  };
+  testRejectUserinfoSpace = {
+    expr = parse "a b@h";
+    expectedError.msg = "^libnet\\.authority\\.parse: invalid userinfo \"a b\"$";
+  };
+  testRejectUserinfoOutsideGrammar = {
+    expr = builtins.filter (userinfo: authority.isValid "${userinfo}@h") [
+      "a/b"
+      "a?b"
+      "a#b"
+      "a\"b"
+      "a<b"
+      "a>b"
+      "a\nb"
+      "a[b"
+      "a]b"
+      "a\\b"
+      "a^b"
+      "a`b"
+      "a{b"
+      "a|b"
+      "a}b"
+      "a\tb"
+      "é"
+    ];
+    expected = [ ];
+  };
+  testRejectUserinfoMalformedPercent = {
+    expr = builtins.filter (userinfo: authority.isValid "${userinfo}@h") [
+      "%zz"
+      "%2"
+      "%"
+      "a%g0"
+    ];
+    expected = [ ];
   };
 
   testTryParseOk = {
@@ -174,8 +225,66 @@ in
     expected = "[::1]:80";
   };
   testMakeBadHostString = {
-    expr = throws (authority.make { host = "example.com"; });
+    expr = authority.make { host = "example.com"; };
+    expectedError.msg = "^libnet\\.authority\\.make: expected ip or regName value, got string$";
+  };
+  # `make` runs the checks `parse` runs, so its result reparses to itself.
+  testMakeRoundTrips = {
+    expr =
+      let
+        made = authority.make {
+          host = urlHost.parse "h";
+          userinfo = "U:p%41ss";
+          port = port.fromInt 8080;
+        };
+      in
+      parse (authority.toString made) == made;
     expected = true;
+  };
+  testMakeEqualsParse = {
+    expr =
+      authority.make {
+        host = urlHost.parse "Example.COM";
+        userinfo = "u";
+        port = port.fromInt 443;
+      } == parse "u@example.com:443";
+    expected = true;
+  };
+  testMakeRejectsUserinfoSlash = {
+    expr = authority.make {
+      host = urlHost.parse "h";
+      userinfo = "a/b";
+    };
+    expectedError.msg = "^libnet\\.authority\\.make: invalid userinfo \"a/b\"$";
+  };
+  testMakeRejectsUserinfoAt = {
+    expr = authority.make {
+      host = urlHost.parse "h";
+      userinfo = "a@b";
+    };
+    expectedError.msg = "^libnet\\.authority\\.make: invalid userinfo \"a@b\"$";
+  };
+  testMakeRejectsUserinfoNonString = {
+    expr = authority.make {
+      host = urlHost.parse "h";
+      userinfo = 1;
+    };
+    expectedError.msg = "^libnet\\.authority\\.make: expected string or null, got int$";
+  };
+  testMakeRejectsNonSet = {
+    expr = authority.make "h";
+    expectedError.msg = "^libnet\\.authority\\.make: expected set, got string$";
+  };
+  testMakeRejectsMissingHost = {
+    expr = authority.make { userinfo = "u"; };
+    expectedError.msg = "^libnet\\.authority\\.make: missing attribute \"host\"$";
+  };
+  testMakeRejectsUnknownAttribute = {
+    expr = authority.make {
+      host = urlHost.parse "h";
+      path = "/";
+    };
+    expectedError.msg = "^libnet\\.authority\\.make: unexpected attribute \"path\"$";
   };
   testMakeIpv4Host = {
     expr = authority.toString (
@@ -191,13 +300,11 @@ in
     expected = true;
   };
   testMakeBadPortInt = {
-    expr = throws (
-      authority.make {
-        host = urlHost.parse "h";
-        port = 80;
-      }
-    );
-    expected = true;
+    expr = authority.make {
+      host = urlHost.parse "h";
+      port = 80;
+    };
+    expectedError.msg = "^libnet\\.authority\\.make: expected port value or null, got int$";
   };
   testMakeBadPortString = {
     expr = throws (

@@ -80,8 +80,16 @@ in
     expected = true;
   };
   testRejectNoPort = {
-    expr = throws (parse "socks5://127.0.0.1");
-    expected = true;
+    expr = parse "socks5://127.0.0.1";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: a proxy URL requires an explicit port: \"socks5://127\\.0\\.0\\.1\"$";
+  };
+  testRejectBadPortKeepsDetail = {
+    expr = parse "socks5://h:99999";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: invalid port \"99999\"$";
+  };
+  testRejectUnknownSchemeBeforeAuthority = {
+    expr = (proxyUrl.tryParse "foo://garbage@@").error;
+    expected = "libnet.proxyUrl.parse: unknown scheme \"foo\" (expected http, https, socks4, socks4a, socks5, or socks5h)";
   };
   testRejectEmptyHost = {
     expr = throws (parse "socks5://:1080");
@@ -100,8 +108,8 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (proxyUrl.parse 42);
-    expected = true;
+    expr = proxyUrl.parse 42;
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -152,35 +160,49 @@ in
     );
     expected = "socks5://h:1080";
   };
+  testMakeEqualsParse = {
+    expr = proxyUrl.make "Socks5H" (authority.parse "u@h:1080");
+    expected = parse "socks5h://u@h:1080";
+  };
+  testMakeRoundTrips = {
+    expr = map (value: proxyUrl.eq (parse (proxyUrl.toString value)) value) [
+      (proxyUrl.make "http" (authority.parse "u:p@h:8080"))
+      (proxyUrl.make "socks5" (authority.parse "[::1]:1080"))
+    ];
+    expected = [
+      true
+      true
+    ];
+  };
   testMakeUnknownSchemeThrows = {
-    expr = throws (
-      proxyUrl.make "ftp" (
-        authority.make {
-          host = urlHost.parse "h";
-          port = port.fromInt 1080;
-        }
-      )
+    expr = proxyUrl.make "ftp" (
+      authority.make {
+        host = urlHost.parse "h";
+        port = port.fromInt 1080;
+      }
     );
-    expected = true;
+    expectedError.msg = "^libnet\\.proxyUrl\\.make: unknown scheme \"ftp\" \\(expected http, https, socks4, socks4a, socks5, or socks5h\\)$";
   };
   testMakeNoPortThrows = {
-    expr = throws (proxyUrl.make "socks5" (authority.make { host = urlHost.parse "h"; }));
-    expected = true;
+    expr = proxyUrl.make "socks5" (authority.make { host = urlHost.parse "h"; });
+    expectedError.msg = "^libnet\\.proxyUrl\\.make: a proxy URL requires an explicit port$";
   };
   testMakeNonAuthorityThrows = {
-    expr = throws (proxyUrl.make "socks5" "h:1080");
-    expected = true;
+    expr = proxyUrl.make "socks5" "h:1080";
+    expectedError.msg = "^libnet\\.proxyUrl\\.make: expected authority value, got string$";
+  };
+  testMakeUrlThrows = {
+    expr = proxyUrl.make "http" (libnet.url.parse "http://h:8080");
+    expectedError.msg = "^libnet\\.proxyUrl\\.make: expected authority value, got url value$";
   };
   testMakeNonStringSchemeThrows = {
-    expr = throws (
-      proxyUrl.make 42 (
-        authority.make {
-          host = urlHost.parse "h";
-          port = port.fromInt 1080;
-        }
-      )
+    expr = proxyUrl.make 42 (
+      authority.make {
+        host = urlHost.parse "h";
+        port = port.fromInt 1080;
+      }
     );
-    expected = true;
+    expectedError.msg = "^libnet\\.proxyUrl\\.make: expected string, got int$";
   };
 
   # ===== Predicates =====
@@ -237,6 +259,10 @@ in
   testEqUserinfoMatters = {
     expr = proxyUrl.eq (parse "socks5://u@h:1080") (parse "socks5://h:1080");
     expected = false;
+  };
+  testToStringHostLowercase = {
+    expr = proxyUrl.toString (parse "socks5://User@Example.COM:1080");
+    expected = "socks5://User@example.com:1080";
   };
   testEqHostCaseInsensitive = {
     expr = proxyUrl.eq (parse "socks5://Example.COM:1080") (parse "socks5://example.com:1080");
@@ -329,8 +355,8 @@ in
     expected = "proxy.corp:443";
   };
   testToEndpointRegNameThrows = {
-    expr = throws (proxyUrl.toEndpoint (parse "http://my_proxy:8080"));
-    expected = true;
+    expr = proxyUrl.toEndpoint (parse "http://my_proxy:8080");
+    expectedError.msg = "^libnet\\.proxyUrl\\.toEndpoint: registered name \"my_proxy\" is not a valid DNS name$";
   };
   testToEndpointMapped = {
     expr = map (u: ipEndpoint.toString (proxyUrl.toEndpoint (parse u))) [

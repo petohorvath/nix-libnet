@@ -11,7 +11,8 @@
   - `userinfo` is kept raw and opaque (may carry credentials).
   - `port` is an explicit `port` value, or null when omitted.
 
-  Components are stored verbatim — no percent-decoding or normalization.
+  Userinfo is validated against the RFC 3986 grammar and stored
+  verbatim — no percent-decoding or normalization.
   Bounded like the URL forms: no scheme, path, query, or fragment.
 
     { _type = "authority"; userinfo = <string | null>;
@@ -27,6 +28,22 @@ let
   parsing = import ./internal/parse.nix;
   urlHost = import ./url-host.nix;
   port = import ./port.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
+
+  # Check the authority argument of `function`, throwing for any other
+  # kind.
+  authorityArgument =
+    function: authority: errors.expectKind "authority.${function}" "authority" authority;
+
+  # RFC 3986 §3.2.1: userinfo = *( unreserved / pct-encoded / sub-delims /
+  # ":" ). The bracket expression admits only ASCII, so a non-ASCII byte,
+  # a space or a control character fails the match.
+  userinfoPattern = "([-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f])*";
+
+  isUserinfo = text: builtins.match userinfoPattern text != null;
+
+  parseError = detail: types.tryErr (errors.message "authority.parse" detail);
 
   mk = userinfoValue: hostValue: portValue: {
     _type = "authority";
@@ -92,35 +109,38 @@ let
 
     Returns a tryResult: `{ success = true; value = <authority>; }` or
     `{ success = false; error = <string>; }` for an empty or invalid host,
-    multiple `@`, or a bad port. Never throws.
+    multiple `@`, userinfo outside the RFC 3986 grammar, or a bad port.
+    Never throws.
   */
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.authority.parse: input must be a string"
+      parseError (errors.notString input)
     else
       let
         atParts = parsing.splitOn "@" input;
         atPartCount = builtins.length atParts;
       in
       if atPartCount > 2 then
-        types.tryErr "libnet.authority.parse: malformed userinfo (multiple '@')"
+        parseError "malformed userinfo (multiple '@')"
       else
         let
           userinfoValue = if atPartCount == 2 then builtins.elemAt atParts 0 else null;
           hostPort = splitHostPort (builtins.elemAt atParts (atPartCount - 1));
         in
-        if hostPort == null then
-          types.tryErr "libnet.authority.parse: malformed authority \"${input}\""
+        if userinfoValue != null && !(isUserinfo userinfoValue) then
+          parseError "invalid userinfo \"${userinfoValue}\""
+        else if hostPort == null then
+          parseError "malformed authority \"${input}\""
         else
           let
             hostResult = urlHost.tryParse hostPort.hostText;
             portResult = if hostPort.portText == null then null else port.tryParse hostPort.portText;
           in
           if !hostResult.success then
-            types.tryErr "libnet.authority.parse: invalid host \"${hostPort.hostText}\""
+            parseError "invalid host \"${hostPort.hostText}\""
           else if portResult != null && !portResult.success then
-            types.tryErr "libnet.authority.parse: invalid port \"${hostPort.portText}\""
+            parseError "invalid port \"${hostPort.portText}\""
           else
             types.tryOk (
               mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
@@ -150,10 +170,11 @@ let
   toString =
     authority:
     let
-      userinfoPart = if authority.userinfo == null then "" else "${authority.userinfo}@";
-      portPart = if authority.port == null then "" else ":${port.toString authority.port}";
+      checked = authorityArgument "toString" authority;
+      userinfoPart = if checked.userinfo == null then "" else "${checked.userinfo}@";
+      portPart = if checked.port == null then "" else ":${port.toString checked.port}";
     in
-    "${userinfoPart}${urlHost.toString authority.host}${portPart}";
+    "${userinfoPart}${urlHost.toString checked.host}${portPart}";
 
   # ===== Construction =====
 
@@ -162,24 +183,39 @@ let
     `parse` instead.
 
     `host`: urlHost value (ipv4, ipv6, or regName).
-    `userinfo`: raw userinfo string, or null (default).
+    `userinfo`: raw userinfo string, or null (default). It must match the
+    RFC 3986 userinfo grammar, as `parse` requires, and is stored as
+    given.
     `port`: port value, or null (default) to omit it.
 
-    Returns an authority value; throws on a non-urlHost host or a non-port
-    port.
+    Returns an authority value that `parse (toString …)` gives back;
+    throws for a non-set argument, a missing or unexpected attribute, a
+    non-urlHost host, invalid userinfo, or a non-port port.
   */
   make =
-    {
-      host,
-      userinfo ? null,
-      port ? null,
-    }:
-    if !(types.isUrlHost host) then
-      throw "libnet.authority.make: host must be a urlHost value"
-    else if port != null && !(types.isPort port) then
-      throw "libnet.authority.make: port must be a port value or null"
+    arguments:
+    let
+      caller = "authority.make";
+      checked = errors.expectFields caller {
+        required = [ "host" ];
+        optional = [
+          "port"
+          "userinfo"
+        ];
+      } arguments;
+      hostValue = errors.expect caller "ip or regName value" types.isUrlHost checked.host;
+      userinfoValue = errors.expect caller "string or null" (
+        value: value == null || builtins.isString value
+      ) (checked.userinfo or null);
+      portValue = errors.expect caller "port value or null" (value: value == null || types.isPort value) (
+        checked.port or null
+      );
+    in
+    # Force the guards, which `mk` would otherwise store unevaluated.
+    if userinfoValue != null && !(isUserinfo userinfoValue) then
+      errors.fail caller "invalid userinfo \"${userinfoValue}\""
     else
-      mk userinfo host port;
+      builtins.seq hostValue (builtins.seq portValue (mk userinfoValue hostValue portValue));
 
   # ===== Predicates =====
 
@@ -210,7 +246,7 @@ let
 
     Returns the raw userinfo string, or null when absent.
   */
-  userinfo = authority: authority.userinfo;
+  userinfo = authority: (authorityArgument "userinfo" authority).userinfo;
 
   /*
     Get the host of an authority.
@@ -219,27 +255,18 @@ let
 
     Returns the urlHost value: an ipv4, ipv6, or regName value.
   */
-  host = authority: authority.host;
+  host = authority: (authorityArgument "host" authority).host;
 
   # ===== Comparison =====
   #
-  # Structural: host (case-folded), then port, then userinfo. Unlike
-  # `url`, userinfo *is* part of identity here — an authority is exactly
+  # Structural: host, then port, then userinfo. Unlike `url`, userinfo
+  # *is* part of identity here — an authority is exactly
   # `[userinfo@]host[:port]` — and the port is compared as-stored, since
   # an authority has no scheme and therefore no default port.
 
-  compareStrings =
-    a: b:
-    if a < b then
-      -1
-    else if a > b then
-      1
-    else
-      0;
-
-  # Order nullable strings with null first.
-  compareOptionalStrings =
-    a: b:
+  # Order nullable values with null first, the rest by `compareValues`.
+  compareOptional =
+    compareValues: a: b:
     if a == null && b == null then
       0
     else if a == null then
@@ -247,7 +274,7 @@ let
     else if b == null then
       1
     else
-      compareStrings a b;
+      compareValues a b;
 
   portEq =
     a: b:
@@ -258,125 +285,58 @@ let
     else
       port.eq a b;
 
-  portCompare =
-    a: b:
-    if a == null && b == null then
-      0
-    else if a == null then
-      -1
-    else if b == null then
-      1
-    else
-      port.compare a b;
-
   /*
     Test two authorities for equality.
 
-    `a`, `b`: authority values.
+    `a`, `b`: values to compare.
 
-    Returns true when userinfo matches exactly, hosts are equal
-    (case-folded), and ports match as stored (null equals only null).
+    Returns true when userinfo matches exactly, hosts are equal, and
+    ports match as stored (null equals only null); false for values of
+    other kinds.
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.authority a b
     && a.userinfo == b.userinfo
     && urlHost.eq a.host b.host
     && portEq a.port b.port;
 
-  /*
-    Order two authorities by host, then port (null first), then userinfo
-    (null first).
-
-    `a`, `b`: authority values.
-
-    Returns -1, 0, or 1.
-  */
-  compare =
-    a: b:
+  # Order by host, then port (null first), then userinfo (null first).
+  # The operands are checked first, so the delegated comparisons cannot
+  # fail and name themselves.
+  ordering = comparison.suite (
+    function: a: b:
     let
-      hostOrder = urlHost.compare a.host b.host;
+      left = authorityArgument function a;
+      right = authorityArgument function b;
     in
-    if hostOrder != 0 then
-      hostOrder
-    else
-      let
-        portOrder = portCompare a.port b.port;
-      in
-      if portOrder != 0 then portOrder else compareOptionalStrings a.userinfo b.userinfo;
-
-  /*
-    Check whether one authority sorts before another.
-
-    `a`, `b`: authority values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Check whether one authority sorts before or equal to another.
-
-    `a`, `b`: authority values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Check whether one authority sorts after another.
-
-    `a`, `b`: authority values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Check whether one authority sorts after or equal to another.
-
-    `a`, `b`: authority values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lesser of two authorities by `compare`.
-
-    `a`, `b`: authority values.
-
-    Returns `a` when it sorts first or equal, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the greater of two authorities by `compare`.
-
-    `a`, `b`: authority values.
-
-    Returns `a` when it sorts last or equal, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+    comparison.lexicographic [
+      (urlHost.compare left.host right.host)
+      (compareOptional port.compare left.port right.port)
+      (compareOptional comparison.order left.userinfo right.userinfo)
+    ]
+  );
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     host
     is
     isValid
-    le
-    lt
     make
-    max
-    min
     parse
     toString
     tryParse
     userinfo
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `port` names the
@@ -388,5 +348,5 @@ in
 
     Returns the port value, or null when omitted (no default applies).
   */
-  port = authority: authority.port;
+  port = authority: (authorityArgument "port" authority).port;
 }

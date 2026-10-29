@@ -130,6 +130,13 @@ let
     else
       go 0 0 [ ];
 
+  /*
+    Text shaped like an IPv4 address: digits and dots only. A union whose
+    members all reject such text reports the IP member's error, since no
+    name is written that way (ADR 0021).
+  */
+  isDottedDigits = input: builtins.match "[0-9.]+" input != null;
+
   countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
 
   startsWith =
@@ -172,6 +179,7 @@ in
     hexGroup
     hexInt
     isDecimal
+    isDottedDigits
     octet
     splitOn
     startsWith

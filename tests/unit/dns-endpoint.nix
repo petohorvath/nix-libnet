@@ -30,19 +30,21 @@ in
     expr = port.toInt (dnsEndpoint.port (parse "nas:22"));
     expected = 22;
   };
-  testParsePreservesCase = {
+  testParseFoldsCase = {
     expr = dnsEndpoint.toString (parse "MyHost.Example.COM:443");
-    expected = "MyHost.Example.COM:443";
+    expected = "myhost.example.com:443";
   };
 
   # ===== Reject =====
+  # The name's failure keeps its detail under one `dnsEndpoint.parse`
+  # prefix.
   testRejectIpv4 = {
-    expr = throws (parse "192.0.2.1:80");
-    expected = true;
+    expr = parse "192.0.2.1:80";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: \"192\\.0\\.2\\.1\" ";
   };
   testRejectBracketedIpv6 = {
-    expr = throws (parse "[::1]:443");
-    expected = true;
+    expr = parse "[::1]:443";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: bracketed form is for IPv6";
   };
   testRejectNoPort = {
     expr = throws (parse "nas");
@@ -53,8 +55,8 @@ in
     expected = true;
   };
   testRejectBadPort = {
-    expr = throws (parse "nas:99999");
-    expected = true;
+    expr = parse "nas:99999";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: invalid port in \"nas:99999\"$";
   };
   testRejectPortLeadingZero = {
     expr = throws (parse "nas:022");
@@ -65,16 +67,16 @@ in
     expected = false;
   };
   testRejectUnderscore = {
-    expr = throws (parse "host_name:22");
-    expected = true;
+    expr = parse "host_name:22";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
   testRejectMultipleColons = {
     expr = throws (parse "a:b:22");
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (dnsEndpoint.parse 42);
-    expected = true;
+    expr = dnsEndpoint.parse 42;
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -85,8 +87,10 @@ in
     expr = (dnsEndpoint.tryParse "192.0.2.1:80").success;
     expected = false;
   };
-  testTryParseBadError = {
-    expr = builtins.isString (dnsEndpoint.tryParse "192.0.2.1:80").error;
+  testTryParseBadErrorHasOnePrefix = {
+    expr =
+      builtins.match "libnet[.]dnsEndpoint[.]parse: \"192[.]0[.]2[.]1\" [^:]*" (dnsEndpoint.tryParse "192.0.2.1:80")
+      .error != null;
     expected = true;
   };
 
@@ -95,13 +99,31 @@ in
     expr = dnsEndpoint.toString (dnsEndpoint.make (dnsName.parse "nas") (port.fromInt 22));
     expected = "nas:22";
   };
-  testMakeBadAddress = {
-    expr = throws (dnsEndpoint.make "nas" (port.fromInt 22));
+  testMakeRoundTrips = {
+    expr =
+      let
+        made = dnsEndpoint.make (dnsName.parse "pool.ntp.org") (port.fromInt 123);
+      in
+      dnsEndpoint.eq (parse (dnsEndpoint.toString made)) made;
     expected = true;
   };
+  testMakeBadAddress = {
+    expr = dnsEndpoint.make "nas" (port.fromInt 22);
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected hostname or domain value, got string$";
+  };
+  # `hostname.parse "1234"` succeeds, but no DNS name reads as IPv4, so
+  # `make` cannot build what `parse` rejects (ADR 0021).
+  testMakeRejectsNumericHostname = {
+    expr = dnsEndpoint.make (libnet.hostname.parse "1234") (port.fromInt 22);
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: \"1234\" reads as an IPv4 address, not a DNS name$";
+  };
+  testParseRejectsNumericName = {
+    expr = parse "0x7f:22";
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.parse: \"0x7f\" reads as an IPv4 address, not a DNS name$";
+  };
   testMakeBadPort = {
-    expr = throws (dnsEndpoint.make (dnsName.parse "nas") 22);
-    expected = true;
+    expr = dnsEndpoint.make (dnsName.parse "nas") 22;
+    expectedError.msg = "^libnet\\.dnsEndpoint\\.make: expected port value, got int$";
   };
 
   # ===== Predicates =====
@@ -184,6 +206,15 @@ in
   testCompareByHost = {
     expr = dnsEndpoint.compare (parse "alpha:80") (parse "beta:80");
     expected = -1;
+  };
+  # Hostnames sort before domains whatever their text: "zeta" < "a.example".
+  testCompareHostnameBeforeDomain = {
+    expr = dnsEndpoint.compare (parse "zeta:80") (parse "a.example:80");
+    expected = -1;
+  };
+  testCompareDomainAfterHostname = {
+    expr = dnsEndpoint.compare (parse "a.example:22") (parse "zeta:80");
+    expected = 1;
   };
   testCompareByPort = {
     expr = dnsEndpoint.compare (parse "nas:22") (parse "nas:80");

@@ -23,9 +23,13 @@ in
     expr = (parse "nas")._type;
     expected = "hostname";
   };
-  testParseHostnameMixedCase = {
-    expr = (parse "MyHost")._type;
-    expected = "hostname";
+  testParseHostnameFoldsCase = {
+    expr = parse "MyHost";
+    expected = hostname.parse "myhost";
+  };
+  testParseDomainFoldsCase = {
+    expr = parse "Example.COM";
+    expected = domain.parse "example.com";
   };
   testParseDomainTagged = {
     expr = (parse "example.com")._type;
@@ -75,8 +79,41 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (host.parse 42);
-    expected = true;
+    expr = host.parse 42;
+    expectedError.msg = "^libnet\\.host\\.parse: expected string, got int$";
+  };
+  # Not an `ip`, yet `inet_aton` reads each as an address (ADR 0021).
+  testRejectLeadingZeroQuad = {
+    expr = parse "010.0.0.1";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid octet in \"010\\.0\\.0\\.1\"$";
+  };
+  testRejectShortQuad = {
+    expr = parse "127.1";
+    expectedError.msg = "^libnet\\.host\\.parse: must have 4 octets, got 2: \"127\\.1\"$";
+  };
+  testRejectHexQuadKeepsNameDetail = {
+    expr = parse "0x7f.0.0.1";
+    expectedError.msg = "^libnet\\.host\\.parse: \"0x7f\\.0\\.0\\.1\" reads as an IPv4 address, not a DNS name$";
+  };
+  testRejectBadIpv6KeepsDetail = {
+    expr = parse "::g";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid \"::g\"$";
+  };
+  testRejectNumericHostname = {
+    expr = map host.isValid [
+      "2130706433"
+      "0x7f"
+      "0x7f.0.0.1"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
+  testRejectInvalidNamesHost = {
+    expr = parse "host_name";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
 
   testTryParseOkIp = {
@@ -117,13 +154,13 @@ in
     expr = host.toString (parse "example.com");
     expected = "example.com";
   };
-  testToStringHostnamePreservesCase = {
+  testToStringHostnameLowercase = {
     expr = host.toString (parse "MyHost");
-    expected = "MyHost";
+    expected = "myhost";
   };
   testToStringUntaggedThrows = {
-    expr = throws (host.toString { value = "nope"; });
-    expected = true;
+    expr = host.toString { value = "nope"; };
+    expectedError.msg = "^libnet\\.host\\.toString: expected ip, hostname or domain value, got set$";
   };
 
   # ===== Predicates =====
@@ -298,6 +335,18 @@ in
   testMaxPicksLargerFamily = {
     expr = (host.max (parse "10.0.0.1") (parse "example.com"))._type;
     expected = "domain";
+  };
+  testCompareFoldedOrder = {
+    expr = host.compare (parse "alpha") (parse "Beta");
+    expected = -1;
+  };
+  testGtNamesItself = {
+    expr = host.gt (parse "nas") "nas";
+    expectedError.msg = "^libnet\\.host\\.gt: expected ip, hostname or domain value, got string$";
+  };
+  testMinNamesItself = {
+    expr = host.min (libnet.port.fromInt 80) (parse "nas");
+    expectedError.msg = "^libnet\\.host\\.min: expected ip, hostname or domain value, got port value$";
   };
 
   # Sanity: structural .is checks recognise values from each underlying module

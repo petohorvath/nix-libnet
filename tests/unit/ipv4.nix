@@ -30,24 +30,24 @@ in
 
   # ===== Parse: negative =====
   testParseEmpty = {
-    expr = throws (parse "");
-    expected = true;
+    expr = parse "";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: must have 4 octets, got 1: \"\"$";
   };
   testParse3Octets = {
-    expr = throws (parse "1.2.3");
-    expected = true;
+    expr = parse "1.2.3";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: must have 4 octets, got 3: \"1\\.2\\.3\"$";
   };
   testParse5Octets = {
-    expr = throws (parse "1.2.3.4.5");
-    expected = true;
+    expr = parse "1.2.3.4.5";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: must have 4 octets, got 5: \"1\\.2\\.3\\.4\\.5\"$";
   };
   testParseOctet256 = {
-    expr = throws (parse "1.2.3.256");
-    expected = true;
+    expr = parse "1.2.3.256";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: invalid octet in \"1\\.2\\.3\\.256\"$";
   };
   testParseLeadingZero = {
-    expr = throws (parse "01.2.3.4");
-    expected = true;
+    expr = parse "01.2.3.4";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: invalid octet in \"01\\.2\\.3\\.4\"$";
   };
   testParseLeadingZeroSecondOctet = {
     expr = throws (parse "1.02.3.4");
@@ -78,8 +78,8 @@ in
     expected = true;
   };
   testParseNonString = {
-    expr = throws (ipv4.parse 123);
-    expected = true;
+    expr = ipv4.parse 123;
+    expectedError.msg = "^libnet\\.ipv4\\.parse: expected string, got int$";
   };
 
   # ===== tryParse =====
@@ -94,6 +94,14 @@ in
   testTryParseErrorMessage = {
     expr = builtins.isString (ipv4.tryParse "bad").error;
     expected = true;
+  };
+  testTryParseErrorNamesParse = {
+    expr = (ipv4.tryParse "1.2.3").error;
+    expected = "libnet.ipv4.parse: must have 4 octets, got 3: \"1.2.3\"";
+  };
+  testTryParseNonStringError = {
+    expr = (ipv4.tryParse { }).error;
+    expected = "libnet.ipv4.parse: expected string, got set";
   };
   testTryParseNullValue = {
     expr = (ipv4.tryParse "bad").value == null;
@@ -148,16 +156,16 @@ in
     expected = "255.255.255.255";
   };
   testFromIntOverflow = {
-    expr = throws (ipv4.fromInt 4294967296);
-    expected = true;
+    expr = ipv4.fromInt 4294967296;
+    expectedError.msg = "^libnet\\.ipv4\\.fromInt: out of range \\[0, 4294967295\\]: 4294967296$";
   };
   testFromIntNegative = {
-    expr = throws (ipv4.fromInt (-1));
-    expected = true;
+    expr = ipv4.fromInt (-1);
+    expectedError.msg = "^libnet\\.ipv4\\.fromInt: out of range \\[0, 4294967295\\]: -1$";
   };
   testFromIntNotInt = {
-    expr = throws (ipv4.fromInt "42");
-    expected = true;
+    expr = ipv4.fromInt "42";
+    expectedError.msg = "^libnet\\.ipv4\\.fromInt: expected int, got string$";
   };
 
   # ===== fromBytes / toBytes =====
@@ -184,48 +192,53 @@ in
     expected = "255.255.255.255";
   };
   testFromBytesShort = {
-    expr = throws (
-      ipv4.fromBytes [
-        1
-        2
-        3
-      ]
-    );
-    expected = true;
+    expr = ipv4.fromBytes [
+      1
+      2
+      3
+    ];
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: expected 4 bytes, got 3$";
   };
   testFromBytesLong = {
-    expr = throws (
-      ipv4.fromBytes [
-        1
-        2
-        3
-        4
-        5
-      ]
-    );
-    expected = true;
+    expr = ipv4.fromBytes [
+      1
+      2
+      3
+      4
+      5
+    ];
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: expected 4 bytes, got 5$";
   };
   testFromBytesOver255 = {
-    expr = throws (
-      ipv4.fromBytes [
-        1
-        2
-        3
-        256
-      ]
-    );
-    expected = true;
+    expr = ipv4.fromBytes [
+      1
+      2
+      3
+      256
+    ];
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
   };
   testFromBytesNegative = {
-    expr = throws (
-      ipv4.fromBytes [
-        1
-        2
-        3
-        (-1)
-      ]
-    );
-    expected = true;
+    expr = ipv4.fromBytes [
+      1
+      2
+      3
+      (-1)
+    ];
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: byte out of range \\[0, 255\\]: -1$";
+  };
+  testFromBytesRejectsFloatByte = {
+    expr = ipv4.fromBytes [
+      1
+      2
+      3
+      4.0
+    ];
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: expected int byte, got float$";
+  };
+  testFromBytesRejectsSet = {
+    expr = ipv4.fromBytes { };
+    expectedError.msg = "^libnet\\.ipv4\\.fromBytes: expected list, got set$";
   };
 
   # ===== toArpa =====
@@ -514,6 +527,15 @@ in
     expected = true;
   };
 
+  testIsGlobalNamesIsGlobal = {
+    expr = ipv4.isGlobal "8.8.8.8";
+    expectedError.msg = "^libnet\\.ipv4\\.isGlobal: expected ipv4 value, got string$";
+  };
+  testToBytesRejectsInt = {
+    expr = ipv4.toBytes 16909060;
+    expectedError.msg = "^libnet\\.ipv4\\.toBytes: expected ipv4 value, got int$";
+  };
+
   # ===== Arithmetic =====
   testAddZero = {
     expr = ipv4.toString (ipv4.add 0 (parse "1.2.3.4"));
@@ -532,8 +554,8 @@ in
     expected = "0.0.1.0";
   };
   testAddOverflow = {
-    expr = throws (ipv4.add 1 (parse "255.255.255.255"));
-    expected = true;
+    expr = ipv4.add 1 (parse "255.255.255.255");
+    expectedError.msg = "^libnet\\.ipv4\\.add: out of range: 255\\.255\\.255\\.255 \\+ 1$";
   };
   testSubOne = {
     expr = ipv4.toString (ipv4.sub 1 (parse "1.2.3.4"));
@@ -544,24 +566,63 @@ in
     expected = "1.2.2.255";
   };
   testSubUnderflow = {
-    expr = throws (ipv4.sub 1 (parse "0.0.0.0"));
-    expected = true;
+    expr = ipv4.sub 1 (parse "0.0.0.0");
+    expectedError.msg = "^libnet\\.ipv4\\.sub: out of range: 0\\.0\\.0\\.0 - 1$";
   };
   testNextOk = {
     expr = ipv4.toString (ipv4.next (parse "1.2.3.4"));
     expected = "1.2.3.5";
   };
   testNextOverflow = {
-    expr = throws (ipv4.next (parse "255.255.255.255"));
-    expected = true;
+    expr = ipv4.next (parse "255.255.255.255");
+    expectedError.msg = "^libnet\\.ipv4\\.next: out of range: 255\\.255\\.255\\.255 \\+ 1$";
   };
   testPrevOk = {
     expr = ipv4.toString (ipv4.prev (parse "1.2.3.4"));
     expected = "1.2.3.3";
   };
   testPrevUnderflow = {
-    expr = throws (ipv4.prev (parse "0.0.0.0"));
-    expected = true;
+    expr = ipv4.prev (parse "0.0.0.0");
+    expectedError.msg = "^libnet\\.ipv4\\.prev: out of range: 0\\.0\\.0\\.0 - 1$";
+  };
+  testAddToUpperBound = {
+    expr = ipv4.toString (ipv4.add 4294967295 (parse "0.0.0.0"));
+    expected = "255.255.255.255";
+  };
+  testSubToLowerBound = {
+    expr = ipv4.toString (ipv4.sub 4294967295 (parse "255.255.255.255"));
+    expected = "0.0.0.0";
+  };
+  testAddNegativeOffset = {
+    expr = ipv4.toString (ipv4.add (-1) (parse "1.2.3.4"));
+    expected = "1.2.3.3";
+  };
+  testSubNegativeOffset = {
+    expr = ipv4.toString (ipv4.sub (-1) (parse "1.2.3.4"));
+    expected = "1.2.3.5";
+  };
+  testAddRejectsFloatOffset = {
+    expr = ipv4.add 1.5 (parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ipv4\\.add: expected int, got float$";
+  };
+  # Offsets near the integer limits throw before any arithmetic, since the
+  # sum would overflow, and Nix 2.18 wraps overflow silently.
+  testAddLargestIntegerOffset = {
+    expr = ipv4.add 9223372036854775807 (parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.ipv4\\.add: out of range: 0\\.0\\.0\\.1 \\+ 9223372036854775807$";
+  };
+  testAddSmallestIntegerOffset = {
+    expr = ipv4.add (-9223372036854775807 - 1) (parse "255.255.255.255");
+    expectedError.msg = "^libnet\\.ipv4\\.add: out of range: 255\\.255\\.255\\.255 \\+ -9223372036854775808$";
+  };
+  testSubLargestIntegerOffset = {
+    expr = ipv4.sub 9223372036854775807 (parse "255.255.255.255");
+    expectedError.msg = "^libnet\\.ipv4\\.sub: out of range: 255\\.255\\.255\\.255 - 9223372036854775807$";
+  };
+  # Negating this offset would overflow.
+  testSubSmallestIntegerOffset = {
+    expr = ipv4.sub (-9223372036854775807 - 1) (parse "0.0.0.1");
+    expectedError.msg = "^libnet\\.ipv4\\.sub: out of range: 0\\.0\\.0\\.1 - -9223372036854775808$";
   };
   testDiffPositive = {
     expr = ipv4.diff (parse "1.2.3.4") (parse "1.2.3.10");
@@ -632,6 +693,24 @@ in
   testMaxSecondHigher = {
     expr = ipv4.toString (ipv4.max (parse "1.0.0.0") (parse "2.0.0.0"));
     expected = "2.0.0.0";
+  };
+  # A single-family namespace orders only its own family; `ip` orders
+  # IPv4 before IPv6.
+  testCompareRejectsIpv6 = {
+    expr = ipv4.compare (parse "1.2.3.4") (libnet.ipv6.parse "::1");
+    expectedError.msg = "^libnet\\.ipv4\\.compare: expected ipv4 value, got ipv6 value$";
+  };
+  testLtRejectsIpv6 = {
+    expr = ipv4.lt (libnet.ipv6.parse "::1") (parse "1.2.3.4");
+    expectedError.msg = "^libnet\\.ipv4\\.lt: expected ipv4 value, got ipv6 value$";
+  };
+  testMaxRejectsIpv6 = {
+    expr = ipv4.max (parse "1.2.3.4") (libnet.ipv6.parse "::1");
+    expectedError.msg = "^libnet\\.ipv4\\.max: expected ipv4 value, got ipv6 value$";
+  };
+  testEqIpv6IsFalse = {
+    expr = ipv4.eq (parse "0.0.0.1") (libnet.ipv6.parse "::1");
+    expected = false;
   };
 
   # ===== Constants =====

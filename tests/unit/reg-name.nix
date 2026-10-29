@@ -26,12 +26,16 @@ in
     expected = true;
   };
   testTryParseNotString = {
-    expr = (tryParse 42).success;
-    expected = false;
+    expr = tryParse 42;
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.regName.parse: expected string, got int";
+    };
   };
   testParseThrows = {
-    expr = throws (parse "bad host");
-    expected = true;
+    expr = parse "bad host";
+    expectedError.msg = "^libnet\\.regName\\.parse: invalid registered name \"bad host\"$";
   };
 
   # ===== Grammar (RFC 3986 reg-name) =====
@@ -51,6 +55,20 @@ in
     expr = regName.toString (parse "a%20b");
     expected = "a%20b";
   };
+  # RFC 3986 §6.2.2.1: letters fold to lowercase, percent-encoding hex
+  # digits to uppercase.
+  testPercentEncodingHexUppercased = {
+    expr = regName.toString (parse "a%2fb%C3%a9");
+    expected = "a%2Fb%C3%A9";
+  };
+  testPercentEncodingFoldsAroundEscapes = {
+    expr = regName.toString (parse "AB%2fCD%eFx");
+    expected = "ab%2Fcd%EFx";
+  };
+  testPercentEncodingCaseEqual = {
+    expr = parse "x%3a" == parse "X%3A";
+    expected = true;
+  };
   testNoLabelStructure = {
     expr = regName.isValid "..a..";
     expected = true;
@@ -65,9 +83,64 @@ in
     expr = throws (parse "192.0.2.1");
     expected = true;
   };
-  testOutOfRangeQuad = {
-    expr = regName.toString (parse "256.0.0.1");
-    expected = "256.0.0.1";
+  # curl and browsers read a numeric rightmost label as IPv4, though
+  # RFC 3986 reads only a dotted quad as an IP literal (ADR 0021).
+  testRejectShortQuad = {
+    expr = parse "127.1";
+    expectedError.msg = "^libnet\\.regName\\.parse: \"127\\.1\" reads as an IPv4 address, not a registered name$";
+  };
+  testRejectHexQuad = {
+    expr = parse "0x7f.0.0.1";
+    expectedError.msg = "^libnet\\.regName\\.parse: \"0x7f\\.0\\.0\\.1\" reads as an IPv4 address";
+  };
+  testRejectNumericRightmostLabels = {
+    expr = map regName.isValid [
+      "2130706433"
+      "0x7f"
+      "0X"
+      "010.0.0.1"
+      "256.0.0.1"
+      "my_host.1"
+      "a~b.0xFF"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # Browsers ignore one trailing dot when reading a host as IPv4.
+  testRejectNumericBeforeTrailingDot = {
+    expr = map regName.isValid [
+      "127.1."
+      "1.2.3.4."
+    ];
+    expected = [
+      false
+      false
+    ];
+  };
+  testAcceptNonNumericRightmostLabel = {
+    expr = map regName.isValid [
+      "1.2.3.example"
+      "127.1x"
+      "0x7g"
+      "1%41"
+      "127.1.."
+      "."
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+      true
+      true
+    ];
   };
   testRejectEmpty = {
     expr = regName.isValid "";
@@ -99,9 +172,13 @@ in
   };
 
   # ===== toString / predicates =====
-  testToStringPreservesCase = {
+  testToStringLowercase = {
     expr = regName.toString (parse "Example.COM");
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  testToStringRejectsDomain = {
+    expr = regName.toString (libnet.domain.parse "example.com");
+    expectedError.msg = "^libnet\\.regName\\.toString: expected regName value, got domain value$";
   };
   testIsValidOk = {
     expr = regName.isValid "example.com";
@@ -124,8 +201,8 @@ in
     expected = false;
   };
 
-  # ===== Comparison (case-insensitive) =====
-  testEqCaseInsensitive = {
+  # ===== Comparison (structural on the folded text) =====
+  testEqMixedCaseSpellings = {
     expr = regName.eq (parse "Example.COM") (parse "example.com");
     expected = true;
   };
@@ -141,7 +218,7 @@ in
     expr = regName.compare (parse "alpha") (parse "beta");
     expected = -1;
   };
-  testCompareCaseInsensitiveEqual = {
+  testCompareMixedCaseSpellingsEqual = {
     expr = regName.compare (parse "Example.COM") (parse "example.com");
     expected = 0;
   };
@@ -181,6 +258,14 @@ in
         (parse "b")
       ]
     );
-    expected = [ "C" ];
+    expected = [ "c" ];
+  };
+  testLeNamesItself = {
+    expr = regName.le (parse "a") "a";
+    expectedError.msg = "^libnet\\.regName\\.le: expected regName value, got string$";
+  };
+  testMaxNamesItself = {
+    expr = regName.max (libnet.ip.parse "192.0.2.1") (parse "a");
+    expectedError.msg = "^libnet\\.regName\\.max: expected regName value, got ipv4 value$";
   };
 }

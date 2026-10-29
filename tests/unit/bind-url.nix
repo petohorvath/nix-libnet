@@ -47,6 +47,22 @@ in
     expr = (parse "tcp://:8080")._type;
     expected = "bindUrl";
   };
+  testParseStoresScheme = {
+    expr = parse "Udp://:53";
+    expected = {
+      _type = "bindUrl";
+      scheme = "udp";
+      bindpoint = bindpoint.parse ":53";
+    };
+  };
+  testParseUnixStoresScheme = {
+    expr = parse "unix://@foo";
+    expected = {
+      _type = "bindUrl";
+      scheme = "unix";
+      bindpoint = unixSocket.parse "@foo";
+    };
+  };
   testParseTransport = {
     expr = transport.toString (bindUrl.transport (parse "tcp://:8080"));
     expected = "tcp";
@@ -80,8 +96,8 @@ in
 
   # ===== Reject =====
   testRejectNoScheme = {
-    expr = throws (parse ":8080");
-    expected = true;
+    expr = parse ":8080";
+    expectedError.msg = "^libnet\\.bindUrl\\.parse: missing '<scheme>://': \":8080\"$";
   };
   testRejectUnknownScheme = {
     expr = throws (parse "http://:8080");
@@ -104,16 +120,20 @@ in
     expected = "libnet.bindUrl.parse: 'unix://' requires a socket path: \"UNIX://1.2.3.4:80\"";
   };
   testRejectBadBindpoint = {
-    expr = throws (parse "tcp://:99999");
-    expected = true;
+    expr = parse "tcp://:99999";
+    expectedError.msg = "^libnet\\.bindUrl\\.parse: invalid port field \"99999\"$";
+  };
+  testRejectUnknownSchemeBeforeAddress = {
+    expr = (bindUrl.tryParse "foo://garbage").error;
+    expected = "libnet.bindUrl.parse: unknown scheme \"foo\" (expected tcp, udp, sctp, or unix)";
   };
   testRejectEmpty = {
     expr = throws (parse "");
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (bindUrl.parse 42);
-    expected = true;
+    expr = bindUrl.parse 42;
+    expectedError.msg = "^libnet\\.bindUrl\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -135,24 +155,64 @@ in
 
   # ===== make =====
   testMakeIp = {
-    expr = bindUrl.toString (bindUrl.make (transport.parse "tcp") (bindpoint.parse ":8080"));
+    expr = bindUrl.toString (bindUrl.make "tcp" (bindpoint.parse ":8080"));
     expected = "tcp://:8080";
   };
   testMakeRange = {
-    expr = bindUrl.toString (bindUrl.make (transport.parse "udp") (bindpoint.parse "[::]:8000-8100"));
+    expr = bindUrl.toString (bindUrl.make "udp" (bindpoint.parse "[::]:8000-8100"));
     expected = "udp://[::]:8000-8100";
   };
   testMakeUnix = {
-    expr = bindUrl.toString (bindUrl.make null (unixSocket.parse "/run/foo.sock"));
+    expr = bindUrl.toString (bindUrl.make "unix" (unixSocket.parse "/run/foo.sock"));
     expected = "unix:///run/foo.sock";
   };
-  testMakeUnixWithTransportThrows = {
-    expr = throws (bindUrl.make (transport.parse "tcp") (unixSocket.parse "/run/foo.sock"));
-    expected = true;
+  testMakeEqualsParse = {
+    expr = bindUrl.make "SCTP" (bindpoint.parse "0.0.0.0:53");
+    expected = parse "sctp://0.0.0.0:53";
   };
-  testMakeIpWithoutTransportThrows = {
-    expr = throws (bindUrl.make null (bindpoint.parse ":8080"));
-    expected = true;
+  testMakeRoundTrips = {
+    expr = map (value: bindUrl.eq (parse (bindUrl.toString value)) value) [
+      (bindUrl.make "tcp" (bindpoint.parse ":8080"))
+      (bindUrl.make "udp" (bindpoint.parse "[::1]:8000-8100"))
+      (bindUrl.make "unix" (unixSocket.parse "@foo"))
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testMakeMapsOverBindpoints = {
+    expr = map bindUrl.toString (
+      map (bindUrl.make "tcp") [
+        (bindpoint.parse ":80")
+        (bindpoint.parse "[::]:443")
+      ]
+    );
+    expected = [
+      "tcp://:80"
+      "tcp://[::]:443"
+    ];
+  };
+  testMakeUnixSchemeIpBindpointThrows = {
+    expr = bindUrl.make "unix" (bindpoint.parse ":8080");
+    expectedError.msg = "^libnet\\.bindUrl\\.make: expected unixSocket value for scheme \"unix\", got ipBindpoint value$";
+  };
+  testMakeTcpSchemeUnixSocketThrows = {
+    expr = bindUrl.make "TCP" (unixSocket.parse "/run/foo.sock");
+    expectedError.msg = "^libnet\\.bindUrl\\.make: expected ipBindpoint value for scheme \"tcp\", got unixSocket value$";
+  };
+  testMakeUnknownSchemeThrows = {
+    expr = bindUrl.make "tls" (bindpoint.parse ":8080");
+    expectedError.msg = "^libnet\\.bindUrl\\.make: unknown scheme \"tls\" \\(expected tcp, udp, sctp, or unix\\)$";
+  };
+  testMakeNullSchemeThrows = {
+    expr = bindUrl.make null (unixSocket.parse "/run/foo.sock");
+    expectedError.msg = "^libnet\\.bindUrl\\.make: expected string, got null$";
+  };
+  testMakeEndpointThrows = {
+    expr = bindUrl.make "tcp" (libnet.ipEndpoint.parse "192.0.2.1:80");
+    expectedError.msg = "^libnet\\.bindUrl\\.make: expected ipBindpoint or unixSocket value, got ipEndpoint value$";
   };
 
   # ===== Predicates =====

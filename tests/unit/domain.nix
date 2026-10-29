@@ -27,9 +27,9 @@ in
     expr = (parse "a.b").value;
     expected = "a.b";
   };
-  testParseMixedCase = {
+  testParseFoldsCase = {
     expr = (parse "MyHost.Example.COM").value;
-    expected = "MyHost.Example.COM";
+    expected = "myhost.example.com";
   };
   testParseLeadingDigit = {
     expr = (parse "3com.example.com").value;
@@ -102,12 +102,70 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (domain.parse 42);
-    expected = true;
+    expr = domain.parse 42;
+    expectedError.msg = "^libnet\\.domain\\.parse: expected string, got int$";
+  };
+  testRejectSingleLabelNamesParse = {
+    expr = parse "single";
+    expectedError.msg = "^libnet\\.domain\\.parse: needs at least 2 labels";
   };
   testRejectSlash = {
     expr = throws (parse "foo/bar.com");
     expected = true;
+  };
+
+  # ===== Numeric rightmost label (ADR 0021) =====
+  testRejectDottedQuad = {
+    expr = parse "192.0.2.1";
+    expectedError.msg = "^libnet\\.domain\\.parse: \"192\\.0\\.2\\.1\" reads as an IPv4 address \\(numeric rightmost label\\)$";
+  };
+  testRejectHexRightmostLabel = {
+    expr = parse "127.1.0x1";
+    expectedError.msg = "^libnet\\.domain\\.parse: \"127\\.1\\.0x1\" reads as an IPv4 address";
+  };
+  testRejectNumericRightmostLabels = {
+    expr = map domain.isValid [
+      "example.1"
+      "127.1"
+      "010.0.0.1"
+      "192.0.2.300"
+      "example.0x"
+      "example.0X7F"
+      "example.0xdeadBEEF"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # Only the rightmost label counts, and only digits or `0x` hex.
+  testAcceptNonNumericRightmostLabel = {
+    expr = map domain.isValid [
+      "192.0.2.example"
+      "example.1a"
+      "example.0x7g"
+      "example.x7f"
+      "example.00x1"
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+      true
+    ];
+  };
+  testFromLabelsRejectsNumericRightmostLabel = {
+    expr = domain.fromLabels [
+      "a"
+      "1"
+    ];
+    expectedError.msg = "^libnet\\.domain\\.fromLabels: \"a\\.1\" reads as an IPv4 address";
   };
 
   testTryParseOk = {
@@ -153,18 +211,33 @@ in
     expr = throws (domain.fromLabels [ ]);
     expected = true;
   };
-  testFromLabelsBadLabelThrows = {
-    expr = throws (
+  testFromLabelsFoldsCase = {
+    expr = domain.toString (
       domain.fromLabels [
-        "host_name"
+        "WWW"
+        "Example"
         "com"
       ]
     );
-    expected = true;
+    expected = "www.example.com";
+  };
+  testFromLabelsBadLabelNamesFromLabels = {
+    expr = domain.fromLabels [
+      "host_name"
+      "com"
+    ];
+    expectedError.msg = "^libnet\\.domain\\.fromLabels: invalid label in \"host_name\\.com\"";
   };
   testFromLabelsNotListThrows = {
-    expr = throws (domain.fromLabels "example.com");
-    expected = true;
+    expr = domain.fromLabels "example.com";
+    expectedError.msg = "^libnet\\.domain\\.fromLabels: expected list, got string$";
+  };
+  testFromLabelsNonStringLabelThrows = {
+    expr = domain.fromLabels [
+      "example"
+      { }
+    ];
+    expectedError.msg = "^libnet\\.domain\\.fromLabels: expected list of strings, got set at index 1$";
   };
 
   # ===== Round-trip =====
@@ -172,9 +245,13 @@ in
     expr = domain.toString (parse "foo.example.com");
     expected = "foo.example.com";
   };
-  testRoundTripPreservesCase = {
+  testToStringLowercase = {
     expr = domain.toString (parse "Example.COM");
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  testToStringRejectsHostname = {
+    expr = domain.toString (hostname.parse "nas");
+    expectedError.msg = "^libnet\\.domain\\.toString: expected domain value, got hostname value$";
   };
 
   # ===== Predicates =====
@@ -212,6 +289,17 @@ in
       "com"
     ];
   };
+  testLabelsLowercase = {
+    expr = domain.labels (parse "Example.COM");
+    expected = [
+      "example"
+      "com"
+    ];
+  };
+  testLabelsRejectsString = {
+    expr = domain.labels "example.com";
+    expectedError.msg = "^libnet\\.domain\\.labels: expected domain value, got string$";
+  };
   testLabelsTwo = {
     expr = domain.labels (parse "example.com");
     expected = [
@@ -232,6 +320,10 @@ in
   testParentTwoIsNull = {
     expr = domain.parent (parse "example.com");
     expected = null;
+  };
+  testParentRejectsString = {
+    expr = domain.parent "foo.example.com";
+    expectedError.msg = "^libnet\\.domain\\.parent: expected domain value, got string$";
   };
   testParentPreservesTag = {
     expr = (domain.parent (parse "foo.example.com"))._type;
@@ -263,7 +355,11 @@ in
     expr = domain.isSubdomainOf (parse "foo.example.org") (parse "example.com");
     expected = false;
   };
-  testSubdomainCaseInsensitive = {
+  testSubdomainRejectsString = {
+    expr = domain.isSubdomainOf (parse "foo.example.com") "example.com";
+    expectedError.msg = "^libnet\\.domain\\.isSubdomainOf: expected domain value, got string$";
+  };
+  testSubdomainMixedCaseSpellings = {
     expr = domain.isSubdomainOf (parse "Foo.Example.COM") (parse "EXAMPLE.com");
     expected = true;
   };
@@ -291,7 +387,11 @@ in
     expr = domain.isSuperdomainOf (parse "example.com") (parse "evil.foo.com");
     expected = false;
   };
-  testSuperdomainCaseInsensitive = {
+  testSuperdomainNamesItself = {
+    expr = domain.isSuperdomainOf "example.com" (parse "foo.example.com");
+    expectedError.msg = "^libnet\\.domain\\.isSuperdomainOf: expected domain value, got string$";
+  };
+  testSuperdomainMixedCaseSpellings = {
     expr = domain.isSuperdomainOf (parse "EXAMPLE.com") (parse "Foo.Example.COM");
     expected = true;
   };
@@ -325,30 +425,21 @@ in
     expr = (domain.toHostname (parse "foo.example.com"))._type;
     expected = "hostname";
   };
-  testToHostnamePreservesCase = {
+  testToHostnameLowercase = {
     expr = (domain.toHostname (parse "Foo.example.com")).value;
-    expected = "Foo";
+    expected = "foo";
+  };
+  testToHostnameRejectsHostname = {
+    expr = domain.toHostname (hostname.parse "foo");
+    expectedError.msg = "^libnet\\.domain\\.toHostname: expected domain value, got hostname value$";
   };
 
-  # ===== Normalize =====
-  testNormalizeUpper = {
-    expr = (domain.normalize (parse "FOO.EXAMPLE.COM")).value;
-    expected = "foo.example.com";
-  };
-  testNormalizeAlreadyLower = {
-    expr = (domain.normalize (parse "foo.example.com")).value;
-    expected = "foo.example.com";
-  };
-  testNormalizeMixed = {
-    expr = (domain.normalize (parse "MyHost.Example.com")).value;
-    expected = "myhost.example.com";
-  };
-  testNormalizePreservesTag = {
-    expr = domain.is (domain.normalize (parse "FOO.EXAMPLE.COM"));
-    expected = true;
+  testNoNormalize = {
+    expr = domain ? normalize;
+    expected = false;
   };
 
-  # ===== Equality (case-insensitive) =====
+  # ===== Equality (structural on the folded text) =====
   testEqSame = {
     expr = domain.eq (parse "example.com") (parse "example.com");
     expected = true;
@@ -366,7 +457,7 @@ in
     expected = false;
   };
 
-  # ===== Comparison (case-insensitive) =====
+  # ===== Comparison =====
   testGtYes = {
     expr = domain.gt (parse "beta.com") (parse "alpha.com");
     expected = true;
@@ -379,8 +470,8 @@ in
     expr = domain.lt (parse "beta.com") (parse "alpha.com");
     expected = false;
   };
-  testLtCaseInsensitive = {
-    expr = domain.lt (parse "Alpha.com") (parse "beta.com");
+  testLtFoldedCase = {
+    expr = domain.lt (parse "alpha.com") (parse "Beta.com");
     expected = true;
   };
   testCompareLt = {
@@ -410,5 +501,9 @@ in
   testMaxPick = {
     expr = (domain.max (parse "beta.com") (parse "alpha.com")).value;
     expected = "beta.com";
+  };
+  testGeNamesItself = {
+    expr = domain.ge (parse "example.com") (hostname.parse "example");
+    expectedError.msg = "^libnet\\.domain\\.ge: expected domain value, got hostname value$";
   };
 }

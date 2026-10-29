@@ -7,7 +7,7 @@
 
   The bounded-integer suite (parsing, comparison, arithmetic) comes from
   `internal/bounded-int.nix`, shared with `vlanId`, `mtu` and `icmpType`;
-  this module adds the RFC 6335 classes and their constants.
+  this module adds the RFC 6335 classes.
 
   Note: `diff a b` returns `toInt b - toInt a` (second arg minus first),
   matching the other scalar modules (ipv4, ipv6, mac) for consistency.
@@ -20,15 +20,21 @@
     => true
 */
 let
-  wellKnownMax = 1023;
-  registeredMax = 49151;
+  errors = import ./internal/errors.nix;
 
   boundedInt = import ./internal/bounded-int.nix {
     typeName = "port";
-    lowestValue = 0;
-    highestValue = 65535;
+    minValue = 0;
+    maxValue = 65535;
     arithmetic = true;
   };
+
+  # Upper ends of the RFC 6335 well-known and registered ranges.
+  lastWellKnown = 1023;
+  lastRegistered = 49151;
+
+  # Unwrap the port argument of `function`, throwing for any other kind.
+  valueOf = function: port: (errors.expectKind "port.${function}" "port" port).value;
 
   # ===== Predicates =====
 
@@ -39,7 +45,7 @@ let
 
     Returns true for ports 0..1023.
   */
-  isWellKnown = port: port.value <= wellKnownMax;
+  isWellKnown = port: valueOf "isWellKnown" port <= lastWellKnown;
 
   /*
     Check whether a port is in the RFC 6335 registered range.
@@ -48,7 +54,12 @@ let
 
     Returns true for ports 1024..49151.
   */
-  isRegistered = port: port.value > wellKnownMax && port.value <= registeredMax;
+  isRegistered =
+    port:
+    let
+      value = valueOf "isRegistered" port;
+    in
+    value > lastWellKnown && value <= lastRegistered;
 
   /*
     Check whether a port is in the RFC 6335 dynamic (ephemeral) range.
@@ -57,7 +68,7 @@ let
 
     Returns true for ports 49152..65535.
   */
-  isDynamic = port: port.value > registeredMax;
+  isDynamic = port: valueOf "isDynamic" port > lastRegistered;
 
   /*
     Check whether a port is the reserved port 0 (RFC 6335). Port 0 also
@@ -67,7 +78,7 @@ let
 
     Returns true only for port 0.
   */
-  isReserved = port: port.value == 0;
+  isReserved = port: valueOf "isReserved" port == 0;
 in
 boundedInt
 // {
@@ -76,7 +87,5 @@ boundedInt
     isRegistered
     isReserved
     isWellKnown
-    registeredMax
-    wellKnownMax
     ;
 }

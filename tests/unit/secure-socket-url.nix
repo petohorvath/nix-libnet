@@ -88,20 +88,24 @@ in
     expected = true;
   };
   testRejectBadEndpoint = {
-    expr = throws (parse "tls://host_name:1");
-    expected = true;
+    expr = parse "tls://host_name:1";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: invalid hostname \"host_name\" \\(expected ";
   };
   testRejectMissingPort = {
-    expr = throws (parse "tls://1.2.3.4");
-    expected = true;
+    expr = parse "tls://1.2.3.4";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: missing ':port' in \"1\\.2\\.3\\.4\"$";
+  };
+  testRejectUnknownSchemeBeforeAddress = {
+    expr = (secureSocketUrl.tryParse "foo://garbage").error;
+    expected = "libnet.secureSocketUrl.parse: unknown scheme \"foo\" (expected tls/ssl, dtls, or quic)";
   };
   testRejectEmpty = {
     expr = throws (parse "");
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (secureSocketUrl.parse 42);
-    expected = true;
+    expr = secureSocketUrl.parse 42;
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -130,21 +134,37 @@ in
     expr = secureSocketUrl.toString (secureSocketUrl.make "quic" (endpoint.parse "example.com:443"));
     expected = "quic://example.com:443";
   };
+  testMakeSchemeCaseInsensitive = {
+    expr = secureSocketUrl.make "SSL" (endpoint.parse "example.com:443");
+    expected = parse "tls://example.com:443";
+  };
+  testMakeRoundTrips = {
+    expr = map (value: secureSocketUrl.eq (parse (secureSocketUrl.toString value)) value) [
+      (secureSocketUrl.make "tls" (endpoint.parse "1.2.3.4:443"))
+      (secureSocketUrl.make "dtls" (endpoint.parse "[::1]:5684"))
+      (secureSocketUrl.make "quic" (endpoint.parse "example.com:443"))
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
   testMakeUnknownSchemeThrows = {
-    expr = throws (secureSocketUrl.make "tcp" (endpoint.parse "1.2.3.4:443"));
-    expected = true;
+    expr = secureSocketUrl.make "tcp" (endpoint.parse "1.2.3.4:443");
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.make: unknown scheme \"tcp\" \\(expected tls/ssl, dtls, or quic\\)$";
   };
   testMakeUnixThrows = {
-    expr = throws (secureSocketUrl.make "tls" (unixSocket.parse "/run/foo.sock"));
-    expected = true;
+    expr = secureSocketUrl.make "tls" (unixSocket.parse "/run/foo.sock");
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.make: expected ipEndpoint or dnsEndpoint value, got unixSocket value$";
   };
   testMakeNonEndpointThrows = {
-    expr = throws (secureSocketUrl.make "tls" "1.2.3.4:443");
-    expected = true;
+    expr = secureSocketUrl.make "tls" "1.2.3.4:443";
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.make: expected ipEndpoint or dnsEndpoint value, got string$";
   };
   testMakeNonStringSchemeThrows = {
-    expr = throws (secureSocketUrl.make 42 (endpoint.parse "1.2.3.4:443"));
-    expected = true;
+    expr = secureSocketUrl.make 42 (endpoint.parse "1.2.3.4:443");
+    expectedError.msg = "^libnet\\.secureSocketUrl\\.make: expected string, got int$";
   };
 
   # ===== Predicates =====
@@ -225,6 +245,10 @@ in
   testEqDifferentEndpoint = {
     expr = secureSocketUrl.eq (parse "tls://1.2.3.4:443") (parse "tls://1.2.3.4:444");
     expected = false;
+  };
+  testToStringDnsLowercase = {
+    expr = secureSocketUrl.toString (parse "tls://Example.COM:443");
+    expected = "tls://example.com:443";
   };
   testEqDnsCaseInsensitive = {
     expr = secureSocketUrl.eq (parse "tls://Example.COM:443") (parse "tls://example.com:443");

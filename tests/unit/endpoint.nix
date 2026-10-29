@@ -37,8 +37,8 @@ in
 
   # ===== Reject =====
   testRejectEmpty = {
-    expr = throws (parse "");
-    expected = true;
+    expr = parse "";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: expected exactly one ':' \\(name:port\\): \"\"$";
   };
   testRejectNoPort = {
     expr = throws (parse "nas");
@@ -49,11 +49,53 @@ in
     expected = true;
   };
   testRejectUnbracketedIpv6 = {
-    expr = throws (parse "::1:443");
-    expected = true;
+    expr = parse "::1:443";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: unbracketed IPv6 is ambiguous";
+  };
+  # A union's error keeps the detail of the member whose shape the text
+  # matches: an IP endpoint for an IP host, otherwise a DNS endpoint.
+  testRejectIpPortKeepsDetail = {
+    expr = parse "1.2.3.4:99999";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"1\\.2\\.3\\.4:99999\"$";
+  };
+  testRejectBracketedPortKeepsDetail = {
+    expr = parse "[::1]:x";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"\\[::1\\]:x\"$";
+  };
+  testRejectNamePortKeepsDetail = {
+    expr = parse "nas:x";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid port in \"nas:x\"$";
+  };
+  # Not an IP endpoint, and its name reads as IPv4 (ADR 0021).
+  testRejectLeadingZeroQuad = {
+    expr = parse "010.0.0.1:80";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid IPv4 in \"010\\.0\\.0\\.1:80\"$";
+  };
+  testRejectNumericName = {
+    expr = map endpoint.isValid [
+      "127.1:80"
+      "2130706433:80"
+      "0x7f:80"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
   };
   testRejectNotString = {
-    expr = throws (endpoint.parse 42);
+    expr = endpoint.parse 42;
+    expectedError.msg = "^libnet\\.endpoint\\.parse: expected string, got int$";
+  };
+  # A Unix socket's failure keeps its detail under the union's name.
+  testRejectAtOnlyNamesUnion = {
+    expr = parse "@";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid socket \"@\" ";
+  };
+  testTryParseSlashOnlyNamesUnion = {
+    expr =
+      builtins.match "libnet[.]endpoint[.]parse: invalid socket \"/\" .*" (endpoint.tryParse "/").error
+      != null;
     expected = true;
   };
 
@@ -71,9 +113,9 @@ in
   };
 
   # ===== toString =====
-  testToStringNamePreservesCase = {
+  testToStringNameLowercase = {
     expr = endpoint.toString (parse "MyHost.example.com:443");
-    expected = "MyHost.example.com:443";
+    expected = "myhost.example.com:443";
   };
 
   # ===== Predicates =====
@@ -195,6 +237,14 @@ in
     expr = endpoint.compare (parse "/run/foo.sock") (parse "10.0.0.1:80");
     expected = 1;
   };
+  testCompareNamesItself = {
+    expr = endpoint.ge (parse "/run/foo.sock") (libnet.ipBindpoint.parse ":80");
+    expectedError.msg = "^libnet\\.endpoint\\.ge: expected ipEndpoint, dnsEndpoint or unixSocket value, got ipBindpoint value$";
+  };
+  testToStringNamesItself = {
+    expr = endpoint.toString 80;
+    expectedError.msg = "^libnet\\.endpoint\\.toString: expected ipEndpoint, dnsEndpoint or unixSocket value, got int$";
+  };
   testMinPicksIp = {
     expr = (endpoint.min (parse "nas:22") (parse "10.0.0.1:80"))._type;
     expected = "ipEndpoint";
@@ -220,6 +270,19 @@ in
   testIsUnixSocketNo = {
     expr = endpoint.isUnixSocket (parse "192.0.2.1:80");
     expected = false;
+  };
+  # The union predicates accept any value.
+  testMemberPredicatesAcceptAnyValue = {
+    expr = map (predicate: predicate "/run/foo.sock") [
+      endpoint.isIpEndpoint
+      endpoint.isDnsEndpoint
+      endpoint.isUnixSocket
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
   };
   testIsValidUnix = {
     expr = endpoint.isValid "/run/foo.sock";

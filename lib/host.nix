@@ -9,7 +9,8 @@
 
   Returns the underlying typed value (no new `_type` tag); consumers
   branch on `value._type` to access family-specific operations. Same
-  pattern as `libnet.ip` for the v4/v6 split.
+  pattern as `libnet.ip` for the v4/v6 split. Names lowercase at parse
+  (ADR 0020), so a host prints canonical text.
 
   Example:
     libnet.host.parse "192.168.1.1"   # tagged ipv4
@@ -20,6 +21,14 @@ let
   types = import ./internal/types.nix;
   ip = import ./ip.nix;
   dnsName = import ./dns-name.nix;
+  errors = import ./internal/errors.nix;
+  parsing = import ./internal/parse.nix;
+  comparison = import ./internal/comparison.nix;
+
+  # Return a host argument of `function`, throwing for any other value.
+  hostArgument = function: errors.expect "host.${function}" "ip, hostname or domain value" is;
+
+  parseError = detail: types.tryErr (errors.message "host.parse" detail);
 
   # ===== Parsing =====
 
@@ -36,7 +45,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.host.parse: input must be a string"
+      parseError (errors.notString input)
     else
       let
         ipResult = ip.tryParse input;
@@ -49,8 +58,12 @@ let
         in
         if nameResult.success then
           nameResult
+        # Keep the detail of the member whose shape the text has: no DNS
+        # name holds a colon or only digits and dots.
+        else if parsing.isDottedDigits input || parsing.countOccurrences ":" input > 0 then
+          parseError (errors.detail "ip.parse" ipResult.error)
         else
-          types.tryErr "libnet.host.parse: \"${input}\" is not a valid IP, hostname, or domain";
+          parseError (errors.detail "dnsName.parse" nameResult.error);
 
   /*
     Parse an address a service consumer might connect to.
@@ -76,12 +89,10 @@ let
   */
   toString =
     host:
-    if types.isIp host then
-      ip.toString host
-    else if dnsName.is host then
-      dnsName.toString host
-    else
-      throw "libnet.host.toString: expected ip, hostname, or domain value";
+    let
+      checked = hostArgument "toString" host;
+    in
+    if types.isIp checked then ip.toString checked else dnsName.toString checked;
 
   # ===== Predicates =====
 
@@ -127,7 +138,7 @@ let
   #
   # Cross-family order: ip < name (hostname < domain within names).
   # Within the IP family, ipv4 < ipv6 (delegated to ip.compare); among
-  # names, delegated to dnsName.compare (case-insensitive per DNS).
+  # names, delegated to dnsName.compare.
 
   rank = value: if types.isIp value then 0 else 1;
 
@@ -148,99 +159,33 @@ let
     else
       false;
 
-  /*
-    Order two hosts for sorting: ipv4 < ipv6 < hostname < domain, then
-    within each family by that family's comparison.
-
-    `a`, `b`: ipv4, ipv6, hostname, or domain values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
-    a: b:
-    let
-      rankA = rank a;
-      rankB = rank b;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ip.compare a b
-    else
-      dnsName.compare a b;
-
-  /*
-    Test whether one host sorts strictly before another.
-
-    `a`, `b`: host values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one host sorts before or equal to another.
-
-    `a`, `b`: host values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one host sorts strictly after another.
-
-    `a`, `b`: host values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one host sorts after or equal to another.
-
-    `a`, `b`: host values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the host that sorts first.
-
-    `a`, `b`: host values.
-
-    Returns `a` when `le a b`, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the host that sorts last.
-
-    `a`, `b`: host values.
-
-    Returns `a` when `ge a b`, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  # The operands are checked first, so the delegated comparison cannot
+  # fail and name itself.
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.byRank rank (
+      left: right: if rank left == 0 then ip.compare left right else dnsName.compare left right
+    ) (hostArgument function a) (hostArgument function b)
+  );
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isDnsName
     isIp
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    parse
-    toString
-    tryParse
     ;
 }

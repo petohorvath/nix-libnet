@@ -46,6 +46,19 @@ in
     expr = (parseValue "192.0.2.1")._type;
     expected = "ipv4";
   };
+  # Neither an IPv4 address nor a registered name (ADR 0021).
+  testNumericRejected = {
+    expr = map (input: (tryParse input).success) [
+      "127.1"
+      "0x7f.0.0.1"
+      "2130706433"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
   testIpv6UnbracketedRejected = {
     expr = (tryParse "::1").success;
     expected = false;
@@ -69,16 +82,25 @@ in
     expr = (parseValue "a%20b")._type;
     expected = "regName";
   };
-  # Not a valid IPv4 address, so the registered-name grammar applies.
-  testOutOfRangeQuadIsRegName = {
-    expr = (parseValue "256.0.0.1")._type;
-    expected = "regName";
+  # Not a valid IPv4 address, but a client still reads it as one, so it
+  # is no registered name either (ADR 0021).
+  testOutOfRangeQuadRejected = {
+    expr = (tryParse "256.0.0.1").error;
+    expected = "libnet.urlHost.parse: invalid octet in \"256.0.0.1\"";
   };
 
   # ===== Reject =====
   testRejectEmpty = {
     expr = (tryParse "").success;
     expected = false;
+  };
+  testRejectNotString = {
+    expr = urlHost.parse 42;
+    expectedError.msg = "^libnet\\.urlHost\\.parse: expected string, got int$";
+  };
+  testRejectInvalidNamesUrlHost = {
+    expr = urlHost.parse "bad host";
+    expectedError.msg = "^libnet\\.urlHost\\.parse: invalid registered name \"bad host\"$";
   };
   testRejectSpace = {
     expr = (tryParse "bad host").success;
@@ -94,9 +116,13 @@ in
   };
 
   # ===== toString / predicates =====
-  testToStringRegNamePreservesCase = {
+  testToStringRegNameLowercase = {
     expr = urlHost.toString (parseValue "Example.COM");
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  testParseRegNameFoldsPercentEncoding = {
+    expr = urlHost.toString (urlHost.parse "My%2fHost");
+    expected = "my%2Fhost";
   };
   testToStringIpv4 = {
     expr = urlHost.toString (parseValue "1.2.3.4");
@@ -107,8 +133,8 @@ in
     expected = "[fe80::1]";
   };
   testToStringRejectsDomain = {
-    expr = throws (urlHost.toString (libnet.domain.parse "example.com"));
-    expected = true;
+    expr = urlHost.toString (libnet.domain.parse "example.com");
+    expectedError.msg = "^libnet\\.urlHost\\.toString: expected ip or regName value, got domain value$";
   };
   testIsValidOk = {
     expr = urlHost.isValid "example.com";
@@ -172,6 +198,20 @@ in
     expr = (urlHost.toHost (parseValue "example.com"))._type;
     expected = "domain";
   };
+  testToHostFoldedName = {
+    expr = urlHost.toHost (parseValue "Example.COM");
+    expected = libnet.domain.parse "example.com";
+  };
+  testToHostRejectsString = {
+    expr = urlHost.toHost "example.com";
+    expectedError.msg = "^libnet\\.urlHost\\.toHost: expected ip or regName value, got string$";
+  };
+  # The `dnsName` rule rejects numeric names, but they never reach
+  # `toHost`: `regName` rejects them first.
+  testToHostHexLikeName = {
+    expr = urlHost.toHost (parseValue "0x7g");
+    expected = libnet.hostname.parse "0x7g";
+  };
   testToHostUnderscoreNull = {
     expr = urlHost.toHost (parseValue "my_host") == null;
     expected = true;
@@ -182,7 +222,7 @@ in
     expr = urlHost.eq (parseValue "1.2.3.4") (parseValue "1.2.3.4");
     expected = true;
   };
-  testEqRegNameCaseInsensitive = {
+  testEqRegNameMixedCaseSpellings = {
     expr = urlHost.eq (parseValue "Example.COM") (parseValue "example.com");
     expected = true;
   };
@@ -218,7 +258,15 @@ in
     expr = urlHost.compare (parseValue "alpha.com") (parseValue "beta.com");
     expected = -1;
   };
-  testCompareCaseInsensitiveEqual = {
+  testCompareFoldedOrder = {
+    expr = urlHost.compare (parseValue "alpha.com") (parseValue "Beta.com");
+    expected = -1;
+  };
+  testLtNamesItself = {
+    expr = urlHost.lt (parseValue "a") (libnet.domain.parse "example.com");
+    expectedError.msg = "^libnet\\.urlHost\\.lt: expected ip or regName value, got domain value$";
+  };
+  testCompareMixedCaseSpellingsEqual = {
     expr = urlHost.compare (parseValue "Example.COM") (parseValue "example.com");
     expected = 0;
   };

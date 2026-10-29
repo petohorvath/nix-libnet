@@ -8,30 +8,54 @@ let
   pathMax = "/" + builtins.concatStringsSep "" (builtins.genList (_: "a") 106);
   # 108-char pathname (one over)
   pathOver = "/" + builtins.concatStringsSep "" (builtins.genList (_: "a") 107);
+  # 108-char abstract name (max): "@" + 107 chars, and one over
+  abstractMax = "@" + builtins.concatStringsSep "" (builtins.genList (_: "a") 107);
+  abstractOver = "@" + builtins.concatStringsSep "" (builtins.genList (_: "a") 108);
 in
 {
   # ===== Parse: pathname =====
   testParseSimple = {
-    expr = (parse "/run/foo.sock").path;
+    expr = (parse "/run/foo.sock").value;
     expected = "/run/foo.sock";
   };
   testParsePostgres = {
-    expr = (parse "/run/postgresql/.s.PGSQL.5432").path;
+    expr = (parse "/run/postgresql/.s.PGSQL.5432").value;
     expected = "/run/postgresql/.s.PGSQL.5432";
+  };
+  testParseStoresValue = {
+    expr = parse "/run/foo.sock";
+    expected = {
+      _type = "unixSocket";
+      value = "/run/foo.sock";
+    };
   };
   testParseTagged = {
     expr = (parse "/run/foo.sock")._type;
     expected = "unixSocket";
   };
   testParseMaxLength = {
-    expr = (parse pathMax).path;
+    expr = (parse pathMax).value;
     expected = pathMax;
+  };
+
+  # At least one character follows the leading `/`.
+  testParseMinLength = {
+    expr = (parse "/a").value;
+    expected = "/a";
   };
 
   # ===== Parse: abstract =====
   testParseAbstract = {
-    expr = (parse "@foo").path;
+    expr = (parse "@foo").value;
     expected = "@foo";
+  };
+  testParseAbstractMinLength = {
+    expr = (parse "@a").value;
+    expected = "@a";
+  };
+  testParseAbstractMaxLength = {
+    expr = (parse abstractMax).value;
+    expected = abstractMax;
   };
   testParseAbstractTagged = {
     expr = (parse "@my-service")._type;
@@ -56,20 +80,24 @@ in
     expected = true;
   };
   testRejectSlashOnly = {
-    expr = throws (parse "/");
-    expected = true;
+    expr = parse "/";
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"/\" ";
   };
   testRejectAtOnly = {
-    expr = throws (parse "@");
-    expected = true;
+    expr = parse "@";
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"@\" ";
   };
   testRejectTooLong = {
-    expr = throws (parse pathOver);
-    expected = true;
+    expr = parse pathOver;
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"/a{107}\" \\(expected ";
+  };
+  testRejectAbstractTooLong = {
+    expr = parse abstractOver;
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"@a{108}\" \\(expected ";
   };
   testRejectNotString = {
-    expr = throws (unixSocket.parse 42);
-    expected = true;
+    expr = unixSocket.parse 42;
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -85,8 +113,8 @@ in
     expected = false;
   };
   testTryParseBadError = {
-    expr = builtins.isString (unixSocket.tryParse "foo").error;
-    expected = true;
+    expr = (unixSocket.tryParse "foo").error;
+    expected = "libnet.unixSocket.parse: invalid socket \"foo\" (expected an absolute path '/...' (<=107 bytes) or an abstract name '@...' (<=108 bytes))";
   };
 
   # ===== toString / accessor =====
@@ -98,9 +126,10 @@ in
     expr = unixSocket.toString (parse "@foo");
     expected = "@foo";
   };
-  testPathAccessor = {
-    expr = unixSocket.path (parse "/run/foo.sock");
-    expected = "/run/foo.sock";
+  # `toString` returns the path; a scalar's `value` field has no accessor.
+  testPathAccessorRemoved = {
+    expr = unixSocket ? path;
+    expected = false;
   };
 
   # ===== Predicates =====
@@ -189,11 +218,25 @@ in
     expected = 0;
   };
   testMinPick = {
-    expr = (unixSocket.min (parse "/run/b.sock") (parse "/run/a.sock")).path;
+    expr = (unixSocket.min (parse "/run/b.sock") (parse "/run/a.sock")).value;
     expected = "/run/a.sock";
   };
+  testCompareNamesItself = {
+    expr = unixSocket.ge (parse "/a") { value = "/a"; };
+    expectedError.msg = "^libnet\\.unixSocket\\.ge: expected unixSocket value, got set$";
+  };
+  testMinSortsPartially = {
+    expr = map (unixSocket.min (parse "/run/b.sock")) [
+      (parse "/run/a.sock")
+      (parse "/run/c.sock")
+    ];
+    expected = [
+      (parse "/run/a.sock")
+      (parse "/run/b.sock")
+    ];
+  };
   testMaxPick = {
-    expr = (unixSocket.max (parse "/run/b.sock") (parse "/run/a.sock")).path;
+    expr = (unixSocket.max (parse "/run/b.sock") (parse "/run/a.sock")).value;
     expected = "/run/b.sock";
   };
 }

@@ -15,17 +15,27 @@
 */
 let
   bits = import ./internal/bits.nix;
+  carry = import ./internal/carry.nix;
+  comparison = import ./internal/comparison.nix;
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  mk = first: last: {
-    _type = "ipRange";
-    from = first;
-    to = last;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    first: last:
+    builtins.seq first (
+      builtins.seq last {
+        _type = "ipRange";
+        from = first;
+        to = last;
+      }
+    );
 
   isV4 = address: address._type == "ipv4";
   isV6 = address: address._type == "ipv6";
@@ -40,6 +50,23 @@ let
   # Same-family address equality on the raw representation.
   sameAddress =
     left: right: if isV4 left then left.value == right.value else left.words == right.words;
+
+  # ===== Argument kinds =====
+
+  /*
+    Each returns its argument, throwing for the wrong kind on behalf of
+    the public `function`. The unchecked helpers below, such as `sizeFor`
+    and `order`, take values the public function has already checked.
+  */
+  ipRangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
+  intArgument = errors.intArgument "ipRange";
+  addressArgument = function: errors.expect "ipRange.${function}" "ipv4 or ipv6 value" types.isIp;
+
+  # Check both range operands of a binary `function`, then apply
+  # `relation` to them.
+  binary =
+    function: relation: a: b:
+    relation (ipRangeArgument function a) (ipRangeArgument function b);
 
   # ===== Parsing =====
 
@@ -56,31 +83,37 @@ let
   */
   tryParse =
     input:
+    let
+      parseError = detail: types.tryErr (errors.message "ipRange.parse" detail);
+      isV6Input = text: parsing.countOccurrences ":" text > 0;
+      # The address parser's detail, without its own prefix.
+      addressDetail =
+        text: result: errors.detail (if isV6Input text then "ipv6.parse" else "ipv4.parse") result.error;
+    in
     if !(builtins.isString input) then
-      types.tryErr "libnet.ipRange.parse: input must be a string"
+      parseError (errors.notString input)
     else
       let
         parts = parsing.splitOn "-" input;
         partCount = builtins.length parts;
       in
       if partCount != 2 then
-        types.tryErr "libnet.ipRange.parse: missing '-' or too many: \"${input}\""
+        parseError "missing '-' or too many: \"${input}\""
       else
         let
           fromInput = builtins.elemAt parts 0;
           toInput = builtins.elemAt parts 1;
-          isV6Input = text: parsing.countOccurrences ":" text > 0;
           fromResult = if isV6Input fromInput then ipv6.tryParse fromInput else ipv4.tryParse fromInput;
           toResult = if isV6Input toInput then ipv6.tryParse toInput else ipv4.tryParse toInput;
         in
         if !fromResult.success then
-          types.tryErr "libnet.ipRange.parse: invalid 'from': ${fromResult.error}"
+          parseError "invalid 'from': ${addressDetail fromInput fromResult}"
         else if !toResult.success then
-          types.tryErr "libnet.ipRange.parse: invalid 'to': ${toResult.error}"
+          parseError "invalid 'to': ${addressDetail toInput toResult}"
         else if fromResult.value._type != toResult.value._type then
-          types.tryErr "libnet.ipRange.parse: mixed families in \"${input}\""
+          parseError "mixed families in \"${input}\""
         else if !(leFor fromResult.value fromResult.value toResult.value) then
-          types.tryErr "libnet.ipRange.parse: 'from' > 'to' in \"${input}\""
+          parseError "'from' > 'to' in \"${input}\""
         else
           types.tryOk (mk fromResult.value toResult.value);
 
@@ -111,9 +144,10 @@ let
   toString =
     range:
     let
-      formatAddress = if isV4 range.from then ipv4.toString else ipv6.toString;
+      checked = ipRangeArgument "toString" range;
+      formatAddress = if isV4 checked.from then ipv4.toString else ipv6.toString;
     in
-    "${formatAddress range.from}-${formatAddress range.to}";
+    "${formatAddress checked.from}-${formatAddress checked.to}";
 
   /*
     Build a range from two address values.
@@ -126,16 +160,17 @@ let
   */
   make =
     first: last:
-    if !(types.isIp first) then
-      throw "libnet.ipRange.make: 'from' must be ipv4 or ipv6"
-    else if !(types.isIp last) then
-      throw "libnet.ipRange.make: 'to' must be ipv4 or ipv6"
-    else if first._type != last._type then
-      throw "libnet.ipRange.make: mixed families"
-    else if !(leFor first first last) then
-      throw "libnet.ipRange.make: 'from' > 'to'"
+    let
+      lowest = addressArgument "make" first;
+      highest = addressArgument "make" last;
+      formatAddress = if isV4 lowest then ipv4.toString else ipv6.toString;
+    in
+    if lowest._type != highest._type then
+      errors.fail "ipRange.make" "mixed families"
+    else if !(leFor lowest lowest highest) then
+      errors.fail "ipRange.make" "from > to: ${formatAddress lowest}-${formatAddress highest}"
     else
-      mk first last;
+      mk lowest highest;
 
   /*
     Build a range holding exactly one address, parallel to
@@ -147,10 +182,10 @@ let
   */
   fromAddress =
     address:
-    if !(types.isIp address) then
-      throw "libnet.ipRange.fromAddress: expected ipv4 or ipv6 value"
-    else
-      mk address address;
+    let
+      checked = addressArgument "fromAddress" address;
+    in
+    mk checked checked;
 
   # ===== Predicates =====
 
@@ -179,7 +214,7 @@ let
 
     Returns true for an IPv4 range.
   */
-  isIpv4 = range: isV4 range.from;
+  isIpv4 = range: isV4 (ipRangeArgument "isIpv4" range).from;
 
   /*
     Check whether a range holds IPv6 addresses.
@@ -188,7 +223,7 @@ let
 
     Returns true for an IPv6 range.
   */
-  isIpv6 = range: isV6 range.from;
+  isIpv6 = range: isV6 (ipRangeArgument "isIpv6" range).from;
 
   /*
     Check whether a range holds a single address.
@@ -199,7 +234,10 @@ let
   */
   isSingleton =
     range:
-    if isV4 range.from then range.from.value == range.to.value else range.from.words == range.to.words;
+    let
+      checked = ipRangeArgument "isSingleton" range;
+    in
+    sameAddress checked.from checked.to;
 
   # ===== Accessors =====
 
@@ -210,7 +248,7 @@ let
 
     Returns the `from` address value.
   */
-  from = range: range.from;
+  from = range: (ipRangeArgument "from" range).from;
 
   /*
     Get the highest address of a range.
@@ -219,7 +257,7 @@ let
 
     Returns the `to` address value.
   */
-  to = range: range.to;
+  to = range: (ipRangeArgument "to" range).to;
 
   /*
     Get the IP version of a range.
@@ -228,22 +266,49 @@ let
 
     Returns 4 or 6.
   */
-  version = range: if isV4 range.from then 4 else 6;
+  version = range: if isV4 (ipRangeArgument "version" range).from then 4 else 6;
+
+  /*
+    The address count of `range`, throwing on behalf of `function` when
+    it reaches 2^63, which a Nix int cannot hold. The IPv6 count is
+    checked on the words before any arithmetic that could overflow,
+    which Nix 2.18 would wrap silently.
+  */
+  sizeFor =
+    function: range:
+    if isV4 range.from then
+      range.to.value - range.from.value + 1
+    else
+      let
+        word =
+          i: borrow:
+          carry.sub32 (builtins.elemAt range.to.words i) (builtins.elemAt range.from.words i) borrow;
+        word3 = word 3 0;
+        word2 = word 2 word3.borrow;
+        word1 = word 1 word2.borrow;
+        word0 = word 0 word1.borrow;
+        # 2^31 - 1, the largest high word of a difference below 2^63.
+        highMax = 2147483647;
+      in
+      if
+        word0.diff != 0
+        || word1.diff != 0
+        || word2.diff > highMax
+        || (word2.diff == highMax && word3.diff == bits.mask32)
+      then
+        errors.fail "ipRange.${function}" "range too large for a Nix integer (2^63 or more addresses)"
+      else
+        word2.diff * bits.pow2_32 + word3.diff + 1;
 
   /*
     Count the addresses in a range.
 
     `range`: ipRange value.
 
-    Returns `to - from + 1` as an integer; throws for IPv6 ranges wider
-    than about 2^63 addresses.
+    Returns `to - from + 1` as an integer; throws for IPv6 ranges of 2^63
+    or more addresses, which a Nix int cannot hold.
   */
-  size =
-    range:
-    if isV4 range.from then
-      range.to.value - range.from.value + 1
-    else
-      ipv6.diff range.from range.to + 1;
+  size = range: sizeFor "size" (ipRangeArgument "size" range);
 
   # ===== Containment & relationships =====
 
@@ -253,29 +318,21 @@ let
     `range`: ipRange value.
     `address`: value to test.
 
-    Returns true when `address` is a same-family address within
-    [from, to]; false for other values or families.
+    Returns true when `address` lies within [from, to]; false for an
+    address of the other family. Throws for any other value.
   */
   contains =
     range: address:
-    if !(types.isIp address) then
-      false
-    else if range.from._type != address._type then
-      false
-    else
-      let
-        lessOrEqual = leFor range.from;
-      in
-      (lessOrEqual range.from address) && (lessOrEqual address range.to);
+    let
+      checkedRange = ipRangeArgument "contains" range;
+      checkedAddress = addressArgument "contains" address;
+      lessOrEqual = leFor checkedRange.from;
+    in
+    checkedRange.from._type == checkedAddress._type
+    && (lessOrEqual checkedRange.from checkedAddress)
+    && (lessOrEqual checkedAddress checkedRange.to);
 
-  /*
-    Check whether two ranges share at least one address. Symmetric.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when the ranges intersect; false across families.
-  */
-  overlaps =
+  overlapping =
     a: b:
     if a.from._type != b.from._type then
       false
@@ -286,15 +343,15 @@ let
       (lessOrEqual a.from b.to) && (lessOrEqual b.from a.to);
 
   /*
-    Check whether one range lies within another.
+    Check whether two ranges share at least one address. Symmetric.
 
-    `a`: candidate inner range.
-    `b`: candidate outer range.
+    `a`, `b`: ipRange values.
 
-    Returns true when `a` is a subset of `b` (including equal ranges);
-    false across families.
+    Returns true when the ranges intersect; false across families.
   */
-  isSubrangeOf =
+  overlaps = binary "overlaps" overlapping;
+
+  subrange =
     a: b:
     if a.from._type != b.from._type then
       false
@@ -305,6 +362,17 @@ let
       (lessOrEqual b.from a.from) && (lessOrEqual a.to b.to);
 
   /*
+    Check whether one range lies within another.
+
+    `a`: candidate inner range.
+    `b`: candidate outer range.
+
+    Returns true when `a` is a subset of `b` (including equal ranges);
+    false across families.
+  */
+  isSubrangeOf = binary "isSubrangeOf" subrange;
+
+  /*
     Check whether one range encloses another; inverse of `isSubrangeOf`.
 
     `a`: candidate outer range.
@@ -312,18 +380,9 @@ let
 
     Returns true when `b` is a subset of `a` (including equal ranges).
   */
-  isSuperrangeOf = a: b: isSubrangeOf b a;
+  isSuperrangeOf = binary "isSuperrangeOf" (a: b: subrange b a);
 
-  /*
-    Check whether two ranges touch with no gap and no overlap. A range
-    ending at the family's top address has no upward neighbour.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when one range ends immediately before the other
-    starts; false across families.
-  */
-  isAdjacent =
+  adjacent =
     a: b:
     if a.from._type != b.from._type then
       false
@@ -338,6 +397,17 @@ let
       || (bAfterEnd.success && sameAddress bAfterEnd.value a.from);
 
   /*
+    Check whether two ranges touch with no gap and no overlap. A range
+    ending at the family's top address has no upward neighbour.
+
+    `a`, `b`: ipRange values.
+
+    Returns true when one range ends immediately before the other
+    starts; false across families.
+  */
+  isAdjacent = binary "isAdjacent" adjacent;
+
+  /*
     Combine two ranges into one when they overlap or touch.
 
     `a`, `b`: ipRange values.
@@ -345,11 +415,11 @@ let
     Returns the spanning ipRange, or null when a gap separates them or
     the families differ.
   */
-  merge =
+  merge = binary "merge" (
     a: b:
     if a.from._type != b.from._type then
       null
-    else if overlaps a b || isAdjacent a b then
+    else if overlapping a b || adjacent a b then
       let
         lessOrEqual = leFor a.from;
         greaterOrEqual = x: y: lessOrEqual y x;
@@ -358,9 +428,18 @@ let
       in
       mk mergedFrom mergedTo
     else
-      null;
+      null
+  );
 
   # ===== Enumeration =====
+
+  # The `count` addresses of `range` from `from` up.
+  listAddresses =
+    range: count:
+    let
+      offsetAddress = addFor range.from;
+    in
+    builtins.genList (i: offsetAddress i range.from) count;
 
   /*
     List every address in a range with no size guard; the caller bounds
@@ -373,10 +452,9 @@ let
   addressesUnbounded =
     range:
     let
-      rangeSize = size range;
-      offsetAddress = addFor range.from;
+      checked = ipRangeArgument "addressesUnbounded" range;
     in
-    builtins.genList (i: offsetAddress i range.from) rangeSize;
+    listAddresses checked (sizeFor "addressesUnbounded" checked);
 
   /*
     List every address in a range, guarding against accidentally huge
@@ -391,34 +469,37 @@ let
   addresses =
     range:
     let
-      rangeSize = size range;
+      checked = ipRangeArgument "addresses" range;
+      rangeSize = sizeFor "addresses" checked;
     in
     if rangeSize > bits.pow2 16 then
-      throw "libnet.ipRange.addresses: range too large (${builtins.toString rangeSize} > 2^16); use addressesUnbounded"
+      errors.fail "ipRange.addresses" "range too large (${builtins.toString rangeSize} > 2^16); use addressesUnbounded"
     else
-      addressesUnbounded range;
+      listAddresses checked rangeSize;
 
   /*
     Index into a range, parallel to `cidr.addressAt` and
     `ipBindpoint.endpointAt`. Like `cidr.addressAt` it relies on `size`, so
-    it throws for IPv6 ranges wider than about 2^63 addresses.
+    it throws for IPv6 ranges of 2^63 or more addresses.
 
     `n`: 0-based offset from `from`; negative values count from the end.
     `range`: ipRange value.
 
-    Returns the selected address; throws when `n` falls outside the
-    range.
+    Returns the selected address; throws when `n` is not an integer or
+    falls outside the range.
   */
   addressAt =
     n: range:
     let
-      rangeSize = size range;
-      index = if n < 0 then rangeSize + n else n;
+      offset = intArgument "addressAt" n;
+      checked = ipRangeArgument "addressAt" range;
+      rangeSize = sizeFor "addressAt" checked;
+      index = if offset < 0 then rangeSize + offset else offset;
     in
     if index < 0 || index >= rangeSize then
-      throw "libnet.ipRange.addressAt: index out of range [0, ${builtins.toString rangeSize})"
+      errors.fail "ipRange.addressAt" "index out of range [0, ${builtins.toString rangeSize}): ${builtins.toString offset}"
     else
-      (addFor range.from) index range.from;
+      (addFor checked.from) index checked.from;
 
   # ===== CIDR interop =====
 
@@ -432,10 +513,10 @@ let
   */
   fromCidr =
     cidrValue:
-    if !(types.isCidr cidrValue) then
-      throw "libnet.ipRange.fromCidr: expected a cidr value"
-    else
-      mk (cidr.networkAddress cidrValue) (cidr.topAddress cidrValue);
+    let
+      block = errors.expectKind "ipRange.fromCidr" "cidr" cidrValue;
+    in
+    mk (cidr.networkAddress block) (cidr.topAddress block);
 
   /*
     Cover a range exactly with the fewest CIDR blocks, for tools that
@@ -446,8 +527,9 @@ let
     Returns a list of cidr values in ascending address order.
   */
   toCidrs =
-    range:
+    toCidrsArgument:
     let
+      range = ipRangeArgument "toCidrs" toCidrsArgument;
       maxPrefix = if isV4 range.from then 32 else 128;
       nextAddress = (addFor range.from) 1;
       isTopAddress =
@@ -502,27 +584,15 @@ let
 
   # ===== Comparison =====
 
-  compareAddresses = a: b: if isV4 a then ipv4.compare a b else ipv6.compare a b;
-
-  /*
-    Order two ranges lexicographically on (family, from, to); IPv4
-    ranges sort before IPv6 ranges.
-
-    `a`, `b`: ipRange values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
+  # Order checked ranges by family (IPv4 first), then `from`, then `to`.
+  order =
     a: b:
-    if isV4 a.from && isV6 b.from then
-      -1
-    else if isV6 a.from && isV4 b.from then
-      1
-    else
-      let
-        fromOrder = compareAddresses a.from b.from;
-      in
-      if fromOrder != 0 then fromOrder else compareAddresses a.to b.to;
+    comparison.lexicographic [
+      (ip.compare a.from b.from)
+      (ip.compare a.to b.to)
+    ];
+
+  ordering = comparison.suite (function: binary function order);
 
   /*
     Test two address ranges for equality.
@@ -534,7 +604,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.ipRange a b
     && a.from._type == b.from._type
     && (
       if isV4 a.from then
@@ -542,74 +612,17 @@ let
       else
         ipv6.eq a.from b.from && ipv6.eq a.to b.to
     );
-
-  /*
-    Test whether one range sorts before another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one range sorts before or equal to another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one range sorts after another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one range sorts after or equal to another.
-
-    `a`, `b`: ipRange values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the earlier of two ranges in sort order.
-
-    `a`, `b`: ipRange values.
-
-    Returns the lesser range; `a` when they compare equal.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the later of two ranges in sort order.
-
-    `a`, `b`: ipRange values.
-
-    Returns the greater range; `a` when they compare equal.
-  */
-  max = a: b: if ge a b then a else b;
 in
 {
   inherit
     addressAt
     addresses
     addressesUnbounded
-    compare
     contains
     eq
     from
     fromAddress
     fromCidr
-    ge
-    gt
     is
     isAdjacent
     isIpv4
@@ -618,12 +631,8 @@ in
     isSubrangeOf
     isSuperrangeOf
     isValid
-    le
-    lt
     make
-    max
     merge
-    min
     overlaps
     parse
     size
@@ -632,5 +641,14 @@ in
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

@@ -5,7 +5,9 @@
   the NIC identifier. Validation mirrors the kernel's dev_valid_name()
   (net/core/dev.c): non-empty, length < IFNAMSIZ (16, so <= 15 bytes on
   the wire), not "." or "..", and containing no '/', no ':', and no
-  whitespace (any isspace(3) byte: SP HT LF VT FF CR).
+  byte that the kernel's isspace() treats as space: 9 to 13 (HT LF VT FF
+  CR), 32 (SP) and 160 (NBSP in Latin-1). Names are case-sensitive and
+  keep their case.
 
   The address-on-subnet counterpart (`192.168.1.10/24`) is a separate
   type: `libnet.interfaceAddress`.
@@ -16,6 +18,8 @@
 */
 let
   types = import ./internal/types.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
 
   # IFNAMSIZ from <linux/if.h> is a 16-byte buffer including the
   # terminating NUL, so a valid name has at most 15 bytes.
@@ -26,9 +30,36 @@ let
     value = name;
   };
 
-  # [[:space:]] in POSIX ERE covers the six kernel-recognized whitespace
-  # bytes (SP HT LF VT FF CR), matching dev_valid_name()'s isspace(3).
-  hasForbiddenChar = name: builtins.match ".*[/:[:space:]].*" name != null;
+  /*
+    The bytes dev_valid_name() rejects besides the length and dot rules:
+    '/', ':' and every byte the kernel's isspace() accepts, which unlike
+    isspace(3) in the C locale includes byte 160. Nix string literals
+    cannot spell VT, FF or a lone byte 160, so they are decoded from JSON;
+    byte 160 is the second byte of the UTF-8 encoding of U+00A0.
+  */
+  forbiddenBytes = [
+    "/"
+    ":"
+    "\t"
+    "\n"
+    (builtins.fromJSON ''"\u000b"'')
+    (builtins.fromJSON ''"\u000c"'')
+    "\r"
+    " "
+    (builtins.substring 1 1 (builtins.fromJSON ''"\u00a0"''))
+  ];
+
+  hasForbiddenByte =
+    name:
+    builtins.any (i: builtins.elem (builtins.substring i 1 name) forbiddenBytes) (
+      builtins.genList (i: i) (builtins.stringLength name)
+    );
+
+  # The stored name of an interfaceName argument of `function`.
+  valueOf =
+    function: name: (errors.expectKind "interfaceName.${function}" "interfaceName" name).value;
+
+  parseError = detail: types.tryErr (errors.message "interfaceName.parse" detail);
 
   # ===== Parsing (kernel dev_valid_name parity) =====
 
@@ -37,7 +68,7 @@ let
     invalid input themselves.
 
     `input`: candidate name; must be non-empty, at most 15 bytes, not
-    "." or "..", and free of '/', ':', and whitespace.
+    "." or "..", and free of '/', ':', and the kernel's space bytes.
 
     Returns a tryResult: `{ success = true; value = <interfaceName>; }`
     or `{ success = false; error = <message>; }`.
@@ -45,15 +76,15 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.interfaceName.parse: input must be a string"
+      parseError (errors.notString input)
     else if input == "" then
-      types.tryErr "libnet.interfaceName.parse: empty name"
+      parseError "empty name"
     else if builtins.stringLength input > maxLength then
-      types.tryErr "libnet.interfaceName.parse: name too long (max ${builtins.toString maxLength} bytes): \"${input}\""
+      parseError "name too long (max ${builtins.toString maxLength} bytes): \"${input}\""
     else if input == "." || input == ".." then
-      types.tryErr "libnet.interfaceName.parse: reserved name \"${input}\""
-    else if hasForbiddenChar input then
-      types.tryErr "libnet.interfaceName.parse: name contains '/' or ':' or whitespace: \"${input}\""
+      parseError "reserved name \"${input}\""
+    else if hasForbiddenByte input then
+      parseError "name contains '/', ':' or a space byte: \"${input}\""
     else
       types.tryOk (mk input);
 
@@ -62,7 +93,7 @@ let
     names fail at evaluation time instead of at boot.
 
     `input`: candidate name; must be non-empty, at most 15 bytes, not
-    "." or "..", and free of '/', ':', and whitespace.
+    "." or "..", and free of '/', ':', and the kernel's space bytes.
 
     Returns an interfaceName value; throws on kernel-invalid names.
   */
@@ -80,7 +111,7 @@ let
 
     Returns the name verbatim.
   */
-  toString = interfaceName: interfaceName.value;
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -114,93 +145,30 @@ let
 
     Returns true when both have the same type tag and name.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.interfaceName a b && a.value == b.value;
 
-  /*
-    Order two interface names byte-wise.
-
-    `a`, `b`: interfaceName values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
-
-  /*
-    Test whether one interface name sorts before another.
-
-    `a`, `b`: interfaceName values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one interface name sorts before or equal to another.
-
-    `a`, `b`: interfaceName values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one interface name sorts after another.
-
-    `a`, `b`: interfaceName values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one interface name sorts after or equal to another.
-
-    `a`, `b`: interfaceName values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the earlier of two interface names in sort order.
-
-    `a`, `b`: interfaceName values.
-
-    Returns the lesser name; `a` when they compare equal.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the later of two interface names in sort order.
-
-    `a`, `b`: interfaceName values.
-
-    Returns the greater name; `a` when they compare equal.
-  */
-  max = a: b: if ge a b then a else b;
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isValid
-    le
-    lt
-    max
     maxLength
-    min
     parse
     toString
     tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

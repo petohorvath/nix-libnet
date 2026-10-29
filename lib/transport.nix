@@ -17,6 +17,8 @@
 */
 let
   types = import ./internal/types.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
 
   names = [
     "sctp"
@@ -28,6 +30,12 @@ let
     _type = "transport";
     inherit value;
   };
+
+  # The protocol name of a transport argument of `function`.
+  valueOf =
+    function: transport: (errors.expectKind "transport.${function}" "transport" transport).value;
+
+  parseError = detail: types.tryErr (errors.message "transport.parse" detail);
 
   # ===== Parsing =====
 
@@ -44,9 +52,9 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.transport.parse: input must be a string"
+      parseError (errors.notString input)
     else if !(builtins.elem input names) then
-      types.tryErr "libnet.transport.parse: unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
+      parseError "unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
     else
       types.tryOk (mk input);
 
@@ -72,7 +80,7 @@ let
 
     Returns "tcp", "udp", or "sctp".
   */
-  toString = transport: transport.value;
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -102,7 +110,7 @@ let
 
     Returns true for `tcp`.
   */
-  isTcp = transport: transport.value == "tcp";
+  isTcp = transport: valueOf "isTcp" transport == "tcp";
 
   /*
     Check whether a transport is UDP.
@@ -111,7 +119,7 @@ let
 
     Returns true for `udp`.
   */
-  isUdp = transport: transport.value == "udp";
+  isUdp = transport: valueOf "isUdp" transport == "udp";
 
   /*
     Check whether a transport is SCTP.
@@ -120,7 +128,7 @@ let
 
     Returns true for `sctp`.
   */
-  isSctp = transport: transport.value == "sctp";
+  isSctp = transport: valueOf "isSctp" transport == "sctp";
 
   # ===== Comparison =====
   #
@@ -134,77 +142,12 @@ let
 
     Returns true when both carry the same type tag and protocol.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.transport a b && a.value == b.value;
 
-  /*
-    Order two transports by name (`sctp < tcp < udp`).
-
-    `a`, `b`: transport values.
-
-    Returns -1, 0, or 1.
-  */
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
-
-  /*
-    Check whether one transport sorts before another.
-
-    `a`, `b`: transport values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Check whether one transport sorts before or equal to another.
-
-    `a`, `b`: transport values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Check whether one transport sorts after another.
-
-    `a`, `b`: transport values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Check whether one transport sorts after or equal to another.
-
-    `a`, `b`: transport values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lesser of two transports by `compare`.
-
-    `a`, `b`: transport values.
-
-    Returns `a` when it sorts first or equal, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the greater of two transports by `compare`.
-
-    `a`, `b`: transport values.
-
-    Returns `a` when it sorts last or equal, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 
   # ===== Constants =====
 
@@ -217,19 +160,12 @@ let
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isSctp
     isTcp
     isUdp
     isValid
-    le
-    lt
-    max
-    min
     parse
     sctp
     tcp
@@ -237,5 +173,14 @@ in
     tryParse
     udp
     values
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }

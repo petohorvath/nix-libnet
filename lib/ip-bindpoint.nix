@@ -17,6 +17,9 @@
     => 3
 */
 let
+  comparison = import ./internal/comparison.nix;
+  errors = import ./internal/errors.nix;
+  ip = import ./ip.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
@@ -25,11 +28,24 @@ let
   portRange = import ./port-range.nix;
   ipEndpoint = import ./ip-endpoint.nix;
 
-  mk = addressValue: portRangeValue: {
-    _type = "ipBindpoint";
-    address = addressValue;
-    portRange = portRangeValue;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    addressValue: portRangeValue:
+    builtins.seq addressValue (
+      builtins.seq portRangeValue {
+        _type = "ipBindpoint";
+        address = addressValue;
+        portRange = portRangeValue;
+      }
+    );
+
+  # Check the bindpoint argument of `function`, throwing for any other
+  # kind.
+  ipBindpointArgument =
+    function: bindpoint: errors.expectKind "ipBindpoint.${function}" "ipBindpoint" bindpoint;
+
+  parseError = detail: types.tryErr (errors.message "ipBindpoint.parse" detail);
 
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";
@@ -37,7 +53,7 @@ let
   # ===== Port-field parser =====
 
   # Decimal port number, or null when invalid.
-  parsePort = parsing.decimal port.highestValue;
+  parsePort = parsing.decimal port.maxValue;
 
   # Hyphen form only: the iptables colon form (`8000:8100`) would collide
   # with the address:port separator. Returns a portRange, or null.
@@ -73,7 +89,7 @@ let
       portRangeOrNull = parsePortField portString;
     in
     if portRangeOrNull == null then
-      types.tryErr "libnet.ipBindpoint.parse: invalid port field \"${portString}\""
+      parseError "invalid port field \"${portString}\""
     else
       types.tryOk (mk null portRangeOrNull);
 
@@ -83,7 +99,7 @@ let
       parts = parsing.splitOn "]:" input;
     in
     if builtins.length parts != 2 then
-      types.tryErr "libnet.ipBindpoint.parse: malformed bracketed form \"${input}\""
+      parseError "malformed bracketed form \"${input}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -93,16 +109,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addressString == null then
-        types.tryErr "libnet.ipBindpoint.parse: missing '[' in \"${input}\""
+        parseError "missing '[' in \"${input}\""
       else
         let
           addressResult = ipv6.tryParse addressString;
           portRangeOrNull = parsePortField portString;
         in
         if !addressResult.success then
-          types.tryErr "libnet.ipBindpoint.parse: invalid IPv6 in \"${input}\""
+          parseError "invalid IPv6 in \"${input}\""
         else if portRangeOrNull == null then
-          types.tryErr "libnet.ipBindpoint.parse: invalid port field in \"${input}\""
+          parseError "invalid port field in \"${input}\""
         else
           types.tryOk (mk addressResult.value portRangeOrNull);
 
@@ -112,9 +128,9 @@ let
       colons = parsing.countOccurrences ":" input;
     in
     if colons == 0 then
-      types.tryErr "libnet.ipBindpoint.parse: missing ':port' in \"${input}\""
+      parseError "missing ':port' in \"${input}\""
     else if colons > 1 then
-      types.tryErr "libnet.ipBindpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
+      parseError "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
@@ -124,9 +140,9 @@ let
         portRangeOrNull = parsePortField portString;
       in
       if !addressResult.success then
-        types.tryErr "libnet.ipBindpoint.parse: invalid IPv4 in \"${input}\""
+        parseError "invalid IPv4 in \"${input}\""
       else if portRangeOrNull == null then
-        types.tryErr "libnet.ipBindpoint.parse: invalid port field in \"${input}\""
+        parseError "invalid port field in \"${input}\""
       else
         types.tryOk (mk addressResult.value portRangeOrNull);
 
@@ -146,7 +162,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.ipBindpoint.parse: input must be a string"
+      parseError (errors.notString input)
     else if parsing.startsWith "*:" input then
       tryParseNullAddress (parsing.stripPrefix "*:" input)
     else if parsing.startsWith "any:" input then
@@ -183,14 +199,16 @@ let
   toString =
     bindpoint:
     let
-      portRangeString = portRange.toString bindpoint.portRange;
+      checked = ipBindpointArgument "toString" bindpoint;
+      inherit (checked) address;
+      portRangeString = portRange.toString checked.portRange;
     in
-    if bindpoint.address == null then
+    if address == null then
       ":${portRangeString}"
-    else if isV4 bindpoint.address then
-      "${ipv4.toString bindpoint.address}:${portRangeString}"
+    else if isV4 address then
+      "${ipv4.toString address}:${portRangeString}"
     else
-      "[${ipv6.toString bindpoint.address}]:${portRangeString}";
+      "[${ipv6.toString address}]:${portRangeString}";
 
   /*
     Combine an already-parsed address and port range into a bindpoint.
@@ -199,16 +217,13 @@ let
     `portRangeValue`: portRange value.
 
     Returns an ipBindpoint value; throws if either argument has the wrong
-    type.
+    kind.
   */
   make =
     addressValue: portRangeValue:
-    if addressValue != null && !(types.isIp addressValue) then
-      throw "libnet.ipBindpoint.make: address must be ipv4, ipv6, or null"
-    else if !(types.isPortRange portRangeValue) then
-      throw "libnet.ipBindpoint.make: expected portRange value"
-    else
-      mk addressValue portRangeValue;
+    mk (errors.expect "ipBindpoint.make" "ipv4 or ipv6 value or null" (
+      value: value == null || types.isIp value
+    ) addressValue) (errors.expectKind "ipBindpoint.make" "portRange" portRangeValue);
 
   # ===== Predicates =====
 
@@ -240,12 +255,15 @@ let
   */
   isWildcard =
     bindpoint:
-    bindpoint.address == null
-    || (isV4 bindpoint.address && bindpoint.address.value == 0)
+    let
+      inherit (ipBindpointArgument "isWildcard" bindpoint) address;
+    in
+    address == null
+    || (isV4 address && address.value == 0)
     || (
-      isV6 bindpoint.address
+      isV6 address
       &&
-        bindpoint.address.words == [
+        address.words == [
           0
           0
           0
@@ -260,7 +278,12 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isIpv4 = bindpoint: bindpoint.address != null && isV4 bindpoint.address;
+  isIpv4 =
+    bindpoint:
+    let
+      inherit (ipBindpointArgument "isIpv4" bindpoint) address;
+    in
+    address != null && isV4 address;
 
   /*
     Test whether the bindpoint has an IPv6 address.
@@ -269,7 +292,12 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isIpv6 = bindpoint: bindpoint.address != null && isV6 bindpoint.address;
+  isIpv6 =
+    bindpoint:
+    let
+      inherit (ipBindpointArgument "isIpv6" bindpoint) address;
+    in
+    address != null && isV6 address;
 
   # ===== Forwarded predicates (apply to address) =====
   #
@@ -279,13 +307,16 @@ let
   # an address and throws, matching endpoints/network/netmask.
 
   forwardToAddress =
-    ipv4Function: ipv6Function: bindpoint:
-    if bindpoint.address == null then
+    function: ipv4Function: ipv6Function: bindpoint:
+    let
+      inherit (ipBindpointArgument function bindpoint) address;
+    in
+    if address == null then
       false
-    else if isV4 bindpoint.address then
-      ipv4Function bindpoint.address
+    else if isV4 address then
+      ipv4Function address
     else
-      ipv6Function bindpoint.address;
+      ipv6Function address;
 
   /*
     Test whether the bindpoint's address is a loopback address.
@@ -294,7 +325,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isLoopback = bindpoint: forwardToAddress ipv4.isLoopback ipv6.isLoopback bindpoint;
+  isLoopback = forwardToAddress "isLoopback" ipv4.isLoopback ipv6.isLoopback;
 
   /*
     Test whether the bindpoint's address is the unspecified address.
@@ -303,7 +334,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isUnspecified = bindpoint: forwardToAddress ipv4.isUnspecified ipv6.isUnspecified bindpoint;
+  isUnspecified = forwardToAddress "isUnspecified" ipv4.isUnspecified ipv6.isUnspecified;
 
   /*
     Test whether the bindpoint's address is link-local.
@@ -312,7 +343,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isLinkLocal = bindpoint: forwardToAddress ipv4.isLinkLocal ipv6.isLinkLocal bindpoint;
+  isLinkLocal = forwardToAddress "isLinkLocal" ipv4.isLinkLocal ipv6.isLinkLocal;
 
   /*
     Test whether the bindpoint's address is multicast.
@@ -321,7 +352,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isMulticast = bindpoint: forwardToAddress ipv4.isMulticast ipv6.isMulticast bindpoint;
+  isMulticast = forwardToAddress "isMulticast" ipv4.isMulticast ipv6.isMulticast;
 
   /*
     Test whether the bindpoint's address is reserved for documentation.
@@ -330,7 +361,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isDocumentation = bindpoint: forwardToAddress ipv4.isDocumentation ipv6.isDocumentation bindpoint;
+  isDocumentation = forwardToAddress "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation;
 
   /*
     Test whether the bindpoint's address is globally routable.
@@ -339,7 +370,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isGlobal = bindpoint: forwardToAddress ipv4.isGlobal ipv6.isGlobal bindpoint;
+  isGlobal = forwardToAddress "isGlobal" ipv4.isGlobal ipv6.isGlobal;
 
   /*
     Test whether the bindpoint's address is a bogon (not expected on the
@@ -349,7 +380,7 @@ let
 
     Returns a Boolean; false for a null address.
   */
-  isBogon = bindpoint: forwardToAddress ipv4.isBogon ipv6.isBogon bindpoint;
+  isBogon = forwardToAddress "isBogon" ipv4.isBogon ipv6.isBogon;
 
   /*
     Render the bindpoint's address as a reverse-DNS name; the port range
@@ -362,12 +393,15 @@ let
   */
   toArpa =
     bindpoint:
-    if bindpoint.address == null then
-      throw "libnet.ipBindpoint.toArpa: null address has no reverse-DNS form"
-    else if isV4 bindpoint.address then
-      ipv4.toArpa bindpoint.address
+    let
+      inherit (ipBindpointArgument "toArpa" bindpoint) address;
+    in
+    if address == null then
+      errors.fail "ipBindpoint.toArpa" "null address has no reverse-DNS form"
+    else if isV4 address then
+      ipv4.toArpa address
     else
-      ipv6.toArpa bindpoint.address;
+      ipv6.toArpa address;
 
   # ===== Accessors =====
 
@@ -378,7 +412,7 @@ let
 
     Returns an ipv4 or ipv6 value, or null for any interface.
   */
-  address = bindpoint: bindpoint.address;
+  address = bindpoint: (ipBindpointArgument "address" bindpoint).address;
 
   /*
     Get the IP family of the bindpoint's address.
@@ -389,14 +423,27 @@ let
   */
   version =
     bindpoint:
-    if bindpoint.address == null then
+    let
+      inherit (ipBindpointArgument "version" bindpoint) address;
+    in
+    if address == null then
       null
-    else if isV4 bindpoint.address then
+    else if isV4 address then
       4
     else
       6;
 
   # ===== Expansion =====
+
+  # Every port of the range as an endpoint, for `function`'s errors.
+  endpointsFor =
+    function: bindpoint:
+    if bindpoint.address == null then
+      errors.fail "ipBindpoint.${function}" "null address cannot be materialized into endpoints"
+    else
+      map (portValue: ipEndpoint.make bindpoint.address portValue) (
+        portRange.portsUnbounded bindpoint.portRange
+      );
 
   /*
     Materialize every port in the range as a concrete endpoint, without
@@ -408,14 +455,7 @@ let
     address.
   */
   endpointsUnbounded =
-    bindpoint:
-    if bindpoint.address == null then
-      throw "libnet.ipBindpoint.endpoints: null address cannot be materialized into endpoints"
-    else
-      let
-        ports = portRange.portsUnbounded bindpoint.portRange;
-      in
-      map (portValue: ipEndpoint.make bindpoint.address portValue) ports;
+    bindpoint: endpointsFor "endpointsUnbounded" (ipBindpointArgument "endpointsUnbounded" bindpoint);
 
   /*
     Materialize every port in the range as a concrete endpoint.
@@ -429,12 +469,13 @@ let
   endpoints =
     bindpoint:
     let
-      size = portRange.size bindpoint.portRange;
+      checked = ipBindpointArgument "endpoints" bindpoint;
+      size = portRange.size checked.portRange;
     in
     if size > 4096 then
-      throw "libnet.ipBindpoint.endpoints: range too large (${builtins.toString size} > 4096); use endpointsUnbounded"
+      errors.fail "ipBindpoint.endpoints" "range too large (${builtins.toString size} > 4096); use endpointsUnbounded"
     else
-      endpointsUnbounded bindpoint;
+      endpointsFor "endpoints" checked;
 
   /*
     Pick one port from the range as a concrete endpoint.
@@ -442,24 +483,49 @@ let
     `n`: zero-based index into the range; negative counts from the end.
     `bindpoint`: ipBindpoint value with a non-null address.
 
-    Returns an ipEndpoint value; throws for a null address or an index
-    outside the range.
+    Returns an ipEndpoint value; throws for a non-integer index, a null
+    address or an index outside the range.
   */
   endpointAt =
     n: bindpoint:
-    if bindpoint.address == null then
-      throw "libnet.ipBindpoint.endpointAt: null address cannot be materialized"
+    let
+      offset = errors.expectType "ipBindpoint.endpointAt" "int" n;
+      checked = ipBindpointArgument "endpointAt" bindpoint;
+    in
+    if checked.address == null then
+      errors.fail "ipBindpoint.endpointAt" "null address cannot be materialized"
     else
       let
-        size = portRange.size bindpoint.portRange;
-        index = if n < 0 then size + n else n;
+        size = portRange.size checked.portRange;
+        index = if offset < 0 then size + offset else offset;
       in
       if index < 0 || index >= size then
-        throw "libnet.ipBindpoint.endpointAt: index out of range [0, ${builtins.toString size})"
+        errors.fail "ipBindpoint.endpointAt" "index out of range [0, ${builtins.toString size})"
       else
-        ipEndpoint.make bindpoint.address (port.add index bindpoint.portRange.from);
+        ipEndpoint.make checked.address (port.add index checked.portRange.from);
 
   # ===== Comparison =====
+
+  # The wildcard (null address) first, then by address, IPv4 first, then
+  # by port range.
+  compareFor =
+    function: a: b:
+    let
+      left = ipBindpointArgument function a;
+      right = ipBindpointArgument function b;
+      wildcardRank = bindpoint: if bindpoint.address == null then 0 else 1;
+      addressOrder =
+        if left.address == null || right.address == null then
+          comparison.order (wildcardRank left) (wildcardRank right)
+        else
+          ip.compare left.address right.address;
+    in
+    comparison.lexicographic [
+      addressOrder
+      (portRange.compare left.portRange right.portRange)
+    ];
+
+  ordering = comparison.suite compareFor;
 
   /*
     Test two bindpoints for equality of address and port range.
@@ -471,7 +537,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.ipBindpoint a b
     && (
       a.address == null && b.address == null
       || (
@@ -482,100 +548,14 @@ let
       )
     )
     && portRange.eq a.portRange b.portRange;
-
-  /*
-    Order two bindpoints: null address first, then IPv4 before IPv6,
-    then address, then port range.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `-1`, `0`, or `1`.
-  */
-  compare =
-    a: b:
-    if a.address == null && b.address != null then
-      -1
-    else if a.address != null && b.address == null then
-      1
-    else if
-      a.address == null # both null
-    then
-      portRange.compare a.portRange b.portRange
-    else if isV4 a.address && isV6 b.address then
-      -1
-    else if isV6 a.address && isV4 b.address then
-      1
-    else
-      let
-        addressOrder =
-          if isV4 a.address then ipv4.compare a.address b.address else ipv6.compare a.address b.address;
-      in
-      if addressOrder != 0 then addressOrder else portRange.compare a.portRange b.portRange;
-
-  /*
-    Test whether `a` orders strictly before `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether `a` orders before or equal to `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether `a` orders strictly after `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether `a` orders after or equal to `b` under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns a Boolean.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the lesser of two bindpoints under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `a` when they order equal, otherwise the lesser value.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the greater of two bindpoints under `compare`.
-
-    `a`, `b`: ipBindpoint values.
-
-    Returns `a` when they order equal, otherwise the greater value.
-  */
-  max = a: b: if ge a b then a else b;
 in
 {
   inherit
     address
-    compare
     endpointAt
     endpoints
     endpointsUnbounded
     eq
-    ge
-    gt
     is
     isBogon
     isDocumentation
@@ -588,16 +568,21 @@ in
     isUnspecified
     isValid
     isWildcard
-    le
-    lt
     make
-    max
-    min
     parse
     toArpa
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `portRange` names the
@@ -609,5 +594,5 @@ in
 
     Returns a portRange value.
   */
-  portRange = bindpoint: bindpoint.portRange;
+  portRange = bindpoint: (ipBindpointArgument "portRange" bindpoint).portRange;
 }

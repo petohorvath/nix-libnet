@@ -21,7 +21,7 @@
 */
 import ./internal/bounded-int.nix {
   typeName = "vlanId";
-  lowestValue = 1;
-  highestValue = 4094;
+  minValue = 1;
+  maxValue = 4094;
   arithmetic = true;
 }

@@ -19,23 +19,49 @@
     => { _type = "interfaceAddress"; address = <ipv4>; prefix = 24; }
 */
 let
+  comparison = import ./internal/comparison.nix;
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
+  ip = import ./ip.nix;
   ipv4 = import ./ipv4.nix;
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
-  ipRange = import ./ip-range.nix;
 
-  mk = addressValue: prefixLength: {
-    _type = "interfaceAddress";
-    address = addressValue;
-    prefix = prefixLength;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    addressValue: prefixLength:
+    builtins.seq addressValue (
+      builtins.seq prefixLength {
+        _type = "interfaceAddress";
+        address = addressValue;
+        prefix = prefixLength;
+      }
+    );
 
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";
 
   maxPrefix = addressValue: if isV4 addressValue then 32 else 128;
+
+  # ===== Argument kinds =====
+
+  /*
+    Each returns its argument, throwing for the wrong kind on behalf of
+    the public `function`. The unchecked helpers below, such as `cidrOf`
+    and `order`, take values the public function has already checked.
+  */
+  interfaceAddressArgument =
+    function: errors.expectKind "interfaceAddress.${function}" "interfaceAddress";
+  addressArgument =
+    function: errors.expect "interfaceAddress.${function}" "ipv4 or ipv6 value" types.isIp;
+
+  # Check both operands of a binary `function`, then apply `relation` to
+  # them.
+  binary =
+    function: relation: a: b:
+    relation (interfaceAddressArgument function a) (interfaceAddressArgument function b);
 
   # ===== Parsing =====
 
@@ -51,14 +77,17 @@ let
   */
   tryParse =
     input:
+    let
+      parseError = detail: types.tryErr (errors.message "interfaceAddress.parse" detail);
+    in
     if !(builtins.isString input) then
-      types.tryErr "libnet.interfaceAddress.parse: input must be a string"
+      parseError (errors.notString input)
     else
       let
         parts = parsing.splitOn "/" input;
       in
       if builtins.length parts != 2 then
-        types.tryErr "libnet.interfaceAddress.parse: missing '/': \"${input}\""
+        parseError "missing '/': \"${input}\""
       else
         let
           addressInput = builtins.elemAt parts 0;
@@ -68,11 +97,11 @@ let
           prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
         in
         if !addressResult.success then
-          types.tryErr "libnet.interfaceAddress.parse: ${addressResult.error}"
+          parseError (errors.detail (if isV6Input then "ipv6.parse" else "ipv4.parse") addressResult.error)
         else if !(parsing.isDecimal prefixInput) then
-          types.tryErr "libnet.interfaceAddress.parse: invalid prefix \"${prefixInput}\""
+          parseError "invalid prefix \"${prefixInput}\""
         else if prefixLength == null then
-          types.tryErr "libnet.interfaceAddress.parse: prefix /${prefixInput} out of range"
+          parseError "prefix /${prefixInput} out of range"
         else
           types.tryOk (mk addressResult.value prefixLength);
 
@@ -106,13 +135,11 @@ let
   toString =
     interfaceAddress:
     let
+      checked = interfaceAddressArgument "toString" interfaceAddress;
       addressText =
-        if isV4 interfaceAddress.address then
-          ipv4.toString interfaceAddress.address
-        else
-          ipv6.toString interfaceAddress.address;
+        if isV4 checked.address then ipv4.toString checked.address else ipv6.toString checked.address;
     in
-    "${addressText}/${builtins.toString interfaceAddress.prefix}";
+    "${addressText}/${builtins.toString checked.prefix}";
 
   # ===== Construction =====
 
@@ -122,19 +149,20 @@ let
     `addressValue`: ipv4 or ipv6 value; host bits are kept.
     `prefixLength`: integer in [0, 32] for IPv4 or [0, 128] for IPv6.
 
-    Returns an interfaceAddress value; throws on a non-address or an
-    out-of-range prefix.
+    Returns an interfaceAddress value; throws on a non-address or a
+    non-integer or out-of-range prefix.
   */
   make =
     addressValue: prefixLength:
-    if !(types.isIp addressValue) then
-      throw "libnet.interfaceAddress.make: address must be ipv4 or ipv6"
-    else if
-      !(builtins.isInt prefixLength) || prefixLength < 0 || prefixLength > maxPrefix addressValue
-    then
-      throw "libnet.interfaceAddress.make: prefix out of range"
+    let
+      checkedAddress = addressArgument "make" addressValue;
+      checkedPrefix = errors.expectType "interfaceAddress.make" "int" prefixLength;
+      prefixMax = maxPrefix checkedAddress;
+    in
+    if checkedPrefix < 0 || checkedPrefix > prefixMax then
+      errors.fail "interfaceAddress.make" "prefix out of range [0, ${builtins.toString prefixMax}]: ${builtins.toString checkedPrefix}"
     else
-      mk addressValue prefixLength;
+      mk checkedAddress checkedPrefix;
 
   /*
     Build a host-only interface address, parallel to `cidr.fromAddress`.
@@ -146,10 +174,10 @@ let
   */
   fromAddress =
     addressValue:
-    if !(types.isIp addressValue) then
-      throw "libnet.interfaceAddress.fromAddress: expected ipv4 or ipv6 value"
-    else
-      mk addressValue (maxPrefix addressValue);
+    let
+      checked = addressArgument "fromAddress" addressValue;
+    in
+    mk checked (maxPrefix checked);
 
   /*
     Build an interface address from a CIDR and an address on it,
@@ -166,16 +194,16 @@ let
   */
   fromCidrAndAddress =
     cidrValue: addressValue:
-    if !(types.isCidr cidrValue) then
-      throw "libnet.interfaceAddress.fromCidrAndAddress: expected a cidr value"
-    else if !(types.isIp addressValue) then
-      throw "libnet.interfaceAddress.fromCidrAndAddress: address must be ipv4 or ipv6"
-    else if addressValue._type != cidrValue.networkAddress._type then
-      throw "libnet.interfaceAddress.fromCidrAndAddress: family mismatch"
-    else if !(cidr.contains cidrValue addressValue) then
-      throw "libnet.interfaceAddress.fromCidrAndAddress: address not in cidr"
+    let
+      block = errors.expectKind "interfaceAddress.fromCidrAndAddress" "cidr" cidrValue;
+      checkedAddress = addressArgument "fromCidrAndAddress" addressValue;
+    in
+    if checkedAddress._type != block.networkAddress._type then
+      errors.fail "interfaceAddress.fromCidrAndAddress" "family mismatch"
+    else if !(cidr.contains block checkedAddress) then
+      errors.fail "interfaceAddress.fromCidrAndAddress" "address not in cidr"
     else
-      mk addressValue cidrValue.prefix;
+      mk checkedAddress block.prefix;
 
   # ===== Predicates =====
 
@@ -204,7 +232,7 @@ let
 
     Returns true for IPv4.
   */
-  isIpv4 = interfaceAddress: isV4 interfaceAddress.address;
+  isIpv4 = interfaceAddress: isV4 (interfaceAddressArgument "isIpv4" interfaceAddress).address;
 
   /*
     Check whether an interface address holds an IPv6 address.
@@ -213,17 +241,18 @@ let
 
     Returns true for IPv6.
   */
-  isIpv6 = interfaceAddress: isV6 interfaceAddress.address;
+  isIpv6 = interfaceAddress: isV6 (interfaceAddressArgument "isIpv6" interfaceAddress).address;
 
   # ===== Forwarded predicates (apply to the address) =====
 
-  # Apply the family's function to the interface's address.
+  # Apply the family's function to the address of the interface address
+  # that the public `function` was given.
   forwardToAddress =
-    ipv4Function: ipv6Function: interfaceAddress:
-    if isV4 interfaceAddress.address then
-      ipv4Function interfaceAddress.address
-    else
-      ipv6Function interfaceAddress.address;
+    function: ipv4Function: ipv6Function: interfaceAddress:
+    let
+      inherit (interfaceAddressArgument function interfaceAddress) address;
+    in
+    if isV4 address then ipv4Function address else ipv6Function address;
 
   /*
     Check whether the address is a loopback address.
@@ -232,7 +261,8 @@ let
 
     Returns `ipv4.isLoopback` or `ipv6.isLoopback` of the address.
   */
-  isLoopback = interfaceAddress: forwardToAddress ipv4.isLoopback ipv6.isLoopback interfaceAddress;
+  isLoopback =
+    interfaceAddress: forwardToAddress "isLoopback" ipv4.isLoopback ipv6.isLoopback interfaceAddress;
 
   /*
     Check whether the address is the unspecified address.
@@ -242,7 +272,8 @@ let
     Returns `ipv4.isUnspecified` or `ipv6.isUnspecified` of the address.
   */
   isUnspecified =
-    interfaceAddress: forwardToAddress ipv4.isUnspecified ipv6.isUnspecified interfaceAddress;
+    interfaceAddress:
+    forwardToAddress "isUnspecified" ipv4.isUnspecified ipv6.isUnspecified interfaceAddress;
 
   /*
     Check whether the address is link-local.
@@ -251,7 +282,8 @@ let
 
     Returns `ipv4.isLinkLocal` or `ipv6.isLinkLocal` of the address.
   */
-  isLinkLocal = interfaceAddress: forwardToAddress ipv4.isLinkLocal ipv6.isLinkLocal interfaceAddress;
+  isLinkLocal =
+    interfaceAddress: forwardToAddress "isLinkLocal" ipv4.isLinkLocal ipv6.isLinkLocal interfaceAddress;
 
   /*
     Check whether the address is multicast.
@@ -260,7 +292,8 @@ let
 
     Returns `ipv4.isMulticast` or `ipv6.isMulticast` of the address.
   */
-  isMulticast = interfaceAddress: forwardToAddress ipv4.isMulticast ipv6.isMulticast interfaceAddress;
+  isMulticast =
+    interfaceAddress: forwardToAddress "isMulticast" ipv4.isMulticast ipv6.isMulticast interfaceAddress;
 
   /*
     Check whether the address is reserved for documentation.
@@ -271,7 +304,8 @@ let
     address.
   */
   isDocumentation =
-    interfaceAddress: forwardToAddress ipv4.isDocumentation ipv6.isDocumentation interfaceAddress;
+    interfaceAddress:
+    forwardToAddress "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation interfaceAddress;
 
   /*
     Check whether the address is globally routable, using the family's
@@ -281,7 +315,8 @@ let
 
     Returns `ipv4.isGlobal` or `ipv6.isGlobal` of the address.
   */
-  isGlobal = interfaceAddress: forwardToAddress ipv4.isGlobal ipv6.isGlobal interfaceAddress;
+  isGlobal =
+    interfaceAddress: forwardToAddress "isGlobal" ipv4.isGlobal ipv6.isGlobal interfaceAddress;
 
   /*
     Check whether the address is a bogon (not globally routable).
@@ -290,7 +325,7 @@ let
 
     Returns `ipv4.isBogon` or `ipv6.isBogon` of the address.
   */
-  isBogon = interfaceAddress: forwardToAddress ipv4.isBogon ipv6.isBogon interfaceAddress;
+  isBogon = interfaceAddress: forwardToAddress "isBogon" ipv4.isBogon ipv6.isBogon interfaceAddress;
 
   /*
     Format the address as a reverse-DNS name.
@@ -300,12 +335,7 @@ let
     Returns the address's in-addr.arpa or ip6.arpa name; the prefix is
     ignored.
   */
-  toArpa =
-    interfaceAddress:
-    if isV4 interfaceAddress.address then
-      ipv4.toArpa interfaceAddress.address
-    else
-      ipv6.toArpa interfaceAddress.address;
+  toArpa = forwardToAddress "toArpa" ipv4.toArpa ipv6.toArpa;
 
   # ===== Accessors =====
 
@@ -316,7 +346,7 @@ let
 
     Returns the ipv4 or ipv6 value, host bits intact.
   */
-  address = interfaceAddress: interfaceAddress.address;
+  address = interfaceAddress: (interfaceAddressArgument "address" interfaceAddress).address;
 
   /*
     Get the prefix length.
@@ -325,7 +355,7 @@ let
 
     Returns the prefix length as an integer.
   */
-  prefix = interfaceAddress: interfaceAddress.prefix;
+  prefix = interfaceAddress: (interfaceAddressArgument "prefix" interfaceAddress).prefix;
 
   /*
     Get the IP version of the address.
@@ -334,9 +364,11 @@ let
 
     Returns 4 or 6.
   */
-  version = interfaceAddress: if isV4 interfaceAddress.address then 4 else 6;
+  version =
+    interfaceAddress:
+    if isV4 (interfaceAddressArgument "version" interfaceAddress).address then 4 else 6;
 
-  # Derive the CIDR the address sits on; exported as `cidr`.
+  # Derive the CIDR the checked address sits on.
   cidrOf =
     interfaceAddress:
     cidr.supernet (maxPrefix interfaceAddress.address - interfaceAddress.prefix) (
@@ -350,7 +382,8 @@ let
 
     Returns an address value of the same family with the prefix bits set.
   */
-  netmask = interfaceAddress: cidr.netmask (cidrOf interfaceAddress);
+  netmask =
+    interfaceAddress: cidr.netmask (cidrOf (interfaceAddressArgument "netmask" interfaceAddress));
 
   /*
     Derive the hostmask (inverse netmask) for the prefix.
@@ -359,7 +392,8 @@ let
 
     Returns an address value of the same family with the host bits set.
   */
-  hostmask = interfaceAddress: cidr.hostmask (cidrOf interfaceAddress);
+  hostmask =
+    interfaceAddress: cidr.hostmask (cidrOf (interfaceAddressArgument "hostmask" interfaceAddress));
 
   /*
     Derive the IPv4 broadcast address of the CIDR the address sits on.
@@ -370,21 +404,13 @@ let
   */
   broadcast =
     interfaceAddress:
-    if !(isV4 interfaceAddress.address) then
-      throw "libnet.interfaceAddress.broadcast: IPv6 has no broadcast"
+    let
+      checked = interfaceAddressArgument "broadcast" interfaceAddress;
+    in
+    if !(isV4 checked.address) then
+      errors.fail "interfaceAddress.broadcast" "IPv6 has no broadcast"
     else
-      cidr.broadcast (cidrOf interfaceAddress);
-
-  # ===== Conversions =====
-
-  /*
-    Convert the CIDR the address sits on to an address range.
-
-    `interfaceAddress`: interfaceAddress value.
-
-    Returns the ipRange covering `cidr interfaceAddress`.
-  */
-  toRange = interfaceAddress: ipRange.fromCidr (cidrOf interfaceAddress);
+      cidr.broadcast (cidrOf checked);
 
   # ===== Comparison =====
 
@@ -397,103 +423,27 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.interfaceAddress a b
     && a.address._type == b.address._type
     && a.prefix == b.prefix
     && (if isV4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address);
 
-  /*
-    Order two interface addresses: IPv4 before IPv6, then by address,
-    then by prefix.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
+  order =
     a: b:
-    if isV4 a.address && !(isV4 b.address) then
-      -1
-    else if !(isV4 a.address) && isV4 b.address then
-      1
-    else
-      let
-        addressOrder =
-          if isV4 a.address then ipv4.compare a.address b.address else ipv6.compare a.address b.address;
-      in
-      if addressOrder != 0 then
-        addressOrder
-      else if a.prefix < b.prefix then
-        -1
-      else if a.prefix > b.prefix then
-        1
-      else
-        0;
+    comparison.lexicographic [
+      (ip.compare a.address b.address)
+      (comparison.order a.prefix b.prefix)
+    ];
 
-  /*
-    Test whether one interface address sorts before another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b == -1`.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one interface address sorts before or equal to another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b <= 0`.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one interface address sorts after another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b == 1`.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one interface address sorts after or equal to another.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns true when `compare a b >= 0`.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the earlier of two interface addresses in sort order.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns the lesser value; `a` when they compare equal.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the later of two interface addresses in sort order.
-
-    `a`, `b`: interfaceAddress values.
-
-    Returns the greater value; `a` when they compare equal.
-  */
-  max = a: b: if ge a b then a else b;
+  ordering = comparison.suite (function: binary function order);
 in
 {
   inherit
     address
     broadcast
-    compare
     eq
     fromAddress
     fromCidrAndAddress
-    ge
-    gt
     hostmask
     is
     isBogon
@@ -506,19 +456,23 @@ in
     isMulticast
     isUnspecified
     isValid
-    le
-    lt
     make
-    max
-    min
     netmask
     parse
     prefix
     toArpa
-    toRange
     toString
     tryParse
     version
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 
   # Defined here rather than in `let`, where `cidr` names the cidr module.
@@ -529,5 +483,5 @@ in
 
     Returns a cidr value.
   */
-  cidr = cidrOf;
+  cidr = interfaceAddress: cidrOf (interfaceAddressArgument "cidr" interfaceAddress);
 }

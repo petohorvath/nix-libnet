@@ -72,6 +72,30 @@ in
     expr = (transport.tryParse 6).success;
     expected = false;
   };
+  testTryParseNotStringError = {
+    expr = (transport.tryParse 6).error;
+    expected = "libnet.transport.parse: expected string, got int";
+  };
+  testParseNotStringNamesParse = {
+    expr = transport.parse { };
+    expectedError.msg = "^libnet\\.transport\\.parse: expected string, got set$";
+  };
+  testParseUnknownNamesParse = {
+    expr = transport.parse "TCP";
+    expectedError.msg = "^libnet\\.transport\\.parse: unknown protocol \"TCP\"";
+  };
+  testToStringWrongKind = {
+    expr = transport.toString (libnet.port.fromInt 80);
+    expectedError.msg = "^libnet\\.transport\\.toString: expected transport value, got port value$";
+  };
+  testIsTcpWrongKind = {
+    expr = transport.isTcp "tcp";
+    expectedError.msg = "^libnet\\.transport\\.isTcp: expected transport value, got string$";
+  };
+  testLtNamesLt = {
+    expr = transport.lt transport.tcp 6;
+    expectedError.msg = "^libnet\\.transport\\.lt: expected transport value, got int$";
+  };
 
   # ===== Round-trip =====
   testRoundTripTcp = {

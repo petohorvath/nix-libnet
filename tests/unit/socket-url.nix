@@ -27,6 +27,22 @@ in
     expr = (parse "tcp://1.2.3.4:80")._type;
     expected = "socketUrl";
   };
+  testParseStoresScheme = {
+    expr = parse "TCP://1.2.3.4:80";
+    expected = {
+      _type = "socketUrl";
+      scheme = "tcp";
+      endpoint = endpoint.parse "1.2.3.4:80";
+    };
+  };
+  testParseUnixStoresScheme = {
+    expr = parse "unix:///run/foo.sock";
+    expected = {
+      _type = "socketUrl";
+      scheme = "unix";
+      endpoint = unixSocket.parse "/run/foo.sock";
+    };
+  };
   testParseTransport = {
     expr = transport.toString (socketUrl.transport (parse "tcp://1.2.3.4:80"));
     expected = "tcp";
@@ -76,8 +92,8 @@ in
 
   # ===== Reject =====
   testRejectNoScheme = {
-    expr = throws (parse "1.2.3.4:80");
-    expected = true;
+    expr = parse "1.2.3.4:80";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: missing '<scheme>://': \"1\\.2\\.3\\.4:80\"$";
   };
   testRejectUnknownScheme = {
     expr = throws (parse "http://1.2.3.4:80");
@@ -103,17 +119,34 @@ in
     expr = (socketUrl.tryParse "UNIX://1.2.3.4:80").error;
     expected = "libnet.socketUrl.parse: 'unix://' requires a socket path: \"UNIX://1.2.3.4:80\"";
   };
+  # The host reads as IPv4 but is not an `ip` (ADR 0021).
+  testRejectNumericName = {
+    expr = parse "tcp://127.1:80";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid IPv4 in \"127\\.1:80\"$";
+  };
   testRejectBadEndpoint = {
-    expr = throws (parse "tcp://host_name:1");
-    expected = true;
+    expr = parse "tcp://host_name:1";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid hostname \"host_name\" \\(expected ";
+  };
+  testRejectBadIpPortKeepsDetail = {
+    expr = parse "tcp://1.2.3.4:x";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid port in \"1\\.2\\.3\\.4:x\"$";
+  };
+  testRejectBadSocketPathKeepsDetail = {
+    expr = parse "unix://@";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid socket \"@\"";
+  };
+  testRejectUnknownSchemeBeforeAddress = {
+    expr = (socketUrl.tryParse "foo://garbage").error;
+    expected = "libnet.socketUrl.parse: unknown scheme \"foo\" (expected tcp, udp, sctp, or unix)";
   };
   testRejectEmpty = {
     expr = throws (parse "");
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (socketUrl.parse 42);
-    expected = true;
+    expr = socketUrl.parse 42;
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: expected string, got int$";
   };
 
   testTryParseOk = {
@@ -135,20 +168,72 @@ in
 
   # ===== make =====
   testMakeIp = {
-    expr = socketUrl.toString (socketUrl.make (transport.parse "tcp") (endpoint.parse "1.2.3.4:80"));
+    expr = socketUrl.toString (socketUrl.make "tcp" (endpoint.parse "1.2.3.4:80"));
     expected = "tcp://1.2.3.4:80";
   };
+  testMakeDns = {
+    expr = socketUrl.toString (socketUrl.make "sctp" (endpoint.parse "pool.ntp.org:9999"));
+    expected = "sctp://pool.ntp.org:9999";
+  };
   testMakeUnix = {
-    expr = socketUrl.toString (socketUrl.make null (unixSocket.parse "/run/foo.sock"));
+    expr = socketUrl.toString (socketUrl.make "unix" (unixSocket.parse "/run/foo.sock"));
     expected = "unix:///run/foo.sock";
   };
-  testMakeUnixWithTransportThrows = {
-    expr = throws (socketUrl.make (transport.parse "tcp") (unixSocket.parse "/run/foo.sock"));
-    expected = true;
+  testMakeSchemeCaseInsensitive = {
+    expr = socketUrl.scheme (socketUrl.make "UDP" (endpoint.parse "[::1]:53"));
+    expected = "udp";
   };
-  testMakeIpWithoutTransportThrows = {
-    expr = throws (socketUrl.make null (endpoint.parse "1.2.3.4:80"));
-    expected = true;
+  testMakeEqualsParse = {
+    expr = socketUrl.make "Tcp" (endpoint.parse "1.2.3.4:80");
+    expected = parse "tcp://1.2.3.4:80";
+  };
+  testMakeRoundTrips = {
+    expr = map (value: socketUrl.eq (parse (socketUrl.toString value)) value) [
+      (socketUrl.make "tcp" (endpoint.parse "1.2.3.4:80"))
+      (socketUrl.make "udp" (endpoint.parse "nas:53"))
+      (socketUrl.make "unix" (unixSocket.parse "@foo"))
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testMakeMapsOverEndpoints = {
+    expr = map socketUrl.toString (
+      map (socketUrl.make "udp") [
+        (endpoint.parse "1.2.3.4:53")
+        (endpoint.parse "[::1]:53")
+      ]
+    );
+    expected = [
+      "udp://1.2.3.4:53"
+      "udp://[::1]:53"
+    ];
+  };
+  testMakeUnixSchemeIpEndpointThrows = {
+    expr = socketUrl.make "unix" (endpoint.parse "1.2.3.4:80");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: expected unixSocket value for scheme \"unix\", got ipEndpoint value$";
+  };
+  testMakeTcpSchemeUnixSocketThrows = {
+    expr = socketUrl.make "tcp" (unixSocket.parse "/run/foo.sock");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: expected ipEndpoint or dnsEndpoint value for scheme \"tcp\", got unixSocket value$";
+  };
+  testMakeUnknownSchemeThrows = {
+    expr = socketUrl.make "http" (endpoint.parse "1.2.3.4:80");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: unknown scheme \"http\" \\(expected tcp, udp, sctp, or unix\\)$";
+  };
+  testMakeTransportSchemeThrows = {
+    expr = socketUrl.make (transport.parse "tcp") (endpoint.parse "1.2.3.4:80");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: expected string, got transport value$";
+  };
+  testMakeNullSchemeThrows = {
+    expr = socketUrl.make null (unixSocket.parse "/run/foo.sock");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: expected string, got null$";
+  };
+  testMakeBindpointThrows = {
+    expr = socketUrl.make "tcp" (libnet.ipBindpoint.parse ":80");
+    expectedError.msg = "^libnet\\.socketUrl\\.make: expected ipEndpoint, dnsEndpoint or unixSocket value, got ipBindpoint value$";
   };
 
   # ===== Predicates =====
@@ -223,6 +308,14 @@ in
   testEqSchemeCaseInsensitive = {
     expr = socketUrl.eq (parse "TCP://1.2.3.4:80") (parse "tcp://1.2.3.4:80");
     expected = true;
+  };
+  testToStringDnsLowercase = {
+    expr = socketUrl.toString (parse "tcp://Pool.NTP.org:123");
+    expected = "tcp://pool.ntp.org:123";
+  };
+  testToStringUnixPathKeepsCase = {
+    expr = socketUrl.toString (parse "unix:///run/App.sock");
+    expected = "unix:///run/App.sock";
   };
   testEqDnsCaseInsensitive = {
     expr = socketUrl.eq (parse "tcp://Pool.NTP.org:123") (parse "tcp://pool.ntp.org:123");

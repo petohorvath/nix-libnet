@@ -22,6 +22,6 @@
 # Adjacent type numbers are unrelated messages, so arithmetic stays absent.
 import ./internal/bounded-int.nix {
   typeName = "icmpType";
-  lowestValue = 0;
-  highestValue = 255;
+  minValue = 0;
+  maxValue = 255;
 }

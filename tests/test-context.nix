@@ -7,10 +7,13 @@
   libnet = import ../.;
   # `lib/internal/` is not public API, so `libnet` does not export it.
   internal = {
+    address = import ../lib/internal/address.nix;
     bits = import ../lib/internal/bits.nix;
     boundedInt = import ../lib/internal/bounded-int.nix;
     carry = import ../lib/internal/carry.nix;
+    comparison = import ../lib/internal/comparison.nix;
     dnsLabel = import ../lib/internal/dns-label.nix;
+    errors = import ../lib/internal/errors.nix;
     format = import ../lib/internal/format.nix;
     parse = import ../lib/internal/parse.nix;
     types = import ../lib/internal/types.nix;

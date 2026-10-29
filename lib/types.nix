@@ -99,8 +99,8 @@ let
     both forms with the same `isValid` the core parsers use.
 
     `typeName`: option type name, used in `mk` error messages.
-    `scalar`: bounded-integer module providing `lowestValue`,
-    `highestValue`, `isValid`, `parse` and `toInt`, such as
+    `scalar`: bounded-integer module providing `minValue`,
+    `maxValue`, `isValid`, `parse` and `toInt`, such as
     `libnet.vlanId`.
 
     Returns a nixpkgs option type extended with `mk`.
@@ -116,7 +116,7 @@ let
     lib.types.coercedTo
       (lib.types.addCheck lib.types.str scalar.isValid // { description = "decimal string"; })
       fromString
-      (lib.types.addCheck (lib.types.ints.between scalar.lowestValue scalar.highestValue) isValidInt)
+      (lib.types.addCheck (lib.types.ints.between scalar.minValue scalar.maxValue) isValidInt)
     // {
       /*
         Validate a value against this option type, so `default` and
@@ -135,7 +135,7 @@ let
             if isValidInt value then
               value
             else
-              throw "libnet.types.${typeName}.mk: out of range [${toString scalar.lowestValue}, ${toString scalar.highestValue}]: ${toString value}"
+              throw "libnet.types.${typeName}.mk: out of range [${toString scalar.minValue}, ${toString scalar.maxValue}]: ${toString value}"
           )
         else if builtins.isString value then
           (

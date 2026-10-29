@@ -6,7 +6,7 @@ nix-libnet provides `libnet`, a pure-Nix library that parses, validates, formats
 
 `parse` turns text into a value, an attribute set tagged with its kind, such as `{ _type = "ipv4"; value = 167772165; }`. `toString` returns the canonical text. The tag lets `is` check a value's kind and lets pass-through unions such as `ip` and `endpoint` dispatch on it.
 
-Namespaces share standard suites for parsing, comparison and, where a kind supports it, arithmetic; the [API reference](docs/reference/README.md) documents each namespace and the suites it provides. Functions take their parameter first and the operand last, so `map (libnet.ipv4.add 1) addresses` works.
+Namespaces share standard suites for parsing, comparison and, where a kind supports it, arithmetic; the [API reference](docs/reference/README.md) documents each namespace and the suites it provides. Functions take their parameter first and the operand last, so `map (libnet.ipv4.add 1) addresses` works. Namespaces that span both IP families, such as the union `ip` and `cidr`, order IPv4 before IPv6, so mixed-family lists sort; the single-family `ipv4` and `ipv6` throw for an address of the other family.
 
 `parse` throws on invalid input, and `tryParse` returns `{ success; value; error; }` for input that may be invalid. Other failures, such as arithmetic overflow, throw a message that starts with `libnet` and names the function.
 
@@ -38,7 +38,7 @@ With flakes, add the repository as an input and take the library from its `lib` 
 }
 ```
 
-To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.1.0`. The flake's `nix-unit` and `treefmt-nix` inputs serve only its tests and formatting, so a consumer can leave them out of its lock file with `inputs.nix-libnet.inputs.nix-unit.follows = "";` and `inputs.nix-libnet.inputs.treefmt-nix.follows = "";`.
+To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.2.0`. The flake's `nix-unit` and `treefmt-nix` inputs serve only its tests and formatting, so a consumer can leave them out of its lock file with `inputs.nix-libnet.inputs.nix-unit.follows = "";` and `inputs.nix-libnet.inputs.treefmt-nix.follows = "";`.
 
 Without flakes, import the repository root:
 
@@ -46,7 +46,7 @@ Without flakes, import the repository root:
 libnet = import (builtins.fetchTarball "https://github.com/petohorvath/nix-libnet/archive/main.tar.gz");
 ```
 
-To pin a release, replace `main` with its tag, as in `archive/v0.1.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
+To pin a release, replace `main` with its tag, as in `archive/v0.2.0.tar.gz`, and pass `fetchTarball` the archive's `sha256`. A commit hash also works in place of the tag.
 
 ## Usage
 
@@ -97,8 +97,8 @@ in
 
 - libnet works on syntax and arithmetic only: it performs no DNS resolution and carries no GeoIP, WHOIS or Public Suffix List data ([ADR 0003](docs/adr/0003-syntax-not-resolution.md)).
 - Internationalized domain names and IPv6 zone identifiers such as `fe80::1%eth0` are rejected.
-- The URL forms accept fixed shapes over closed scheme sets, not general URLs, and store components without percent-decoding ([ADR 0011](docs/adr/0011-bounded-url-forms.md)).
-- IPv6 sizes and differences of 2⁶³ or more throw, such as `cidr.size` on `/65` and shorter prefixes ([ADR 0005](docs/adr/0005-integer-representations.md)).
+- The URL forms accept fixed shapes over closed scheme sets, not general URLs, and validate components against RFC 3986 but store them without percent-decoding ([ADR 0011](docs/adr/0011-bounded-url-forms.md)).
+- IPv6 sizes of 2⁶³ or more and differences outside the Nix integer range [−2⁶³, 2⁶³ − 1] throw, such as `cidr.size` on `/65` and shorter prefixes ([ADR 0005](docs/adr/0005-integer-representations.md)).
 
 ## Contributing
 

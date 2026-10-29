@@ -1,6 +1,6 @@
 # Bounded integers
 
-`port`, `vlanId`, `mtu` and `icmpType` are tagged integers written in decimal. `parse` accepts decimal digits only: no sign, whitespace, hex or leading zeros. `port` adds the RFC 6335 classes and their constants, documented in [`ports.md`](ports.md).
+`port`, `vlanId`, `mtu` and `icmpType` are tagged integers written in decimal. `parse` accepts decimal digits only: no sign, whitespace, hex or leading zeros. `port` adds the RFC 6335 classes, documented in [`ports.md`](ports.md).
 
 | Namespace  | Range         | Meaning                                                                   | Arithmetic                                 |
 | ---------- | ------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
@@ -13,9 +13,11 @@ Value: `{ _type = <namespace>; value = Int; }`.
 
 Suites: parsing, comparison (numeric), plus arithmetic where the table says so.
 
-| Function  | Signature | Notes                |
-| --------- | --------- | -------------------- |
-| `fromInt` | `Int → T` | Throws out of range. |
-| `toInt`   | `T → Int` |                      |
+| Function  | Signature | Notes                                     |
+| --------- | --------- | ----------------------------------------- |
+| `fromInt` | `Int → T` | Throws for a non-integer or out of range. |
+| `toInt`   | `T → Int` |                                           |
 
-Constants: `lowestValue`, `highestValue`. Named ICMP types live in [`registry.icmpTypes`](registry.md).
+`add`, `sub`, `next` and `prev` throw for a non-integer offset, and for any offset whose result falls outside the range, checked before any arithmetic so that an offset near the integer limits cannot overflow. Errors name the function called, such as `libnet.port.prev: out of range [0, 65535]: 0 - 1`.
+
+Constants, as plain integers: `minValue` and `maxValue`, the inclusive bounds. Named ICMP types live in [`registry.icmpTypes`](registry.md).

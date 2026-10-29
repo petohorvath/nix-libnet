@@ -9,14 +9,16 @@
   Validation: ≥ 2 labels separated by `.`, each label 1..63 ASCII
   chars from `[A-Za-z0-9-]` (must start and end with alnum), total
   ≤ 253 chars per RFC 1035 §3.1. No leading/trailing dot, no
-  consecutive dots, no underscores, no IDN.
+  consecutive dots, no underscores, no IDN. The rightmost label is not
+  numeric (all digits, or `0x` followed by hex digits), because a
+  resolver reads such text as an IPv4 address (ADR 0021).
 
-  Equality and ordering are case-insensitive (DNS semantics).
-  `toString` preserves the input case verbatim; `normalize` returns a
-  lowercase value.
+  Domains are case-insensitive (DNS semantics), so `parse` lowercases
+  them (ADR 0020): `toString` prints canonical text, and equality,
+  ordering and the zone relations compare the stored text.
 
   Example:
-    libnet.domain.parse "foo.example.com"
+    libnet.domain.parse "Foo.Example.com"
     => { _type = "domain"; value = "foo.example.com"; }
 
     libnet.domain.toString (libnet.domain.parent
@@ -28,6 +30,8 @@ let
   dnsLabel = import ./internal/dns-label.nix;
   parsing = import ./internal/parse.nix;
   hostname = import ./hostname.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
 
   maxLength = 253;
   minLabels = 2;
@@ -36,6 +40,56 @@ let
     _type = "domain";
     inherit value;
   };
+
+  # The stored text of a domain argument of `function`.
+  valueOf = function: domain: (errors.expectKind "domain.${function}" "domain" domain).value;
+
+  labelsOf = function: domain: parsing.splitOn "." (valueOf function domain);
+
+  # Validate a domain, naming `function` in the error, so that
+  # `fromLabels` reports itself rather than `parse`.
+  tryParseFor =
+    function: input:
+    let
+      failure = detail: types.tryErr (errors.message "domain.${function}" detail);
+    in
+    if !(builtins.isString input) then
+      failure (errors.notString input)
+    else if builtins.stringLength input > maxLength then
+      failure "too long (max ${builtins.toString maxLength} chars): \"${input}\""
+    else
+      let
+        parts = parsing.splitOn "." input;
+        partCount = builtins.length parts;
+      in
+      if partCount < minLabels then
+        failure "needs at least ${builtins.toString minLabels} labels (got ${builtins.toString partCount}): \"${input}\""
+      else if !(builtins.all dnsLabel.isValidLabel parts) then
+        failure "invalid label in \"${input}\" (each label must be 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+      else if dnsLabel.isNumericLabel (builtins.elemAt parts (partCount - 1)) then
+        failure "\"${input}\" reads as an IPv4 address (numeric rightmost label)"
+      else
+        types.tryOk (mk (dnsLabel.toLowerAscii input));
+
+  parseFor =
+    function: input:
+    let
+      result = tryParseFor function input;
+    in
+    if result.success then result.value else throw result.error;
+
+  # Whether `a` lies within `b`'s zone, for the zone relation named
+  # `function`.
+  subdomainFor =
+    function: a: b:
+    let
+      labelsA = labelsOf function a;
+      labelsB = labelsOf function b;
+      lengthA = builtins.length labelsA;
+      lengthB = builtins.length labelsB;
+      suffix = builtins.genList (i: builtins.elemAt labelsA (lengthA - lengthB + i)) lengthB;
+    in
+    lengthA >= lengthB && suffix == labelsB;
 
   # ===== Parsing =====
 
@@ -48,47 +102,27 @@ let
     Returns a tryResult `{ success, value, error }` holding the domain
     on success or an error message on failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      types.tryErr "libnet.domain.parse: input must be a string"
-    else if builtins.stringLength input > maxLength then
-      types.tryErr "libnet.domain.parse: too long (max ${builtins.toString maxLength} chars): \"${input}\""
-    else
-      let
-        parts = parsing.splitOn "." input;
-        partCount = builtins.length parts;
-      in
-      if partCount < minLabels then
-        types.tryErr "libnet.domain.parse: needs at least ${builtins.toString minLabels} labels (got ${builtins.toString partCount}): \"${input}\""
-      else if !(builtins.all dnsLabel.isValidLabel parts) then
-        types.tryErr "libnet.domain.parse: invalid label in \"${input}\" (each label must be 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
-      else
-        types.tryOk (mk input);
+  tryParse = tryParseFor "parse";
 
   /*
-    Parse a multi-label domain, keeping its case verbatim.
+    Parse a multi-label domain, lowercasing it.
 
     `input`: at least two dot-separated RFC 1123 labels, at most 253
-    characters, without leading or trailing dot.
+    characters, without leading or trailing dot, whose rightmost label
+    is neither all digits nor `0x` followed by hex digits.
 
     Returns a domain value; throws on non-string or invalid input.
   */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parse = parseFor "parse";
 
   /*
     Render a domain as a string.
 
     `domain`: domain value.
 
-    Returns the domain exactly as parsed, preserving case.
+    Returns the domain in lowercase.
   */
-  toString = domain: domain.value;
+  toString = valueOf "toString";
 
   # ===== Construction =====
 
@@ -97,15 +131,26 @@ let
 
     `labelStrings`: list of label strings, leftmost first.
 
-    Returns the domain formed by joining the labels with "."; throws
-    when `labelStrings` is not a list or the joined name is invalid.
+    Returns the domain formed by joining the labels with ".", in
+    lowercase; throws when `labelStrings` is not a list of strings or the
+    joined name is invalid.
   */
   fromLabels =
     labelStrings:
-    if !(builtins.isList labelStrings) then
-      throw "libnet.domain.fromLabels: expected a list of strings"
+    let
+      caller = "domain.fromLabels";
+      labels = errors.expectType caller "list" labelStrings;
+      nonString = builtins.filter (i: !(builtins.isString (builtins.elemAt labels i))) (
+        builtins.genList (i: i) (builtins.length labels)
+      );
+    in
+    if nonString != [ ] then
+      let
+        index = builtins.head nonString;
+      in
+      errors.fail caller "expected list of strings, got ${errors.describe (builtins.elemAt labels index)} at index ${builtins.toString index}"
     else
-      parse (builtins.concatStringsSep "." labelStrings);
+      parseFor "fromLabels" (builtins.concatStringsSep "." labels);
 
   # ===== Predicates =====
 
@@ -136,7 +181,7 @@ let
 
     Returns the list of label strings, leftmost first.
   */
-  labels = domain: parsing.splitOn "." domain.value;
+  labels = labelsOf "labels";
 
   # ===== Zone arithmetic =====
 
@@ -151,7 +196,7 @@ let
   parent =
     domain:
     let
-      parentLabels = builtins.tail (labels domain);
+      parentLabels = builtins.tail (labelsOf "parent" domain);
     in
     if builtins.length parentLabels < minLabels then
       null
@@ -164,19 +209,10 @@ let
     `a`: candidate subdomain.
     `b`: candidate enclosing domain.
 
-    Returns true when the labels of `b` are a case-insensitive suffix
-    of the labels of `a`; a domain is a subdomain of itself.
+    Returns true when the labels of `b` are a suffix of the labels of
+    `a`; a domain is a subdomain of itself.
   */
-  isSubdomainOf =
-    a: b:
-    let
-      labelsA = map dnsLabel.toLowerAscii (labels a);
-      labelsB = map dnsLabel.toLowerAscii (labels b);
-      lengthA = builtins.length labelsA;
-      lengthB = builtins.length labelsB;
-      suffix = builtins.genList (i: builtins.elemAt labelsA (lengthA - lengthB + i)) lengthB;
-    in
-    lengthA >= lengthB && suffix == labelsB;
+  isSubdomainOf = subdomainFor "isSubdomainOf";
 
   /*
     Test whether one domain's zone contains another; the converse of
@@ -185,10 +221,10 @@ let
     `a`: candidate enclosing domain.
     `b`: candidate subdomain.
 
-    Returns true when the labels of `a` are a case-insensitive suffix
-    of the labels of `b`; a domain is a superdomain of itself.
+    Returns true when the labels of `a` are a suffix of the labels of
+    `b`; a domain is a superdomain of itself.
   */
-  isSuperdomainOf = a: b: isSubdomainOf b a;
+  isSuperdomainOf = a: b: subdomainFor "isSuperdomainOf" b a;
 
   /*
     Get the leftmost label of a domain as a hostname.
@@ -198,129 +234,48 @@ let
     Returns a hostname value. Never throws for a valid domain, because
     every domain label satisfies the hostname syntax.
   */
-  toHostname = domain: hostname.parse (builtins.head (labels domain));
-
-  # ===== Normalization =====
-
-  /*
-    Lowercase a domain so equal names share one spelling.
-
-    `domain`: domain value.
-
-    Returns a domain value with an ASCII-lowercased `value`.
-  */
-  normalize = domain: mk (dnsLabel.toLowerAscii domain.value);
+  toHostname = domain: hostname.parse (builtins.head (labelsOf "toHostname" domain));
 
   # ===== Comparison =====
-  #
-  # Case-insensitive per DNS semantics. `toString` still preserves the
-  # verbatim input case; only `eq` / `compare` and friends fold case.
 
   /*
-    Test two domains for equality, ignoring case.
+    Test two domains for equality.
 
     `a`, `b`: values to compare.
 
-    Returns true when both carry the same tag and their values match
-    case-insensitively; false for values of different types.
+    Returns true when both are domains with the same text; false for
+    values of different types.
   */
-  eq = a: b: types.hasSameTag a b && dnsLabel.toLowerAscii a.value == dnsLabel.toLowerAscii b.value;
+  eq = a: b: types.bothHaveTag types.tags.domain a b && a.value == b.value;
 
-  /*
-    Order two domains case-insensitively, for sorting.
-
-    `a`, `b`: domain values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
-  */
-  compare =
-    a: b:
-    let
-      lowerA = dnsLabel.toLowerAscii a.value;
-      lowerB = dnsLabel.toLowerAscii b.value;
-    in
-    if lowerA < lowerB then
-      -1
-    else if lowerA > lowerB then
-      1
-    else
-      0;
-
-  /*
-    Test whether one domain sorts strictly before another.
-
-    `a`, `b`: domain values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one domain sorts before or equal to another.
-
-    `a`, `b`: domain values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one domain sorts strictly after another.
-
-    `a`, `b`: domain values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one domain sorts after or equal to another.
-
-    `a`, `b`: domain values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the domain that sorts first.
-
-    `a`, `b`: domain values.
-
-    Returns `a` when `le a b`, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the domain that sorts last.
-
-    `a`, `b`: domain values.
-
-    Returns `a` when `ge a b`, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  # Byte-wise on the lowercase text.
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit
-    compare
     eq
     fromLabels
-    ge
-    gt
     is
     isSubdomainOf
     isSuperdomainOf
     isValid
     labels
-    le
-    lt
-    max
-    min
-    normalize
     parent
     parse
     toHostname
     toString
     tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
+    le
+    lt
+    max
+    min
     ;
 }
