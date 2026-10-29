@@ -19,6 +19,7 @@ let
   bits = import ./internal/bits.nix;
   comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
+  formatting = import ./internal/format.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
 
@@ -50,13 +51,7 @@ let
     (bits.bits 0 8 value)
   ];
 
-  format = value: builtins.concatStringsSep "." (map builtins.toString (bytesOf value));
-
-  arithmetic = address.scalar {
-    typeName = "ipv4";
-    maxValue = bits.mask32;
-    format = ip: format ip.value;
-  };
+  arithmetic = address.ipv4;
 
   # ===== Conversion =====
 
@@ -70,7 +65,7 @@ let
   fromInt =
     n:
     let
-      value = errors.expectType "ipv4.fromInt" "int" n;
+      value = errors.intArgument "ipv4.fromInt" n;
     in
     if value < 0 || value > bits.mask32 then
       errors.fail "ipv4.fromInt" "out of range [0, 4294967295]: ${builtins.toString value}"
@@ -166,7 +161,7 @@ let
 
     Returns a string such as "192.0.2.1".
   */
-  toString = withValue "toString" format;
+  toString = withValue "toString" formatting.ipv4;
 
   /*
     Format an address as its reverse-DNS name.
@@ -438,7 +433,7 @@ let
 
     Returns `toInt b - toInt a`, negative when `b` precedes `a`.
   */
-  diff = a: b: valueOf "diff" b - valueOf "diff" a;
+  diff = arithmetic.diff "ipv4.diff";
 
   /*
     Get the address one above `ip`. Equivalent to `add 1`, so it can be

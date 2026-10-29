@@ -474,4 +474,44 @@ in
     expected = "boom";
   };
 
+  # ===== mkStrict =====
+  testMkStrictTagsFields = {
+    expr = types.mkStrict "pair" {
+      first = 1;
+      second = 2;
+    };
+    expected = {
+      _type = "pair";
+      first = 1;
+      second = 2;
+    };
+  };
+  # Reading only the tag still forces every field, so a constructor
+  # throws for a bad argument when it builds the value.
+  testMkStrictForcesFields = {
+    expr =
+      (types.mkStrict "pair" {
+        first = 1;
+        second = throw "bad second";
+      })._type;
+    expectedError.msg = "^bad second$";
+  };
+  # Fields are forced in name order, so the error of the first bad field
+  # by name wins.
+  testMkStrictForcesInNameOrder = {
+    expr =
+      (types.mkStrict "pair" {
+        second = throw "bad second";
+        first = throw "bad first";
+      })._type;
+    expectedError.msg = "^bad first$";
+  };
+  # Fields are forced to weak head normal form only.
+  testMkStrictKeepsNestedValuesLazy = {
+    expr =
+      (types.mkStrict "pair" {
+        first = [ (throw "bad element") ];
+      })._type;
+    expected = "pair";
+  };
 }

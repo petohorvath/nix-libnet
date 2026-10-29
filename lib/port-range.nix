@@ -24,17 +24,12 @@ let
 
   # `first` and `last` are tagged Port values, parallel to how cidr stores
   # a tagged address and how ipRange stores tagged from/to ip values.
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     first: last:
-    builtins.seq first (
-      builtins.seq last {
-        _type = "portRange";
-        from = first;
-        to = last;
-      }
-    );
+    types.mkStrict "portRange" {
+      from = first;
+      to = last;
+    };
 
   # ===== Argument kinds =====
 
@@ -42,7 +37,7 @@ let
   # the public `function`.
   portRangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
   portArgument = function: errors.expectKind "portRange.${function}" "port";
-  intArgument = errors.intArgument "portRange";
+  intArgument = function: errors.intArgument "portRange.${function}";
 
   parseError = detail: types.tryErr (errors.message "portRange.parse" detail);
 

@@ -81,6 +81,53 @@ let
           scan (i + 1) bestStart bestLength (-1) 0;
     in
     scan 0 (-1) 0 (-1) 0;
+
+  # The dotted-quad text of an IPv4 address held as one u32.
+  ipv4 =
+    value:
+    builtins.concatStringsSep "." (
+      map (shift: builtins.toString (bits.bits shift 8 value)) [
+        24
+        16
+        8
+        0
+      ]
+    );
+
+  /*
+    The RFC 5952 canonical text of an IPv6 address held as four u32
+    words, most significant first: lowercase, leading zeros dropped, the
+    longest run of zero groups compressed to `::`, and IPv4-mapped
+    addresses in the mixed form `::ffff:a.b.c.d` (section 5).
+  */
+  ipv6 =
+    words:
+    let
+      wordAt = builtins.elemAt words;
+    in
+    if wordAt 0 == 0 && wordAt 1 == 0 && wordAt 2 == 65535 then
+      "::ffff:${ipv4 (wordAt 3)}"
+    else
+      let
+        groups = builtins.concatMap (word: [
+          (bits.shr 16 word)
+          (builtins.bitAnd word bits.mask16)
+        ]) words;
+        zeroRun = longestZeroRun groups;
+        groupTexts = map hex groups;
+      in
+      if zeroRun.len == 0 then
+        builtins.concatStringsSep ":" groupTexts
+      else
+        let
+          prefix = builtins.genList (i: builtins.elemAt groupTexts i) zeroRun.start;
+          suffix = builtins.genList (i: builtins.elemAt groupTexts (zeroRun.start + zeroRun.len + i)) (
+            8 - zeroRun.start - zeroRun.len
+          );
+          prefixText = builtins.concatStringsSep ":" prefix;
+          suffixText = builtins.concatStringsSep ":" suffix;
+        in
+        "${prefixText}::${suffixText}";
 in
 {
   inherit
@@ -88,6 +135,8 @@ in
     hex1
     hex2
     hex4
+    ipv4
+    ipv6
     longestZeroRun
     ;
 }

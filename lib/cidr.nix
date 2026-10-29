@@ -26,17 +26,12 @@ let
   ipv6 = import ./ipv6.nix;
 
   # Callers guarantee `ip` has no host bits for `prefixLength`.
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     ip: prefixLength:
-    builtins.seq ip (
-      builtins.seq prefixLength {
-        _type = "cidr";
-        networkAddress = ip;
-        prefix = prefixLength;
-      }
-    );
+    types.mkStrict "cidr" {
+      networkAddress = ip;
+      prefix = prefixLength;
+    };
 
   isV4 = ip: ip._type == "ipv4";
   isV6 = ip: ip._type == "ipv6";
@@ -52,7 +47,7 @@ let
     already checked.
   */
   cidrArgument = function: errors.expectKind "cidr.${function}" "cidr";
-  intArgument = errors.intArgument "cidr";
+  intArgument = function: errors.intArgument "cidr.${function}";
   addressArgument = function: errors.expect "cidr.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both block operands of a binary `function`, then apply

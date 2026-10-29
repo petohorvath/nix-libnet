@@ -21,17 +21,12 @@ let
   ipv6 = import ./ipv6.nix;
   port = import ./port.nix;
 
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     addressValue: portValue:
-    builtins.seq addressValue (
-      builtins.seq portValue {
-        _type = "ipEndpoint";
-        address = addressValue;
-        port = portValue;
-      }
-    );
+    types.mkStrict "ipEndpoint" {
+      address = addressValue;
+      port = portValue;
+    };
 
   # Check the endpoint argument of `function`, throwing for any other kind.
   ipEndpointArgument =

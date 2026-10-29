@@ -120,11 +120,11 @@ in
 
   # ===== intArgument =====
   testIntArgumentReturnsValue = {
-    expr = errors.intArgument "cidr" "addressAt" 3;
+    expr = errors.intArgument "cidr.addressAt" 3;
     expected = 3;
   };
   testIntArgumentNamesFunction = {
-    expr = errors.intArgument "cidr" "addressAt" "3";
+    expr = errors.intArgument "cidr.addressAt" "3";
     expectedError.msg = "^libnet\\.cidr\\.addressAt: expected int, got string$";
   };
 

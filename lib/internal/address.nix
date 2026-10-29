@@ -1,10 +1,9 @@
 /*
   Arithmetic and integer-list checks shared by the address kinds, the
-  `ip` union and, through `offsetWithin`, the bounded integers. Each
-  function takes `caller`, the public function its errors name, so
-  `ip.next` reports `libnet.ip.next` even though the IPv4 code does the
-  work. They check every argument: the kind of the address operands, the
-  offset and the integer lists.
+  `ip` union and the bounded integers. Each function takes `caller`, the
+  public function its errors name, so `ip.next` reports `libnet.ip.next`
+  even though the IPv4 arithmetic does the work. They check every
+  argument: the kind of the operands, the offset and the integer lists.
 
   Every range check runs before the arithmetic it guards, since Nix 2.18
   wraps integer overflow silently.
@@ -13,10 +12,15 @@ let
   bits = import ./bits.nix;
   carry = import ./carry.nix;
   errors = import ./errors.nix;
+  formatting = import ./format.nix;
 
-  offsetOf = caller: errors.expectType caller "int";
-
-  outOfRange = caller: text: errors.fail caller "out of range: ${text}";
+  # Throw for a result outside the range, which `range` names unless it
+  # is null.
+  outOfRange =
+    range: caller: text:
+    errors.fail caller (
+      if range == null then "out of range: ${text}" else "out of range ${range}: ${text}"
+    );
 
   /*
     `add value offset` and `sub value offset` for an integer `value` in
@@ -36,48 +40,53 @@ let
         if offset < value - maxValue || offset > value - minValue then null else value - offset;
     };
 
-  # Arithmetic on an address stored as one integer `value` in
-  # [0, maxValue], such as IPv4 and MAC. `format` renders an address for
-  # error messages.
+  /*
+    Arithmetic on a value stored as one integer `value` in [minValue,
+    maxValue] under the tag `typeName`, such as IPv4, MAC and the bounded
+    integers. `format` renders an operand for error messages, and `range`,
+    when set, names the range in them, such as `[0, 65535]`.
+  */
   scalar =
     {
       typeName,
+      minValue ? 0,
       maxValue,
       format,
+      range ? null,
     }:
     let
       mk = value: {
         _type = typeName;
         inherit value;
       };
-      within = offsetWithin {
-        minValue = 0;
-        inherit maxValue;
-      };
+      valueOf = caller: operand: (errors.expectKind caller typeName operand).value;
+      within = offsetWithin { inherit minValue maxValue; };
+      # Apply `step` from `within`, written `symbol` in errors.
+      offsetBy =
+        step: symbol: caller: n: operand:
+        let
+          offset = errors.intArgument caller n;
+          result = step (valueOf caller operand) offset;
+        in
+        if result == null then
+          outOfRange range caller "${format operand} ${symbol} ${builtins.toString offset}"
+        else
+          mk result;
     in
     {
-      add =
-        caller: n: address:
-        let
-          offset = offsetOf caller n;
-          result = within.add (errors.expectKind caller typeName address).value offset;
-        in
-        if result == null then
-          outOfRange caller "${format address} + ${builtins.toString offset}"
-        else
-          mk result;
-
-      sub =
-        caller: n: address:
-        let
-          offset = offsetOf caller n;
-          result = within.sub (errors.expectKind caller typeName address).value offset;
-        in
-        if result == null then
-          outOfRange caller "${format address} - ${builtins.toString offset}"
-        else
-          mk result;
+      add = offsetBy within.add "+";
+      sub = offsetBy within.sub "-";
+      # `b - a`, which cannot overflow, since both lie in the range.
+      diff =
+        caller: a: b:
+        valueOf caller b - valueOf caller a;
     };
+
+  ipv4 = scalar {
+    typeName = "ipv4";
+    maxValue = bits.mask32;
+    format = ip: formatting.ipv4 ip.value;
+  };
 
   # ===== 128-bit words =====
 
@@ -162,22 +171,22 @@ let
       add =
         caller: n: address:
         let
-          offset = offsetOf caller n;
+          offset = errors.intArgument caller n;
           result = addWords (wordsOf caller address) (offsetWords offset);
         in
         if result.carry != expectedCarry offset then
-          outOfRange caller "${format address} + ${builtins.toString offset}"
+          outOfRange null caller "${format address} + ${builtins.toString offset}"
         else
           mk result.words;
 
       sub =
         caller: n: address:
         let
-          offset = offsetOf caller n;
+          offset = errors.intArgument caller n;
           result = subWords (wordsOf caller address) (offsetWords offset);
         in
         if result.borrow != expectedCarry offset then
-          outOfRange caller "${format address} - ${builtins.toString offset}"
+          outOfRange null caller "${format address} - ${builtins.toString offset}"
         else
           mk result.words;
 
@@ -207,6 +216,8 @@ let
         else
           0 - value;
     };
+
+  ipv6 = words { format = ip: formatting.ipv6 ip.words; };
 
   # Check a list of `count` integers in [0, maxValue], such as the bytes
   # of an address, each called a `part` in errors. Returns the list, or
@@ -239,6 +250,8 @@ in
 {
   inherit
     intList
+    ipv4
+    ipv6
     offsetWithin
     scalar
     words

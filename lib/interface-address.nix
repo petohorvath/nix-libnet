@@ -28,17 +28,12 @@ let
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     addressValue: prefixLength:
-    builtins.seq addressValue (
-      builtins.seq prefixLength {
-        _type = "interfaceAddress";
-        address = addressValue;
-        prefix = prefixLength;
-      }
-    );
+    types.mkStrict "interfaceAddress" {
+      address = addressValue;
+      prefix = prefixLength;
+    };
 
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";
@@ -156,7 +151,7 @@ let
     addressValue: prefixLength:
     let
       checkedAddress = addressArgument "make" addressValue;
-      checkedPrefix = errors.expectType "interfaceAddress.make" "int" prefixLength;
+      checkedPrefix = errors.intArgument "interfaceAddress.make" prefixLength;
       prefixMax = maxPrefix checkedAddress;
     in
     if checkedPrefix < 0 || checkedPrefix > prefixMax then

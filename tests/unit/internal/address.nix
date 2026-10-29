@@ -13,6 +13,25 @@ let
     inherit value;
   };
 
+  # A kind with a non-zero lower bound whose errors name its range, as
+  # the bounded integers' errors do.
+  digit = address.scalar {
+    typeName = "digit";
+    minValue = 1;
+    maxValue = 9;
+    range = "[1, 9]";
+    format = value: builtins.toString value.value;
+  };
+  mkDigit = value: {
+    _type = "digit";
+    inherit value;
+  };
+
+  mkIpv4 = value: {
+    _type = "ipv4";
+    inherit value;
+  };
+
   words = address.words { format = value: builtins.toJSON value.words; };
   mkWords = words: {
     _type = "ipv6";
@@ -125,6 +144,69 @@ in
   testScalarRejectsFloatOffset = {
     expr = nibble.add "nibble.add" 1.0 (mkNibble 0);
     expectedError.msg = "^libnet\\.nibble\\.add: expected int, got float$";
+  };
+
+  testScalarAddNamesRange = {
+    expr = digit.add "digit.next" 1 (mkDigit 9);
+    expectedError.msg = "^libnet\\.digit\\.next: out of range \\[1, 9\\]: 9 \\+ 1$";
+  };
+  testScalarSubToNonZeroLowerBound = {
+    expr = digit.sub "digit.sub" 8 (mkDigit 9);
+    expected = mkDigit 1;
+  };
+  testScalarSubBelowNonZeroLowerBound = {
+    expr = digit.sub "digit.prev" 1 (mkDigit 1);
+    expectedError.msg = "^libnet\\.digit\\.prev: out of range \\[1, 9\\]: 1 - 1$";
+  };
+  testScalarRejectsOtherKind = {
+    expr = digit.add "digit.add" 1 (mkNibble 1);
+    expectedError.msg = "^libnet\\.digit\\.add: expected digit value, got nibble value$";
+  };
+  testScalarDiffIsSecondMinusFirst = {
+    expr = [
+      (nibble.diff "nibble.diff" (mkNibble 3) (mkNibble 15))
+      (nibble.diff "nibble.diff" (mkNibble 15) (mkNibble 3))
+    ];
+    expected = [
+      12
+      (-12)
+    ];
+  };
+  testScalarDiffRejectsOtherKind = {
+    expr = nibble.diff "nibble.diff" (mkNibble 3) (mkDigit 1);
+    expectedError.msg = "^libnet\\.nibble\\.diff: expected nibble value, got digit value$";
+  };
+
+  # ===== ipv4 =====
+  testIpv4AddWithinFamily = {
+    expr = address.ipv4.add "ip.add" 1 (mkIpv4 4294967294);
+    expected = mkIpv4 4294967295;
+  };
+  testIpv4AddFormatsAddress = {
+    expr = address.ipv4.add "ip.next" 1 (mkIpv4 4294967295);
+    expectedError.msg = "^libnet\\.ip\\.next: out of range: 255\\.255\\.255\\.255 \\+ 1$";
+  };
+  testIpv4SubFormatsAddress = {
+    expr = address.ipv4.sub "ipv4.prev" 1 (mkIpv4 0);
+    expectedError.msg = "^libnet\\.ipv4\\.prev: out of range: 0\\.0\\.0\\.0 - 1$";
+  };
+  testIpv4Diff = {
+    expr = address.ipv4.diff "ip.diff" (mkIpv4 0) (mkIpv4 4294967295);
+    expected = 4294967295;
+  };
+
+  # ===== ipv6 =====
+  testIpv6AddFormatsAddress = {
+    expr = address.ipv6.add "ip.next" 1 maxWords;
+    expectedError.msg = "^libnet\\.ip\\.next: out of range: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff \\+ 1$";
+  };
+  testIpv6SubFormatsAddress = {
+    expr = address.ipv6.sub "ipv6.prev" 1 zeroWords;
+    expectedError.msg = "^libnet\\.ipv6\\.prev: out of range: :: - 1$";
+  };
+  testIpv6DiffFormatsAddresses = {
+    expr = address.ipv6.diff "ip.diff" zeroWords maxWords;
+    expectedError.msg = "^libnet\\.ip\\.diff: difference out of the Nix integer range: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff - ::$";
   };
 
   # ===== words =====
