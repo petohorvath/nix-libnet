@@ -58,7 +58,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if parsing.startsWith "[" input then
       parseError "bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
     else if parsing.countOccurrences ":" input != 1 then

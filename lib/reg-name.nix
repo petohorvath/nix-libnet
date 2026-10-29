@@ -88,7 +88,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if builtins.match regNamePattern input == null then
       parseError "invalid registered name \"${input}\""
     else if readsAsIpv4 input then

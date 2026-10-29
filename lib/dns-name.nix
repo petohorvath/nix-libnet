@@ -57,7 +57,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if ip.isValid input then
       parseError "\"${input}\" is an IP address, not a DNS name"
     else if readsAsIpv4 input then

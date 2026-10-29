@@ -52,7 +52,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if !(builtins.elem input names) then
       parseError "unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
     else

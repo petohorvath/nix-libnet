@@ -131,7 +131,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else
       let
         parts = parsing.splitOn "." input;

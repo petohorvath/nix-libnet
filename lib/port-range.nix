@@ -70,7 +70,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr (errors.message "portRange.parse" "expected string, got ${errors.describe input}")
+      types.tryErr (errors.message "portRange.parse" (errors.notString input))
     else
       let
         hyphenParts = parsing.splitOn "-" input;

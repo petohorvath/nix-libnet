@@ -108,7 +108,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if parsing.startsWith "[" input then
       tryParseBracketed input
     else

@@ -76,7 +76,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else if input == "" then
       parseError "empty name"
     else if builtins.stringLength input > maxLength then

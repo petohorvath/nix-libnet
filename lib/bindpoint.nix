@@ -66,7 +66,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr (errors.message "bindpoint.parse" "expected string, got ${errors.describe input}")
+      types.tryErr (errors.message "bindpoint.parse" (errors.notString input))
     else if parsing.startsWith "/" input || parsing.startsWith "@" input then
       fromMember "unixSocket" (unixSocket.tryParse input)
     else

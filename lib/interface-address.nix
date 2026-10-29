@@ -81,7 +81,7 @@ let
       parseError = detail: types.tryErr (errors.message "interfaceAddress.parse" detail);
     in
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else
       let
         parts = parsing.splitOn "/" input;

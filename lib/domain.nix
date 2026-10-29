@@ -54,7 +54,7 @@ let
       failure = detail: types.tryErr (errors.message "domain.${function}" detail);
     in
     if !(builtins.isString input) then
-      failure "expected string, got ${errors.describe input}"
+      failure (errors.notString input)
     else if builtins.stringLength input > maxLength then
       failure "too long (max ${builtins.toString maxLength} chars): \"${input}\""
     else

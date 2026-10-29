@@ -91,7 +91,7 @@ let
         text: result: errors.detail (if isV6Input text then "ipv6.parse" else "ipv4.parse") result.error;
     in
     if !(builtins.isString input) then
-      parseError "expected string, got ${errors.describe input}"
+      parseError (errors.notString input)
     else
       let
         parts = parsing.splitOn "-" input;

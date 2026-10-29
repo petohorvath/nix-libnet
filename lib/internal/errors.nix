@@ -44,6 +44,9 @@ let
     else
       builtins.typeOf value;
 
+  # The detail for a `parse` or `tryParse` input that is not a string.
+  notString = input: "expected string, got ${describe input}";
+
   # Return `value` when `isExpected value` holds; otherwise throw
   # `expected <expected>, got <description>` for `caller`.
   expect =
@@ -94,5 +97,6 @@ in
     fail
     intArgument
     message
+    notString
     ;
 }

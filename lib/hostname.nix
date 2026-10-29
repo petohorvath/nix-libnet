@@ -50,7 +50,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr (errors.message "hostname.parse" "expected string, got ${errors.describe input}")
+      types.tryErr (errors.message "hostname.parse" (errors.notString input))
     else if !(dnsLabel.isValidLabel input) then
       types.tryErr (
         errors.message "hostname.parse" "invalid hostname \"${input}\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"

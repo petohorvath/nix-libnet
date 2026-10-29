@@ -61,7 +61,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr (errors.message "ip.parse" "expected string, got ${errors.describe input}")
+      types.tryErr (errors.message "ip.parse" (errors.notString input))
     else if parsing.countOccurrences ":" input > 0 then
       fromMember "ipv6" (ipv6.tryParse input)
     else

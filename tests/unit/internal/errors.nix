@@ -106,6 +106,18 @@ in
     expectedError.msg = "^libnet\\.port\\.fromInt: expected int, got port value$";
   };
 
+  # ===== notString =====
+  testNotStringDescribesInput = {
+    expr = map errors.notString [
+      80
+      port
+    ];
+    expected = [
+      "expected string, got int"
+      "expected string, got port value"
+    ];
+  };
+
   # ===== intArgument =====
   testIntArgumentReturnsValue = {
     expr = errors.intArgument "cidr" "addressAt" 3;
