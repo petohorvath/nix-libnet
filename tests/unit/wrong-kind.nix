@@ -82,6 +82,138 @@ let
           ge.intOperand = icmpType.ge value 8;
         };
       };
+    cidr =
+      let
+        inherit (libnet) cidr ipv4;
+        value = cidr.parse "10.0.0.0/24";
+        address = ipv4.parse "10.0.0.1";
+      in
+      {
+        module = cidr;
+        inherit value;
+        rejects = {
+          toString.ipv4Operand = cidr.toString address;
+          make = {
+            stringAddress = cidr.make "10.0.0.0" 24;
+            cidrAddress = cidr.make value 24;
+            floatPrefix = cidr.make address 24.0;
+          };
+          fromAddress.string = cidr.fromAddress "10.0.0.1";
+          contains = {
+            string = cidr.contains value "10.0.0.1";
+            cidrOperand = cidr.contains value value;
+            ipv4Block = cidr.contains address address;
+          };
+          addressAt = {
+            floatIndex = cidr.addressAt 1.5 value;
+            stringIndex = cidr.addressAt "1" value;
+          };
+          subnets.floatCount = cidr.subnets 1.0 value;
+          supernet.nullCount = cidr.supernet null value;
+          size.ipv4Operand = cidr.size address;
+          hosts.interfaceAddressOperand = cidr.hosts (libnet.interfaceAddress.parse "10.0.0.1/24");
+          isSubnetOf.ipv4Operand = cidr.isSubnetOf address value;
+          overlaps.ipRangeOperand = cidr.overlaps value (libnet.ipRange.fromCidr value);
+          lt.stringOperand = cidr.lt value "10.0.0.0/24";
+          summarize = {
+            set = cidr.summarize { };
+            ipv4Element = cidr.summarize [ address ];
+          };
+        };
+      };
+    ipRange =
+      let
+        inherit (libnet) cidr ipRange ipv4;
+        value = ipRange.parse "10.0.0.1-10.0.0.9";
+        address = ipv4.parse "10.0.0.5";
+      in
+      {
+        module = ipRange;
+        inherit value;
+        rejects = {
+          toString.cidrOperand = ipRange.toString (cidr.parse "10.0.0.0/24");
+          make = {
+            stringFrom = ipRange.make "10.0.0.1" address;
+            cidrTo = ipRange.make address (cidr.parse "10.0.0.0/24");
+          };
+          fromAddress.int = ipRange.fromAddress 167772161;
+          fromCidr.ipv4 = ipRange.fromCidr address;
+          contains = {
+            cidrOperand = ipRange.contains value (cidr.parse "10.0.0.0/30");
+            string = ipRange.contains value "10.0.0.5";
+            ipv4Range = ipRange.contains address address;
+          };
+          addressAt = {
+            floatIndex = ipRange.addressAt 1.5 value;
+            nullIndex = ipRange.addressAt null value;
+          };
+          size.cidrOperand = ipRange.size (cidr.parse "10.0.0.0/24");
+          addresses.portRangeOperand = ipRange.addresses (libnet.portRange.parse "80-90");
+          overlaps.cidrOperand = ipRange.overlaps value (cidr.parse "10.0.0.0/24");
+          isAdjacent.ipv4Operand = ipRange.isAdjacent address value;
+          toCidrs.cidrOperand = ipRange.toCidrs (cidr.parse "10.0.0.0/24");
+          le.stringOperand = ipRange.le value "10.0.0.1-10.0.0.9";
+        };
+      };
+    interfaceAddress =
+      let
+        inherit (libnet) cidr interfaceAddress ipv4;
+        value = interfaceAddress.parse "10.0.0.1/24";
+        address = ipv4.parse "10.0.0.1";
+      in
+      {
+        module = interfaceAddress;
+        inherit value;
+        rejects = {
+          toString.cidrOperand = interfaceAddress.toString (cidr.parse "10.0.0.0/24");
+          make = {
+            cidrAddress = interfaceAddress.make (cidr.parse "10.0.0.0/24") 24;
+            stringPrefix = interfaceAddress.make address "24";
+          };
+          fromAddress.string = interfaceAddress.fromAddress "10.0.0.1";
+          fromCidrAndAddress = {
+            ipv4Block = interfaceAddress.fromCidrAndAddress address address;
+            cidrAddress = interfaceAddress.fromCidrAndAddress (cidr.parse "10.0.0.0/24") (
+              cidr.parse "10.0.0.0/24"
+            );
+          };
+          address.ipv4Operand = interfaceAddress.address address;
+          cidr.cidrOperand = interfaceAddress.cidr (cidr.parse "10.0.0.0/24");
+          broadcast.ipv4Operand = interfaceAddress.broadcast address;
+          isGlobal.ipv4Operand = interfaceAddress.isGlobal address;
+          gt.cidrOperand = interfaceAddress.gt value (cidr.parse "10.0.0.0/24");
+        };
+      };
+    portRange =
+      let
+        inherit (libnet) port portRange;
+        value = portRange.parse "80-90";
+      in
+      {
+        module = portRange;
+        inherit value;
+        rejects = {
+          toString.portOperand = portRange.toString (port.fromInt 80);
+          make = {
+            intFrom = portRange.make 80 (port.fromInt 90);
+            intTo = portRange.make (port.fromInt 80) 90;
+          };
+          fromPort.int = portRange.fromPort 80;
+          contains = {
+            intPort = portRange.contains value 85;
+            portOperand = portRange.contains (port.fromInt 80) (port.fromInt 80);
+          };
+          portAt = {
+            floatIndex = portRange.portAt 1.5 value;
+            stringIndex = portRange.portAt "1" value;
+          };
+          overlaps.portOperand = portRange.overlaps value (port.fromInt 85);
+          isSubrangeOf.stringOperand = portRange.isSubrangeOf "80-90" value;
+          compare.intOperand = portRange.compare value 80;
+          size.int = portRange.size 80;
+          ports.portOperand = portRange.ports (port.fromInt 80);
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a

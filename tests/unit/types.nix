@@ -161,6 +161,24 @@ else
       expr = types.ipv6Cidr.check "10.0.0.0/24";
       expected = false;
     };
+    # The family check runs only on a string, so a parsed value is
+    # rejected rather than thrown on.
+    testCidrTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.cidr.parse "10.0.0.0/24")) [
+        types.cidr
+        types.ipv4Cidr
+        types.ipv6Cidr
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testCidrMergesToInput = {
+      expr = merged types.ipv6Cidr "2001:db8::/32";
+      expected = "2001:db8::/32";
+    };
 
     # ===== port (coerced int) =====
     testPortCheckInt = {
@@ -237,6 +255,14 @@ else
     testPortRangeBad = {
       expr = types.portRange.check "90-80";
       expected = false;
+    };
+    testPortRangeRejectsInt = {
+      expr = types.portRange.check 80;
+      expected = false;
+    };
+    testPortRangeMkRejectsParsedValue = {
+      expr = types.portRange.mk (libnet.portRange.parse "80-90");
+      expectedError.msg = "^libnet\\.types\\.portRange\\.mk: expected string, got set$";
     };
     testPortRangeOverlong = {
       expr = types.portRange.check "80-99999999999999999999";
@@ -748,6 +774,20 @@ else
       expr = types.ipRange.check "1.2.3.4";
       expected = false;
     };
+    testIpRangeRejectsReversedAndMixed = {
+      expr = map types.ipRange.check [
+        "1.2.3.10-1.2.3.4"
+        "1.2.3.4-::1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
+    testIpRangeMkRejectsParsedValue = {
+      expr = types.ipRange.mk (libnet.ipRange.parse "1.2.3.4-1.2.3.10");
+      expectedError.msg = "^libnet\\.types\\.ipRange\\.mk: expected string, got set$";
+    };
 
     # ===== interfaceAddress =====
     testInterfaceAddressV4 = {
@@ -765,6 +805,22 @@ else
     testIpv6InterfaceAddressRejectsV4 = {
       expr = types.ipv6InterfaceAddress.check "10.0.0.5/24";
       expected = false;
+    };
+    testInterfaceAddressTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.interfaceAddress.parse "10.0.0.5/24")) [
+        types.interfaceAddress
+        types.ipv4InterfaceAddress
+        types.ipv6InterfaceAddress
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testInterfaceAddressMergesToInput = {
+      expr = merged types.ipv4InterfaceAddress "10.0.0.5/24";
+      expected = "10.0.0.5/24";
     };
 
     # ===== interfaceName =====
