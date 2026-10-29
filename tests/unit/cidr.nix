@@ -162,8 +162,8 @@ in
   };
 
   # ===== Derived values: v4 /24 =====
-  testNetworkV4Prefix24 = {
-    expr = formatIpv4 (cidr.network (parse "10.0.0.0/24"));
+  testNetworkAddressV4Prefix24 = {
+    expr = formatIpv4 (cidr.networkAddress (parse "10.0.0.0/24"));
     expected = "10.0.0.0";
   };
   testBroadcastV4Prefix24 = {
@@ -256,8 +256,8 @@ in
   };
 
   # ===== Derived values: v6 /64 =====
-  testNetworkV6Prefix64 = {
-    expr = formatIpv6 (cidr.network (parse "2001:db8::/64"));
+  testNetworkAddressV6Prefix64 = {
+    expr = formatIpv6 (cidr.networkAddress (parse "2001:db8::/64"));
     expected = "2001:db8::";
   };
   testNetmaskV6Prefix64 = {
@@ -445,16 +445,13 @@ in
     expr = cidr.contains (parse "10.0.0.0/24") (ipv4.parse "9.255.255.255");
     expected = false;
   };
-  testContainsSubnetInside = {
+  # A block is not an element; test it with isSupernetOf.
+  testContainsCidrIsFalse = {
     expr = cidr.contains (parse "10.0.0.0/8") (parse "10.1.0.0/16");
-    expected = true;
+    expected = false;
   };
-  testContainsSubnetEqual = {
-    expr = cidr.contains (parse "10.0.0.0/24") (parse "10.0.0.0/24");
-    expected = true;
-  };
-  testContainsSubnetOutside = {
-    expr = cidr.contains (parse "10.0.0.0/24") (parse "10.1.0.0/24");
+  testContainsNonAddress = {
+    expr = cidr.contains (parse "10.0.0.0/24") "10.0.0.5";
     expected = false;
   };
   testContainsCrossFamily = {
@@ -464,6 +461,21 @@ in
   testContainsV6 = {
     expr = cidr.contains (parse "2001:db8::/32") (ipv6.parse "2001:db8::1");
     expected = true;
+  };
+  testContainsPartial = {
+    expr = map ipv4.toString (
+      builtins.filter (cidr.contains (parse "10.0.0.0/24")) (
+        map ipv4.parse [
+          "10.0.0.5"
+          "10.0.1.5"
+          "10.0.0.255"
+        ]
+      )
+    );
+    expected = [
+      "10.0.0.5"
+      "10.0.0.255"
+    ];
   };
 
   testIsSubnetOfTrue = {
@@ -489,6 +501,31 @@ in
   testIsSupernetOfTrue = {
     expr = cidr.isSupernetOf (parse "10.0.0.0/8") (parse "10.0.0.0/24");
     expected = true;
+  };
+  testIsSupernetOfSelf = {
+    expr = cidr.isSupernetOf (parse "10.0.0.0/24") (parse "10.0.0.0/24");
+    expected = true;
+  };
+  testIsSupernetOfDisjoint = {
+    expr = cidr.isSupernetOf (parse "10.0.0.0/24") (parse "10.1.0.0/24");
+    expected = false;
+  };
+  testIsSupernetOfCrossFamily = {
+    expr = cidr.isSupernetOf (parse "::/0") (parse "10.0.0.0/24");
+    expected = false;
+  };
+  # The converse partially applied keeps the blocks inside the parameter.
+  testIsSupernetOfPartial = {
+    expr = map cidr.toString (
+      builtins.filter (cidr.isSupernetOf (parse "10.0.0.0/8")) (
+        map parse [
+          "10.1.0.0/16"
+          "11.0.0.0/16"
+          "0.0.0.0/0"
+        ]
+      )
+    );
+    expected = [ "10.1.0.0/16" ];
   };
   testOverlapsTrue = {
     expr = cidr.overlaps (parse "10.0.0.0/24") (parse "10.0.0.0/8");
@@ -586,6 +623,11 @@ in
   testSupernet8 = {
     expr = cidr.toString (cidr.supernet 8 (parse "10.0.0.0/24"));
     expected = "10.0.0.0/16";
+  };
+  # Keeps the first 16 bits, `10.1`, not `10.0`.
+  testSupernetKeepsSurvivingBits = {
+    expr = cidr.toString (cidr.supernet 8 (parse "10.1.0.0/24"));
+    expected = "10.1.0.0/16";
   };
   testSupernetFromPrefix0Throws = {
     expr = throws (cidr.supernet 1 (parse "0.0.0.0/0"));
@@ -761,8 +803,8 @@ in
     expr = throws (cidr.fromAddress "10.0.0.5");
     expected = true;
   };
-  testNetworkField = {
-    expr = ipv4.toString (parse "10.0.0.0/24").network;
+  testNetworkAddressField = {
+    expr = ipv4.toString (parse "10.0.0.0/24").networkAddress;
     expected = "10.0.0.0";
   };
   testTopAddressV4 = {
@@ -772,22 +814,6 @@ in
   testTopAddressV6 = {
     expr = ipv6.toString (cidr.topAddress (parse "2001:db8::/120"));
     expected = "2001:db8::ff";
-  };
-  testContainsAddressDirect = {
-    expr = cidr.containsAddress (parse "10.0.0.0/24") (ipv4.parse "10.0.0.5");
-    expected = true;
-  };
-  testContainsAddressOut = {
-    expr = cidr.containsAddress (parse "10.0.0.0/24") (ipv4.parse "10.0.1.0");
-    expected = false;
-  };
-  testContainsCidrDirect = {
-    expr = cidr.containsCidr (parse "10.0.0.0/8") (parse "10.1.0.0/16");
-    expected = true;
-  };
-  testContainsCidrOut = {
-    expr = cidr.containsCidr (parse "10.0.0.0/24") (parse "11.0.0.0/24");
-    expected = false;
   };
 
   # ===== Comparison helpers =====

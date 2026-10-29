@@ -18,8 +18,8 @@ let
 
   inherit (cidr) isIpv4 isIpv6;
 
-  inAnyV4 = address: builtins.any (block: cidr.containsAddress block address) v4Cidrs;
-  inAnyV6 = address: builtins.any (block: cidr.containsAddress block address) v6Cidrs;
+  inAnyV4 = address: builtins.any (block: cidr.contains block address) v4Cidrs;
+  inAnyV6 = address: builtins.any (block: cidr.contains block address) v6Cidrs;
 
   inV4 = input: inAnyV4 (ipv4.parse input);
   inV6 = input: inAnyV6 (ipv6.parse input);
@@ -66,18 +66,18 @@ in
   };
 
   # ===== isBogon parity =====
-  # Every registry entry's network (and v4 broadcast) satisfies the
+  # Every registry entry's network address (and v4 broadcast) satisfies the
   # hand-written isBogon predicate. Keeps registry ↔ predicate in lock-step.
-  testV4IsBogonNetwork = {
-    expr = builtins.all (block: ipv4.isBogon (cidr.network block)) v4Cidrs;
+  testV4IsBogonNetworkAddress = {
+    expr = builtins.all (block: ipv4.isBogon (cidr.networkAddress block)) v4Cidrs;
     expected = true;
   };
   testV4IsBogonBroadcast = {
     expr = builtins.all (block: ipv4.isBogon (cidr.broadcast block)) v4Cidrs;
     expected = true;
   };
-  testV6IsBogonNetwork = {
-    expr = builtins.all (block: ipv6.isBogon (cidr.network block)) v6Cidrs;
+  testV6IsBogonNetworkAddress = {
+    expr = builtins.all (block: ipv6.isBogon (cidr.networkAddress block)) v6Cidrs;
     expected = true;
   };
   # v6 has no broadcast; topAddress is the block's last address. Pairs
@@ -89,11 +89,11 @@ in
 
   # ===== Dispatch parity =====
   testIpIsBogonV4 = {
-    expr = builtins.all (block: ip.isBogon (cidr.network block)) v4Cidrs;
+    expr = builtins.all (block: ip.isBogon (cidr.networkAddress block)) v4Cidrs;
     expected = true;
   };
   testIpIsBogonV6 = {
-    expr = builtins.all (block: ip.isBogon (cidr.network block)) v6Cidrs;
+    expr = builtins.all (block: ip.isBogon (cidr.networkAddress block)) v6Cidrs;
     expected = true;
   };
 

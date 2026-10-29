@@ -568,47 +568,47 @@ in
   };
 
   # ===== IPv4 interop =====
-  testFromIpv4Mapped = {
-    expr = ipv6.toString (ipv6.fromIpv4Mapped (ipv4.parse "1.2.3.4"));
+  testFromIpv4 = {
+    expr = ipv6.toString (ipv6.fromIpv4 (ipv4.parse "1.2.3.4"));
     expected = "::ffff:1.2.3.4";
   };
-  testToIpv4Mapped = {
-    expr = ipv4.toString (ipv6.toIpv4Mapped (parse "::ffff:1.2.3.4"));
+  testToIpv4 = {
+    expr = ipv4.toString (ipv6.toIpv4 (parse "::ffff:1.2.3.4"));
     expected = "1.2.3.4";
   };
-  testToIpv4MappedRejectsNonMapped = {
-    expr = throws (ipv6.toIpv4Mapped (parse "::1"));
+  testToIpv4RejectsNonMapped = {
+    expr = throws (ipv6.toIpv4 (parse "::1"));
     expected = true;
   };
-  testFromIpv4MappedRejectsIpv6 = {
-    expr = throws (ipv6.fromIpv4Mapped (parse "::1"));
+  testFromIpv4RejectsIpv6 = {
+    expr = throws (ipv6.fromIpv4 (parse "::1"));
     expected = true;
   };
 
-  # ===== EUI-64 =====
+  # ===== fromMac (modified EUI-64) =====
   # 2001:db8::/64 + aa:bb:cc:dd:ee:ff → 2001:db8::a8bb:ccff:fedd:eeff
-  testEui64Vector = {
+  testFromMacVector = {
     expr = ipv6.toString (
-      ipv6.fromEui64 {
+      ipv6.fromMac {
         _type = "cidr";
-        network = parse "2001:db8::";
+        networkAddress = parse "2001:db8::";
         prefix = 64;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
     expected = "2001:db8::a8bb:ccff:fedd:eeff";
   };
-  testEui64PrefixTooBig = {
+  testFromMacPrefixTooBig = {
     expr = throws (
-      ipv6.fromEui64 {
+      ipv6.fromMac {
         _type = "cidr";
-        network = parse "2001:db8::";
+        networkAddress = parse "2001:db8::";
         prefix = 96;
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
     expected = true;
   };
-  testEui64WrongType = {
-    expr = throws (ipv6.fromEui64 (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
+  testFromMacWrongType = {
+    expr = throws (ipv6.fromMac (parse "::1") (mac.parse "aa:bb:cc:dd:ee:ff"));
     expected = true;
   };
 

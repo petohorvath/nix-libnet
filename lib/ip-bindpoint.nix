@@ -251,15 +251,6 @@ let
     );
 
   /*
-    Test whether the bindpoint covers more than one port.
-
-    `bindpoint`: ipBindpoint value.
-
-    Returns a Boolean.
-  */
-  isRange = bindpoint: !(portRange.isSingleton bindpoint.portRange);
-
-  /*
     Test whether the bindpoint has an IPv4 address.
 
     `bindpoint`: ipBindpoint value.
@@ -591,7 +582,6 @@ in
     isLinkLocal
     isLoopback
     isMulticast
-    isRange
     isUnspecified
     isValid
     isWildcard

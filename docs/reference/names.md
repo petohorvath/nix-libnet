@@ -16,14 +16,15 @@ Value: `{ _type = "domain"; value = String; }`, two or more hostname-valid label
 
 Suites: parsing, comparison (case-insensitive). `toString` preserves the input's case.
 
-| Function        | Signature                 | Notes                                                                      |
-| --------------- | ------------------------- | -------------------------------------------------------------------------- |
-| `fromLabels`    | `[String] → Domain`       | Joins and validates.                                                       |
-| `labels`        | `Domain → [String]`       | Leftmost first.                                                            |
-| `parent`        | `Domain → Domain or null` | Drops the leftmost label; `null` when fewer than two would remain.         |
-| `isSubdomainOf` | `Domain → Domain → Bool`  | `isSubdomainOf a b` is true when `a` is `b` or below it. Case-insensitive. |
-| `toHostname`    | `Domain → Hostname`       | The leftmost label.                                                        |
-| `normalize`     | `Domain → Domain`         | Lowercases.                                                                |
+| Function          | Signature                 | Notes                                                                      |
+| ----------------- | ------------------------- | -------------------------------------------------------------------------- |
+| `fromLabels`      | `[String] → Domain`       | Joins and validates.                                                       |
+| `labels`          | `Domain → [String]`       | Leftmost first.                                                            |
+| `parent`          | `Domain → Domain or null` | Drops the leftmost label; `null` when fewer than two would remain.         |
+| `isSubdomainOf`   | `Domain → Domain → Bool`  | `isSubdomainOf a b` is true when `a` is `b` or below it. Case-insensitive. |
+| `isSuperdomainOf` | `Domain → Domain → Bool`  | `isSuperdomainOf a b` is `isSubdomainOf b a`.                              |
+| `toHostname`      | `Domain → Hostname`       | The leftmost label.                                                        |
+| `normalize`       | `Domain → Domain`         | Lowercases.                                                                |
 
 There is no `tld` accessor ([ADR 0003](../adr/0003-syntax-not-resolution.md)); the last element of `labels` is the rightmost label.
 

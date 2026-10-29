@@ -11,13 +11,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A `tests` flake output with the nix-unit suites, as `tests.systems.<system>.unit` and `unit-core`, and the `nix-unit` flake input that runs them. The input's own inputs follow libnet's `nixpkgs` or are empty, so a consumer's lock file gains one `nix-unit` entry and no second nixpkgs. Consumers can drop it with `inputs.nix-libnet.inputs.nix-unit.follows = "";` ([ADR 0018](docs/adr/0018-nix-unit-flake-module.md)).
 - The `treefmt-nix` flake input, which builds `nix fmt` and the `treefmt` check. Its `nixpkgs` follows libnet's, so a consumer's lock file gains one `treefmt-nix` entry and no second nixpkgs. Consumers can drop it with `inputs.nix-libnet.inputs.treefmt-nix.follows = "";` ([ADR 0019](docs/adr/0019-treefmt-nix.md)).
 - A `lint` check that runs `statix check`.
+- `domain.isSuperdomainOf`, the converse of `isSubdomainOf`, so either side of the relation can be partially applied.
 
 ### Changed
 
-- **Breaking:** `cidr.parse` and `cidr.make` reject host bits, so `10.0.0.5/24` is no longer a CIDR; parse it with `interfaceAddress` and take its `network`. `types.cidr`, `types.ipv4Cidr` and `types.ipv6Cidr` reject it too. The stored field is now `network`, not `address`, and `cidr.eq` no longer equates a block with host bits to its network ([ADR 0010](docs/adr/0010-interface-address-is-not-cidr.md)).
+- **Breaking:** `cidr.parse` and `cidr.make` reject host bits, so `10.0.0.5/24` is no longer a CIDR; parse it with `interfaceAddress` and take its `cidr`. `types.cidr`, `types.ipv4Cidr` and `types.ipv6Cidr` reject it too. The stored field is now `networkAddress`, not `address`, and `cidr.eq` no longer equates a block with host bits to its network ([ADR 0010](docs/adr/0010-interface-address-is-not-cidr.md)).
 - **Breaking:** `make` takes a tagged value for every tagged field ([ADR 0004](docs/adr/0004-tagged-values.md)). `portRange.make` takes two `port` values instead of integers: write `portRange.make (port.fromInt 80) (port.fromInt 90)`. `authority.make` and `url.make` take `host` as a `urlHost` value and `port` as a `port` value or `null`: write `host = urlHost.parse "example.com"; port = port.fromInt 8443;`.
 - **Breaking:** rename `cidr.hostAt` to `cidr.addressAt` and `cidr.subnet` to `cidr.subnets`. `hostAt` indexed every address from the network address, not the usable hosts that `cidr.hosts` lists, so it now shares `ipRange.addressAt`'s name. `subnets` returns a list, so its name is plural like `hosts`.
 - **Breaking (development interface):** run the unit suites through nix-unit's flake-parts module. Replace `checks.<system>.core` and `checks.<system>.full` with `checks.<system>.nix-unit`, which runs them as `unit-core`, without nixpkgs, and `unit`. Replace `nix-unit tests/unit.nix` with `nix-unit --flake .#tests.systems.<system>.unit[.<suite>]`, adding `--attr <test>` for one test. The suites move from `tests/` to `tests/unit/`, whose entry point takes `nixpkgs` instead of `lib`, and their attributes take their file names, such as `bind-url` and `internal.dns-label`.
+- **Breaking:** rename `cidr.network` to `cidr.networkAddress`, which pairs with `topAddress`, and `interfaceAddress.network` to `interfaceAddress.cidr`, so "network" no longer names both an address and a block.
+- **Breaking:** rename `ipv6.fromIpv4Mapped` to `ipv6.fromIpv4`, `ipv6.toIpv4Mapped` to `ipv6.toIpv4` and `ipv6.fromEui64` to `ipv6.fromMac`, following the `from<Input>`/`to<Output>` pattern. Arguments and results are unchanged.
+- **Breaking:** `cidr.contains` takes only an address and returns `false` for a CIDR; test a block with `cidr.isSupernetOf`.
+- **Breaking:** rename `interfaceAddress.fromAddressAndNetwork` to `interfaceAddress.fromCidrAndAddress` and take the CIDR first, so `map (interfaceAddress.fromCidrAndAddress block) addresses` works.
+- **Breaking:** `mac.ouiToString` takes a MAC instead of the integer OUI, like every other `toString*`: write `mac.ouiToString m` for `mac.ouiToString (mac.oui m)`.
 - **Breaking:** rename `dnsEndpoint.address` to `dnsEndpoint.name`, along with the stored field, because a DNS endpoint holds an unresolved name, not an address. `dnsEndpoint.make` is positional and does not change.
 - **Breaking:** rename `host.isName` to `host.isDnsName`, so each union's predicates name its direct members.
 - **Breaking:** replace `interfaceName.ifnamsiz` (`16`, the kernel buffer size) with `interfaceName.maxLength` (`15`, the longest valid name).
@@ -25,12 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Removed
 
-- **Breaking:** `cidr.address`, `cidr.canonical` and `cidr.isCanonical`; use `cidr.network`, which every CIDR now stores.
-- **Breaking:** `interfaceAddress.toCidr`, which built a CIDR with host bits; use `interfaceAddress.network`.
+- **Breaking:** `cidr.address`, `cidr.canonical` and `cidr.isCanonical`; use `cidr.networkAddress`, which every CIDR now stores.
+- **Breaking:** `interfaceAddress.toCidr`, which built a CIDR with host bits; use `interfaceAddress.cidr`.
 - **Breaking:** the function aliases `ipv4.fromOctets` and `ipv4.toOctets` (use `fromBytes` and `toBytes`, whose errors now name `fromBytes`), `ipv6.toStringCompressed` (use `toString`), `port.isEphemeral` (use `isDynamic`) and `ipBindpoint.isAnyAddress` (use `isWildcard`). The library keeps one name per operation.
 - **Breaking:** `host.isHostname` and `host.isDomain`, which tested leaf kinds below `host`'s direct members; use `hostname.is` and `domain.is`, or `dnsName.isHostname` and `dnsName.isDomain`.
 - **Breaking:** `interfaceName.value`; use `interfaceName.toString`, as for every other scalar kind.
 - **Breaking:** `domain.labelCount`; use `builtins.length (domain.labels d)`.
+- **Breaking:** `cidr.containsAddress` and `cidr.containsCidr`; use `cidr.contains` and `cidr.isSupernetOf`.
+- **Breaking:** `ipBindpoint.isRange`, since a single port is also a port range; use `portRange.isSingleton (ipBindpoint.portRange b)`.
 - **Breaking:** the constants `urlHost.regNamePattern`, the parser's internal grammar, and `unixSocket.sunPathMax`, which gave one limit for two: a pathname socket allows 107 bytes and an abstract name 108.
 
 ## [0.1.0] - 2026-10-13

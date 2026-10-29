@@ -120,28 +120,28 @@ in
   };
 
   # ===== Derived =====
-  testNetworkV4 = {
-    expr = cidr.toString (interfaceAddress.network (parse "192.168.1.5/24"));
+  testCidrV4 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "192.168.1.5/24"));
     expected = "192.168.1.0/24";
   };
-  testNetworkV6 = {
-    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/64"));
+  testCidrV6 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "2001:db8::5/64"));
     expected = "2001:db8::/64";
   };
-  testNetworkV4Prefix0 = {
-    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/0"));
+  testCidrV4Prefix0 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "10.1.2.3/0"));
     expected = "0.0.0.0/0";
   };
-  testNetworkV4Prefix32 = {
-    expr = cidr.toString (interfaceAddress.network (parse "10.1.2.3/32"));
+  testCidrV4Prefix32 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "10.1.2.3/32"));
     expected = "10.1.2.3/32";
   };
-  testNetworkV6Prefix0 = {
-    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/0"));
+  testCidrV6Prefix0 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "2001:db8::5/0"));
     expected = "::/0";
   };
-  testNetworkV6Prefix128 = {
-    expr = cidr.toString (interfaceAddress.network (parse "2001:db8::5/128"));
+  testCidrV6Prefix128 = {
+    expr = cidr.toString (interfaceAddress.cidr (parse "2001:db8::5/128"));
     expected = "2001:db8::5/128";
   };
   testNetmaskV4 = {
@@ -195,23 +195,49 @@ in
     expected = true;
   };
 
-  # ===== fromAddressAndNetwork =====
-  testFromAddressAndNetworkOk = {
+  # ===== fromCidrAndAddress =====
+  testFromCidrAndAddressOk = {
     expr = interfaceAddress.toString (
-      interfaceAddress.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "192.168.1.0/24")
+      interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") (ipv4.parse "192.168.1.5")
     );
     expected = "192.168.1.5/24";
   };
-  testFromAddressAndNetworkOutside = {
+  testFromCidrAndAddressV6 = {
+    expr = interfaceAddress.toString (
+      interfaceAddress.fromCidrAndAddress (cidr.parse "2001:db8::/64") (ipv6.parse "2001:db8::5")
+    );
+    expected = "2001:db8::5/64";
+  };
+  testFromCidrAndAddressPartial = {
+    expr = map interfaceAddress.toString (
+      map (interfaceAddress.fromCidrAndAddress (cidr.parse "10.0.0.0/24")) (
+        map ipv4.parse [
+          "10.0.0.1"
+          "10.0.0.2"
+        ]
+      )
+    );
+    expected = [
+      "10.0.0.1/24"
+      "10.0.0.2/24"
+    ];
+  };
+  testFromCidrAndAddressOutside = {
     expr = throws (
-      interfaceAddress.fromAddressAndNetwork (ipv4.parse "10.0.0.1") (cidr.parse "192.168.1.0/24")
+      interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") (ipv4.parse "10.0.0.1")
     );
     expected = true;
   };
-  testFromAddressAndNetworkMixedFamilies = {
-    expr = throws (
-      interfaceAddress.fromAddressAndNetwork (ipv4.parse "192.168.1.5") (cidr.parse "::/0")
-    );
+  testFromCidrAndAddressMixedFamilies = {
+    expr = throws (interfaceAddress.fromCidrAndAddress (cidr.parse "::/0") (ipv4.parse "192.168.1.5"));
+    expected = true;
+  };
+  testFromCidrAndAddressNonCidr = {
+    expr = throws (interfaceAddress.fromCidrAndAddress "192.168.1.0/24" (ipv4.parse "192.168.1.5"));
+    expected = true;
+  };
+  testFromCidrAndAddressNonAddress = {
+    expr = throws (interfaceAddress.fromCidrAndAddress (cidr.parse "192.168.1.0/24") "192.168.1.5");
     expected = true;
   };
 

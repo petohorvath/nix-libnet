@@ -56,6 +56,7 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 ## Conventions
 
 - **Curry order**: the parameter comes first and the operand last, so `map (ipv4.add 1) addresses` and `map (cidr.addressAt 1) blocks` work.
+- **Relations** read in English order: `isXOf a b` is "a is X of b", as in Python's `subnet_of` and Haskell's `isPrefixOf`. Partially apply the converse to filter the other way: `filter (cidr.isSupernetOf net) blocks` keeps blocks inside `net`.
 - **One name per operation**: the library has no function aliases. Input spellings, such as `ssl` for `tls` or `any` for the wildcard address, are not aliases.
 - **Accessors** share their name with the field they read, such as `cidr.prefix`. A scalar's generic `value` field has no accessor; read it with `toString` or `toInt`.
 - **Union predicates**: a pass-through union has one `is<Member>` predicate per direct member, such as `host.isIp` and `host.isDnsName`. Test a leaf kind with its own `is`, such as `hostname.is`.

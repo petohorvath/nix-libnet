@@ -129,16 +129,6 @@ in
     expected = false;
   };
 
-  # ===== isRange =====
-  testIsRangeSingle = {
-    expr = ipBindpoint.isRange (parse ":80");
-    expected = false;
-  };
-  testIsRangeRange = {
-    expr = ipBindpoint.isRange (parse ":80-90");
-    expected = true;
-  };
-
   # ===== Family =====
   testIsIpv4V4 = {
     expr = ipBindpoint.isIpv4 (parse "1.2.3.4:80");

@@ -1,14 +1,14 @@
 /*
   libnet.interfaceAddress
 
-  An address-on-subnet descriptor: a host address (ipv4 or ipv6) paired
-  with a prefix length — e.g. `192.168.1.10/24`. The pure-Nix analog of
-  Python's `IPv4Interface` / `IPv6Interface`.
+  An address (ipv4 or ipv6) paired with the prefix of the CIDR it sits
+  on — e.g. `192.168.1.10/24`. The pure-Nix analog of Python's
+  `IPv4Interface` / `IPv6Interface`.
 
-  Distinct from `cidr`: a `cidr` is a network/block with the host bits
-  zeroed (`192.168.1.0/24`), whereas an `interfaceAddress` keeps the host
-  bits significant (`192.168.1.10/24` — a specific host's address plus
-  its subnet). The two never compare `eq` (different `_type`); `network`
+  Distinct from `cidr`: a `cidr` is a block with the host bits zeroed
+  (`192.168.1.0/24`), whereas an `interfaceAddress` keeps the host bits
+  significant (`192.168.1.10/24` — a specific address plus the CIDR it
+  sits on). The two never compare `eq` (different `_type`); `cidr`
   derives the block.
 
   The interface *name* (the NIC identifier, `eth0`) is a separate type:
@@ -78,7 +78,7 @@ let
 
   /*
     Parse an interface address from text, such as a per-NIC address
-    assignment. The host bits are kept, not zeroed to the network.
+    assignment. The host bits are kept, not zeroed to the network address.
 
     `input`: "<address>/<prefix>", such as "192.168.1.5/24" or
     "2001:db8::5/64"; the prefix must fit the address family.
@@ -152,28 +152,30 @@ let
       mk addressValue (maxPrefix addressValue);
 
   /*
-    Build an interface address from a host and the network it sits in,
-    checking that the host belongs to that network.
+    Build an interface address from a CIDR and an address on it,
+    checking that the CIDR contains the address. The CIDR comes first, so
+    `map (fromCidrAndAddress block) addresses` works.
 
-    `addressValue`: ipv4 or ipv6 value.
-    `networkCidr`: cidr value of the same family containing the address.
+    `cidrValue`: cidr value.
+    `addressValue`: ipv4 or ipv6 value of the same family inside
+    `cidrValue`.
 
-    Returns an interfaceAddress with the network's prefix; throws on a
-    non-address, non-cidr, family mismatch, or an address outside the
-    network.
+    Returns an interfaceAddress with the CIDR's prefix; throws on a
+    non-cidr, non-address, family mismatch, or an address outside the
+    CIDR.
   */
-  fromAddressAndNetwork =
-    addressValue: networkCidr:
-    if !(types.isIp addressValue) then
-      throw "libnet.interfaceAddress.fromAddressAndNetwork: address must be ipv4 or ipv6"
-    else if !(types.isCidr networkCidr) then
-      throw "libnet.interfaceAddress.fromAddressAndNetwork: expected cidr as network"
-    else if addressValue._type != networkCidr.network._type then
-      throw "libnet.interfaceAddress.fromAddressAndNetwork: family mismatch"
-    else if !(cidr.containsAddress networkCidr addressValue) then
-      throw "libnet.interfaceAddress.fromAddressAndNetwork: address not in network"
+  fromCidrAndAddress =
+    cidrValue: addressValue:
+    if !(types.isCidr cidrValue) then
+      throw "libnet.interfaceAddress.fromCidrAndAddress: expected cidr value"
+    else if !(types.isIp addressValue) then
+      throw "libnet.interfaceAddress.fromCidrAndAddress: address must be ipv4 or ipv6"
+    else if addressValue._type != cidrValue.networkAddress._type then
+      throw "libnet.interfaceAddress.fromCidrAndAddress: family mismatch"
+    else if !(cidr.contains cidrValue addressValue) then
+      throw "libnet.interfaceAddress.fromCidrAndAddress: address not in cidr"
     else
-      mk addressValue networkCidr.prefix;
+      mk addressValue cidrValue.prefix;
 
   # ===== Predicates =====
 
@@ -334,14 +336,8 @@ let
   */
   version = interfaceAddress: if isV4 interfaceAddress.address then 4 else 6;
 
-  /*
-    Derive the network the host belongs to.
-
-    `interfaceAddress`: interfaceAddress value.
-
-    Returns a cidr value.
-  */
-  network =
+  # Derive the CIDR the address sits on; exported as `cidr`.
+  cidrOf =
     interfaceAddress:
     cidr.supernet (maxPrefix interfaceAddress.address - interfaceAddress.prefix) (
       cidr.fromAddress interfaceAddress.address
@@ -354,7 +350,7 @@ let
 
     Returns an address value of the same family with the prefix bits set.
   */
-  netmask = interfaceAddress: cidr.netmask (network interfaceAddress);
+  netmask = interfaceAddress: cidr.netmask (cidrOf interfaceAddress);
 
   /*
     Derive the hostmask (inverse netmask) for the prefix.
@@ -363,10 +359,10 @@ let
 
     Returns an address value of the same family with the host bits set.
   */
-  hostmask = interfaceAddress: cidr.hostmask (network interfaceAddress);
+  hostmask = interfaceAddress: cidr.hostmask (cidrOf interfaceAddress);
 
   /*
-    Derive the IPv4 broadcast address of the host's network.
+    Derive the IPv4 broadcast address of the CIDR the address sits on.
 
     `interfaceAddress`: IPv4 interfaceAddress value.
 
@@ -377,18 +373,18 @@ let
     if !(isV4 interfaceAddress.address) then
       throw "libnet.interfaceAddress.broadcast: IPv6 has no broadcast"
     else
-      cidr.broadcast (network interfaceAddress);
+      cidr.broadcast (cidrOf interfaceAddress);
 
   # ===== Conversions =====
 
   /*
-    Convert the host's network to an address range.
+    Convert the CIDR the address sits on to an address range.
 
     `interfaceAddress`: interfaceAddress value.
 
-    Returns the ipRange covering `network interfaceAddress`.
+    Returns the ipRange covering `cidr interfaceAddress`.
   */
-  toRange = interfaceAddress: ipRange.fromCidr (network interfaceAddress);
+  toRange = interfaceAddress: ipRange.fromCidr (cidrOf interfaceAddress);
 
   # ===== Comparison =====
 
@@ -495,7 +491,7 @@ in
     compare
     eq
     fromAddress
-    fromAddressAndNetwork
+    fromCidrAndAddress
     ge
     gt
     hostmask
@@ -516,7 +512,6 @@ in
     max
     min
     netmask
-    network
     parse
     prefix
     toArpa
@@ -525,4 +520,14 @@ in
     tryParse
     version
     ;
+
+  # Defined here rather than in `let`, where `cidr` names the cidr module.
+  /*
+    Derive the CIDR the address sits on.
+
+    `interfaceAddress`: interfaceAddress value.
+
+    Returns a cidr value.
+  */
+  cidr = cidrOf;
 }
