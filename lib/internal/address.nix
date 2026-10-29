@@ -1,9 +1,10 @@
 /*
   Arithmetic and integer-list checks shared by the address kinds, the
-  `ip` union and, through `offsetWithin`, the bounded integers. Each function takes `caller`, the public function its errors
-  name, so `ip.next` reports `libnet.ip.next` even though the IPv4 code
-  does the work. They check every argument: the kind of the address
-  operands, the offset and the integer lists.
+  `ip` union and, through `offsetWithin`, the bounded integers. Each
+  function takes `caller`, the public function its errors name, so
+  `ip.next` reports `libnet.ip.next` even though the IPv4 code does the
+  work. They check every argument: the kind of the address operands, the
+  offset and the integer lists.
 
   Every range check runs before the arithmetic it guards, since Nix 2.18
   wraps integer overflow silently.

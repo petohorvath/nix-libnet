@@ -5,9 +5,10 @@ let
     kind. `rejects.<function>.<argument>` calls the function with one
     wrong-kind argument, named for what it gets wrong; the call must throw
     an argument-kind error naming the function that was called when forced
-    only to weak head normal form, not when a field of its result is read. Cover a
-    representative value-taking function, `make` where the namespace has
-    one, and arithmetic offsets and indices where it has them.
+    only to weak head normal form, not when a field of its result is read.
+    Cover a representative value-taking function, `make` where the
+    namespace has one, and arithmetic offsets and indices where it has
+    them.
   */
   cases = {
     ipv4 =
@@ -901,11 +902,9 @@ let
     }
   ];
 
-  /*
-    Values of a kind other than the namespace's, including malformed tags.
-    `eq value value` returns false without throwing for each, unless the
-    namespace accepts the kind, as a union accepts its members.
-  */
+  # Values of a kind other than the namespace's, malformed tags included.
+  # `eq value value` returns false without throwing for each, unless the
+  # namespace accepts the kind, as a union accepts its members.
   foreignValues = anyValues ++ [
     { _type = 1; }
     (libnet.port.fromInt 1)
