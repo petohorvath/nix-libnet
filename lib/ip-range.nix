@@ -493,7 +493,7 @@ let
     `cidrValue`: cidr value.
 
     Returns the range from the network address to the block's top
-    address (broadcast for IPv4); throws when given a non-cidr.
+    address; throws when given a non-cidr.
   */
   fromCidr =
     cidrValue:
