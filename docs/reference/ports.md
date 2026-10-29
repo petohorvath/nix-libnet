@@ -11,7 +11,7 @@ A [bounded integer](bounded-integers.md) in `[0, 65535]`: `{ _type = "port"; val
 | `isDynamic`    | `Port → Bool` | `49152`–`65535`.                                             |
 | `isReserved`   | `Port → Bool` | `0`, which is also well-known: the RFC 6335 classes overlap. |
 
-Constants, as plain integers: `wellKnownMax` (`1023`) and `registeredMax` (`49151`), besides the bounds `lowestValue` (`0`) and `highestValue` (`65535`). Service names live in [`registry.ports`](registry.md).
+Constants, as plain integers: the bounds `minValue` (`0`) and `maxValue` (`65535`). Service names live in [`registry.ports`](registry.md).
 
 ## `libnet.portRange`
 

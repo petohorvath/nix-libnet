@@ -31,7 +31,7 @@ let
   # ===== Parsing =====
 
   # Decimal port number from one side of a range, or null when invalid.
-  parsePort = parsing.decimal port.highestValue;
+  parsePort = parsing.decimal port.maxValue;
 
   /*
     Parse a port range without throwing, so callers can handle invalid

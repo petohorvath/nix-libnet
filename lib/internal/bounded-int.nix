@@ -3,31 +3,83 @@
   its tag and inclusive bounds; arithmetic is opt-in because it does not
   describe meaningful operations on ICMP message types.
 
-  The text form is unsigned decimal, so `lowestValue` must not be
+  The text form is unsigned decimal, so `minValue` must not be
   negative. Keep validation separate from tag inspection: `is` recognizes
   a tag without forcing the payload, while `isValid` checks text.
 
   The public `port`, `vlanId`, `mtu`, and `icmpType` modules export these
   functions, so their headers describe public API. `scalar` below means
-  a value tagged with `typeName`.
+  a value tagged with `typeName`. Every function except `is`, `eq`,
+  `isValid` and `tryParse` throws for an argument of the wrong kind.
 */
 {
   typeName,
-  lowestValue,
-  highestValue,
+  minValue,
+  maxValue,
   arithmetic ? false,
 }:
 let
+  errors = import ./errors.nix;
   parsing = import ./parse.nix;
   types = import ./types.nix;
-  rangeText = "[${builtins.toString lowestValue}, ${builtins.toString highestValue}]";
+  rangeText = "[${builtins.toString minValue}, ${builtins.toString maxValue}]";
 
   mk = value: {
     _type = typeName;
     inherit value;
   };
 
-  inRange = n: builtins.isInt n && n >= lowestValue && n <= highestValue;
+  inRange = n: n >= minValue && n <= maxValue;
+
+  # Unwrap a scalar argument of `function`, throwing for any other kind.
+  valueOf = function: scalar: (errors.expectKind "${typeName}.${function}" typeName scalar).value;
+
+  intArgument = function: errors.expectType "${typeName}.${function}" "int";
+
+  outOfRange =
+    function: text: errors.fail "${typeName}.${function}" "out of range ${rangeText}: ${text}";
+
+  parseError = detail: types.tryErr (errors.message "${typeName}.parse" detail);
+
+  # The comparison and offset logic shared by the public functions, each
+  # taking the name of the public function its errors report.
+  compareFor =
+    function: a: b:
+    let
+      left = valueOf function a;
+      right = valueOf function b;
+    in
+    if left < right then
+      -1
+    else if left > right then
+      1
+    else
+      0;
+
+  # Bound the offset, not the result: both bounds lie within a domain
+  # width of zero, so no check can overflow a Nix integer, which Nix 2.18
+  # would wrap silently.
+  addFor =
+    function: n: scalar:
+    let
+      offset = intArgument function n;
+      value = valueOf function scalar;
+    in
+    if offset < minValue - value || offset > maxValue - value then
+      outOfRange function "${builtins.toString value} + ${builtins.toString offset}"
+    else
+      mk (value + offset);
+
+  subFor =
+    function: n: scalar:
+    let
+      offset = intArgument function n;
+      value = valueOf function scalar;
+    in
+    if offset < value - maxValue || offset > value - minValue then
+      outOfRange function "${builtins.toString value} - ${builtins.toString offset}"
+    else
+      mk (value - offset);
 
   /*
     Parse a value from its decimal text without throwing, so callers can
@@ -42,17 +94,17 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.${typeName}.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else
       let
-        number = parsing.decimal highestValue input;
+        number = parsing.decimal maxValue input;
       in
       if builtins.match "0[0-9]+" input != null then
-        types.tryErr "libnet.${typeName}.parse: leading zero in \"${input}\""
+        parseError "leading zero in \"${input}\""
       else if !(parsing.isDecimal input) then
-        types.tryErr "libnet.${typeName}.parse: not a decimal number: \"${input}\""
+        parseError "not a decimal number: \"${input}\""
       else if number == null || !(inRange number) then
-        types.tryErr "libnet.${typeName}.parse: out of range ${rangeText}: ${input}"
+        parseError "out of range ${rangeText}: ${input}"
       else
         types.tryOk (mk number);
 
@@ -102,10 +154,10 @@ let
   */
   fromInt =
     n:
-    if !(inRange n) then
-      throw "libnet.${typeName}.fromInt: out of range ${rangeText}: ${builtins.toString n}"
-    else
-      mk n;
+    let
+      checked = intArgument "fromInt" n;
+    in
+    if inRange checked then mk checked else outOfRange "fromInt" (builtins.toString checked);
 
   /*
     Unwrap a value to the bare integer it holds.
@@ -114,7 +166,7 @@ let
 
     Returns the integer.
   */
-  toInt = scalar: scalar.value;
+  toInt = valueOf "toInt";
 
   /*
     Render a value in decimal.
@@ -123,7 +175,7 @@ let
 
     Returns the decimal string.
   */
-  toString = scalar: builtins.toString scalar.value;
+  toString = scalar: builtins.toString (valueOf "toString" scalar);
 
   /*
     Test two values for equality, including their tags.
@@ -141,14 +193,7 @@ let
 
     Returns -1, 0, or 1 as `a` is less than, equal to, or greater than `b`.
   */
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` is less than `b`.
@@ -157,7 +202,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` is less than or equal to `b`.
@@ -166,7 +211,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` is greater than `b`.
@@ -175,7 +220,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` is greater than or equal to `b`.
@@ -184,7 +229,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Select the smaller of two values.
@@ -193,7 +238,7 @@ let
 
     Returns the smaller value, or `a` when they are equal.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Select the larger of two values.
@@ -202,7 +247,7 @@ let
 
     Returns the larger value, or `a` when they are equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   /*
     Offset a value by an integer, staying within the domain.
@@ -210,27 +255,21 @@ let
     `n`: integer offset; may be negative.
     `scalar`: tagged value.
 
-    Returns the offset value; throws when the result is out of range.
+    Returns the offset value; throws when `n` is not an integer or the
+    result is out of range.
   */
-  add =
-    n: scalar:
-    let
-      result = scalar.value + n;
-    in
-    if !(inRange result) then
-      throw "libnet.${typeName}.add: result out of range ${rangeText}: ${builtins.toString result}"
-    else
-      mk result;
+  add = addFor "add";
 
   /*
-    Offset a value downward by an integer; `sub n` is `add (-n)`.
+    Offset a value downward by an integer, the inverse of `add`.
 
     `n`: integer to subtract; may be negative.
     `scalar`: tagged value.
 
-    Returns the offset value; throws when the result is out of range.
+    Returns the offset value; throws when `n` is not an integer or the
+    result is out of range.
   */
-  sub = n: scalar: add (0 - n) scalar;
+  sub = subFor "sub";
 
   /*
     Measure the distance between two values. All scalar modules define
@@ -240,7 +279,7 @@ let
 
     Returns the integer `b - a`.
   */
-  diff = a: b: b.value - a.value;
+  diff = a: b: valueOf "diff" b - valueOf "diff" a;
 
   /*
     Step to the following value, for iterating through the domain.
@@ -250,7 +289,7 @@ let
     Returns the value one higher; throws when `scalar` is already at the
     upper bound.
   */
-  next = scalar: add 1 scalar;
+  next = addFor "next" 1;
 
   /*
     Step to the preceding value, for iterating through the domain.
@@ -260,10 +299,10 @@ let
     Returns the value one lower; throws when `scalar` is already at the
     lower bound.
   */
-  prev = scalar: sub 1 scalar;
+  prev = subFor "prev" 1;
 in
-if lowestValue < 0 then
-  throw "libnet.internal.boundedInt: lowestValue of ${typeName} must not be negative, since decimal text has no sign: ${builtins.toString lowestValue}"
+if minValue < 0 then
+  throw "libnet.internal.boundedInt: minValue of ${typeName} must not be negative, since decimal text has no sign: ${builtins.toString minValue}"
 else
   {
     inherit
@@ -272,14 +311,14 @@ else
       fromInt
       ge
       gt
-      highestValue
       is
       isValid
       le
-      lowestValue
       lt
       max
+      maxValue
       min
+      minValue
       parse
       toInt
       toString

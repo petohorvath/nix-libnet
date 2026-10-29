@@ -29,6 +29,7 @@ in
     bounded-int = import ./internal/bounded-int.nix testContext;
     carry = import ./internal/carry.nix testContext;
     dns-label = import ./internal/dns-label.nix testContext;
+    errors = import ./internal/errors.nix testContext;
     format = import ./internal/format.nix testContext;
     parse = import ./internal/parse.nix testContext;
     types = import ./internal/types.nix testContext;
@@ -55,4 +56,5 @@ in
   url-host = import ./url-host.nix testContext;
   vlan-id = import ./vlan-id.nix testContext;
   with-lib = import ./with-lib.nix testContext;
+  wrong-kind = import ./wrong-kind.nix testContext;
 }

@@ -97,12 +97,12 @@ in
     expected = true;
   };
   testParseRejectsLeadingZero = {
-    expr = throws (icmpType.parse "08");
-    expected = true;
+    expr = icmpType.parse "08";
+    expectedError.msg = "^libnet\\.icmpType\\.parse: leading zero in \"08\"$";
   };
   testParseRejectsInt = {
-    expr = throws (icmpType.parse 8);
-    expected = true;
+    expr = icmpType.parse 8;
+    expectedError.msg = "^libnet\\.icmpType\\.parse: expected string, got int$";
   };
   testTryParseOk = {
     expr = icmpType.toInt (icmpType.tryParse "8").value;
@@ -126,12 +126,12 @@ in
   };
 
   # ===== Constants =====
-  testLowestValue = {
-    expr = icmpType.lowestValue;
+  testMinValue = {
+    expr = icmpType.minValue;
     expected = 0;
   };
-  testHighestValue = {
-    expr = icmpType.highestValue;
+  testMaxValue = {
+    expr = icmpType.maxValue;
     expected = 255;
   };
 
@@ -163,12 +163,12 @@ in
     expected = true;
   };
   testFromIntNegativeThrows = {
-    expr = throws (icmpType.fromInt (-1));
-    expected = true;
+    expr = icmpType.fromInt (-1);
+    expectedError.msg = "^libnet\\.icmpType\\.fromInt: out of range \\[0, 255\\]: -1$";
   };
   testFromInt256Throws = {
-    expr = throws (icmpType.fromInt 256);
-    expected = true;
+    expr = icmpType.fromInt 256;
+    expectedError.msg = "^libnet\\.icmpType\\.fromInt: out of range \\[0, 255\\]: 256$";
   };
   testToStringRenders = {
     expr = icmpType.toString (icmpType.fromInt 8);

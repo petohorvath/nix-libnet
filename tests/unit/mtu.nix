@@ -118,12 +118,12 @@ in
     expected = true;
   };
   testParseRejectsLeadingZero = {
-    expr = throws (mtu.parse "01500");
-    expected = true;
+    expr = mtu.parse "01500";
+    expectedError.msg = "^libnet\\.mtu\\.parse: leading zero in \"01500\"$";
   };
   testParseRejectsInt = {
-    expr = throws (mtu.parse 1500);
-    expected = true;
+    expr = mtu.parse 1500;
+    expectedError.msg = "^libnet\\.mtu\\.parse: expected string, got int$";
   };
   testTryParseOk = {
     expr = mtu.toInt (mtu.tryParse "1500").value;
@@ -147,12 +147,12 @@ in
   };
 
   # ===== Constants =====
-  testLowestValue = {
-    expr = mtu.lowestValue;
+  testMinValue = {
+    expr = mtu.minValue;
     expected = 68;
   };
-  testHighestValue = {
-    expr = mtu.highestValue;
+  testMaxValue = {
+    expr = mtu.maxValue;
     expected = 65535;
   };
 
@@ -191,12 +191,12 @@ in
     expected = true;
   };
   testFromIntBelowThrows = {
-    expr = throws (mtu.fromInt 67);
-    expected = true;
+    expr = mtu.fromInt 67;
+    expectedError.msg = "^libnet\\.mtu\\.fromInt: out of range \\[68, 65535\\]: 67$";
   };
   testFromIntAboveThrows = {
-    expr = throws (mtu.fromInt 65536);
-    expected = true;
+    expr = mtu.fromInt 65536;
+    expectedError.msg = "^libnet\\.mtu\\.fromInt: out of range \\[68, 65535\\]: 65536$";
   };
   testToStringRenders = {
     expr = mtu.toString (mtu.fromInt 1500);
@@ -253,8 +253,8 @@ in
     expected = 65535;
   };
   testSubFloatThrows = {
-    expr = throws (mtu.sub 1.0 (mtu.fromInt 1500));
-    expected = true;
+    expr = mtu.sub 1.0 (mtu.fromInt 1500);
+    expectedError.msg = "^libnet\\.mtu\\.sub: expected int, got float$";
   };
   testNextOk = {
     expr = mtu.toInt (mtu.next (mtu.fromInt 1500));
@@ -277,20 +277,20 @@ in
     expected = 0;
   };
   testSubBelowFloorThrows = {
-    expr = throws (mtu.sub 1 (mtu.fromInt 68));
-    expected = true;
+    expr = mtu.sub 1 (mtu.fromInt 68);
+    expectedError.msg = "^libnet\\.mtu\\.sub: out of range \\[68, 65535\\]: 68 - 1$";
   };
   testAddOverMaxThrows = {
-    expr = throws (mtu.add 1 (mtu.fromInt 65535));
-    expected = true;
+    expr = mtu.add 1 (mtu.fromInt 65535);
+    expectedError.msg = "^libnet\\.mtu\\.add: out of range \\[68, 65535\\]: 65535 \\+ 1$";
   };
   testNextAtMaxThrows = {
-    expr = throws (mtu.next (mtu.fromInt 65535));
-    expected = true;
+    expr = mtu.next (mtu.fromInt 65535);
+    expectedError.msg = "^libnet\\.mtu\\.next: out of range \\[68, 65535\\]: 65535 \\+ 1$";
   };
   testPrevAtMinThrows = {
-    expr = throws (mtu.prev (mtu.fromInt 68));
-    expected = true;
+    expr = mtu.prev (mtu.fromInt 68);
+    expectedError.msg = "^libnet\\.mtu\\.prev: out of range \\[68, 65535\\]: 68 - 1$";
   };
 
   # ===== Comparison helpers =====

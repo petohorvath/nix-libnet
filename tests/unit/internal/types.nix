@@ -1,7 +1,6 @@
-{ helpers, internal, ... }:
+{ internal, ... }:
 let
   inherit (internal) types;
-  inherit (helpers) throws;
 
   # Minimal tagged fixtures — only _type matters for this module.
   ipv4 = {
@@ -475,25 +474,4 @@ in
     expected = "boom";
   };
 
-  # ===== ensureTag =====
-  testEnsureTagReturnsInput = {
-    expr = types.ensureTag "ipv4" "libnet.test" ipv4 == ipv4;
-    expected = true;
-  };
-  testEnsureTagWrongTagThrows = {
-    expr = throws (types.ensureTag "ipv4" "libnet.test" ipv6);
-    expected = true;
-  };
-  testEnsureTagUntaggedThrows = {
-    expr = throws (types.ensureTag "ipv4" "libnet.test" untagged);
-    expected = true;
-  };
-  testEnsureTagNonAttrsThrows = {
-    expr = throws (types.ensureTag "ipv4" "libnet.test" 42);
-    expected = true;
-  };
-  testEnsureTagStringThrows = {
-    expr = throws (types.ensureTag "ipv4" "libnet.test" "1.2.3.4");
-    expected = true;
-  };
 }

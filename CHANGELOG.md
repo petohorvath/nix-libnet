@@ -43,6 +43,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** `transport.values` holds the tagged transports in sorted order, `[ sctp tcp udp ]`, instead of the name strings `[ "tcp" "udp" "sctp" ]`.
 - **Breaking:** every decimal number in parsed text rejects leading zeros, as IPv4 octets already did: bounded integers, port ranges, bindpoint, endpoint and URL ports, and `cidr` and `interfaceAddress` prefix lengths. `port.parse "0080"`, `portRange.parse "0080-0090"` and `cidr.parse "10.0.0.0/08"` now throw, and the matching module types reject such strings, so `toString (parse s)` gives back `s` ([ADR 0013](docs/adr/0013-strict-input-canonical-output.md)).
 - Format through treefmt-nix: `nix fmt` runs nixfmt, deadnix, actionlint, and prettier instead of only nixfmt, and `checks.<system>.treefmt` replaces `checks.<system>.formatting`.
+- **Breaking:** `port`, `vlanId`, `mtu` and `icmpType` check the kind of every argument and throw `libnet.<ns>.<fn>: expected <kind>, got <kind>` on a mismatch, instead of returning a malformed value or failing with a raw Nix error. `fromInt` rejects a non-integer, so `port.fromInt "80"` no longer reports "out of range"; `add`, `sub`, `next` and `prev` reject a non-integer offset, so `port.add 1.5 p` no longer stores a float; and `toString`, `toInt`, the comparison functions, `diff` and the port class predicates reject anything but a value of their kind. Only `is`, `eq`, `isValid` and `tryParse` accept any value ([ADR 0007](docs/adr/0007-cross-type-comparison.md)). Build arguments with `parse` or `fromInt`, and test untrusted values with `is` first.
+- **Breaking:** bounded-integer errors name the function the caller called: `port.prev`, `port.sub` and `port.next` report themselves instead of `port.add`, and out-of-range arithmetic reads `libnet.port.prev: out of range [0, 65535]: 0 - 1`. An offset that would overflow a Nix integer throws the same range error, checked before any arithmetic. A non-string `tryParse` input fails with `libnet.<ns>.parse: expected string, got <type>` ([ADR 0006](docs/adr/0006-parse-throws-tryparse-recovers.md)). Update anything that matches error text.
+- **Breaking:** rename the bound constants `lowestValue` and `highestValue` of `port`, `vlanId`, `mtu` and `icmpType` to `minValue` and `maxValue`, the `min`/`max` vocabulary of `interfaceName.maxLength`.
 
 ### Removed
 
@@ -56,6 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** `ipBindpoint.isRange`, since a single port is also a port range; use `portRange.isSingleton (ipBindpoint.portRange b)`.
 - **Breaking:** the constants `urlHost.regNamePattern`, the parser's internal grammar, and `unixSocket.sunPathMax`, which gave one limit for two: a pathname socket allows 107 bytes and an abstract name 108.
 - **Breaking:** `secureSocketUrl.aliases`; `ssl` remains an input spelling of `tls` that `parse` and `make` accept.
+- **Breaking:** `port.wellKnownMax` and `port.registeredMax`; classify a port with `port.isWellKnown`, `port.isRegistered` and `port.isDynamic`.
 
 ### Fixed
 

@@ -74,18 +74,9 @@ let
     inherit error;
   };
 
-  ensureTag =
-    tag: context: value:
-    if hasTag tag value then
-      value
-    else
-      throw "libnet: ${context}: expected ${tag} value, got ${
-        if builtins.isAttrs value && value ? _type then "${value._type} value" else builtins.typeOf value
-      }";
 in
 {
   inherit
-    ensureTag
     hasSameTag
     hasTag
     isAuthority

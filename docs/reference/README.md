@@ -22,15 +22,15 @@ Each namespace page lists which suites it provides and documents only what diffe
 
 **Parsing**, for a kind `T`:
 
-| Function   | Signature              | Behavior                                                                                         |
-| ---------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `parse`    | `String → T`           | Throws on invalid input.                                                                         |
-| `tryParse` | `String → TryResult T` | Never throws.                                                                                    |
-| `toString` | `T → String`           | Canonical text.                                                                                  |
-| `isValid`  | `String → Bool`        | `(tryParse s).success`.                                                                          |
-| `is`       | `Any → Bool`           | Whether the argument is a `T` value. A string is never a value: `ipv4.is "10.0.0.1"` is `false`. |
+| Function   | Signature           | Behavior                                                                                         |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `parse`    | `String → T`        | Throws on invalid input, including a non-string.                                                 |
+| `tryParse` | `Any → TryResult T` | Never throws; fails for a non-string.                                                            |
+| `toString` | `T → String`        | Canonical text.                                                                                  |
+| `isValid`  | `Any → Bool`        | `(tryParse s).success`.                                                                          |
+| `is`       | `Any → Bool`        | Whether the argument is a `T` value. A string is never a value: `ipv4.is "10.0.0.1"` is `false`. |
 
-`TryResult T` is `{ success = Bool; value = T or null; error = String or null; }`, with `error` set only on failure.
+`TryResult T` is `{ success = Bool; value = T or null; error = String or null; }`, with `error` set only on failure. The `error` is the message `parse` would throw, naming `<ns>.parse`.
 
 **Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. `eq` ignores spelling that does not change meaning, such as the case of a case-insensitive component or a port equal to the scheme default, and counts every stored component. `compare a b` is `0` exactly when `eq a b`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
 
@@ -60,10 +60,11 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 - **One name per operation**: the library has no function aliases. Input spellings, such as `ssl` for `tls` or `any` for the wildcard address, are not aliases.
 - **Accessors** share their name with the field they read, such as `cidr.prefix`. A scalar's generic `value` field has no accessor; read it with `toString` or `toInt`.
 - **Union predicates**: a pass-through union has one `is<Member>` predicate per direct member, such as `host.isIp` and `host.isDnsName`. Test a leaf kind with its own `is`, such as `hostname.is`.
-- **Constants** are tagged values of the kind, such as `ipv4.loopback` and `transport.values`; integer domain bounds, such as `port.highestValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
+- **Constants** are tagged values of the kind, such as `ipv4.loopback` and `transport.values`; integer domain bounds, named with `min` and `max`, such as `port.maxValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
 - **Tagged results**: functions return tagged values for tagged kinds, so `url.defaultPort` returns a `Port`. Constant tables, such as `url.schemes` and `registry.ports`, and integer domain bounds hold plain literals.
 - **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
 - **Decimal text**: every decimal number in parsed text, such as a port, a port range bound or a prefix length, is digits only, without sign, whitespace or leading zeros; `0` itself is valid ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
-- **Errors** throw messages that begin with `libnet` and name the function. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
+- **Argument kinds**: every function checks the kind of each argument, a tagged value's `_type` or a raw value's builtin type, and throws `libnet.<ns>.<fn>: expected <kind>, got <kind>` on a mismatch, such as for `port.toString 80` or `port.add 1.5 p`. Only `is`, the union `is<Member>` predicates, `eq`, `isValid` and `tryParse` accept any value, and they never throw. The check reads only the tag, so a value with the right `_type` and malformed fields gives undefined results ([ADR 0007](../adr/0007-cross-type-comparison.md)).
+- **Errors** read `libnet.<ns>.<fn>: <detail>` and name, once, the function the caller called, even when another function does the work: `port.prev` at the lower bound reports `libnet.port.prev`. A parse failure names `<ns>.parse`, including the `error` that `tryParse` returns. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
 - **Enumeration** functions throw above a size guard and have an `*Unbounded` sibling ([ADR 0015](../adr/0015-enumeration-size-guards.md)).
 - **Indexed access** (`addressAt`, `portAt`, `endpointAt`) counts from 0; a negative index counts from the end, and an out-of-range index throws.

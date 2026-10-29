@@ -11,6 +11,7 @@
     boundedInt = import ../lib/internal/bounded-int.nix;
     carry = import ../lib/internal/carry.nix;
     dnsLabel = import ../lib/internal/dns-label.nix;
+    errors = import ../lib/internal/errors.nix;
     format = import ../lib/internal/format.nix;
     parse = import ../lib/internal/parse.nix;
     types = import ../lib/internal/types.nix;

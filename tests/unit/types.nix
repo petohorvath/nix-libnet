@@ -209,12 +209,16 @@ else
       expected = 80;
     };
     testPortMkBadInt = {
-      expr = throws (types.port.mk 70000);
-      expected = true;
+      expr = types.port.mk 70000;
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: out of range \\[0, 65535\\]: 70000$";
+    };
+    testPortMkRejectsSet = {
+      expr = types.port.mk { };
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: expected int or string, got set$";
     };
     testPortMkBadString = {
-      expr = throws (types.port.mk "abc");
-      expected = true;
+      expr = types.port.mk "abc";
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: invalid value \"abc\"$";
     };
 
     # ===== portRange =====
@@ -1114,20 +1118,20 @@ else
       expected = 4094;
     };
     testVlanIdMkZeroThrows = {
-      expr = throws (types.vlanId.mk 0);
-      expected = true;
+      expr = types.vlanId.mk 0;
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: out of range \\[1, 4094\\]: 0$";
     };
     testVlanIdMk4095Throws = {
-      expr = throws (types.vlanId.mk 4095);
-      expected = true;
+      expr = types.vlanId.mk 4095;
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: out of range \\[1, 4094\\]: 4095$";
     };
     testVlanIdMkString = {
       expr = types.vlanId.mk "100";
       expected = 100;
     };
     testVlanIdMkInvalidStringThrows = {
-      expr = throws (types.vlanId.mk "0");
-      expected = true;
+      expr = types.vlanId.mk "0";
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: invalid value \"0\"$";
     };
     testVlanIdDescription = {
       expr = builtins.isString types.vlanId.description;
@@ -1228,20 +1232,20 @@ else
       expected = 65535;
     };
     testMtuMkBelowThrows = {
-      expr = throws (types.mtu.mk 67);
-      expected = true;
+      expr = types.mtu.mk 67;
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: out of range \\[68, 65535\\]: 67$";
     };
     testMtuMkAboveThrows = {
-      expr = throws (types.mtu.mk 65536);
-      expected = true;
+      expr = types.mtu.mk 65536;
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: out of range \\[68, 65535\\]: 65536$";
     };
     testMtuMkString = {
       expr = types.mtu.mk "1500";
       expected = 1500;
     };
     testMtuMkInvalidStringThrows = {
-      expr = throws (types.mtu.mk "67");
-      expected = true;
+      expr = types.mtu.mk "67";
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: invalid value \"67\"$";
     };
     testMtuDescription = {
       expr = builtins.isString types.mtu.description;
@@ -1333,20 +1337,20 @@ else
       expected = 255;
     };
     testIcmpTypeMk256Throws = {
-      expr = throws (types.icmpType.mk 256);
-      expected = true;
+      expr = types.icmpType.mk 256;
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: out of range \\[0, 255\\]: 256$";
     };
     testIcmpTypeMkNegativeThrows = {
-      expr = throws (types.icmpType.mk (-1));
-      expected = true;
+      expr = types.icmpType.mk (-1);
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: out of range \\[0, 255\\]: -1$";
     };
     testIcmpTypeMkString = {
       expr = types.icmpType.mk "8";
       expected = 8;
     };
     testIcmpTypeMkInvalidStringThrows = {
-      expr = throws (types.icmpType.mk "256");
-      expected = true;
+      expr = types.icmpType.mk "256";
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: invalid value \"256\"$";
     };
     testIcmpTypeDescription = {
       expr = builtins.isString types.icmpType.description;

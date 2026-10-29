@@ -24,7 +24,7 @@
 */
 import ./internal/bounded-int.nix {
   typeName = "mtu";
-  lowestValue = 68;
-  highestValue = 65535;
+  minValue = 68;
+  maxValue = 65535;
   arithmetic = true;
 }

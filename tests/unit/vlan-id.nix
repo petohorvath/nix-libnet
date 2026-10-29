@@ -106,12 +106,12 @@ in
     expected = true;
   };
   testParseRejectsLeadingZero = {
-    expr = throws (vlanId.parse "0100");
-    expected = true;
+    expr = vlanId.parse "0100";
+    expectedError.msg = "^libnet\\.vlanId\\.parse: leading zero in \"0100\"$";
   };
   testParseRejectsInt = {
-    expr = throws (vlanId.parse 100);
-    expected = true;
+    expr = vlanId.parse 100;
+    expectedError.msg = "^libnet\\.vlanId\\.parse: expected string, got int$";
   };
   testTryParseOk = {
     expr = vlanId.toInt (vlanId.tryParse "100").value;
@@ -135,12 +135,12 @@ in
   };
 
   # ===== Constants =====
-  testLowestValue = {
-    expr = vlanId.lowestValue;
+  testMinValue = {
+    expr = vlanId.minValue;
     expected = 1;
   };
-  testHighestValue = {
-    expr = vlanId.highestValue;
+  testMaxValue = {
+    expr = vlanId.maxValue;
     expected = 4094;
   };
 
@@ -175,12 +175,12 @@ in
     expected = true;
   };
   testFromIntZeroThrows = {
-    expr = throws (vlanId.fromInt 0);
-    expected = true;
+    expr = vlanId.fromInt 0;
+    expectedError.msg = "^libnet\\.vlanId\\.fromInt: out of range \\[1, 4094\\]: 0$";
   };
   testFromInt4095Throws = {
-    expr = throws (vlanId.fromInt 4095);
-    expected = true;
+    expr = vlanId.fromInt 4095;
+    expectedError.msg = "^libnet\\.vlanId\\.fromInt: out of range \\[1, 4094\\]: 4095$";
   };
   testToStringRenders = {
     expr = vlanId.toString (vlanId.fromInt 100);
@@ -237,12 +237,12 @@ in
     expected = 4094;
   };
   testAddFloatThrows = {
-    expr = throws (vlanId.add 1.0 (vlanId.fromInt 100));
-    expected = true;
+    expr = vlanId.add 1.0 (vlanId.fromInt 100);
+    expectedError.msg = "^libnet\\.vlanId\\.add: expected int, got float$";
   };
   testSubBelowMinThrows = {
-    expr = throws (vlanId.sub 100 (vlanId.fromInt 100));
-    expected = true;
+    expr = vlanId.sub 100 (vlanId.fromInt 100);
+    expectedError.msg = "^libnet\\.vlanId\\.sub: out of range \\[1, 4094\\]: 100 - 100$";
   };
   testNextOk = {
     expr = vlanId.toInt (vlanId.next (vlanId.fromInt 100));
@@ -265,16 +265,16 @@ in
     expected = 0;
   };
   testNextAtMaxThrows = {
-    expr = throws (vlanId.next (vlanId.fromInt 4094));
-    expected = true;
+    expr = vlanId.next (vlanId.fromInt 4094);
+    expectedError.msg = "^libnet\\.vlanId\\.next: out of range \\[1, 4094\\]: 4094 \\+ 1$";
   };
   testPrevAtMinThrows = {
-    expr = throws (vlanId.prev (vlanId.fromInt 1));
-    expected = true;
+    expr = vlanId.prev (vlanId.fromInt 1);
+    expectedError.msg = "^libnet\\.vlanId\\.prev: out of range \\[1, 4094\\]: 1 - 1$";
   };
   testAddOverThrows = {
-    expr = throws (vlanId.add 1 (vlanId.fromInt 4094));
-    expected = true;
+    expr = vlanId.add 1 (vlanId.fromInt 4094);
+    expectedError.msg = "^libnet\\.vlanId\\.add: out of range \\[1, 4094\\]: 4094 \\+ 1$";
   };
 
   # ===== Comparison helpers =====
