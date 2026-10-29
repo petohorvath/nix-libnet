@@ -704,7 +704,7 @@ let
     past ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff, or on underflow below
     `::`.
   */
-  add = n: ip: arithmetic.add "ipv6.add" n (ipv6Argument "add" ip);
+  add = arithmetic.add "ipv6.add";
 
   /*
     Offset an address downwards by an integer.
@@ -715,7 +715,7 @@ let
     Returns an IPv6 value; throws when `n` is not an integer or the result
     leaves the address space.
   */
-  sub = n: ip: arithmetic.sub "ipv6.sub" n (ipv6Argument "sub" ip);
+  sub = arithmetic.sub "ipv6.sub";
 
   /*
     Get the address one above `ip`. Equivalent to `add 1`, so it can be
@@ -726,7 +726,7 @@ let
     Returns an IPv6 value; throws at the highest address,
     ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff.
   */
-  next = ip: arithmetic.add "ipv6.next" 1 (ipv6Argument "next" ip);
+  next = arithmetic.add "ipv6.next" 1;
 
   /*
     Get the address one below `ip`. Equivalent to `sub 1`, so it can be
@@ -736,7 +736,7 @@ let
 
     Returns an IPv6 value; throws at `::`.
   */
-  prev = ip: arithmetic.sub "ipv6.prev" 1 (ipv6Argument "prev" ip);
+  prev = arithmetic.sub "ipv6.prev" 1;
 
   /*
     Measure the distance between two addresses.
@@ -747,7 +747,7 @@ let
     Returns `b - a` as an integer, negative when `b` precedes `a`; throws
     if the difference does not fit in a Nix integer, [-2^63, 2^63 - 1].
   */
-  diff = a: b: arithmetic.diff "ipv6.diff" (ipv6Argument "diff" a) (ipv6Argument "diff" b);
+  diff = arithmetic.diff "ipv6.diff";
 
   # ===== Comparison =====
 

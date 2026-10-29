@@ -514,7 +514,7 @@ let
     Returns a mac value; throws when `n` is not an integer or the result
     leaves [0, 2^48 - 1].
   */
-  add = n: mac: arithmetic.add "mac.add" n (macArgument "add" mac);
+  add = arithmetic.add "mac.add";
 
   /*
     Offset a MAC address downward.
@@ -525,7 +525,7 @@ let
     Returns a mac value; throws when `n` is not an integer or the result
     leaves [0, 2^48 - 1].
   */
-  sub = n: mac: arithmetic.sub "mac.sub" n (macArgument "sub" mac);
+  sub = arithmetic.sub "mac.sub";
 
   /*
     Measure the distance between two MAC addresses.
@@ -543,7 +543,7 @@ let
 
     Returns a mac value; throws past `ff:ff:ff:ff:ff:ff`.
   */
-  next = mac: arithmetic.add "mac.next" 1 (macArgument "next" mac);
+  next = arithmetic.add "mac.next" 1;
 
   /*
     Step to the preceding MAC address.
@@ -552,7 +552,7 @@ let
 
     Returns a mac value; throws below `00:00:00:00:00:00`.
   */
-  prev = mac: arithmetic.sub "mac.prev" 1 (macArgument "prev" mac);
+  prev = arithmetic.sub "mac.prev" 1;
 
   # ===== Comparison =====
 

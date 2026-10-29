@@ -417,7 +417,7 @@ let
     Returns an IPv4 value; throws if `n` is not an integer or the result
     leaves the address space.
   */
-  add = n: ip: arithmetic.add "ipv4.add" n (ipv4Argument "add" ip);
+  add = arithmetic.add "ipv4.add";
 
   /*
     Offset an address downwards by an integer.
@@ -428,7 +428,7 @@ let
     Returns an IPv4 value; throws if `n` is not an integer or the result
     leaves the address space.
   */
-  sub = n: ip: arithmetic.sub "ipv4.sub" n (ipv4Argument "sub" ip);
+  sub = arithmetic.sub "ipv4.sub";
 
   /*
     Measure the distance between two addresses.
@@ -448,7 +448,7 @@ let
 
     Returns an IPv4 value; throws at 255.255.255.255.
   */
-  next = ip: arithmetic.add "ipv4.next" 1 (ipv4Argument "next" ip);
+  next = arithmetic.add "ipv4.next" 1;
 
   /*
     Get the address one below `ip`. Equivalent to `sub 1`, so it can be
@@ -458,7 +458,7 @@ let
 
     Returns an IPv4 value; throws at 0.0.0.0.
   */
-  prev = ip: arithmetic.sub "ipv4.prev" 1 (ipv4Argument "prev" ip);
+  prev = arithmetic.sub "ipv4.prev" 1;
 
   # ===== Comparison =====
 

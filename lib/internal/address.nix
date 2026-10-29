@@ -2,8 +2,8 @@
   Arithmetic and integer-list checks shared by the address kinds and the
   `ip` union. Each function takes `caller`, the public function its errors
   name, so `ip.next` reports `libnet.ip.next` even though the IPv4 code
-  does the work. Callers check the kind of the address operand; these
-  functions check the offset and the integer lists.
+  does the work. They check every argument: the kind of the address
+  operands, the offset and the integer lists.
 
   Every range check runs before the arithmetic it guards, since Nix 2.18
   wraps integer overflow silently.
@@ -39,7 +39,7 @@ let
         caller: n: address:
         let
           offset = offsetOf caller n;
-          inherit (address) value;
+          inherit (errors.expectKind caller typeName address) value;
         in
         if offset < 0 - value || offset > maxValue - value then
           outOfRange caller "${format address} + ${builtins.toString offset}"
@@ -50,7 +50,7 @@ let
         caller: n: address:
         let
           offset = offsetOf caller n;
-          inherit (address) value;
+          inherit (errors.expectKind caller typeName address) value;
         in
         if offset < value - maxValue || offset > value then
           outOfRange caller "${format address} - ${builtins.toString offset}"
@@ -128,10 +128,12 @@ let
   words =
     { format }:
     let
+      typeName = "ipv6";
       mk = words: {
-        _type = "ipv6";
+        _type = typeName;
         inherit words;
       };
+      wordsOf = caller: address: (errors.expectKind caller typeName address).words;
       # The carry or borrow out of the top word of an in-range result.
       expectedCarry = offset: if offset < 0 then 1 else 0;
     in
@@ -140,7 +142,7 @@ let
         caller: n: address:
         let
           offset = offsetOf caller n;
-          result = addWords address.words (offsetWords offset);
+          result = addWords (wordsOf caller address) (offsetWords offset);
         in
         if result.carry != expectedCarry offset then
           outOfRange caller "${format address} + ${builtins.toString offset}"
@@ -151,7 +153,7 @@ let
         caller: n: address:
         let
           offset = offsetOf caller n;
-          result = subWords address.words (offsetWords offset);
+          result = subWords (wordsOf caller address) (offsetWords offset);
         in
         if result.borrow != expectedCarry offset then
           outOfRange caller "${format address} - ${builtins.toString offset}"
@@ -163,8 +165,10 @@ let
       diff =
         caller: a: b:
         let
-          forward = subWords b.words a.words;
-          magnitude = if forward.borrow == 0 then forward.words else (subWords a.words b.words).words;
+          wordsA = wordsOf caller a;
+          wordsB = wordsOf caller b;
+          forward = subWords wordsB wordsA;
+          magnitude = if forward.borrow == 0 then forward.words else (subWords wordsA wordsB).words;
           word0 = builtins.elemAt magnitude 0;
           word1 = builtins.elemAt magnitude 1;
           word2 = builtins.elemAt magnitude 2;
