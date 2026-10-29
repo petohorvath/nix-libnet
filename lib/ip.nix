@@ -14,7 +14,6 @@
 */
 let
   address = import ./internal/address.nix;
-  bits = import ./internal/bits.nix;
   comparison = import ./internal/comparison.nix;
   errors = import ./internal/errors.nix;
   ipv4 = import ./ipv4.nix;
@@ -24,15 +23,6 @@ let
 
   # An address argument of `function`, which throws for any other kind.
   ipArgument = function: errors.expect "ip.${function}" "ipv4 or ipv6 value" types.isIp;
-
-  # The family arithmetic, run under the `ip` function's name so its
-  # errors name the function the caller called.
-  ipv4Arithmetic = address.scalar {
-    typeName = "ipv4";
-    maxValue = bits.mask32;
-    format = ipv4.toString;
-  };
-  ipv6Arithmetic = address.words { format = ipv6.toString; };
 
   # Call the family's implementation for the public function `function`,
   # which throws for an argument that is not an address.
@@ -210,6 +200,10 @@ let
 
   # ===== Arithmetic (dispatched) =====
 
+  # The families share their arithmetic with `ip`, which runs it under
+  # the `ip` function's name so its errors name the function the caller
+  # called.
+
   /*
     Offset an address within its family.
 
@@ -219,7 +213,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  add = n: dispatch "add" (ipv4Arithmetic.add "ip.add" n) (ipv6Arithmetic.add "ip.add" n);
+  add = n: dispatch "add" (address.ipv4.add "ip.add" n) (address.ipv6.add "ip.add" n);
 
   /*
     Offset an address downward within its family.
@@ -230,7 +224,7 @@ let
     Returns an address of the same family; throws on overflow, underflow,
     or a non-address value.
   */
-  sub = n: dispatch "sub" (ipv4Arithmetic.sub "ip.sub" n) (ipv6Arithmetic.sub "ip.sub" n);
+  sub = n: dispatch "sub" (address.ipv4.sub "ip.sub" n) (address.ipv6.sub "ip.sub" n);
 
   /*
     Step to the following address in the same family.
@@ -240,7 +234,7 @@ let
     Returns an address of the same family; throws past the family's highest
     address or for a non-address value.
   */
-  next = dispatch "next" (ipv4Arithmetic.add "ip.next" 1) (ipv6Arithmetic.add "ip.next" 1);
+  next = dispatch "next" (address.ipv4.add "ip.next" 1) (address.ipv6.add "ip.next" 1);
 
   /*
     Step to the preceding address in the same family.
@@ -250,7 +244,7 @@ let
     Returns an address of the same family; throws below the family's lowest
     address or for a non-address value.
   */
-  prev = dispatch "prev" (ipv4Arithmetic.sub "ip.prev" 1) (ipv6Arithmetic.sub "ip.prev" 1);
+  prev = dispatch "prev" (address.ipv4.sub "ip.prev" 1) (address.ipv6.sub "ip.prev" 1);
 
   /*
     Measure the distance between two addresses of the same family.
@@ -269,9 +263,9 @@ let
     if left._type != right._type then
       errors.fail "ip.diff" "cross-family difference is undefined"
     else if types.isIpv4 left then
-      ipv4.diff left right
+      address.ipv4.diff "ip.diff" left right
     else
-      ipv6Arithmetic.diff "ip.diff" left right;
+      address.ipv6.diff "ip.diff" left right;
 in
 {
   inherit

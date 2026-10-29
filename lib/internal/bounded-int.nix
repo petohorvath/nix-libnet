@@ -36,7 +36,7 @@ let
   # Unwrap a scalar argument of `function`, throwing for any other kind.
   valueOf = function: scalar: (errors.expectKind "${typeName}.${function}" typeName scalar).value;
 
-  intArgument = errors.intArgument typeName;
+  intArgument = function: errors.intArgument "${typeName}.${function}";
 
   outOfRange =
     function: text: errors.fail "${typeName}.${function}" "out of range ${rangeText}: ${text}";
@@ -49,31 +49,15 @@ let
 
   ordering = comparison.suite compareFor;
 
-  within = address.offsetWithin { inherit minValue maxValue; };
+  offsets = address.scalar {
+    inherit typeName minValue maxValue;
+    format = scalar: builtins.toString scalar.value;
+    range = rangeText;
+  };
 
-  addFor =
-    function: n: scalar:
-    let
-      offset = intArgument function n;
-      value = valueOf function scalar;
-      result = within.add value offset;
-    in
-    if result == null then
-      outOfRange function "${builtins.toString value} + ${builtins.toString offset}"
-    else
-      mk result;
+  addFor = function: offsets.add "${typeName}.${function}";
 
-  subFor =
-    function: n: scalar:
-    let
-      offset = intArgument function n;
-      value = valueOf function scalar;
-      result = within.sub value offset;
-    in
-    if result == null then
-      outOfRange function "${builtins.toString value} - ${builtins.toString offset}"
-    else
-      mk result;
+  subFor = function: offsets.sub "${typeName}.${function}";
 
   /*
     Parse a value from its decimal text: the detail parser of the
@@ -184,7 +168,7 @@ let
 
     Returns the integer `b - a`.
   */
-  diff = a: b: valueOf "diff" b - valueOf "diff" a;
+  diff = offsets.diff "${typeName}.diff";
 
   /*
     Step to the following value, for iterating through the domain.

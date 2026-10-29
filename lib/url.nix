@@ -85,14 +85,15 @@ let
     xmpp = mkScheme wellKnownPorts.tcp.xmpp "tcp" false;
   };
 
-  mk = schemeValue: authorityValue: pathValue: queryValue: fragmentValue: {
-    _type = "url";
-    scheme = schemeValue;
-    authority = authorityValue;
-    path = pathValue;
-    query = queryValue;
-    fragment = fragmentValue;
-  };
+  mk =
+    schemeValue: authorityValue: pathValue: queryValue: fragmentValue:
+    types.mkStrict "url" {
+      scheme = schemeValue;
+      authority = authorityValue;
+      path = pathValue;
+      query = queryValue;
+      fragment = fragmentValue;
+    };
 
   # Check the url argument of `function`, throwing for any other kind.
   urlArgument = function: url: errors.expectKind "url.${function}" "url" url;
@@ -256,8 +257,7 @@ let
     else if componentDetail != null then
       errors.fail caller componentDetail
     else
-      # Force the authority guard, which `mk` would store unevaluated.
-      builtins.seq authorityValue (mk lowerScheme authorityValue pathValue queryValue fragmentValue);
+      mk lowerScheme authorityValue pathValue queryValue fragmentValue;
 
   # ===== Predicates =====
 

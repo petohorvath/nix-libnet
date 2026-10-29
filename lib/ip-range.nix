@@ -25,17 +25,12 @@ let
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  # Force both fields, so a constructor throws for a bad argument when
-  # it builds the value rather than when a field is read.
   mk =
     first: last:
-    builtins.seq first (
-      builtins.seq last {
-        _type = "ipRange";
-        from = first;
-        to = last;
-      }
-    );
+    types.mkStrict "ipRange" {
+      from = first;
+      to = last;
+    };
 
   isV4 = address: address._type == "ipv4";
   isV6 = address: address._type == "ipv6";
@@ -72,7 +67,7 @@ let
     and `order`, take values the public function has already checked.
   */
   ipRangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
-  intArgument = errors.intArgument "ipRange";
+  intArgument = function: errors.intArgument "ipRange.${function}";
   addressArgument = function: errors.expect "ipRange.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both range operands of a binary `function`, then apply

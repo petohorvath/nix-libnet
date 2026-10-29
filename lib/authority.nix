@@ -43,12 +43,13 @@ let
     text:
     text == "" || parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f]" text;
 
-  mk = userinfoValue: hostValue: portValue: {
-    _type = "authority";
-    userinfo = userinfoValue;
-    host = hostValue;
-    port = portValue;
-  };
+  mk =
+    userinfoValue: hostValue: portValue:
+    types.mkStrict "authority" {
+      userinfo = userinfoValue;
+      host = hostValue;
+      port = portValue;
+    };
 
   # ===== Parsing =====
 
@@ -192,11 +193,10 @@ let
         checked.port or null
       );
     in
-    # Force the guards, which `mk` would otherwise store unevaluated.
     if userinfoValue != null && !(isUserinfo userinfoValue) then
       errors.fail caller "invalid userinfo \"${userinfoValue}\""
     else
-      builtins.seq hostValue (builtins.seq portValue (mk userinfoValue hostValue portValue));
+      mk userinfoValue hostValue portValue;
 
   # ===== Predicates =====
 

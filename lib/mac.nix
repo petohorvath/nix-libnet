@@ -31,7 +31,7 @@ let
 
   # Build a value from a checked integer, forcing the check so a bad
   # argument throws at the call rather than when the value is read.
-  mkStrict = value: builtins.seq value (mk value);
+  mkStrict = value: types.mkStrict "mac" { inherit value; };
 
   # A MAC argument of `function`, which throws for any other kind.
   macArgument = function: errors.expectKind "mac.${function}" "mac";
@@ -70,7 +70,7 @@ let
   boundedInt =
     function: outOfRange: maxValue: n:
     let
-      checkedInt = errors.expectType "mac.${function}" "int" n;
+      checkedInt = errors.intArgument "mac.${function}" n;
     in
     if checkedInt < 0 || checkedInt > maxValue then
       errors.fail "mac.${function}" "${outOfRange} [0, ${builtins.toString maxValue}]: ${builtins.toString checkedInt}"
@@ -488,7 +488,7 @@ let
 
     Returns `toInt b - toInt a`.
   */
-  diff = a: b: valueOf "diff" b - valueOf "diff" a;
+  diff = arithmetic.diff "mac.diff";
 
   /*
     Step to the following MAC address.

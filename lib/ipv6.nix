@@ -39,7 +39,10 @@ let
   # Apply `f` to the words of an IPv6 argument of `function`.
   withWords =
     function: f: ip:
-    f (wordsOf function ip);
+    let
+      words = wordsOf function ip;
+    in
+    builtins.seq words (f words);
 
   # Check a list of `count` integers in [0, maxValue] for `function`,
   # and build an address from the checked list with `build`.
@@ -66,35 +69,7 @@ let
 
   inIpv4Mapped = words: wordAt 0 words == 0 && wordAt 1 words == 0 && wordAt 2 words == 65535;
 
-  # RFC 5952 canonical text; see `toString`.
-  format =
-    words:
-    if inIpv4Mapped words then
-      let
-        lowWord = wordAt 3 words;
-        octetText = shift: builtins.toString (bits.bits shift 8 lowWord);
-      in
-      "::ffff:${octetText 24}.${octetText 16}.${octetText 8}.${octetText 0}"
-    else
-      let
-        groups = groupsOf words;
-        zeroRun = formatting.longestZeroRun groups;
-        groupTexts = map formatting.hex groups;
-      in
-      if zeroRun.len == 0 then
-        builtins.concatStringsSep ":" groupTexts
-      else
-        let
-          prefix = builtins.genList (i: builtins.elemAt groupTexts i) zeroRun.start;
-          suffix = builtins.genList (i: builtins.elemAt groupTexts (zeroRun.start + zeroRun.len + i)) (
-            8 - zeroRun.start - zeroRun.len
-          );
-          prefixText = builtins.concatStringsSep ":" prefix;
-          suffixText = builtins.concatStringsSep ":" suffix;
-        in
-        "${prefixText}::${suffixText}";
-
-  arithmetic = address.words { format = ip: format ip.words; };
+  arithmetic = address.ipv6;
 
   # ===== Conversion =====
 
@@ -515,7 +490,7 @@ let
 
     Returns a string such as "2001:db8::1".
   */
-  toString = withWords "toString" format;
+  toString = withWords "toString" formatting.ipv6;
 
   /*
     Format an address with all eight groups as four hex digits and no
@@ -536,7 +511,7 @@ let
 
     Returns a string such as "[2001:db8::1]".
   */
-  toStringBracketed = withWords "toStringBracketed" (words: "[${format words}]");
+  toStringBracketed = withWords "toStringBracketed" (words: "[${formatting.ipv6 words}]");
 
   /*
     Format an address as its reverse-DNS name: the 32 nibbles in reverse
@@ -597,7 +572,7 @@ let
       words = wordsOf "toIpv4" ip;
     in
     if !(inIpv4Mapped words) then
-      errors.fail "ipv6.toIpv4" "address is not in ::ffff:0:0/96: ${format words}"
+      errors.fail "ipv6.toIpv4" "address is not in ::ffff:0:0/96: ${formatting.ipv6 words}"
     else
       {
         _type = "ipv4";
