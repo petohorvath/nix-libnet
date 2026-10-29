@@ -65,6 +65,15 @@ in
     expected = false;
   };
 
+  testTryParseOverlong = {
+    expr = (port.tryParse "99999999999999999999").success;
+    expected = false;
+  };
+  testParseRejectsLeadingZero = {
+    expr = throws (port.parse "0080");
+    expected = true;
+  };
+
   # ===== Round-trip =====
   testRoundTripString = {
     expr = port.toString (parse "80");

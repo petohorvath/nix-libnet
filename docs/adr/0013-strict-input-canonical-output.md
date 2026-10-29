@@ -3,6 +3,7 @@
 Parsers accept every standard spelling but reject ambiguous ones, and `toString` emits one canonical form:
 
 - IPv4 octets with leading zeros are rejected (`01.2.3.4`), avoiding octal confusion (RFC 6943 §3.1.1).
+- Every other decimal number rejects leading zeros too: bounded integers, port ranges, bindpoint and endpoint ports, and prefix lengths (`0080`, `10.0.0.0/08`). `0` itself stays valid. This covers URL ports, which RFC 3986 allows to carry leading zeros, so that every port round-trips.
 - IPv6 accepts compression, mixed case and embedded IPv4, and emits RFC 5952 text.
 - MAC accepts colon, hyphen, Cisco-dot and bare forms in any case, and emits lowercase colon-separated text.
 - Endpoints require brackets around IPv6 (`[::1]:80`), per RFC 3986 §3.2.2.

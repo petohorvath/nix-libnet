@@ -59,6 +59,37 @@ in
     expected = false;
   };
 
+  testRejectLeadingZeroPrefix = {
+    expr = map (input: (interfaceAddress.tryParse input).success) [
+      "10.0.0.1/08"
+      "0.0.0.0/00"
+      "2001:db8::/032"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
+  testRejectLeadingZeroPrefixError = {
+    expr = (interfaceAddress.tryParse "10.0.0.1/08").error;
+    expected = "libnet.interfaceAddress.parse: invalid prefix \"08\"";
+  };
+  testTryParseOverlongPrefix = {
+    expr = map (input: (interfaceAddress.tryParse input).success) [
+      "10.0.0.1/99999999999999999999"
+      "::/99999999999999999999"
+    ];
+    expected = [
+      false
+      false
+    ];
+  };
+  testTryParseOverlongPrefixError = {
+    expr = (interfaceAddress.tryParse "10.0.0.1/99999999999999999999").error;
+    expected = "libnet.interfaceAddress.parse: prefix /99999999999999999999 out of range";
+  };
+
   # ===== tryParse =====
   testTryParseOk = {
     expr = (interfaceAddress.tryParse "10.0.0.1/24").success;

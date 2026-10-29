@@ -95,6 +95,16 @@ in
     expr = throws (parse "h:99999");
     expected = true;
   };
+  # RFC 3986 allows leading zeros in a port; libnet rejects them so the
+  # text round-trips (ADR 0013).
+  testRejectPortLeadingZero = {
+    expr = throws (parse "h:0080");
+    expected = true;
+  };
+  testTryParseOverlongPort = {
+    expr = (authority.tryParse "h:99999999999999999999").success;
+    expected = false;
+  };
   testRejectMultipleAt = {
     expr = throws (parse "a@b@h");
     expected = true;

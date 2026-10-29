@@ -138,6 +138,40 @@ in
     ];
     expected = true;
   };
+  testParseRejectsLeadingZeros = {
+    expr = map (input: (plain.tryParse input).success) [
+      "0"
+      "00"
+      "05"
+      "009"
+    ];
+    expected = [
+      true
+      false
+      false
+      false
+    ];
+  };
+  testParseLeadingZeroErrorIsNotDecimal = {
+    expr = (plain.tryParse "05").error;
+    expected = "libnet.plain.parse: not a decimal number: \"05\"";
+  };
+  testTryParseRejectsOverlongDigits = {
+    # The second is 2^64 + 9, which wraps to 9 where integer overflow is
+    # silent.
+    expr = map (input: (plain.tryParse input).success) [
+      "99999999999999999999"
+      "18446744073709551625"
+    ];
+    expected = [
+      false
+      false
+    ];
+  };
+  testParseOverlongErrorIsOutOfRange = {
+    expr = (plain.tryParse "99999999999999999999").error;
+    expected = "libnet.plain.parse: out of range [0, 9]: 99999999999999999999";
+  };
   testParseRejectsNonStrings = {
     expr = builtins.all (value: throws (offset.parse value)) [
       2

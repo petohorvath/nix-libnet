@@ -1,6 +1,6 @@
 # Bounded integers
 
-`port`, `vlanId`, `mtu` and `icmpType` are tagged integers written in decimal. `parse` accepts decimal digits only: no sign, whitespace or hex. `port` adds the RFC 6335 classes and their constants, documented in [`ports.md`](ports.md).
+`port`, `vlanId`, `mtu` and `icmpType` are tagged integers written in decimal. `parse` accepts decimal digits only: no sign, whitespace, hex or leading zeros. `port` adds the RFC 6335 classes and their constants, documented in [`ports.md`](ports.md).
 
 | Namespace  | Range         | Meaning                                                                   | Arithmetic                                 |
 | ---------- | ------------- | ------------------------------------------------------------------------- | ------------------------------------------ |

@@ -33,8 +33,8 @@ let
     Parse a value from its decimal text without throwing, so callers can
     handle invalid input themselves.
 
-    `input`: decimal string within the inclusive bounds, without sign or
-    whitespace.
+    `input`: decimal string within the inclusive bounds, without sign,
+    whitespace or leading zeros.
 
     Returns a tryResult: `{ success = true; value = <scalar>; }` or
     `{ success = false; error = <message>; }`.
@@ -45,11 +45,11 @@ let
       types.tryErr "libnet.${typeName}.parse: input must be a string"
     else
       let
-        number = parsing.decimal input;
+        number = parsing.decimal highestValue input;
       in
-      if number == null then
+      if !(parsing.isDecimal input) then
         types.tryErr "libnet.${typeName}.parse: not a decimal number: \"${input}\""
-      else if !(inRange number) then
+      else if number == null || !(inRange number) then
         types.tryErr "libnet.${typeName}.parse: out of range ${rangeText}: ${input}"
       else
         types.tryOk (mk number);
@@ -58,8 +58,8 @@ let
     Parse a value from its decimal text, for configuration values written
     as text.
 
-    `input`: decimal string within the inclusive bounds, without sign or
-    whitespace.
+    `input`: decimal string within the inclusive bounds, without sign,
+    whitespace or leading zeros.
 
     Returns the tagged value; throws on malformed or out-of-range input.
   */

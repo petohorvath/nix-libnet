@@ -33,24 +33,15 @@ let
   # ===== Parsing =====
 
   # Decimal port number from one side of a range, or null when invalid.
-  parsePart =
-    input:
-    let
-      number = parsing.decimal input;
-    in
-    if number == null then
-      null
-    else if number > portMax then
-      null
-    else
-      number;
+  parsePart = parsing.decimal portMax;
 
   /*
     Parse a port range without throwing, so callers can handle invalid
     input themselves.
 
     `input`: "8080" (single port), "5500-6000" (canonical), or
-    "5500:6000" (iptables form); each port in [0, 65535].
+    "5500:6000" (iptables form); each port is decimal in [0, 65535]
+    without leading zeros.
 
     Returns a tryResult: `{ success = true; value = <portRange>; }` or
     `{ success = false; error = <message>; }`. Fails when from > to.
@@ -103,7 +94,8 @@ let
     Parse a port range from text such as firewall or service settings.
 
     `input`: "8080" (single port), "5500-6000" (canonical), or
-    "5500:6000" (iptables form); each port in [0, 65535].
+    "5500:6000" (iptables form); each port is decimal in [0, 65535]
+    without leading zeros.
 
     Returns a portRange value; throws on malformed input, out-of-range
     ports, or from > to.

@@ -36,6 +36,8 @@ let
 
   # ===== Port-field parser =====
 
+  parsePort = parsing.decimal port.highestValue;
+
   # Hyphen form only: the iptables colon form (`8000:8100`) would collide
   # with the address:port separator. Returns a portRange, or null.
   parsePortField =
@@ -45,17 +47,17 @@ let
     in
     if builtins.length parts == 1 then
       let
-        n = parsing.decimal input;
+        n = parsePort input;
       in
-      if n == null || n < 0 || n > 65535 then null else portRange.fromPort (port.fromInt n)
+      if n == null then null else portRange.fromPort (port.fromInt n)
     else if builtins.length parts == 2 then
       let
-        from = parsing.decimal (builtins.elemAt parts 0);
-        to = parsing.decimal (builtins.elemAt parts 1);
+        from = parsePort (builtins.elemAt parts 0);
+        to = parsePort (builtins.elemAt parts 1);
       in
       if from == null || to == null then
         null
-      else if from < 0 || to > 65535 || from > to then
+      else if from > to then
         null
       else
         portRange.make (port.fromInt from) (port.fromInt to)

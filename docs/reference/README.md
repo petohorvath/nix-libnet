@@ -63,6 +63,7 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 - **Constants** are tagged values of the kind, such as `ipv4.loopback` and `transport.values`; integer domain bounds, such as `port.highestValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
 - **Tagged results**: functions return tagged values for tagged kinds, so `url.defaultPort` returns a `Port`. Constant tables, such as `url.schemes` and `registry.ports`, and integer domain bounds hold plain literals.
 - **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
+- **Decimal text**: every decimal number in parsed text, such as a port, a port range bound or a prefix length, is digits only, without sign, whitespace or leading zeros; `0` itself is valid ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
 - **Errors** throw messages that begin with `libnet` and name the function. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
 - **Enumeration** functions throw above a size guard and have an `*Unbounded` sibling ([ADR 0015](../adr/0015-enumeration-size-guards.md)).
 - **Indexed access** (`addressAt`, `portAt`, `endpointAt`) counts from 0; a negative index counts from the end, and an out-of-range index throws.

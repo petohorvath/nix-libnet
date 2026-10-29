@@ -70,6 +70,22 @@ in
     expr = throws (parse "1.2.3.4:6000-5500");
     expected = true;
   };
+  testRejectLeadingZeros = {
+    expr = map (input: (ipBindpoint.tryParse input).success) [
+      ":0080"
+      "1.2.3.4:080-90"
+      "[::1]:80-090"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
+  testParsePortZero = {
+    expr = ipBindpoint.toString (parse ":0");
+    expected = ":0";
+  };
   testRejectNotString = {
     expr = throws (ipBindpoint.parse 123);
     expected = true;
@@ -83,6 +99,19 @@ in
   testTryParseBad = {
     expr = (ipBindpoint.tryParse "bad").success;
     expected = false;
+  };
+
+  testTryParseOverlong = {
+    expr = map (input: (ipBindpoint.tryParse input).success) [
+      ":99999999999999999999"
+      "1.2.3.4:80-99999999999999999999"
+      "[::1]:99999999999999999999-90"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
   };
 
   # ===== Predicates =====

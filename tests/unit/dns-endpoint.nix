@@ -56,6 +56,10 @@ in
     expr = throws (parse "nas:99999");
     expected = true;
   };
+  testRejectPortLeadingZero = {
+    expr = throws (parse "nas:022");
+    expected = true;
+  };
   testRejectUnderscore = {
     expr = throws (parse "host_name:22");
     expected = true;

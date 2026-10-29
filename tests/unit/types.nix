@@ -180,6 +180,14 @@ else
       ];
       expected = false;
     };
+    testPortCheckLeadingZero = {
+      expr = types.port.check "0080";
+      expected = false;
+    };
+    testPortCheckOverlongString = {
+      expr = types.port.check "99999999999999999999";
+      expected = false;
+    };
     testPortMergesStringToInt = {
       expr = merged types.port "8080";
       expected = 8080;
@@ -209,6 +217,10 @@ else
     testPortRangeRange = {
       expr = types.portRange.check "80-90";
       expected = true;
+    };
+    testPortRangeLeadingZero = {
+      expr = types.portRange.check "080-90";
+      expected = false;
     };
     testPortRangeBad = {
       expr = types.portRange.check "90-80";
