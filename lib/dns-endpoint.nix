@@ -46,7 +46,7 @@ let
     if !(builtins.isString input) then
       types.tryErr "libnet.dnsEndpoint.parse: input must be a string"
     else if parsing.startsWith "[" input then
-      types.tryErr "libnet.dnsEndpoint.parse: bracketed form is for IPv6; a dnsEndpoint holds a name: \"${input}\""
+      types.tryErr "libnet.dnsEndpoint.parse: bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
     else if parsing.countOccurrences ":" input != 1 then
       types.tryErr "libnet.dnsEndpoint.parse: expected exactly one ':' (name:port): \"${input}\""
     else

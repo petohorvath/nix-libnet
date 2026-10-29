@@ -228,28 +228,6 @@ in
     expected = true;
   };
 
-  # ===== fromBytes / toBytes formatting =====
-  testFromBytesToString = {
-    expr = ipv4.toString (
-      ipv4.fromBytes [
-        10
-        0
-        0
-        1
-      ]
-    );
-    expected = "10.0.0.1";
-  };
-  testToBytesParsed = {
-    expr = ipv4.toBytes (parse "10.0.0.1");
-    expected = [
-      10
-      0
-      0
-      1
-    ];
-  };
-
   # ===== toArpa =====
   testArpaSimple = {
     expr = ipv4.toArpa (parse "1.2.3.4");

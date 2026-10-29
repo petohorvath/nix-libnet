@@ -19,16 +19,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** rename `cidr.hostAt` to `cidr.addressAt` and `cidr.subnet` to `cidr.subnets`. `hostAt` indexed every address from the network address, not the usable hosts that `cidr.hosts` lists, so it now shares `ipRange.addressAt`'s name. `subnets` returns a list, so its name is plural like `hosts`.
 - **Breaking (development interface):** run the unit suites through nix-unit's flake-parts module. Replace `checks.<system>.core` and `checks.<system>.full` with `checks.<system>.nix-unit`, which runs them as `unit-core`, without nixpkgs, and `unit`. Replace `nix-unit tests/unit.nix` with `nix-unit --flake .#tests.systems.<system>.unit[.<suite>]`, adding `--attr <test>` for one test. The suites move from `tests/` to `tests/unit/`, whose entry point takes `nixpkgs` instead of `lib`, and their attributes take their file names, such as `bind-url` and `internal.dns-label`.
 - **Breaking:** rename `dnsEndpoint.address` to `dnsEndpoint.name`, along with the stored field, because a DNS endpoint holds an unresolved name, not an address. `dnsEndpoint.make` is positional and does not change.
-- **Breaking:** rename `host.isName` to `host.isDnsName`, so each union's predicates name its direct members. `host.isHostname` and `host.isDomain` are removed; use `hostname.is` and `domain.is`, or `dnsName.isHostname` and `dnsName.isDomain`.
+- **Breaking:** rename `host.isName` to `host.isDnsName`, so each union's predicates name its direct members.
 - **Breaking:** replace `interfaceName.ifnamsiz` (`16`, the kernel buffer size) with `interfaceName.maxLength` (`15`, the longest valid name).
-- **Breaking:** `ipv4.fromBytes` errors name `fromBytes`, now that `fromOctets` is gone.
 - Format through treefmt-nix: `nix fmt` runs nixfmt, deadnix, actionlint, and prettier instead of only nixfmt, and `checks.<system>.treefmt` replaces `checks.<system>.formatting`.
 
 ### Removed
 
 - **Breaking:** `cidr.address`, `cidr.canonical` and `cidr.isCanonical`; use `cidr.network`, which every CIDR now stores.
 - **Breaking:** `interfaceAddress.toCidr`, which built a CIDR with host bits; use `interfaceAddress.network`.
-- **Breaking:** the function aliases `ipv4.fromOctets` and `ipv4.toOctets` (use `fromBytes` and `toBytes`), `ipv6.toStringCompressed` (use `toString`), `port.isEphemeral` (use `isDynamic`) and `ipBindpoint.isAnyAddress` (use `isWildcard`). The library keeps one name per operation.
+- **Breaking:** the function aliases `ipv4.fromOctets` and `ipv4.toOctets` (use `fromBytes` and `toBytes`, whose errors now name `fromBytes`), `ipv6.toStringCompressed` (use `toString`), `port.isEphemeral` (use `isDynamic`) and `ipBindpoint.isAnyAddress` (use `isWildcard`). The library keeps one name per operation.
+- **Breaking:** `host.isHostname` and `host.isDomain`, which tested leaf kinds below `host`'s direct members; use `hostname.is` and `domain.is`, or `dnsName.isHostname` and `dnsName.isDomain`.
 - **Breaking:** `interfaceName.value`; use `interfaceName.toString`, as for every other scalar kind.
 - **Breaking:** `domain.labelCount`; use `builtins.length (domain.labels d)`.
 - **Breaking:** the constants `urlHost.regNamePattern`, the parser's internal grammar, and `unixSocket.sunPathMax`, which gave one limit for two: a pathname socket allows 107 bytes and an abstract name 108.

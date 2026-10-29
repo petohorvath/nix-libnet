@@ -31,7 +31,8 @@ let
   # Linux sun_path is a 108-byte buffer. Pathname sockets need a NUL
   # terminator (path ≤ 107); an abstract socket spends the first byte
   # on the leading NUL the `@` represents (displayed form ≤ 108).
-  sunPathMax = 108;
+  pathnameMaxLength = 107;
+  abstractMaxLength = 108;
 
   mk = socketPath: {
     _type = "unixSocket";
@@ -43,14 +44,14 @@ let
     let
       length = builtins.stringLength input;
     in
-    parsing.startsWith "/" input && length >= 2 && length <= sunPathMax - 1;
+    parsing.startsWith "/" input && length >= 2 && length <= pathnameMaxLength;
 
   isAbstractString =
     input:
     let
       length = builtins.stringLength input;
     in
-    parsing.startsWith "@" input && length >= 2 && length <= sunPathMax;
+    parsing.startsWith "@" input && length >= 2 && length <= abstractMaxLength;
 
   # ===== Parsing =====
 

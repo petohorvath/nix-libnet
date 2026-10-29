@@ -148,10 +148,10 @@ let
   toArpa =
     ip:
     let
-      octets = toBytes ip;
-      octetText = i: builtins.toString (builtins.elemAt octets i);
+      bytes = toBytes ip;
+      byteText = i: builtins.toString (builtins.elemAt bytes i);
     in
-    "${octetText 3}.${octetText 2}.${octetText 1}.${octetText 0}.in-addr.arpa";
+    "${byteText 3}.${byteText 2}.${byteText 1}.${byteText 0}.in-addr.arpa";
 
   # ===== Predicates =====
 

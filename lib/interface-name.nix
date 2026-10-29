@@ -49,7 +49,7 @@ let
     else if input == "" then
       types.tryErr "libnet.interfaceName.parse: empty name"
     else if builtins.stringLength input > maxLength then
-      types.tryErr "libnet.interfaceName.parse: name too long (max 15 bytes): \"${input}\""
+      types.tryErr "libnet.interfaceName.parse: name too long (max ${builtins.toString maxLength} bytes): \"${input}\""
     else if input == "." || input == ".." then
       types.tryErr "libnet.interfaceName.parse: reserved name \"${input}\""
     else if hasForbiddenChar input then

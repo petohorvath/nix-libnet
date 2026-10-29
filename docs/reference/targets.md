@@ -16,7 +16,7 @@ Suites: parsing, comparison (by family, address, then port), address predicates.
 
 ## `libnet.dnsEndpoint`
 
-Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the name is unresolved, so there are no address predicates.
+Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the DNS name is unresolved, so there are no address predicates.
 
 Suites: parsing, comparison (by name case-insensitively, then port).
 
