@@ -31,9 +31,9 @@ in
     expr = (parse "my-server").value;
     expected = "my-server";
   };
-  testParseMixedCase = {
+  testParseFoldsCase = {
     expr = (parse "MyHost").value;
-    expected = "MyHost";
+    expected = "myhost";
   };
   testParseMaxLength = {
     expr = (parse label63Chars).value;
@@ -89,8 +89,12 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (hostname.parse 42);
-    expected = true;
+    expr = hostname.parse 42;
+    expectedError.msg = "^libnet\\.hostname\\.parse: expected string, got int$";
+  };
+  testRejectInvalidNamesParse = {
+    expr = parse "host_name";
+    expectedError.msg = "^libnet\\.hostname\\.parse: invalid hostname \"host_name\"";
   };
   testRejectSlash = {
     expr = throws (parse "foo/bar");
@@ -119,9 +123,13 @@ in
     expr = hostname.toString (parse "nas");
     expected = "nas";
   };
-  testRoundTripPreservesCase = {
+  testToStringLowercase = {
     expr = hostname.toString (parse "MyHost");
-    expected = "MyHost";
+    expected = "myhost";
+  };
+  testToStringRejectsString = {
+    expr = hostname.toString "nas";
+    expectedError.msg = "^libnet\\.hostname\\.toString: expected hostname value, got string$";
   };
 
   # ===== Predicates =====
@@ -150,29 +158,12 @@ in
     expected = false;
   };
 
-  # ===== Normalize =====
-  testNormalizeUpper = {
-    expr = (hostname.normalize (parse "MyHost")).value;
-    expected = "myhost";
-  };
-  testNormalizeAlreadyLower = {
-    expr = (hostname.normalize (parse "myhost")).value;
-    expected = "myhost";
-  };
-  testNormalizeMixed = {
-    expr = (hostname.normalize (parse "My-Host")).value;
-    expected = "my-host";
-  };
-  testNormalizePreservesTag = {
-    expr = hostname.is (hostname.normalize (parse "NAS"));
-    expected = true;
-  };
-  testNormalizeDigitsUnchanged = {
-    expr = (hostname.normalize (parse "host01")).value;
-    expected = "host01";
+  testNoNormalize = {
+    expr = hostname ? normalize;
+    expected = false;
   };
 
-  # ===== Equality (case-insensitive) =====
+  # ===== Equality (structural on the folded text) =====
   testEqSame = {
     expr = hostname.eq (parse "nas") (parse "nas");
     expected = true;
@@ -190,7 +181,7 @@ in
     expected = false;
   };
 
-  # ===== Comparison (case-insensitive) =====
+  # ===== Comparison =====
   testGtYes = {
     expr = hostname.gt (parse "beta") (parse "alpha");
     expected = true;
@@ -203,7 +194,7 @@ in
     expr = hostname.lt (parse "beta") (parse "alpha");
     expected = false;
   };
-  testLtCaseInsensitive = {
+  testLtFoldedCase = {
     expr = hostname.lt (parse "Alpha") (parse "beta");
     expected = true;
   };
@@ -234,5 +225,25 @@ in
   testMaxPick = {
     expr = (hostname.max (parse "beta") (parse "alpha")).value;
     expected = "beta";
+  };
+  testSortPartiallyApplied = {
+    expr = map hostname.toString (
+      builtins.filter (hostname.lt (parse "beta")) (
+        map parse [
+          "Alpha"
+          "Gamma"
+          "beta"
+        ]
+      )
+    );
+    expected = [ "gamma" ];
+  };
+  testLtNamesItself = {
+    expr = hostname.lt (parse "nas") "nas";
+    expectedError.msg = "^libnet\\.hostname\\.lt: expected hostname value, got string$";
+  };
+  testMinRejectsDomain = {
+    expr = hostname.min (libnet.domain.parse "example.com") (parse "nas");
+    expectedError.msg = "^libnet\\.hostname\\.min: expected hostname value, got domain value$";
   };
 }

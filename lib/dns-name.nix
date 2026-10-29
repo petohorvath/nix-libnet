@@ -10,7 +10,8 @@
 
   No new `_type` tag: the result is the underlying hostname or domain
   value; consumers branch on `value._type`. Same pattern as
-  `libnet.ip` and `libnet.host`.
+  `libnet.ip` and `libnet.host`. Both members lowercase at parse
+  (ADR 0020), so a DNS name prints canonical text.
 
   Example:
     libnet.dnsName.parse "nas"            # tagged hostname
@@ -22,6 +23,13 @@ let
   ip = import ./ip.nix;
   hostname = import ./hostname.nix;
   domain = import ./domain.nix;
+  errors = import ./internal/errors.nix;
+  comparison = import ./internal/comparison.nix;
+
+  # Return a DNS name argument of `caller`, throwing for any other value.
+  expectName = caller: errors.expect caller "hostname or domain value" is;
+
+  parseError = detail: types.tryErr (errors.message "dnsName.parse" detail);
 
   # ===== Parsing =====
 
@@ -38,9 +46,9 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.dnsName.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if ip.isValid input then
-      types.tryErr "libnet.dnsName.parse: \"${input}\" is an IP address, not a DNS name"
+      parseError "\"${input}\" is an IP address, not a DNS name"
     else
       let
         hostnameResult = hostname.tryParse input;
@@ -54,15 +62,15 @@ let
         if domainResult.success then
           domainResult
         else
-          types.tryErr "libnet.dnsName.parse: \"${input}\" is not a valid hostname or domain";
+          parseError "\"${input}\" is not a valid hostname or domain";
 
   /*
     Parse a DNS name that is not an IP literal.
 
     `input`: single-label hostname or multi-label domain string.
 
-    Returns a hostname value for one label or a domain value for
-    several; throws on IP literals and invalid names.
+    Returns a lowercase hostname value for one label or domain value
+    for several; throws on IP literals and invalid names.
   */
   parse =
     input:
@@ -76,17 +84,9 @@ let
 
     `name`: hostname or domain value.
 
-    Returns the name exactly as parsed, preserving case; throws for
-    any other value.
+    Returns the name in lowercase; throws for any other value.
   */
-  toString =
-    name:
-    if types.isHostname name then
-      hostname.toString name
-    else if types.isDomain name then
-      domain.toString name
-    else
-      throw "libnet.dnsName.toString: expected hostname or domain value";
+  toString = name: (expectName "dnsName.toString" name).value;
 
   # ===== Predicates =====
 
@@ -126,47 +126,20 @@ let
   */
   isDomain = value: types.isDomain value;
 
-  # ===== Normalization =====
-
-  /*
-    Lowercase a DNS name so equal names share one spelling.
-
-    `name`: hostname or domain value.
-
-    Returns a value of the same type with an ASCII-lowercased `value`;
-    throws for any other value.
-  */
-  normalize =
-    name:
-    if types.isHostname name then
-      hostname.normalize name
-    else if types.isDomain name then
-      domain.normalize name
-    else
-      throw "libnet.dnsName.normalize: expected hostname or domain value";
-
   # ===== Comparison =====
   #
   # Cross-family order: hostname (single label) sorts before domain
-  # (multi label). Within a family, dispatches to that family's own
-  # case-insensitive comparison.
+  # (multi label), then by the lowercase text within a family.
 
-  familyRank =
-    value:
-    if types.isHostname value then
-      0
-    else if types.isDomain value then
-      1
-    else
-      throw "libnet.dnsName.compare: expected hostname or domain value";
+  familyRank = name: if types.isHostname name then 0 else 1;
 
   /*
     Test two DNS names for equality, ignoring case.
 
     `a`, `b`: values to compare.
 
-    Returns true when both are hostnames or both are domains and they
-    match case-insensitively; false otherwise, without throwing.
+    Returns true when both are hostnames or both are domains with the
+    same text; false otherwise, without throwing.
   */
   eq =
     a: b:
@@ -177,101 +150,36 @@ let
     else
       false;
 
-  /*
-    Order two DNS names for sorting: hostnames before domains, then
-    case-insensitively within a family.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`;
-    throws when either is not a hostname or domain.
-  */
-  compare =
-    a: b:
-    let
-      rankA = familyRank a;
-      rankB = familyRank b;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      hostname.compare a b
-    else
-      domain.compare a b;
-
-  /*
-    Test whether one DNS name sorts strictly before another.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns true when `compare a b` is -1.
-  */
-  lt = a: b: compare a b == -1;
-
-  /*
-    Test whether one DNS name sorts before or equal to another.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns true when `compare a b` is -1 or 0.
-  */
-  le = a: b: compare a b <= 0;
-
-  /*
-    Test whether one DNS name sorts strictly after another.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns true when `compare a b` is 1.
-  */
-  gt = a: b: compare a b == 1;
-
-  /*
-    Test whether one DNS name sorts after or equal to another.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns true when `compare a b` is 1 or 0.
-  */
-  ge = a: b: compare a b >= 0;
-
-  /*
-    Pick the DNS name that sorts first.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns `a` when `le a b`, otherwise `b`.
-  */
-  min = a: b: if le a b then a else b;
-
-  /*
-    Pick the DNS name that sorts last.
-
-    `a`, `b`: hostname or domain values.
-
-    Returns `a` when `ge a b`, otherwise `b`.
-  */
-  max = a: b: if ge a b then a else b;
+  ordering = comparison.suite {
+    namespace = "dnsName";
+    compareFor =
+      caller: a: b:
+      let
+        left = expectName caller a;
+        right = expectName caller b;
+        rankOrder = comparison.order (familyRank left) (familyRank right);
+      in
+      if rankOrder != 0 then rankOrder else comparison.order left.value right.value;
+  };
 in
 {
   inherit
-    compare
     eq
-    ge
-    gt
     is
     isDomain
     isHostname
     isValid
+    parse
+    toString
+    tryParse
+    ;
+  inherit (ordering)
+    compare
+    ge
+    gt
     le
     lt
     max
     min
-    normalize
-    parse
-    toString
-    tryParse
     ;
 }

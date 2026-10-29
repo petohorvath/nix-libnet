@@ -30,9 +30,9 @@ in
     expr = port.toInt (dnsEndpoint.port (parse "nas:22"));
     expected = 22;
   };
-  testParsePreservesCase = {
+  testParseFoldsCase = {
     expr = dnsEndpoint.toString (parse "MyHost.Example.COM:443");
-    expected = "MyHost.Example.COM:443";
+    expected = "myhost.example.com:443";
   };
 
   # ===== Reject =====

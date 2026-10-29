@@ -82,6 +82,116 @@ let
           ge.intOperand = icmpType.ge value 8;
         };
       };
+    hostname =
+      let
+        inherit (libnet) hostname;
+        value = hostname.parse "nas";
+      in
+      {
+        module = hostname;
+        inherit value;
+        rejects = {
+          toString.string = hostname.toString "nas";
+          compare.domainOperand = hostname.compare value (libnet.domain.parse "nas.example");
+          max.string = hostname.max "nas" value;
+        };
+      };
+    domain =
+      let
+        inherit (libnet) domain;
+        value = domain.parse "example.com";
+      in
+      {
+        module = domain;
+        inherit value;
+        rejects = {
+          toString.hostnameOperand = domain.toString (libnet.hostname.parse "example");
+          fromLabels = {
+            string = domain.fromLabels "example.com";
+            intLabel = domain.fromLabels [
+              "example"
+              1
+            ];
+          };
+          labels.string = domain.labels "example.com";
+          parent.regNameOperand = domain.parent (libnet.regName.parse "example.com");
+          isSubdomainOf.string = domain.isSubdomainOf value "example.com";
+          isSuperdomainOf.null = domain.isSuperdomainOf null value;
+          toHostname.set = domain.toHostname { };
+          le.string = domain.le "example.com" value;
+        };
+      };
+    dnsName =
+      let
+        inherit (libnet) dnsName;
+        value = dnsName.parse "example.com";
+      in
+      {
+        module = dnsName;
+        inherit value;
+        rejects = {
+          toString.ipv4Operand = dnsName.toString (libnet.ipv4.parse "192.0.2.1");
+          compare.regNameOperand = dnsName.compare value (libnet.regName.parse "example.com");
+          gt.string = dnsName.gt "example.com" value;
+        };
+      };
+    host =
+      let
+        inherit (libnet) host;
+        value = host.parse "example.com";
+      in
+      {
+        module = host;
+        inherit value;
+        rejects = {
+          toString.regNameOperand = host.toString (libnet.regName.parse "example.com");
+          compare.string = host.compare value "example.com";
+          min.portOperand = host.min (libnet.port.fromInt 80) value;
+        };
+      };
+    regName =
+      let
+        inherit (libnet) regName;
+        value = regName.parse "my_host";
+      in
+      {
+        module = regName;
+        inherit value;
+        rejects = {
+          toString.domainOperand = regName.toString (libnet.domain.parse "example.com");
+          compare.string = regName.compare value "my_host";
+          lt.hostnameOperand = regName.lt (libnet.hostname.parse "a") value;
+        };
+      };
+    urlHost =
+      let
+        inherit (libnet) urlHost;
+        value = urlHost.parse "example.com";
+      in
+      {
+        module = urlHost;
+        inherit value;
+        rejects = {
+          toString.domainOperand = urlHost.toString (libnet.domain.parse "example.com");
+          toHost.string = urlHost.toHost "example.com";
+          compare.hostnameOperand = urlHost.compare value (libnet.hostname.parse "a");
+          ge.null = urlHost.ge null value;
+        };
+      };
+    interfaceName =
+      let
+        inherit (libnet) interfaceName;
+        value = interfaceName.parse "eth0";
+      in
+      {
+        module = interfaceName;
+        inherit value;
+        rejects = {
+          toString.string = interfaceName.toString "eth0";
+          compare.hostnameOperand = interfaceName.compare value (libnet.hostname.parse "eth0");
+          min.set = interfaceName.min { } value;
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a

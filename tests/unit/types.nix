@@ -1371,6 +1371,58 @@ else
       expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
       expected = "AA:BB:CC:DD:EE:FF";
     };
+    # Parsing folds the case of names (ADR 0020), but string types merge
+    # to the definition as written (ADR 0016).
+    testMergeKeepsNameSpelling = {
+      expr = map ({ type, value }: merged types.${type} value) [
+        {
+          type = "hostname";
+          value = "MyHost";
+        }
+        {
+          type = "domain";
+          value = "Example.COM";
+        }
+        {
+          type = "dnsName";
+          value = "Pool.NTP.org";
+        }
+        {
+          type = "host";
+          value = "NAS";
+        }
+        {
+          type = "regName";
+          value = "My_Host%2f";
+        }
+        {
+          type = "urlHost";
+          value = "Example.COM";
+        }
+        {
+          type = "interfaceName";
+          value = "Eth0";
+        }
+        {
+          type = "url";
+          value = "https://Example.COM/Path";
+        }
+      ];
+      expected = [
+        "MyHost"
+        "Example.COM"
+        "Pool.NTP.org"
+        "NAS"
+        "My_Host%2f"
+        "Example.COM"
+        "Eth0"
+        "https://Example.COM/Path"
+      ];
+    };
+    testInterfaceNameCheckByte160 = {
+      expr = types.interfaceName.check "wlà0";
+      expected = false;
+    };
     testMkCidrThrowsBad = {
       expr = throws (types.cidr.mk "bad");
       expected = true;

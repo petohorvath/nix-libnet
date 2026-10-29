@@ -64,9 +64,14 @@ in
     expr = urlHost.toString (url.host (parse "http://my_host/x"));
     expected = "my_host";
   };
-  testHostPreservesCase = {
+  testHostFoldsCase = {
     expr = urlHost.toString (url.host (parse "http://Example.COM"));
-    expected = "Example.COM";
+    expected = "example.com";
+  };
+  # The host folds; userinfo, path, query and fragment keep their case.
+  testToStringFoldsOnlyHost = {
+    expr = url.toString (parse "https://User@Example.COM/Path?Q=V#Frag");
+    expected = "https://User@example.com/Path?Q=V#Frag";
   };
 
   # ===== Components (stored raw) =====
