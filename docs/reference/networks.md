@@ -21,7 +21,7 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 | Function              | Signature     | Notes                                                                                                         |
 | --------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
 | `topAddress`          | `Cidr → Ip`   | Host bits set.                                                                                                |
-| `broadcast`           | `Cidr → Ipv4` | Throws for IPv6.                                                                                              |
+| `broadcast`           | `Cidr → Ipv4` | Throws for IPv6, and for `/31` (RFC 3021) and `/32`, whose addresses are all hosts.                           |
 | `netmask`, `hostmask` | `Cidr → Ip`   | `/24` gives `255.255.255.0` and `0.0.0.255`.                                                                  |
 | `firstHost`           | `Cidr → Ip`   | `networkAddress`, plus one except for IPv4 `/31` (RFC 3021) and `/32`, and IPv6 `/127` (RFC 6164) and `/128`. |
 | `lastHost`            | `Cidr → Ip`   | `topAddress`, minus one for IPv4 `/30` and wider.                                                             |
@@ -30,11 +30,11 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 
 **Enumeration**
 
-| Function         | Signature         | Notes                                                                                                    |
-| ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `addressAt`      | `Int → Cidr → Ip` | Offset from `networkAddress`, as in `ipRange.addressAt`; `-1` is `topAddress`. Throws where `size` does. |
-| `hosts`          | `Cidr → [Ip]`     | Usable hosts, from `firstHost`. Throws when `size` exceeds 2¹⁶.                                          |
-| `hostsUnbounded` | `Cidr → [Ip]`     | No guard. Throws where `size` does.                                                                      |
+| Function         | Signature         | Notes                                                                                                                                    |
+| ---------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `addressAt`      | `Int → Cidr → Ip` | Offset from `networkAddress`, as in `ipRange.addressAt`; `-1` is `topAddress`. A block of 2⁶³ addresses or more holds every `Int` index. |
+| `hosts`          | `Cidr → [Ip]`     | Usable hosts, from `firstHost`. Throws above 2¹⁶ addresses.                                                                              |
+| `hostsUnbounded` | `Cidr → [Ip]`     | No guard. Throws where `size` does.                                                                                                      |
 
 **Relationships**, all `false` across families:
 
@@ -47,13 +47,13 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 
 **Restructuring and set algebra**
 
-| Function    | Signature                    | Notes                                                                                                                                      |
-| ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `subnets`   | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer. `subnets 2` of a `/24` gives four `/26`s.                                                          |
-| `supernet`  | `Int → Cidr → Cidr`          | `n` bits shorter. `supernet 8` of `10.1.0.0/24` gives `10.1.0.0/16`.                                                                       |
-| `summarize` | `[Cidr] → [Cidr]`            | Minimal sorted cover: merges siblings, drops duplicates and covered blocks, handles each family separately. Python's `collapse_addresses`. |
-| `exclude`   | `Cidr → Cidr → [Cidr]`       | `exclude parent child` covers `parent \ child` minimally. Throws when `child` is outside `parent`, including across families.              |
-| `intersect` | `Cidr → Cidr → Cidr or null` | The smaller block when one contains the other, else `null`.                                                                                |
+| Function    | Signature                    | Notes                                                                                                                                                                        |
+| ----------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `subnets`   | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer. `subnets 2` of a `/24` gives four `/26`s.                                                                                            |
+| `supernet`  | `Int → Cidr → Cidr`          | `n` bits shorter. `supernet 8` of `10.1.0.0/24` gives `10.1.0.0/16`.                                                                                                         |
+| `summarize` | `[Cidr] → [Cidr]`            | Minimal sorted cover: merges siblings, drops duplicates and covered blocks, handles each family separately. Python's `collapse_addresses`.                                   |
+| `exclude`   | `Cidr → Cidr → [Cidr]`       | `exclude child parent` covers `parent \ child` minimally, so `concatMap (exclude reserved) pools` works. Throws when `child` is outside `parent`, including across families. |
+| `intersect` | `Cidr → Cidr → Cidr or null` | The smaller block when one contains the other, else `null`.                                                                                                                  |
 
 ## `libnet.ipRange`
 
@@ -61,23 +61,23 @@ Value: `{ _type = "ipRange"; from = Ip; to = Ip; }`, same family, `from ≤ to`.
 
 Suites: parsing, comparison (by family, `from`, then `to`).
 
-| Function                          | Signature                             | Notes                                                              |
-| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| `make`                            | `Ip → Ip → IpRange`                   | Throws on mixed families or `to < from`.                           |
-| `fromAddress`                     | `Ip → IpRange`                        | A single address.                                                  |
-| `fromCidr`                        | `Cidr → IpRange`                      | `networkAddress` to `topAddress`.                                  |
-| `toCidrs`                         | `IpRange → [Cidr]`                    | Minimal exact CIDR cover.                                          |
-| `from`, `to`                      | `IpRange → Ip`                        |                                                                    |
-| `version`                         | `IpRange → Int`                       |                                                                    |
-| `size`                            | `IpRange → Int`                       | Throws at 2⁶³ or more.                                             |
-| `isIpv4`, `isIpv6`, `isSingleton` | `IpRange → Bool`                      |                                                                    |
-| `contains`                        | `IpRange → Ip → Bool`                 | `false` across families. Throws for a non-address, such as a CIDR. |
-| `overlaps`, `isAdjacent`          | `IpRange → IpRange → Bool`            | Symmetric; `false` across families.                                |
-| `isSubrangeOf`, `isSuperrangeOf`  | `IpRange → IpRange → Bool`            | Subject first, as in `cidr.isSubnetOf`.                            |
-| `merge`                           | `IpRange → IpRange → IpRange or null` | Union when overlapping or adjacent, else `null`.                   |
-| `addressAt`                       | `Int → IpRange → Ip`                  | Offset from `from`. Throws where `size` does.                      |
-| `addresses`                       | `IpRange → [Ip]`                      | Throws when `size` exceeds 2¹⁶.                                    |
-| `addressesUnbounded`              | `IpRange → [Ip]`                      | No guard. Throws where `size` does.                                |
+| Function                          | Signature                             | Notes                                                                                       |
+| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `make`                            | `Ip → Ip → IpRange`                   | Throws on mixed families or `to < from`.                                                    |
+| `fromAddress`                     | `Ip → IpRange`                        | A single address.                                                                           |
+| `fromCidr`                        | `Cidr → IpRange`                      | `networkAddress` to `topAddress`.                                                           |
+| `toCidrs`                         | `IpRange → [Cidr]`                    | Minimal exact CIDR cover.                                                                   |
+| `from`, `to`                      | `IpRange → Ip`                        |                                                                                             |
+| `version`                         | `IpRange → Int`                       |                                                                                             |
+| `size`                            | `IpRange → Int`                       | Throws at 2⁶³ or more.                                                                      |
+| `isIpv4`, `isIpv6`, `isSingleton` | `IpRange → Bool`                      |                                                                                             |
+| `contains`                        | `IpRange → Ip → Bool`                 | `false` across families. Throws for a non-address, such as a CIDR.                          |
+| `overlaps`, `isAdjacent`          | `IpRange → IpRange → Bool`            | Symmetric; `false` across families.                                                         |
+| `isSubrangeOf`, `isSuperrangeOf`  | `IpRange → IpRange → Bool`            | Subject first, as in `cidr.isSubnetOf`.                                                     |
+| `merge`                           | `IpRange → IpRange → IpRange or null` | Union when overlapping or adjacent, else `null`.                                            |
+| `addressAt`                       | `Int → IpRange → Ip`                  | Offset from `from`; `-1` is `to`. A range of 2⁶³ addresses or more holds every `Int` index. |
+| `addresses`                       | `IpRange → [Ip]`                      | Throws above 2¹⁶ addresses.                                                                 |
+| `addressesUnbounded`              | `IpRange → [Ip]`                      | No guard. Throws where `size` does.                                                         |
 
 ## `libnet.interfaceAddress`
 
@@ -85,15 +85,15 @@ Value: `{ _type = "interfaceAddress"; address = Ip; prefix = Int; }`. Text is `a
 
 Suites: parsing, comparison (by family, address, then prefix), address predicates.
 
-| Function                       | Signature                      | Notes                                        |
-| ------------------------------ | ------------------------------ | -------------------------------------------- |
-| `make`                         | `Ip → Int → InterfaceAddress`  | Validates the prefix for the family.         |
-| `fromAddress`                  | `Ip → InterfaceAddress`        | `/32` or `/128`.                             |
-| `fromCidrAndAddress`           | `Cidr → Ip → InterfaceAddress` | Throws when the address is outside the CIDR. |
-| `address`, `prefix`, `version` |                                | Accessors.                                   |
-| `isIpv4`, `isIpv6`             | `InterfaceAddress → Bool`      |                                              |
-| `cidr`                         | `InterfaceAddress → Cidr`      | The CIDR the address sits on.                |
-| `netmask`, `hostmask`          | `InterfaceAddress → Ip`        |                                              |
-| `broadcast`                    | `InterfaceAddress → Ipv4`      | Throws for IPv6.                             |
+| Function                       | Signature                      | Notes                                                       |
+| ------------------------------ | ------------------------------ | ----------------------------------------------------------- |
+| `make`                         | `Ip → Int → InterfaceAddress`  | Validates the prefix for the family.                        |
+| `fromAddress`                  | `Ip → InterfaceAddress`        | `/32` or `/128`.                                            |
+| `fromCidrAndAddress`           | `Cidr → Ip → InterfaceAddress` | Throws when the address is outside the CIDR.                |
+| `address`, `prefix`, `version` |                                | Accessors.                                                  |
+| `isIpv4`, `isIpv6`             | `InterfaceAddress → Bool`      |                                                             |
+| `cidr`                         | `InterfaceAddress → Cidr`      | The CIDR the address sits on.                               |
+| `netmask`, `hostmask`          | `InterfaceAddress → Ip`        |                                                             |
+| `broadcast`                    | `InterfaceAddress → Ipv4`      | Throws for IPv6, `/31` and `/32`, as `cidr.broadcast` does. |
 
 For the range an interface address sits on, write `ipRange.fromCidr (interfaceAddress.cidr ia)`.

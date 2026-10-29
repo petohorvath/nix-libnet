@@ -320,10 +320,11 @@ let
   /*
     Compute the IPv4 broadcast address of a CIDR block.
 
-    `cidr`: IPv4 cidr value.
+    `cidr`: IPv4 cidr value of prefix /30 or shorter.
 
     Returns the ipv4 value with all host bits set; throws for IPv6, which
-    has no broadcast.
+    has no broadcast, and for /31 and /32, whose addresses are all hosts
+    (RFC 3021).
   */
   broadcast =
     cidr:
@@ -332,6 +333,10 @@ let
     in
     if isV6 block.networkAddress then
       errors.fail "cidr.broadcast" "IPv6 has no broadcast"
+    else if block.prefix == 31 then
+      errors.fail "cidr.broadcast" "/31 has no broadcast (RFC 3021)"
+    else if block.prefix == 32 then
+      errors.fail "cidr.broadcast" "/32 has no broadcast"
     else
       topAddressOf block;
 
@@ -473,23 +478,27 @@ let
     `cidr`: cidr value.
 
     Returns an address of the block's family; throws when `n` is not an
-    integer or falls outside the block, or where `size` throws.
+    integer or falls outside the block. A block of 2^63 addresses or more
+    holds every integer `n`.
   */
   addressAt =
     n: cidr:
     let
       offset = intArgument "addressAt" n;
       block = cidrArgument "addressAt" cidr;
-      addressCount = sizeFor "addressAt" block;
-      index = if offset < 0 then addressCount + offset else offset;
-      base = block.networkAddress;
+      hostBits = maxPrefix block.networkAddress - block.prefix;
+      # Read only for blocks below 2^63 addresses, which a Nix int holds.
+      addressCount = bits.pow2 hostBits;
+      offsetAddress = if isV4 block.networkAddress then ipv4.add else ipv6.add;
     in
-    if index < 0 || index >= addressCount then
+    if hostBits <= 62 && (offset >= addressCount || offset < 0 - addressCount) then
       errors.fail "cidr.addressAt" "index out of range [0, ${builtins.toString addressCount}): ${builtins.toString offset}"
-    else if isV4 base then
-      ipv4.add index base
+    else if offset < 0 then
+      # Counting back from the top address avoids the size, and
+      # `offset + 1` cannot overflow, even for -2^63.
+      offsetAddress (offset + 1) (topAddressOf block)
     else
-      ipv6.add index base;
+      offsetAddress offset block.networkAddress;
 
   # The usable hosts of `block`, counted on behalf of `function`.
   listHosts =
@@ -523,10 +532,16 @@ let
     cidr:
     let
       block = cidrArgument "hosts" cidr;
-      addressCount = sizeFor "hosts" block;
+      hostBits = maxPrefix block.networkAddress - block.prefix;
+      # `hostsUnbounded` throws where a Nix int cannot hold the size.
+      fitsInt = hostBits <= 62;
+      addressCount =
+        if fitsInt then builtins.toString (bits.pow2 hostBits) else "2^${builtins.toString hostBits}";
     in
-    if addressCount > bits.pow2 16 then
-      errors.fail "cidr.hosts" "block too large (${builtins.toString addressCount} addresses > 2^16); use addressAt or hostsUnbounded"
+    if hostBits > 16 then
+      errors.fail "cidr.hosts" "block too large (${addressCount} addresses > 2^16); use addressAt${
+        if fitsInt then " or hostsUnbounded" else ""
+      }"
     else
       listHosts "hosts" block;
 
@@ -805,17 +820,18 @@ let
     (coalesceOne ipv4Cidrs) ++ (coalesceOne ipv6Cidrs);
 
   /*
-    Remove one CIDR block from another.
+    Remove one CIDR block from another. The removed block comes first,
+    so `concatMap (exclude reserved) pools` works.
 
+    `child`: cidr value to remove, contained in `parent`.
     `parent`: cidr value to subtract from.
-    `child`: cidr value contained in `parent`.
 
     Returns the minimal list of cidr values covering
     `parent \ child`, or `[ ]` when they are equal; throws when the
     families differ or `child` is not contained in `parent`.
   */
   exclude = binary "exclude" (
-    parent: child:
+    child: parent:
     if parent.networkAddress._type != child.networkAddress._type then
       errors.fail "cidr.exclude" "family mismatch"
     else if !(supernetOf parent child) then
