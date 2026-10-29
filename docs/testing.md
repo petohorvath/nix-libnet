@@ -45,7 +45,7 @@ testPrevAtMinNamesPrev = {
 `tests/unit/wrong-kind.nix` checks the argument-kind rule of [ADR 0007](adr/0007-cross-type-comparison.md) with one row per namespace in `cases`:
 
 - `module` and `value`: the namespace and a valid value of its kind.
-- `rejects.<function>.<argument>`: a call of `<function>` with one argument of the wrong kind, named for what it gets wrong, such as `add.floatOffset`. The suite asserts that each call throws `libnet.<ns>.<function>: expected …`, in a test named `test<Function><Argument>`.
+- `rejects.<function>.<argument>`: a call of `<function>` with one argument of the wrong kind, named for what it gets wrong, such as `add.floatOffset`. The suite asserts that each call throws `libnet.<ns>.<function>: expected …` when forced only to weak head normal form, so a function cannot return a value whose fields throw later, in a test named `test<Function><Argument>`.
 
 Each row covers a representative function that takes a value of the kind, `make` where the namespace has one, and arithmetic offsets and indices where it has them. The suite also asserts that `is`, `eq`, `isValid` and `tryParse` accept every value in `anyValues` without throwing, that `eq` returns `false` for two values of a kind the namespace does not accept, malformed tags included, and that a failed `tryParse` names `<ns>.parse`. A namespace adopting the rule adds its row; behavior beyond the representative calls belongs in its own suite.
 

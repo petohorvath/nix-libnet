@@ -23,11 +23,17 @@ let
 
   # `first` and `last` are tagged Port values, parallel to how cidr stores
   # a tagged address and how ipRange stores tagged from/to ip values.
-  mk = first: last: {
-    _type = "portRange";
-    from = first;
-    to = last;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    first: last:
+    builtins.seq first (
+      builtins.seq last {
+        _type = "portRange";
+        from = first;
+        to = last;
+      }
+    );
 
   # ===== Argument kinds =====
 

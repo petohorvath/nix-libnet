@@ -26,11 +26,17 @@ let
   ipv6 = import ./ipv6.nix;
   cidr = import ./cidr.nix;
 
-  mk = addressValue: prefixLength: {
-    _type = "interfaceAddress";
-    address = addressValue;
-    prefix = prefixLength;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    addressValue: prefixLength:
+    builtins.seq addressValue (
+      builtins.seq prefixLength {
+        _type = "interfaceAddress";
+        address = addressValue;
+        prefix = prefixLength;
+      }
+    );
 
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";

@@ -24,11 +24,17 @@ let
   dnsName = import ./dns-name.nix;
   port = import ./port.nix;
 
-  mk = nameValue: portValue: {
-    _type = "dnsEndpoint";
-    name = nameValue;
-    port = portValue;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    nameValue: portValue:
+    builtins.seq nameValue (
+      builtins.seq portValue {
+        _type = "dnsEndpoint";
+        name = nameValue;
+        port = portValue;
+      }
+    );
 
   # Check the endpoint argument of `function`, throwing for any other kind.
   endpointOf = function: endpoint: errors.expectKind "dnsEndpoint.${function}" "dnsEndpoint" endpoint;

@@ -24,11 +24,17 @@ let
   ipv6 = import ./ipv6.nix;
 
   # Callers guarantee `ip` has no host bits for `prefixLength`.
-  mk = ip: prefixLength: {
-    _type = "cidr";
-    networkAddress = ip;
-    prefix = prefixLength;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    ip: prefixLength:
+    builtins.seq ip (
+      builtins.seq prefixLength {
+        _type = "cidr";
+        networkAddress = ip;
+        prefix = prefixLength;
+      }
+    );
 
   isV4 = ip: ip._type == "ipv4";
   isV6 = ip: ip._type == "ipv6";

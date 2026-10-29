@@ -26,11 +26,17 @@ let
   portRange = import ./port-range.nix;
   ipEndpoint = import ./ip-endpoint.nix;
 
-  mk = addressValue: portRangeValue: {
-    _type = "ipBindpoint";
-    address = addressValue;
-    portRange = portRangeValue;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    addressValue: portRangeValue:
+    builtins.seq addressValue (
+      builtins.seq portRangeValue {
+        _type = "ipBindpoint";
+        address = addressValue;
+        portRange = portRangeValue;
+      }
+    );
 
   # Check the bindpoint argument of `function`, throwing for any other
   # kind.

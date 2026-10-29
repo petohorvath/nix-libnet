@@ -40,7 +40,10 @@ let
   # Apply `f` to the integer of a MAC argument of `function`.
   withValue =
     function: f: mac:
-    f (valueOf function mac);
+    let
+      value = valueOf function mac;
+    in
+    builtins.seq value (f value);
 
   parseError = detail: types.tryErr (errors.message "mac.parse" detail);
 
@@ -484,10 +487,11 @@ let
   toEui64 =
     mac:
     let
-      bytes = bytesOf (valueOf "toEui64" mac);
+      value = valueOf "toEui64" mac;
+      bytes = bytesOf value;
       firstByteFlipped = builtins.bitXor (builtins.elemAt bytes 0) 2;
     in
-    [
+    builtins.seq value [
       firstByteFlipped
       (builtins.elemAt bytes 1)
       (builtins.elemAt bytes 2)

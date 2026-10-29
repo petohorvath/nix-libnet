@@ -4,7 +4,8 @@ let
     One row per namespace. `value` is a valid value of the namespace's
     kind. `rejects.<function>.<argument>` calls the function with one
     wrong-kind argument, named for what it gets wrong; the call must throw
-    an argument-kind error naming the function that was called. Cover a
+    an argument-kind error naming the function that was called when forced
+    only to weak head normal form, not when a field of its result is read. Cover a
     representative value-taking function, `make` where the namespace has
     one, and arithmetic offsets and indices where it has them.
   */
@@ -20,6 +21,7 @@ let
         rejects = {
           toString.string = ipv4.toString "192.0.2.1";
           toInt.ipv6Operand = ipv4.toInt (libnet.ipv6.parse "::1");
+          toBytes.int = ipv4.toBytes 3221225985;
           fromInt = {
             string = ipv4.fromInt "1";
             set = ipv4.fromInt { };
@@ -176,7 +178,11 @@ let
           diff.int = mac.diff value 0;
           ge.ipv4Operand = mac.ge value (libnet.ipv4.parse "192.0.2.1");
           isMulticast.string = mac.isMulticast "a0:36:9f:1b:1e:55";
+          toBytes.int = mac.toBytes 0;
           setLocal.int = mac.setLocal 0;
+          setMulticast.string = mac.setMulticast "a0:36:9f:1b:1e:55";
+          setUnicast.set = mac.setUnicast { };
+          setUniversal.ipv4Operand = mac.setUniversal (libnet.ipv4.parse "192.0.2.1");
           oui.set = mac.oui { };
           toEui64.ipv6Operand = mac.toEui64 (libnet.ipv6.parse "::1");
         };
@@ -920,7 +926,7 @@ let
       map (argument: {
         name = "test${capitalize function}${capitalize argument}";
         value = {
-          expr = arguments.${argument};
+          expr = builtins.seq arguments.${argument} null;
           expectedError.msg = "^libnet\\.${namespace}\\.${function}: expected ";
         };
       }) (builtins.attrNames arguments)

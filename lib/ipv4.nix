@@ -35,7 +35,10 @@ let
   # Apply `f` to the integer of an IPv4 argument of `function`.
   withValue =
     function: f: ip:
-    f (valueOf function ip);
+    let
+      value = valueOf function ip;
+    in
+    builtins.seq value (f value);
 
   parseError = detail: types.tryErr (errors.message "ipv4.parse" detail);
 

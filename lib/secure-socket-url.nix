@@ -65,11 +65,17 @@ let
 
   schemeHint = "expected tls/ssl, dtls, or quic";
 
-  mk = canonicalScheme: endpointValue: {
-    _type = "secureSocketUrl";
-    scheme = canonicalScheme;
-    endpoint = endpointValue;
-  };
+  # Force both fields, so a constructor throws for a bad argument when
+  # it builds the value rather than when a field is read.
+  mk =
+    canonicalScheme: endpointValue:
+    builtins.seq canonicalScheme (
+      builtins.seq endpointValue {
+        _type = "secureSocketUrl";
+        scheme = canonicalScheme;
+        endpoint = endpointValue;
+      }
+    );
 
   isNetworkEndpoint = value: types.isIpEndpoint value || types.isDnsEndpoint value;
 
