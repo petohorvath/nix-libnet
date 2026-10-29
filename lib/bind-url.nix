@@ -2,7 +2,7 @@
   libnet.bindUrl
 
   A bind address in URL form: `<scheme>://<bindpoint>`. The bind-side
-  peer of `socketUrl` — a bounded composition of `transport` and
+  peer of `socketUrl` — a bounded composition of a socket scheme and a
   `bindpoint`, *not* a general URL parser (no userinfo, query, fragment,
   percent-encoding, or relative resolution; see docs/adr/0011).
 
@@ -21,22 +21,24 @@
   Schemes match case-insensitively and are emitted lowercase, and sort
   by name (sctp < tcp < udp < unix).
 
-  Stored as the underlying `transport` + `bindpoint` pair:
+  Stored as the canonical scheme and the bindpoint, like every URL form;
+  `transport` derives from the scheme:
 
-    { _type = "bindUrl"; transport = <transport | null>;
+    { _type = "bindUrl"; scheme = <"sctp" | "tcp" | "udp" | "unix">;
       bindpoint = <bindpoint>; }
 
-  Invariant: `transport == null` iff `bindpoint` is a `unixSocket` — a
-  Unix socket has no L4 transport, its scheme is the literal `unix`.
+  Invariant: `scheme == "unix"` iff `bindpoint` is a `unixSocket`. A
+  Unix socket has no L4 transport.
 
   Example:
     libnet.bindUrl.parse "tcp://:8080"
-    => { _type = "bindUrl"; transport = <tcp>; bindpoint = <ipBindpoint>; }
+    => { _type = "bindUrl"; scheme = "tcp"; bindpoint = <ipBindpoint>; }
 
     libnet.bindUrl.toString (libnet.bindUrl.parse "unix:///run/foo.sock")
     => "unix:///run/foo.sock"
 */
 let
+  errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
@@ -51,11 +53,18 @@ let
   # The socket URL registry: a bind URL takes the same schemes.
   inherit (socketUrl) schemes;
 
-  mk = transportValue: bindpointValue: {
+  schemeHint = "expected tcp, udp, sctp, or unix";
+
+  mk = schemeName: bindpointValue: {
     _type = "bindUrl";
-    transport = transportValue;
+    scheme = schemeName;
     bindpoint = bindpointValue;
   };
+
+  # Check the bindUrl argument of `function`, throwing for any other kind.
+  bindUrlOf = function: errors.expectKind "bindUrl.${function}" "bindUrl";
+
+  parseError = detail: types.tryErr (errors.message "bindUrl.parse" detail);
 
   # ===== Parsing =====
 
@@ -68,43 +77,44 @@ let
     the scheme is matched case-insensitively.
 
     Returns a tryResult: `{ success = true; value; }` with a bindUrl
-    value, or `{ success = false; error; }` describing the problem.
+    value, or `{ success = false; error; }` naming `bindUrl.parse`. An
+    unknown scheme is reported before an invalid bind address.
   */
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.bindUrl.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else
       let
         parts = parsing.splitOn "://" input;
       in
       if builtins.length parts < 2 then
-        types.tryErr "libnet.bindUrl.parse: missing '<scheme>://': \"${input}\""
+        parseError "missing '<scheme>://': \"${input}\""
       else
         let
           rawScheme = builtins.elemAt parts 0;
-          lowerScheme = lowerAscii rawScheme;
+          schemeName = lowerAscii rawScheme;
           # Rejoin the remainder so a stray '://' inside a path is kept.
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
-          bindpointResult = bindpoint.tryParse rest;
         in
-        if !bindpointResult.success then
-          types.tryErr "libnet.bindUrl.parse: invalid bind address in \"${input}\""
-        else if !(schemes ? ${lowerScheme}) then
-          types.tryErr "libnet.bindUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
+        if !(schemes ? ${schemeName}) then
+          parseError "unknown scheme \"${rawScheme}\" (${schemeHint})"
         else
           let
+            bindpointResult = bindpoint.tryParse rest;
             bindpointValue = bindpointResult.value;
           in
-          if lowerScheme == unixScheme then
+          if !bindpointResult.success then
+            parseError (errors.detail "bindpoint.parse" bindpointResult.error)
+          else if schemeName == unixScheme then
             if types.isUnixSocket bindpointValue then
-              types.tryOk (mk null bindpointValue)
+              types.tryOk (mk schemeName bindpointValue)
             else
-              types.tryErr "libnet.bindUrl.parse: 'unix://' requires a socket path: \"${input}\""
+              parseError "'unix://' requires a socket path: \"${input}\""
           else if types.isUnixSocket bindpointValue then
-            types.tryErr "libnet.bindUrl.parse: '${lowerScheme}://' requires [addr]:port, not a socket path: \"${input}\""
+            parseError "'${schemeName}://' requires [addr]:port, not a socket path: \"${input}\""
           else
-            types.tryOk (mk (transport.parse schemes.${lowerScheme}.transport) bindpointValue);
+            types.tryOk (mk schemeName bindpointValue);
 
   /*
     Parse a bind URL.
@@ -131,35 +141,42 @@ let
     Returns `<scheme>://<bindpoint>`, such as "tcp://:8080" or
     "unix:///run/foo.sock".
   */
-  toString = bindUrl: "${scheme bindUrl}://${bindpoint.toString bindUrl.bindpoint}";
+  toString =
+    bindUrl:
+    let
+      checked = bindUrlOf "toString" bindUrl;
+    in
+    "${checked.scheme}://${bindpoint.toString checked.bindpoint}";
 
   # ===== Construction =====
 
   /*
-    Build a bind URL from already-parsed parts.
+    Build a bind URL from a scheme and an already-parsed bindpoint, as
+    `parse` would.
 
-    `transportValue`: transport value, or null for a Unix socket.
-    `bindpointValue`: bindpoint value (ipBindpoint or unixSocket).
+    `schemeName`: `tcp`, `udp`, `sctp`, or `unix`, matched
+    case-insensitively and stored lowercase.
+    `bindpointValue`: a unixSocket value for `unix`, otherwise an
+    ipBindpoint value.
 
-    Returns a bindUrl value; throws when `bindpointValue` is not a
-    bindpoint, or when the transport is not null exactly for a Unix
-    socket.
+    Returns a bindUrl value; throws on a non-string or unknown scheme, a
+    non-bindpoint value, or a bindpoint that does not match the scheme.
   */
   make =
-    transportValue: bindpointValue:
-    if !(bindpoint.is bindpointValue) then
-      throw "libnet.bindUrl.make: expected a bindpoint value"
-    else if types.isUnixSocket bindpointValue then
-      (
-        if transportValue != null then
-          throw "libnet.bindUrl.make: a unix socket takes no transport (pass null)"
-        else
-          mk null bindpointValue
-      )
-    else if !(types.isTransport transportValue) then
-      throw "libnet.bindUrl.make: expected a transport value for an IP bindpoint"
+    schemeName: bindpointValue:
+    let
+      caller = "bindUrl.make";
+      canonicalScheme = lowerAscii (errors.expectType caller "string" schemeName);
+      checked = errors.expect caller "ipBindpoint or unixSocket value" bindpoint.is bindpointValue;
+      expectedBindpoint =
+        if canonicalScheme == unixScheme then "unixSocket value" else "ipBindpoint value";
+    in
+    if !(schemes ? ${canonicalScheme}) then
+      errors.fail caller "unknown scheme \"${schemeName}\" (${schemeHint})"
+    else if (canonicalScheme == unixScheme) != types.isUnixSocket checked then
+      errors.fail caller "expected ${expectedBindpoint} for scheme \"${canonicalScheme}\", got ${errors.describe checked}"
     else
-      mk transportValue bindpointValue;
+      mk canonicalScheme checked;
 
   # ===== Predicates =====
 
@@ -189,17 +206,17 @@ let
 
     Returns true for the `unix` scheme.
   */
-  isUnix = bindUrl: bindUrl.transport == null;
+  isUnix = bindUrl: (bindUrlOf "isUnix" bindUrl).scheme == unixScheme;
 
   /*
-    Check whether a bind URL's scheme implies TLS, per the scheme
-    registry.
+    Check whether a bind URL's scheme is secure: its protocol encrypts
+    the connection, per the scheme registry.
 
     `bindUrl`: bindUrl value.
 
-    Returns false; no bind scheme is TLS-secured.
+    Returns false; no bind scheme encrypts.
   */
-  isSecure = bindUrl: schemes.${scheme bindUrl}.secure;
+  isSecure = bindUrl: schemes.${(bindUrlOf "isSecure" bindUrl).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -210,22 +227,36 @@ let
 
     Returns "sctp", "tcp", "udp", or "unix".
   */
-  scheme =
-    bindUrl: if bindUrl.transport == null then unixScheme else transport.toString bindUrl.transport;
+  scheme = bindUrl: (bindUrlOf "scheme" bindUrl).scheme;
 
   # ===== Comparison =====
   #
   # Sorted by scheme name (sctp < tcp < udp < unix), for determinism
-  # only, then by bindpoint.
+  # only, then by bindpoint. Each ordering function passes its own name,
+  # which its errors report.
+
+  compareFor =
+    function: a: b:
+    let
+      left = bindUrlOf function a;
+      right = bindUrlOf function b;
+    in
+    if left.scheme < right.scheme then
+      -1
+    else if left.scheme > right.scheme then
+      1
+    else
+      bindpoint.compare left.bindpoint right.bindpoint;
 
   /*
     Compare two bind URLs for equality.
 
-    `a`, `b`: bindUrl values.
+    `a`, `b`: values to compare.
 
-    Returns true when the type tags, schemes, and bindpoints match.
+    Returns true when the type tags, schemes, and bindpoints match; false
+    for any other value.
   */
-  eq = a: b: types.hasSameTag a b && scheme a == scheme b && bindpoint.eq a.bindpoint b.bindpoint;
+  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && bindpoint.eq a.bindpoint b.bindpoint;
 
   /*
     Order two bind URLs by scheme name (sctp < tcp < udp < unix), then
@@ -235,18 +266,7 @@ let
 
     Returns -1, 0, or 1 when `a` sorts before, equal to, or after `b`.
   */
-  compare =
-    a: b:
-    let
-      schemeA = scheme a;
-      schemeB = scheme b;
-    in
-    if schemeA < schemeB then
-      -1
-    else if schemeA > schemeB then
-      1
-    else
-      bindpoint.compare a.bindpoint b.bindpoint;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` sorts strictly before `b`.
@@ -255,7 +275,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` sorts before or equal to `b`.
@@ -264,7 +284,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` sorts strictly after `b`.
@@ -273,7 +293,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` sorts after or equal to `b`.
@@ -282,7 +302,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two bind URLs.
@@ -291,7 +311,7 @@ let
 
     Returns the one that sorts first; `a` when they are equal.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two bind URLs.
@@ -300,7 +320,7 @@ let
 
     Returns the one that sorts last; `a` when they are equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
@@ -327,13 +347,18 @@ in
   # Defined here rather than in `let`, where `transport` and `bindpoint` name
   # the imported modules.
   /*
-    Get the transport of a bind URL.
+    Get the transport of a bind URL, derived from its scheme.
 
     `bindUrl`: bindUrl value.
 
-    Returns the transport value, or null for a Unix socket.
+    Returns the transport value, or null for the `unix` scheme.
   */
-  transport = bindUrl: bindUrl.transport;
+  transport =
+    bindUrl:
+    let
+      transportName = schemes.${(bindUrlOf "transport" bindUrl).scheme}.transport;
+    in
+    if transportName == null then null else transport.parse transportName;
 
   /*
     Get the bindpoint of a bind URL.
@@ -342,5 +367,5 @@ in
 
     Returns the bindpoint value (ipBindpoint or unixSocket).
   */
-  bindpoint = bindUrl: bindUrl.bindpoint;
+  bindpoint = bindUrl: (bindUrlOf "bindpoint" bindUrl).bindpoint;
 }

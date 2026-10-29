@@ -161,6 +161,24 @@ else
       expr = types.ipv6Cidr.check "10.0.0.0/24";
       expected = false;
     };
+    # The family check runs only on a string, so a parsed value is
+    # rejected rather than thrown on.
+    testCidrTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.cidr.parse "10.0.0.0/24")) [
+        types.cidr
+        types.ipv4Cidr
+        types.ipv6Cidr
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testCidrMergesToInput = {
+      expr = merged types.ipv6Cidr "2001:db8::/32";
+      expected = "2001:db8::/32";
+    };
 
     # ===== port (coerced int) =====
     testPortCheckInt = {
@@ -238,6 +256,14 @@ else
       expr = types.portRange.check "90-80";
       expected = false;
     };
+    testPortRangeRejectsInt = {
+      expr = types.portRange.check 80;
+      expected = false;
+    };
+    testPortRangeMkRejectsParsedValue = {
+      expr = types.portRange.mk (libnet.portRange.parse "80-90");
+      expectedError.msg = "^libnet\\.types\\.portRange\\.mk: expected string, got set$";
+    };
     testPortRangeOverlong = {
       expr = types.portRange.check "80-99999999999999999999";
       expected = false;
@@ -272,6 +298,10 @@ else
     };
     testDnsEndpointIpRejected = {
       expr = types.dnsEndpoint.check "192.0.2.1:80";
+      expected = false;
+    };
+    testDnsEndpointNumericNameRejected = {
+      expr = types.dnsEndpoint.check "127.1:80";
       expected = false;
     };
     testDnsEndpointNoPort = {
@@ -421,8 +451,17 @@ else
       expected = "tcp://1.2.3.4:80";
     };
     testSocketUrlMkBad = {
-      expr = throws (types.socketUrl.mk "ftp://x:1");
-      expected = true;
+      expr = types.socketUrl.mk "ftp://x:1";
+      expectedError.msg = "^libnet\\.types\\.socketUrl\\.mk: invalid value \"ftp://x:1\"$";
+    };
+    testSocketUrlUnixHostPortRejected = {
+      expr = types.socketUrl.check "unix://1.2.3.4:80";
+      expected = false;
+    };
+    # The merged value keeps the scheme's input spelling (ADR 0016).
+    testSocketUrlMergeKeepsSpelling = {
+      expr = merged types.socketUrl "TCP://1.2.3.4:80";
+      expected = "TCP://1.2.3.4:80";
     };
     testSocketUrlDescription = {
       expr = builtins.isString types.socketUrl.description;
@@ -463,8 +502,16 @@ else
       expected = "tcp://:8080";
     };
     testBindUrlMkBad = {
-      expr = throws (types.bindUrl.mk "ftp://:1");
-      expected = true;
+      expr = types.bindUrl.mk "ftp://:1";
+      expectedError.msg = "^libnet\\.types\\.bindUrl\\.mk: invalid value \"ftp://:1\"$";
+    };
+    testBindUrlUnixHostPortRejected = {
+      expr = types.bindUrl.check "unix://:80";
+      expected = false;
+    };
+    testBindUrlMergeKeepsSpelling = {
+      expr = merged types.bindUrl "Udp://:53";
+      expected = "Udp://:53";
     };
     testBindUrlDescription = {
       expr = builtins.isString types.bindUrl.description;
@@ -497,8 +544,13 @@ else
       expected = "tls://1.2.3.4:443";
     };
     testSecureSocketUrlMkBad = {
-      expr = throws (types.secureSocketUrl.mk "tcp://x:1");
-      expected = true;
+      expr = types.secureSocketUrl.mk "tcp://x:1";
+      expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: invalid value \"tcp://x:1\"$";
+    };
+    # `ssl` is an input spelling of `tls`; the merged value keeps it.
+    testSecureSocketUrlMergeKeepsSpelling = {
+      expr = merged types.secureSocketUrl "SSL://h:443";
+      expected = "SSL://h:443";
     };
     testSecureSocketUrlDescription = {
       expr = builtins.isString types.secureSocketUrl.description;
@@ -618,6 +670,16 @@ else
       expr = types.regName.check "192.0.2.1";
       expected = false;
     };
+    testRegNameNumericRejected = {
+      expr = map types.regName.check [
+        "127.1"
+        "0x7f.0.0.1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
     testRegNameBracketedV6 = {
       expr = types.regName.check "[::1]";
       expected = false;
@@ -719,8 +781,16 @@ else
       expected = "socks5://h:1080";
     };
     testProxyUrlMkBad = {
-      expr = throws (types.proxyUrl.mk "socks5://h");
-      expected = true;
+      expr = types.proxyUrl.mk "socks5://h";
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: invalid value \"socks5://h\"$";
+    };
+    testProxyUrlMkRejectsSet = {
+      expr = types.proxyUrl.mk { };
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: expected string, got set$";
+    };
+    testProxyUrlMergeKeepsSpelling = {
+      expr = merged types.proxyUrl "Socks5://h:1080";
+      expected = "Socks5://h:1080";
     };
     testProxyUrlDescription = {
       expr = builtins.isString types.proxyUrl.description;
@@ -804,6 +874,20 @@ else
       expr = types.ipRange.check "1.2.3.4";
       expected = false;
     };
+    testIpRangeRejectsReversedAndMixed = {
+      expr = map types.ipRange.check [
+        "1.2.3.10-1.2.3.4"
+        "1.2.3.4-::1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
+    testIpRangeMkRejectsParsedValue = {
+      expr = types.ipRange.mk (libnet.ipRange.parse "1.2.3.4-1.2.3.10");
+      expectedError.msg = "^libnet\\.types\\.ipRange\\.mk: expected string, got set$";
+    };
 
     # ===== interfaceAddress =====
     testInterfaceAddressV4 = {
@@ -821,6 +905,22 @@ else
     testIpv6InterfaceAddressRejectsV4 = {
       expr = types.ipv6InterfaceAddress.check "10.0.0.5/24";
       expected = false;
+    };
+    testInterfaceAddressTypesRejectParsedValue = {
+      expr = map (type: type.check (libnet.interfaceAddress.parse "10.0.0.5/24")) [
+        types.interfaceAddress
+        types.ipv4InterfaceAddress
+        types.ipv6InterfaceAddress
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
+    };
+    testInterfaceAddressMergesToInput = {
+      expr = merged types.ipv4InterfaceAddress "10.0.0.5/24";
+      expected = "10.0.0.5/24";
     };
 
     # ===== interfaceName =====
@@ -929,6 +1029,10 @@ else
       expr = types.hostname.check "3com";
       expected = true;
     };
+    testHostnameCheckAllDigits = {
+      expr = types.hostname.check "1234";
+      expected = true;
+    };
     testHostnameCheckUnderscore = {
       expr = types.hostname.check "host_name";
       expected = false;
@@ -979,6 +1083,15 @@ else
       expr = types.domain.check "example.com.";
       expected = false;
     };
+    # Reads as an IPv4 address (ADR 0021).
+    testDomainCheckDottedQuad = {
+      expr = types.domain.check "192.0.2.1";
+      expected = false;
+    };
+    testDomainMkNumericThrows = {
+      expr = types.domain.mk "127.1.0x1";
+      expectedError.msg = "^libnet\\.types\\.domain\\.mk: invalid value \"127\\.1\\.0x1\"$";
+    };
     testDomainCheckUnderscore = {
       expr = types.domain.check "host_name.com";
       expected = false;
@@ -1011,6 +1124,10 @@ else
     };
     testDnsNameCheckIpRejected = {
       expr = types.dnsName.check "192.0.2.1";
+      expected = false;
+    };
+    testDnsNameCheckNumericHostname = {
+      expr = types.dnsName.check "2130706433";
       expected = false;
     };
     testDnsNameCheckBad = {
@@ -1050,6 +1167,18 @@ else
     testHostCheckDomain = {
       expr = types.host.check "example.com";
       expected = true;
+    };
+    testHostCheckNumericName = {
+      expr = map types.host.check [
+        "010.0.0.1"
+        "127.1"
+        "0x7f"
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
     };
     testHostCheckBad = {
       expr = types.host.check "host_name";

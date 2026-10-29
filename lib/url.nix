@@ -43,9 +43,9 @@ let
 
   # Closed registry of URL schemes. Default ports are sourced from
   # registry.ports (the single source of truth for port numbers); this
-  # table adds only the L4 transport and the TLS flag. Schemes that ride
-  # another service's port reference it (ws → http, wss → https,
-  # sftp → ssh).
+  # table adds only the L4 transport and whether the scheme's protocol
+  # encrypts the connection (`secure`). Schemes that ride another
+  # service's port reference it (ws → http, wss → https, sftp → ssh).
   mkScheme = portNumber: transportName: secure: {
     defaultPort = portNumber;
     transport = transportName;
@@ -302,7 +302,9 @@ let
   is = value: types.isUrl value;
 
   /*
-    Check whether a URL's scheme implies TLS, per the scheme registry.
+    Check whether a URL's scheme is secure: its protocol encrypts the
+    connection, per the scheme registry. `ssh` and `sftp` are secure
+    without TLS.
 
     `url`: a url value.
 

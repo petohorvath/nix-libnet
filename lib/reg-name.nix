@@ -4,9 +4,12 @@
   An RFC 3986 registered name (§3.2.2): the URL host that is not an IP
   literal. A loose ASCII set — unreserved characters, sub-delimiters,
   and `%`-encoding — with no DNS label structure, so `my_host` and
-  `a%20b` are valid where `libnet.dnsName` rejects them. Text that is a
-  valid IPv4 address is an IP literal, not a registered name (RFC 3986
-  §3.2.2). A member of the `libnet.urlHost` union.
+  `a%20b` are valid where `libnet.dnsName` rejects them. Text whose
+  rightmost label is numeric, all digits or `0x` followed by hex
+  digits, is not a registered name (ADR 0021): RFC 3986 §3.2.2 reads
+  only a dotted quad as an IP literal, but curl and browsers read
+  `127.1` and `0x7f.0.0.1` as IPv4 addresses too, and ignore one
+  trailing dot when they do. A member of the `libnet.urlHost` union.
 
   Registered names are case-insensitive, like DNS names, so `parse`
   folds them to the RFC 3986 §6.2.2.1 canonical form (ADR 0020): letters
@@ -21,7 +24,6 @@
 let
   types = import ./internal/types.nix;
   dnsLabel = import ./internal/dns-label.nix;
-  ipv4 = import ./ipv4.nix;
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
   parsing = import ./internal/parse.nix;
@@ -48,6 +50,20 @@ let
 
   parseError = detail: types.tryErr (errors.message "regName.parse" detail);
 
+  # Whether a client reads `input` as an IPv4 address, ignoring one
+  # trailing dot as browsers do.
+  readsAsIpv4 =
+    input:
+    let
+      length = builtins.stringLength input;
+      withoutTrailingDot =
+        if builtins.substring (length - 1) 1 input == "." then
+          builtins.substring 0 (length - 1) input
+        else
+          input;
+    in
+    dnsLabel.hasNumericRightmostLabel withoutTrailingDot;
+
   # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
   regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
 
@@ -63,7 +79,7 @@ let
     validity.
 
     `input`: a non-empty string of unreserved characters, sub-delimiters,
-    and `%XX` escapes that is not a valid IPv4 address.
+    and `%XX` escapes whose rightmost label is not numeric.
 
     Returns a tryResult: `{ success = true; value = <regName>; }`, with
     letters lowercase and percent-encoding hex digits uppercase, or
@@ -75,8 +91,8 @@ let
       parseError "expected string, got ${errors.describe input}"
     else if builtins.match regNamePattern input == null then
       parseError "invalid registered name \"${input}\""
-    else if ipv4.isValid input then
-      parseError "\"${input}\" is an IPv4 address, not a registered name"
+    else if readsAsIpv4 input then
+      parseError "\"${input}\" reads as an IPv4 address, not a registered name"
     else
       types.tryOk (mk (fold input));
 

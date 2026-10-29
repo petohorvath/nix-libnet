@@ -16,15 +16,15 @@ Suites: parsing, comparison (by family, address, then port), address predicates.
 
 ## `libnet.dnsEndpoint`
 
-Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. IP literals are rejected; the DNS name is unresolved, so there are no address predicates.
+Value: `{ _type = "dnsEndpoint"; name = Hostname or Domain; port = Port; }`. Text is `name:port`, never bracketed. The name is a `dnsName`, so IP literals and names that read as IPv4, such as `127.1` and `2130706433`, are rejected ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). The DNS name is unresolved, so there are no address predicates.
 
 Suites: parsing, comparison (hostnames before domains, then by name, then by port).
 
-| Function                 | Signature                      | Notes              |
-| ------------------------ | ------------------------------ | ------------------ |
-| `make`                   | `DnsName → Port → DnsEndpoint` |                    |
-| `name`, `port`           |                                | Accessors.         |
-| `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held. |
+| Function                 | Signature                      | Notes                                                                   |
+| ------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
+| `make`                   | `DnsName → Port → DnsEndpoint` | Throws for a name `dnsName.parse` rejects, such as the hostname `1234`. |
+| `name`, `port`           |                                | Accessors.                                                              |
+| `isHostname`, `isDomain` | `DnsEndpoint → Bool`           | Kind of name held.                                                      |
 
 ## `libnet.unixSocket`
 
@@ -38,7 +38,7 @@ Suites: parsing, comparison (byte-wise, case-sensitive).
 
 ## `libnet.endpoint`
 
-Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint. Its errors name `endpoint.parse`, so `endpoint.parse "@"` reports `libnet.endpoint.parse: invalid socket "@" …` with the Unix socket's detail.
+Pass-through union over `ipEndpoint`, `dnsEndpoint` and `unixSocket`. `parse` picks a Unix socket for a leading `/` or `@`, then tries an IP endpoint before a DNS endpoint, so `endpoint.parse "010.0.0.1:80"` throws, being neither. Its errors name `endpoint.parse`, so `endpoint.parse "@"` reports `libnet.endpoint.parse: invalid socket "@" …` with the Unix socket's detail.
 
 Suites: parsing, comparison (IP, DNS, then Unix kinds; `eq` is `false` across kinds).
 

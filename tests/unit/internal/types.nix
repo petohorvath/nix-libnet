@@ -96,12 +96,12 @@ let
   };
   socketUrl = {
     _type = "socketUrl";
-    transport = null;
+    scheme = "unix";
     endpoint = unixSocket;
   };
   bindUrl = {
     _type = "bindUrl";
-    transport = null;
+    scheme = "unix";
     bindpoint = unixSocket;
   };
   secureSocketUrl = {

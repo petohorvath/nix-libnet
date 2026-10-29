@@ -27,7 +27,7 @@ Suites: parsing, comparison (by `from`, then `to`).
 | `from`, `to`                     | `PortRange → Port`                          |                                                  |
 | `size`                           | `PortRange → Int`                           |                                                  |
 | `isSingleton`                    | `PortRange → Bool`                          |                                                  |
-| `contains`                       | `PortRange → Port → Bool`                   |                                                  |
+| `contains`                       | `PortRange → Port → Bool`                   | Throws for a non-port, such as an integer.       |
 | `overlaps`, `isAdjacent`         | `PortRange → PortRange → Bool`              | Symmetric.                                       |
 | `isSubrangeOf`, `isSuperrangeOf` | `PortRange → PortRange → Bool`              | Subject first.                                   |
 | `merge`                          | `PortRange → PortRange → PortRange or null` | Union when overlapping or adjacent, else `null`. |

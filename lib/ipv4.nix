@@ -15,7 +15,9 @@
     => "10.0.0.2"
 */
 let
+  address = import ./internal/address.nix;
   bits = import ./internal/bits.nix;
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
 
@@ -23,6 +25,33 @@ let
   mk = value: {
     _type = "ipv4";
     inherit value;
+  };
+
+  # An IPv4 argument of `function`, which throws for any other kind.
+  checked = function: errors.expectKind "ipv4.${function}" "ipv4";
+
+  valueOf = function: ip: (checked function ip).value;
+
+  # Apply `f` to the integer of an IPv4 argument of `function`.
+  withValue =
+    function: f: ip:
+    f (valueOf function ip);
+
+  parseError = detail: types.tryErr (errors.message "ipv4.parse" detail);
+
+  bytesOf = value: [
+    (bits.bits 24 8 value)
+    (bits.bits 16 8 value)
+    (bits.bits 8 8 value)
+    (bits.bits 0 8 value)
+  ];
+
+  format = value: builtins.concatStringsSep "." (map builtins.toString (bytesOf value));
+
+  arithmetic = address.scalar {
+    typeName = "ipv4";
+    maxValue = bits.mask32;
+    format = ip: format ip.value;
   };
 
   # ===== Conversion =====
@@ -36,10 +65,13 @@ let
   */
   fromInt =
     n:
-    if !(builtins.isInt n) || n < 0 || n > bits.mask32 then
-      throw "libnet.ipv4.fromInt: value out of range [0, 4294967295]: ${builtins.toString n}"
+    let
+      value = errors.expectType "ipv4.fromInt" "int" n;
+    in
+    if value < 0 || value > bits.mask32 then
+      errors.fail "ipv4.fromInt" "out of range [0, 4294967295]: ${builtins.toString value}"
     else
-      mk n;
+      mk value;
 
   /*
     Get the 32-bit integer value of an address.
@@ -48,7 +80,7 @@ let
 
     Returns an integer in [0, 4294967295].
   */
-  toInt = ip: ip.value;
+  toInt = valueOf "toInt";
 
   /*
     Build an address from its four bytes (the RFC 791 octets), most
@@ -60,12 +92,16 @@ let
   */
   fromBytes =
     bytes:
-    if !(builtins.isList bytes) || builtins.length bytes != 4 then
-      throw "libnet.ipv4.fromBytes: expected list of 4 ints"
-    else if builtins.any (byte: !(builtins.isInt byte) || byte < 0 || byte > 255) bytes then
-      throw "libnet.ipv4.fromBytes: each byte must be int in [0, 255]"
-    else
-      mk (builtins.foldl' (accumulated: byte: accumulated * bits.pow2_8 + byte) 0 bytes);
+    let
+      checkedBytes = address.intList "ipv4.fromBytes" {
+        count = 4;
+        part = "byte";
+        maxValue = 255;
+      } bytes;
+    in
+    builtins.seq checkedBytes (
+      mk (builtins.foldl' (accumulated: byte: accumulated * bits.pow2_8 + byte) 0 checkedBytes)
+    );
 
   /*
     Split an address into its four bytes, named like `ipv6.toBytes` and
@@ -75,17 +111,7 @@ let
 
     Returns a list of 4 integers in [0, 255], most significant first.
   */
-  toBytes =
-    ip:
-    let
-      inherit (ip) value;
-    in
-    [
-      (bits.bits 24 8 value)
-      (bits.bits 16 8 value)
-      (bits.bits 8 8 value)
-      (bits.bits 0 8 value)
-    ];
+  toBytes = withValue "toBytes" bytesOf;
 
   # ===== Parsing & formatting =====
 
@@ -101,7 +127,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.ipv4.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else
       let
         parts = parsing.splitOn "." input;
@@ -109,9 +135,9 @@ let
         octets = map parsing.octet parts;
       in
       if partCount != 4 then
-        types.tryErr "libnet.ipv4.parse: must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
+        parseError "must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
       else if builtins.elem null octets then
-        types.tryErr "libnet.ipv4.parse: invalid octet in \"${input}\""
+        parseError "invalid octet in \"${input}\""
       else
         types.tryOk (fromBytes octets);
 
@@ -136,7 +162,7 @@ let
 
     Returns a string such as "192.0.2.1".
   */
-  toString = ip: builtins.concatStringsSep "." (map builtins.toString (toBytes ip));
+  toString = withValue "toString" format;
 
   /*
     Format an address as its reverse-DNS name.
@@ -148,7 +174,7 @@ let
   toArpa =
     ip:
     let
-      bytes = toBytes ip;
+      bytes = bytesOf (valueOf "toArpa" ip);
       byteText = i: builtins.toString (builtins.elemAt bytes i);
     in
     "${byteText 3}.${byteText 2}.${byteText 1}.${byteText 0}.in-addr.arpa";
@@ -195,7 +221,9 @@ let
 
     Returns a Boolean.
   */
-  isLoopback = ip: ip.value >= 127 * bits.pow2_24 && ip.value <= 128 * bits.pow2_24 - 1;
+  isLoopback = withValue "isLoopback" (
+    value: value >= 127 * bits.pow2_24 && value <= 128 * bits.pow2_24 - 1
+  );
 
   /*
     Check whether an address is private (RFC 1918: 10.0.0.0/8,
@@ -205,11 +233,12 @@ let
 
     Returns a Boolean.
   */
-  isPrivate =
-    ip:
-    (ip.value >= class10Start && ip.value <= class10End)
-    || (ip.value >= class172Start && ip.value <= class172End)
-    || (ip.value >= class192Start && ip.value <= class192End);
+  isPrivate = withValue "isPrivate" (
+    value:
+    (value >= class10Start && value <= class10End)
+    || (value >= class172Start && value <= class172End)
+    || (value >= class192Start && value <= class192End)
+  );
 
   /*
     Check whether an address is link-local (169.254.0.0/16).
@@ -218,10 +247,11 @@ let
 
     Returns a Boolean.
   */
-  isLinkLocal =
-    ip:
-    ip.value >= 169 * bits.pow2_24 + 254 * bits.pow2_16
-    && ip.value <= 169 * bits.pow2_24 + 255 * bits.pow2_16 - 1;
+  isLinkLocal = withValue "isLinkLocal" (
+    value:
+    value >= 169 * bits.pow2_24 + 254 * bits.pow2_16
+    && value <= 169 * bits.pow2_24 + 255 * bits.pow2_16 - 1
+  );
 
   /*
     Check whether an address is multicast (224.0.0.0/4).
@@ -230,7 +260,9 @@ let
 
     Returns a Boolean.
   */
-  isMulticast = ip: ip.value >= 224 * bits.pow2_24 && ip.value <= 240 * bits.pow2_24 - 1;
+  isMulticast = withValue "isMulticast" (
+    value: value >= 224 * bits.pow2_24 && value <= 240 * bits.pow2_24 - 1
+  );
 
   /*
     Check whether an address is the limited broadcast address
@@ -240,7 +272,7 @@ let
 
     Returns a Boolean.
   */
-  isBroadcast = ip: ip.value == bits.mask32;
+  isBroadcast = withValue "isBroadcast" (value: value == bits.mask32);
 
   /*
     Check whether an address is the unspecified address 0.0.0.0.
@@ -249,7 +281,7 @@ let
 
     Returns a Boolean.
   */
-  isUnspecified = ip: ip.value == 0;
+  isUnspecified = withValue "isUnspecified" (value: value == 0);
 
   /*
     Check whether an address is reserved for future use (240.0.0.0/4,
@@ -259,7 +291,9 @@ let
 
     Returns a Boolean.
   */
-  isReserved = ip: ip.value >= 240 * bits.pow2_24 && ip.value <= bits.mask32 - 1;
+  isReserved = withValue "isReserved" (
+    value: value >= 240 * bits.pow2_24 && value <= bits.mask32 - 1
+  );
 
   /*
     Check whether an address is in a documentation block (192.0.2.0/24,
@@ -269,11 +303,8 @@ let
 
     Returns a Boolean.
   */
-  isDocumentation =
-    ip:
-    let
-      inherit (ip) value;
-    in
+  isDocumentation = withValue "isDocumentation" (
+    value:
     (
       value >= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 2 * bits.pow2_8
       && value <= 192 * bits.pow2_24 + 0 * bits.pow2_16 + 3 * bits.pow2_8 - 1
@@ -285,7 +316,8 @@ let
     || (
       value >= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 113 * bits.pow2_8
       && value <= 203 * bits.pow2_24 + 0 * bits.pow2_16 + 114 * bits.pow2_8 - 1
-    );
+    )
+  );
 
   /*
     Check whether an address is in 0.0.0.0/8, "this host on this network"
@@ -295,7 +327,7 @@ let
 
     Returns a Boolean.
   */
-  isThisNetwork = ip: ip.value < bits.pow2_24;
+  isThisNetwork = withValue "isThisNetwork" (value: value < bits.pow2_24);
 
   /*
     Check whether an address is in the shared address space used for
@@ -305,7 +337,9 @@ let
 
     Returns a Boolean.
   */
-  isSharedAddressSpace = ip: ip.value >= shared100Start && ip.value <= shared100End;
+  isSharedAddressSpace = withValue "isSharedAddressSpace" (
+    value: value >= shared100Start && value <= shared100End
+  );
 
   /*
     Check whether an address is an IETF protocol assignment
@@ -315,7 +349,9 @@ let
 
     Returns a Boolean.
   */
-  isProtocolAssignment = ip: ip.value >= protocol192Start && ip.value <= protocol192End;
+  isProtocolAssignment = withValue "isProtocolAssignment" (
+    value: value >= protocol192Start && value <= protocol192End
+  );
 
   /*
     Check whether an address is in the benchmarking block (198.18.0.0/15,
@@ -325,7 +361,9 @@ let
 
     Returns a Boolean.
   */
-  isBenchmarking = ip: ip.value >= benchmarking198Start && ip.value <= benchmarking198End;
+  isBenchmarking = withValue "isBenchmarking" (
+    value: value >= benchmarking198Start && value <= benchmarking198End
+  );
 
   /*
     Check whether an address is not globally routable: it matches any of
@@ -336,7 +374,10 @@ let
     Returns a Boolean.
   */
   isBogon =
-    ip:
+    argument:
+    let
+      ip = checked "isBogon" argument;
+    in
     isLoopback ip
     || isPrivate ip
     || isLinkLocal ip
@@ -359,7 +400,7 @@ let
 
     Returns a Boolean.
   */
-  isGlobal = ip: !(isBogon ip);
+  isGlobal = ip: !(isBogon (checked "isGlobal" ip));
 
   # ===== Arithmetic =====
 
@@ -369,17 +410,10 @@ let
     `n`: integer offset; may be negative.
     `ip`: IPv4 value.
 
-    Returns an IPv4 value; throws if the result leaves the address space.
+    Returns an IPv4 value; throws if `n` is not an integer or the result
+    leaves the address space.
   */
-  add =
-    n: ip:
-    let
-      result = ip.value + n;
-    in
-    if result < 0 || result > bits.mask32 then
-      throw "libnet.ipv4.add: result out of range [0, 4294967295]: ${builtins.toString result}"
-    else
-      mk result;
+  add = n: ip: arithmetic.add "ipv4.add" n (checked "add" ip);
 
   /*
     Offset an address downwards by an integer.
@@ -387,9 +421,10 @@ let
     `n`: integer to subtract; may be negative.
     `ip`: IPv4 value.
 
-    Returns an IPv4 value; throws if the result leaves the address space.
+    Returns an IPv4 value; throws if `n` is not an integer or the result
+    leaves the address space.
   */
-  sub = n: ip: add (0 - n) ip;
+  sub = n: ip: arithmetic.sub "ipv4.sub" n (checked "sub" ip);
 
   /*
     Measure the distance between two addresses.
@@ -399,7 +434,7 @@ let
 
     Returns `toInt b - toInt a`, negative when `b` precedes `a`.
   */
-  diff = a: b: b.value - a.value;
+  diff = a: b: valueOf "diff" b - valueOf "diff" a;
 
   /*
     Get the address one above `ip`. Equivalent to `add 1`, so it can be
@@ -409,7 +444,7 @@ let
 
     Returns an IPv4 value; throws at 255.255.255.255.
   */
-  next = ip: add 1 ip;
+  next = ip: arithmetic.add "ipv4.next" 1 (checked "next" ip);
 
   /*
     Get the address one below `ip`. Equivalent to `sub 1`, so it can be
@@ -419,9 +454,24 @@ let
 
     Returns an IPv4 value; throws at 0.0.0.0.
   */
-  prev = ip: sub 1 ip;
+  prev = ip: arithmetic.sub "ipv4.prev" 1 (checked "prev" ip);
 
   # ===== Comparison =====
+
+  # Order two addresses for the public function `function`, which throws
+  # for any argument that is not an IPv4 value, including an IPv6 one.
+  compareFor =
+    function: a: b:
+    let
+      left = valueOf function a;
+      right = valueOf function b;
+    in
+    if left < right then
+      -1
+    else if left > right then
+      1
+    else
+      0;
 
   /*
     Check whether two values are the same address. Never throws for
@@ -440,14 +490,7 @@ let
 
     Returns -1 if `a < b`, 0 if equal, 1 if `a > b`.
   */
-  compare =
-    a: b:
-    if a.value < b.value then
-      -1
-    else if a.value > b.value then
-      1
-    else
-      0;
+  compare = compareFor "compare";
 
   /*
     Check whether `a` sorts before `b`.
@@ -456,7 +499,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Check whether `a` sorts before or equal to `b`.
@@ -465,7 +508,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Check whether `a` sorts after `b`.
@@ -474,7 +517,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Check whether `a` sorts after or equal to `b`.
@@ -483,7 +526,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lower of two addresses.
@@ -492,7 +535,7 @@ let
 
     Returns `a` when the two are equal.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the higher of two addresses.
@@ -501,7 +544,7 @@ let
 
     Returns `a` when the two are equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 
   # ===== Constants =====
 

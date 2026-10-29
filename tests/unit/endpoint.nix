@@ -52,6 +52,23 @@ in
     expr = throws (parse "::1:443");
     expected = true;
   };
+  # Not an IP endpoint, and its name reads as IPv4 (ADR 0021).
+  testRejectLeadingZeroQuad = {
+    expr = parse "010.0.0.1:80";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: \"010\\.0\\.0\\.1:80\" is not a valid IP, name, or unix-socket endpoint$";
+  };
+  testRejectNumericName = {
+    expr = map endpoint.isValid [
+      "127.1:80"
+      "2130706433:80"
+      "0x7f:80"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
   testRejectNotString = {
     expr = endpoint.parse 42;
     expectedError.msg = "^libnet\\.endpoint\\.parse: expected string, got int$";

@@ -32,7 +32,7 @@ Each namespace page lists which suites it provides and documents only what diffe
 
 `TryResult T` is `{ success = Bool; value = T or null; error = String or null; }`, with `error` set only on failure. The `error` is the message `parse` would throw, naming `<ns>.parse`.
 
-**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. `eq` ignores spelling that does not change meaning, such as the case of a case-insensitive component or a port equal to the scheme default, and counts every stored component. `compare a b` is `0` exactly when `eq a b`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. `eq` ignores spelling that does not change meaning, such as the case of a case-insensitive component or a port equal to the scheme default, and counts every stored component. `compare a b` is `0` exactly when `eq a b`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws. Namespaces that span both families, the union `ip` and kinds such as `cidr`, order IPv4 before IPv6, so mixed-family lists sort. The single-family namespaces `ipv4` and `ipv6` throw for a value of the other family, as for any other wrong kind ([ADR 0007](../adr/0007-cross-type-comparison.md)).
 
 **Arithmetic**:
 

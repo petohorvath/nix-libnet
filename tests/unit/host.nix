@@ -82,6 +82,27 @@ in
     expr = host.parse 42;
     expectedError.msg = "^libnet\\.host\\.parse: expected string, got int$";
   };
+  # Not an `ip`, yet `inet_aton` reads each as an address (ADR 0021).
+  testRejectLeadingZeroQuad = {
+    expr = parse "010.0.0.1";
+    expectedError.msg = "^libnet\\.host\\.parse: \"010\\.0\\.0\\.1\" is not a valid IP, hostname, or domain$";
+  };
+  testRejectShortQuad = {
+    expr = throws (parse "127.1");
+    expected = true;
+  };
+  testRejectNumericHostname = {
+    expr = map host.isValid [
+      "2130706433"
+      "0x7f"
+      "0x7f.0.0.1"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
   testRejectInvalidNamesHost = {
     expr = parse "host_name";
     expectedError.msg = "^libnet\\.host\\.parse: \"host_name\" is not a valid IP, hostname, or domain$";

@@ -108,17 +108,21 @@ in
     expr = throws (portRange.make (port.fromInt 200) (port.fromInt 100));
     expected = true;
   };
+  testMakeReversedNamesMake = {
+    expr = portRange.make (port.fromInt 200) (port.fromInt 100);
+    expectedError.msg = "^libnet\\.portRange\\.make: from > to: 200-100$";
+  };
   testMakeBadInts = {
-    expr = throws (portRange.make 100 200);
-    expected = true;
+    expr = portRange.make 100 200;
+    expectedError.msg = "^libnet\\.portRange\\.make: expected port value, got int$";
   };
   testMakeBadIntTo = {
-    expr = throws (portRange.make (port.fromInt 100) 200);
-    expected = true;
+    expr = portRange.make (port.fromInt 100) 200;
+    expectedError.msg = "^libnet\\.portRange\\.make: expected port value, got int$";
   };
   testMakeBadString = {
-    expr = throws (portRange.make "80" (port.fromInt 100));
-    expected = true;
+    expr = portRange.make "80" (port.fromInt 100);
+    expectedError.msg = "^libnet\\.portRange\\.make: expected port value, got string$";
   };
   testMakePartial = {
     expr = map (to: portRange.toString (portRange.make (port.fromInt 80) to)) [
@@ -133,6 +137,10 @@ in
   testFromPortOk = {
     expr = portRange.toString (portRange.fromPort (port.fromInt 80));
     expected = "80";
+  };
+  testFromPortRejectsVlanId = {
+    expr = portRange.fromPort (libnet.vlanId.fromInt 80);
+    expectedError.msg = "^libnet\\.portRange\\.fromPort: expected port value, got vlanId value$";
   };
 
   # ===== Predicates =====
@@ -204,9 +212,27 @@ in
     expr = portRange.contains (parse "80-90") (port.fromInt 91);
     expected = false;
   };
-  testContainsNonPort = {
+  testContainsRejectsInt = {
     expr = portRange.contains (parse "80-90") 85;
-    expected = false;
+    expectedError.msg = "^libnet\\.portRange\\.contains: expected port value, got int$";
+  };
+  testContainsRejectsPortRange = {
+    expr = portRange.contains (parse "80-90") (parse "85");
+    expectedError.msg = "^libnet\\.portRange\\.contains: expected port value, got portRange value$";
+  };
+  testContainsRejectsPortAsRange = {
+    expr = portRange.contains (port.fromInt 85) (port.fromInt 85);
+    expectedError.msg = "^libnet\\.portRange\\.contains: expected portRange value, got port value$";
+  };
+  testContainsPartial = {
+    expr = map (portRange.contains (parse "80-90")) [
+      (port.fromInt 79)
+      (port.fromInt 80)
+    ];
+    expected = [
+      false
+      true
+    ];
   };
   testOverlapsYes = {
     expr = portRange.overlaps (parse "80-90") (parse "85-95");
@@ -296,8 +322,8 @@ in
     expected = 4096;
   };
   testPorts4097Throws = {
-    expr = throws (portRange.ports (parse "0-4096"));
-    expected = true;
+    expr = portRange.ports (parse "0-4096");
+    expectedError.msg = "^libnet\\.portRange\\.ports: range too large \\(4097 > 4096\\); use portsUnbounded$";
   };
   testPortsUnbounded = {
     expr = builtins.length (portRange.portsUnbounded (parse "0-4096"));
@@ -316,8 +342,28 @@ in
     expected = 83;
   };
   testPortAtOutOfBounds = {
-    expr = throws (portRange.portAt 4 (parse "80-83"));
-    expected = true;
+    expr = portRange.portAt 4 (parse "80-83");
+    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[0, 4\\): 4$";
+  };
+  testPortAtNegativeOutOfBounds = {
+    expr = portRange.portAt (-5) (parse "80-83");
+    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[0, 4\\): -5$";
+  };
+  testPortAtRejectsFloat = {
+    expr = portRange.portAt 1.0 (parse "80-83");
+    expectedError.msg = "^libnet\\.portRange\\.portAt: expected int, got float$";
+  };
+  testPortAtFullRangeEnds = {
+    expr = map (n: port.toInt (portRange.portAt n (parse "0-65535"))) [
+      0
+      65535
+      (-65536)
+    ];
+    expected = [
+      0
+      65535
+      0
+    ];
   };
 
   # ===== Comparison helpers =====
@@ -362,6 +408,22 @@ in
   testCompareTieBreaksOnTo = {
     expr = portRange.compare (parse "80-90") (parse "80-100");
     expected = -1;
+  };
+  testLtRejectsPort = {
+    expr = portRange.lt (parse "80-90") (port.fromInt 80);
+    expectedError.msg = "^libnet\\.portRange\\.lt: expected portRange value, got port value$";
+  };
+  testMinRejectsInt = {
+    expr = portRange.min 80 (parse "80-90");
+    expectedError.msg = "^libnet\\.portRange\\.min: expected portRange value, got int$";
+  };
+  testMergeRejectsPort = {
+    expr = portRange.merge (parse "80-90") (port.fromInt 91);
+    expectedError.msg = "^libnet\\.portRange\\.merge: expected portRange value, got port value$";
+  };
+  testIsSuperrangeOfNamesItself = {
+    expr = portRange.isSuperrangeOf (parse "80-90") 85;
+    expectedError.msg = "^libnet\\.portRange\\.isSuperrangeOf: expected portRange value, got int$";
   };
   testCompareEq = {
     expr = portRange.compare (parse "80-90") (parse "80-90");

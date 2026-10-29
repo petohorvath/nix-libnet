@@ -225,6 +225,27 @@ in
     expr = throws (parse "https://a@b@h");
     expected = true;
   };
+  # Text that reads as IPv4 is not a registered name (ADR 0021).
+  testRejectShortQuadHost = {
+    expr = throws (parse "http://127.1/");
+    expected = true;
+  };
+  testRejectHexQuadHost = {
+    expr = throws (parse "http://0x7f.0.0.1/");
+    expected = true;
+  };
+  testRejectNumericHost = {
+    expr = map url.isValid [
+      "http://2130706433/"
+      "http://010.0.0.1/"
+      "https://a.0x/x"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
   testRejectNotString = {
     expr = url.parse 42;
     expectedError.msg = "^libnet\\.url\\.parse: expected string, got int$";
@@ -393,6 +414,10 @@ in
   testToEndpointExplicitPort = {
     expr = ipEndpoint.toString (url.toEndpoint (parse "http://1.2.3.4:8080"));
     expected = "1.2.3.4:8080";
+  };
+  testToEndpointHexLikeName = {
+    expr = dnsEndpoint.toString (url.toEndpoint (parse "http://0x7g.example/"));
+    expected = "0x7g.example:80";
   };
   testToEndpointRegNameThrows = {
     expr = throws (url.toEndpoint (parse "http://my_host/x"));
