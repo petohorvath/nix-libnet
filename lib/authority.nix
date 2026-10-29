@@ -295,7 +295,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.authority a b
     && a.userinfo == b.userinfo
     && urlHost.eq a.host b.host
     && portEq a.port b.port;

@@ -184,7 +184,7 @@ let
 
     Returns true when both tags and integers match.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag typeName a b && a.value == b.value;
 
   /*
     Order two values numerically.

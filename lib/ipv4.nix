@@ -481,7 +481,7 @@ let
 
     Returns true when both tag and value match.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.ipv4 a b && a.value == b.value;
 
   /*
     Order two addresses numerically.

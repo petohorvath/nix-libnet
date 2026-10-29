@@ -720,7 +720,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.cidr a b
     && a.networkAddress._type == b.networkAddress._type
     && a.prefix == b.prefix
     && sameAddress a.networkAddress b.networkAddress;

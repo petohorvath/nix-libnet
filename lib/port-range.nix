@@ -401,7 +401,7 @@ let
 
     Returns true when both have the same type tag, `from`, and `to`.
   */
-  eq = a: b: types.hasSameTag a b && port.eq a.from b.from && port.eq a.to b.to;
+  eq = a: b: types.bothHaveTag types.tags.portRange a b && port.eq a.from b.from && port.eq a.to b.to;
 
   order =
     a: b:

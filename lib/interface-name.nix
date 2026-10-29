@@ -144,7 +144,7 @@ let
 
     Returns true when both have the same type tag and name.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.interfaceName a b && a.value == b.value;
 
   ordering = comparison.suite {
     namespace = "interfaceName";

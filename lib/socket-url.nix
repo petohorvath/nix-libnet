@@ -273,7 +273,11 @@ let
     Returns true when the type tags, schemes, and endpoints match; false
     for any other value.
   */
-  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
+  eq =
+    a: b:
+    types.bothHaveTag types.tags.socketUrl a b
+    && a.scheme == b.scheme
+    && endpoint.eq a.endpoint b.endpoint;
 
   /*
     Order two socket URLs by scheme name (sctp < tcp < udp < unix), then

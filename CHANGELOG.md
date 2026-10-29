@@ -92,6 +92,7 @@ This release makes the API consistent and breaks it wherever consistency require
 
 ### Fixed
 
+- `eq` returns `false` for two values of another kind, as 0.1.0 promised, instead of `true` or a raw `attribute missing` error: `ipv4.eq p p` for a port `p` and `authority.eq { _type = 1; } { _type = 1; }` are `false`.
 - `ipv6.diff` and `ip.diff` return −2⁶³ when the difference is exactly that, which fits in a Nix integer, instead of throwing.
 - `ipRange.size`, `ipRange.addressAt` and `ipRange.addresses` on an IPv6 range of exactly 2⁶³ addresses, such as `::-::7fff:ffff:ffff:ffff`, throw `libnet.ipRange.<fn>: range too large for a Nix integer` instead of failing with a raw integer overflow, or returning a negative size on Nix versions that wrap overflow silently.
 - `tryParse` and `isValid` fail on a decimal number too long for a 64-bit integer, such as `port.tryParse "99999999999999999999"`, instead of throwing an integer overflow error. On Nix versions that wrap overflow silently, such text no longer parses as a small value.

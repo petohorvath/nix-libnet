@@ -274,7 +274,11 @@ let
     `socks5h`) and the authorities are equal, including userinfo; false
     for any other value.
   */
-  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && authority.eq a.authority b.authority;
+  eq =
+    a: b:
+    types.bothHaveTag types.tags.proxyUrl a b
+    && a.scheme == b.scheme
+    && authority.eq a.authority b.authority;
 
   /*
     Order two proxy URLs by scheme name (http < https < socks4 < socks4a <

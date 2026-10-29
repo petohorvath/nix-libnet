@@ -112,7 +112,7 @@ let
     Returns true when both are hostnames with the same text; false for
     values of different types.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.hostname a b && a.value == b.value;
 
   # Byte-wise on the lowercase text.
   ordering = comparison.suite {

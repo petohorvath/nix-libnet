@@ -256,7 +256,11 @@ let
     Returns true when the type tags, schemes, and bindpoints match; false
     for any other value.
   */
-  eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && bindpoint.eq a.bindpoint b.bindpoint;
+  eq =
+    a: b:
+    types.bothHaveTag types.tags.bindUrl a b
+    && a.scheme == b.scheme
+    && bindpoint.eq a.bindpoint b.bindpoint;
 
   /*
     Order two bind URLs by scheme name (sctp < tcp < udp < unix), then

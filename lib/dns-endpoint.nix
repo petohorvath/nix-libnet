@@ -195,7 +195,9 @@ let
 
     Returns a Boolean; false across types.
   */
-  eq = a: b: types.hasSameTag a b && dnsName.eq a.name b.name && port.eq a.port b.port;
+  eq =
+    a: b:
+    types.bothHaveTag types.tags.dnsEndpoint a b && dnsName.eq a.name b.name && port.eq a.port b.port;
 
   /*
     Order two endpoints by name, hostnames before domains and then by

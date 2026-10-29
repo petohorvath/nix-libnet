@@ -789,7 +789,7 @@ let
 
     Returns true when both tag and words match.
   */
-  eq = a: b: types.hasSameTag a b && a.words == b.words;
+  eq = a: b: types.bothHaveTag types.tags.ipv6 a b && a.words == b.words;
 
   /*
     Check whether `a` sorts before `b`.

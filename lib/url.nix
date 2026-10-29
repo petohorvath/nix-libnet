@@ -450,7 +450,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.url a b
     && a.scheme == b.scheme
     && authority.eq (effectiveAuthority a) (effectiveAuthority b)
     && effectivePath a == effectivePath b

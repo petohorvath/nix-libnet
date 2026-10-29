@@ -141,7 +141,7 @@ let
 
     Returns true when both carry the same type tag and protocol.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.transport a b && a.value == b.value;
 
   ordering = comparison.suite {
     namespace = "transport";

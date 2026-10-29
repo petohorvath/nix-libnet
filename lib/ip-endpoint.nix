@@ -330,7 +330,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.ipEndpoint a b
     && a.address._type == b.address._type
     && (if types.isIpv4 a.address then ipv4.eq a.address b.address else ipv6.eq a.address b.address)
     && port.eq a.port b.port;

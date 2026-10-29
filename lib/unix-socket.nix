@@ -169,7 +169,7 @@ let
 
     Returns true when both carry the same type tag and path.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.unixSocket a b && a.value == b.value;
 
   /*
     Order two Unix sockets byte-wise by path.

@@ -610,7 +610,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.ipRange a b
     && a.from._type == b.from._type
     && (
       if isV4 a.from then

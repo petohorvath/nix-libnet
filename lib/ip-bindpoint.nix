@@ -538,7 +538,7 @@ let
   */
   eq =
     a: b:
-    types.hasSameTag a b
+    types.bothHaveTag types.tags.ipBindpoint a b
     && (
       a.address == null && b.address == null
       || (

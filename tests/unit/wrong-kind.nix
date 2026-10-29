@@ -895,6 +895,17 @@ let
     }
   ];
 
+  /*
+    Values of a kind other than the namespace's, including malformed tags.
+    `eq value value` returns false without throwing for each, unless the
+    namespace accepts the kind, as a union accepts its members.
+  */
+  foreignValues = anyValues ++ [
+    { _type = 1; }
+    (libnet.port.fromInt 1)
+    (libnet.ipv4.parse "192.0.2.1")
+  ];
+
   characters = text: builtins.genList (i: builtins.substring i 1 text) (builtins.stringLength text);
   capitalize =
     name:
@@ -931,6 +942,14 @@ let
         false
       ]) anyValues;
     };
+    testEqFalseForTwoForeignValues =
+      let
+        values = builtins.filter (value: !(case.module.is value)) foreignValues;
+      in
+      {
+        expr = map (value: case.module.eq value value) values;
+        expected = map (_: false) values;
+      };
     testIsValidAcceptsAnyValue = {
       expr = map case.module.isValid anyValues;
       expected = map (_: false) anyValues;

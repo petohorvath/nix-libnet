@@ -573,7 +573,7 @@ let
 
     Returns true when both carry the same tag and integer value.
   */
-  eq = a: b: types.hasSameTag a b && a.value == b.value;
+  eq = a: b: types.bothHaveTag types.tags.mac a b && a.value == b.value;
 
   /*
     Order two MAC addresses by integer value.
