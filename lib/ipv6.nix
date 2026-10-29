@@ -161,71 +161,60 @@ let
 
   # ===== Parsing =====
 
-  # Parse a list of hex-group strings into ints. null on failure.
-  parseHexGroups =
-    groupTexts:
+  /*
+    Parse the `:`-separated `parts` of `input` into 16-bit groups. When
+    `allowIpv4` holds, the last part may be a dotted-quad IPv4 address,
+    read as two groups. Returns `{ groups; }`, or `{ error; }` with the
+    detail of the first invalid part.
+  */
+  partsToGroups =
+    input: allowIpv4: parts:
     let
-      results = map parsing.hexGroup groupTexts;
-    in
-    if builtins.any (group: group == null) results then null else results;
-
-  # Check that no element contains "." except the last.
-  hasDotOnlyInLast =
-    parts:
-    let
-      n = builtins.length parts;
-      hasDot = part: parsing.countOccurrences "." part > 0;
-    in
-    if n <= 1 then
-      true
-    else
-      let
-        allExceptLast = builtins.genList (i: builtins.elemAt parts i) (n - 1);
-      in
-      !(builtins.any hasDot allExceptLast);
-
-  # Given a list of strings, expand the last element if it's a v4 literal;
-  # parse the rest as hex groups. Returns list of ints or null.
-  expandPartsToGroups =
-    parts:
-    let
-      n = builtins.length parts;
-    in
-    if n == 0 then
-      [ ]
-    else if !(hasDotOnlyInLast parts) then
-      null
-    else
-      let
-        lastPart = builtins.elemAt parts (n - 1);
-        hasDot = parsing.countOccurrences "." lastPart > 0;
-      in
-      if !hasDot then
-        parseHexGroups parts
-      else
+      count = builtins.length parts;
+      group =
+        part:
         let
-          ipv4Parts = parsing.splitOn "." lastPart;
-          octets = if builtins.length ipv4Parts == 4 then map parsing.octet ipv4Parts else null;
-          ipv4Valid = octets != null && !(builtins.any (octet: octet == null) octets);
+          value = parsing.hexGroup part;
         in
-        if !ipv4Valid then
-          null
+        if part == "" then
+          { error = "empty group in \"${input}\""; }
+        else if value == null then
+          { error = "invalid group \"${part}\" in \"${input}\""; }
         else
-          let
-            octetAt = i: builtins.elemAt octets i;
-            highGroup = octetAt 0 * 256 + octetAt 1;
-            lowGroup = octetAt 2 * 256 + octetAt 3;
-            prefixParts = if n == 1 then [ ] else builtins.genList (i: builtins.elemAt parts i) (n - 1);
-            prefixGroups = parseHexGroups prefixParts;
-          in
-          if prefixGroups == null then
-            null
-          else
-            prefixGroups
-            ++ [
-              highGroup
-              lowGroup
+          { groups = [ value ]; };
+      ipv4Part =
+        part:
+        let
+          octetTexts = parsing.splitOn "." part;
+          octets = map parsing.octet octetTexts;
+          octetAt = builtins.elemAt octets;
+        in
+        if builtins.length octetTexts != 4 || builtins.elem null octets then
+          { error = "invalid IPv4 part \"${part}\" in \"${input}\""; }
+        else
+          {
+            groups = [
+              (octetAt 0 * 256 + octetAt 1)
+              (octetAt 2 * 256 + octetAt 3)
             ];
+          };
+      isIpv4Part = index: part: allowIpv4 && index == count - 1 && parsing.countOccurrences "." part > 0;
+      results = builtins.genList (
+        index:
+        let
+          part = builtins.elemAt parts index;
+        in
+        if isIpv4Part index part then ipv4Part part else group part
+      ) count;
+      failures = builtins.filter (result: result ? error) results;
+    in
+    if failures != [ ] then
+      builtins.head failures
+    else
+      { groups = builtins.concatMap (result: result.groups) results; };
+
+  # Split the `:`-separated text of one side of `::`, which may be empty.
+  splitGroups = text: if text == "" then [ ] else parsing.splitOn ":" text;
 
   /*
     Parse an IPv6 address without throwing, for validating untrusted
@@ -249,41 +238,34 @@ let
       in
       if doubleColonCount > 1 then
         parseError "more than one \"::\" in \"${input}\""
+      else if doubleColonCount == 0 then
+        let
+          result = partsToGroups input true (parsing.splitOn ":" input);
+          groupCount = builtins.length result.groups;
+        in
+        if result ? error then
+          parseError result.error
+        else if groupCount != 8 then
+          parseError "must have 8 groups, got ${builtins.toString groupCount}: \"${input}\""
+        else
+          types.tryOk (fromGroups result.groups)
       else
         let
-          groups =
-            if doubleColonCount == 0 then
-              let
-                expanded = expandPartsToGroups (parsing.splitOn ":" input);
-              in
-              if expanded == null || builtins.length expanded != 8 then null else expanded
-            else
-              let
-                halves = parsing.splitOn "::" input;
-                leftText = builtins.elemAt halves 0;
-                rightText = builtins.elemAt halves 1;
-                leftParts = if leftText == "" then [ ] else parsing.splitOn ":" leftText;
-                rightParts = if rightText == "" then [ ] else parsing.splitOn ":" rightText;
-                # An IPv4 part is only valid at the very end of the address.
-                leftHasDot = builtins.any (part: parsing.countOccurrences "." part > 0) leftParts;
-                leftGroups = if leftHasDot then null else parseHexGroups leftParts;
-                rightGroups = expandPartsToGroups rightParts;
-              in
-              if leftGroups == null || rightGroups == null then
-                null
-              else
-                let
-                  groupCount = builtins.length leftGroups + builtins.length rightGroups;
-                in
-                if groupCount > 7 then
-                  null # "::" must represent at least 1 zero group
-                else
-                  let
-                    zeros = builtins.genList (_: 0) (8 - groupCount);
-                  in
-                  leftGroups ++ zeros ++ rightGroups;
+          halves = parsing.splitOn "::" input;
+          # An IPv4 part is only valid at the very end of the address.
+          left = partsToGroups input false (splitGroups (builtins.elemAt halves 0));
+          right = partsToGroups input true (splitGroups (builtins.elemAt halves 1));
+          groupCount = builtins.length left.groups + builtins.length right.groups;
         in
-        if groups == null then parseError "invalid \"${input}\"" else types.tryOk (fromGroups groups);
+        if left ? error then
+          parseError left.error
+        else if right ? error then
+          parseError right.error
+        # "::" stands for at least one zero group.
+        else if groupCount > 7 then
+          parseError "must have at most 7 groups with \"::\", got ${builtins.toString groupCount}: \"${input}\""
+        else
+          types.tryOk (fromGroups (left.groups ++ builtins.genList (_: 0) (8 - groupCount) ++ right.groups));
 
   /*
     Parse an IPv6 address, for trusted configuration values.

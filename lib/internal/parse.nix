@@ -40,8 +40,27 @@ let
   # Parsers return null on malformed input so callers can build tryParse
   # results without catching errors.
 
+  /*
+    Whether `input` is one or more occurrences of `token`, a regular
+    expression that matches no empty text. builtins.split matches one
+    occurrence at a time, whereas a repetition in builtins.match recurses
+    once per occurrence and exhausts the stack on long input.
+  */
+  isRepetitionOf =
+    token: input:
+    input != ""
+    && builtins.all (part: part == "") (builtins.filter builtins.isString (builtins.split token input));
+
   # Canonical decimal text: digits only, without a leading zero.
-  isDecimal = input: builtins.match "0|[1-9][0-9]*" input != null;
+  isDecimal =
+    input: input == "0" || (builtins.substring 0 1 input != "0" && isRepetitionOf "[0-9]" input);
+
+  # Digits with a leading zero, which canonical decimal text forbids.
+  hasLeadingZero =
+    input:
+    builtins.stringLength input > 1
+    && builtins.substring 0 1 input == "0"
+    && isRepetitionOf "[0-9]" input;
 
   # Canonical decimal text at most `max`. Text with more digits than `max`
   # is rejected before it is read, so the accumulator cannot overflow;
@@ -107,35 +126,55 @@ let
     else
       hexInt input;
 
+  # Escape the characters special in builtins.split's POSIX extended
+  # regular expressions. `]` stays bare: it is literal outside a bracket
+  # expression, and builtins.split rejects `\]`.
+  escapeRegex =
+    builtins.replaceStrings
+      [
+        "\\"
+        "."
+        "["
+        "("
+        ")"
+        "{"
+        "*"
+        "+"
+        "?"
+        "|"
+        "^"
+        "$"
+      ]
+      [
+        "\\\\"
+        "\\."
+        "\\["
+        "\\("
+        "\\)"
+        "\\{"
+        "\\*"
+        "\\+"
+        "\\?"
+        "\\|"
+        "\\^"
+        "\\$"
+      ];
+
+  # builtins.split, rather than recursion per character, so long input
+  # cannot exceed the maximum call depth.
   splitOn =
     delimiter: input:
-    let
-      delimiterLength = builtins.stringLength delimiter;
-      inputLength = builtins.stringLength input;
-      go =
-        start: i: parts:
-        if i > inputLength - delimiterLength then
-          parts ++ [ (builtins.substring start (inputLength - start) input) ]
-        else if builtins.substring i delimiterLength input == delimiter then
-          go (i + delimiterLength) (i + delimiterLength) (
-            parts ++ [ (builtins.substring start (i - start) input) ]
-          )
-        else
-          go start (i + 1) parts;
-    in
-    if inputLength == 0 then
-      [ "" ]
-    else if delimiterLength == 0 then
+    if delimiter == "" then
       [ input ]
     else
-      go 0 0 [ ];
+      builtins.filter builtins.isString (builtins.split (escapeRegex delimiter) input);
 
   /*
     Text shaped like an IPv4 address: digits and dots only. A union whose
     members all reject such text reports the IP member's error, since no
     name is written that way (ADR 0021).
   */
-  isDottedDigits = input: builtins.match "[0-9.]+" input != null;
+  isDottedDigits = isRepetitionOf "[0-9.]";
 
   countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
 
@@ -175,11 +214,13 @@ in
     countOccurrences
     decimal
     endsWith
+    hasLeadingZero
     hexByte
     hexGroup
     hexInt
     isDecimal
     isDottedDigits
+    isRepetitionOf
     octet
     splitOn
     startsWith

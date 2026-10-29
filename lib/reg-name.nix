@@ -65,7 +65,7 @@ let
     dnsLabel.hasNumericRightmostLabel withoutTrailingDot;
 
   # reg-name = *( unreserved / pct-encoded / sub-delims ); we require >= 1.
-  regNamePattern = "([-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f])+";
+  isRegName = parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=]|%[0-9A-Fa-f][0-9A-Fa-f]";
 
   mk = value: {
     _type = "regName";
@@ -89,7 +89,7 @@ let
     input:
     if !(builtins.isString input) then
       parseError (errors.notString input)
-    else if builtins.match regNamePattern input == null then
+    else if !(isRegName input) then
       parseError "invalid registered name \"${input}\""
     else if readsAsIpv4 input then
       parseError "\"${input}\" reads as an IPv4 address, not a registered name"

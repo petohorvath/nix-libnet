@@ -33,6 +33,7 @@ let
   transport = import ./transport.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
+  dnsName = import ./dns-name.nix;
   registry = import ./registry.nix;
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
@@ -110,11 +111,10 @@ let
     *( pchar / "/" / "?" ). The bracket expressions admit only ASCII.
   */
   pchar = "[-A-Za-z0-9._~!$&'()*+,;=:@]|%[0-9A-Fa-f][0-9A-Fa-f]";
-  pathPattern = "(/(${pchar})*)*";
-  queryPattern = "(${pchar}|[/?])*";
 
-  isPath = text: builtins.match pathPattern text != null;
-  isQuery = text: builtins.match queryPattern text != null;
+  isPath =
+    text: text == "" || (parsing.startsWith "/" text && parsing.isRepetitionOf "${pchar}|/" text);
+  isQuery = text: text == "" || parsing.isRepetitionOf "${pchar}|[/?]" text;
 
   # The detail for the first component outside its grammar, or null.
   componentError =
@@ -408,12 +408,13 @@ let
       ipEndpoint.make hostValue targetPort
     else
       let
-        dnsHost = urlHost.toHost hostValue;
+        nameText = urlHost.toString hostValue;
       in
-      if dnsHost == null then
-        errors.fail "url.toEndpoint" "registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
+      # Guard `toHost`, which would name itself in the error.
+      if dnsName.isValid nameText then
+        dnsEndpoint.make (urlHost.toHost hostValue) targetPort
       else
-        dnsEndpoint.make dnsHost targetPort;
+        errors.fail "url.toEndpoint" "registered name \"${nameText}\" is not a valid DNS name";
 
   # ===== Comparison =====
 

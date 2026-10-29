@@ -1,7 +1,6 @@
-{ helpers, libnet, ... }:
+{ libnet, ... }:
 let
   inherit (libnet) ipv4 ipv6 mac;
-  inherit (helpers) throws;
 
   inherit (ipv6) parse;
 in
@@ -139,32 +138,66 @@ in
     expectedError.msg = "^libnet\\.ipv6\\.parse: empty string$";
   };
   testRejectTripleColon = {
-    expr = throws (parse ":::");
-    expected = true;
+    expr = parse ":::";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: empty group in \":::\"$";
+  };
+  testRejectTrailingColon = {
+    expr = parse "1:2:3:4:5:6:7:";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: empty group in \"1:2:3:4:5:6:7:\"$";
+  };
+  testRejectLeadingColon = {
+    expr = parse ":1::";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: empty group in \":1::\"$";
   };
   testRejectTwoCompressions = {
     expr = parse "::1::";
     expectedError.msg = "^libnet\\.ipv6\\.parse: more than one \"::\" in \"::1::\"$";
   };
   testRejectNineGroups = {
-    expr = throws (parse "1:2:3:4:5:6:7:8:9");
-    expected = true;
+    expr = parse "1:2:3:4:5:6:7:8:9";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: must have 8 groups, got 9: \"1:2:3:4:5:6:7:8:9\"$";
+  };
+  testRejectSevenGroups = {
+    expr = parse "1:2:3:4:5:6:7";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: must have 8 groups, got 7: \"1:2:3:4:5:6:7\"$";
+  };
+  # The IPv4 part counts as two groups.
+  testRejectSixGroupsWithV4 = {
+    expr = parse "1:2:3:4:5:1.2.3.4";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: must have 8 groups, got 7: \"1:2:3:4:5:1\\.2\\.3\\.4\"$";
   };
   testRejectOversizeGroup = {
-    expr = throws (parse "12345::");
-    expected = true;
+    expr = parse "12345::";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \"12345\" in \"12345::\"$";
   };
   testRejectNonHex = {
     expr = parse "gggg::";
-    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid \"gggg::\"$";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \"gggg\" in \"gggg::\"$";
+  };
+  # The first invalid group is reported.
+  testRejectNonHexRight = {
+    expr = parse "1::g:h";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \"g\" in \"1::g:h\"$";
   };
   testRejectV4InLeft = {
-    expr = throws (parse "1.2.3.4::1");
-    expected = true;
+    expr = parse "1.2.3.4::1";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \"1\\.2\\.3\\.4\" in \"1\\.2\\.3\\.4::1\"$";
+  };
+  testRejectV4NotLast = {
+    expr = parse "::1.2.3.4:1";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \"1\\.2\\.3\\.4\" in \"::1\\.2\\.3\\.4:1\"$";
+  };
+  testRejectBadV4Part = {
+    expr = parse "::ffff:1.2.3";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid IPv4 part \"1\\.2\\.3\" in \"::ffff:1\\.2\\.3\"$";
+  };
+  testRejectV4PartLeadingZero = {
+    expr = parse "::ffff:1.2.3.04";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid IPv4 part \"1\\.2\\.3\\.04\" in \"::ffff:1\\.2\\.3\\.04\"$";
   };
   testRejectWhitespace = {
-    expr = throws (parse " ::1");
-    expected = true;
+    expr = parse " ::1";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: invalid group \" \" in \" ::1\"$";
   };
   testRejectNotString = {
     expr = ipv6.parse 123;
@@ -178,10 +211,19 @@ in
     expr = (ipv6.tryParse { }).error;
     expected = "libnet.ipv6.parse: expected string, got set";
   };
+  # "::" stands for at least one zero group.
   testRejectCompressionWithEightGroups = {
-    expr = throws (parse "1:2:3:4::5:6:7:8");
-    expected = true;
-  }; # 8 groups + :: invalid
+    expr = parse "1:2:3:4::5:6:7:8";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: must have at most 7 groups with \"::\", got 8: \"1:2:3:4::5:6:7:8\"$";
+  };
+  testRejectCompressionWithV4Overflow = {
+    expr = parse "1:2:3:4:5::6:1.2.3.4";
+    expectedError.msg = "^libnet\\.ipv6\\.parse: must have at most 7 groups with \"::\", got 8: \"1:2:3:4:5::6:1\\.2\\.3\\.4\"$";
+  };
+  testAcceptCompressionWithSevenGroups = {
+    expr = ipv6.toString (parse "1:2:3::4:5:6:7");
+    expected = "1:2:3:0:4:5:6:7";
+  };
 
   # ===== tryParse =====
   testTryParseOk = {

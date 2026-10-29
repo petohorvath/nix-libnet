@@ -2,7 +2,7 @@
 
 ## `libnet.hostname`
 
-Value: `{ _type = "hostname"; value = String; }`, one RFC 1123 label: 1–63 characters of `[A-Za-z0-9-]`, starting and ending alphanumeric. The 63-character cap is Linux's `HOST_NAME_MAX` less the terminator. Underscores are rejected ([ADR 0013](../adr/0013-strict-input-canonical-output.md)). `parse` lowercases the name, so text is the name in lowercase: `hostname.parse "MyHost"` prints `myhost` ([ADR 0020](../adr/0020-case-folded-at-parse.md)). A numeric label such as `1234` or `0x7f` is a valid Linux kernel hostname but not a DNS name, so `dnsName` rejects it ([ADR 0021](../adr/0021-no-numeric-dns-names.md)).
+Value: `{ _type = "hostname"; value = String; }`, one RFC 1123 label: 1–63 characters of `[A-Za-z0-9-]`, starting and ending alphanumeric. The 63-character cap is Linux's `HOST_NAME_MAX` less the terminator. Underscores are rejected ([ADR 0013](../adr/0013-strict-input-canonical-output.md)). `parse` lowercases the name, so text is the name in lowercase: `hostname.parse "MyHost"` prints `myhost` ([ADR 0020](../adr/0020-case-folded-at-parse.md)). A numeric label such as `1234` or `0x7f` is a valid Linux kernel hostname but not a DNS name, so `dnsName` rejects it, as text and as a value ([ADR 0021](../adr/0021-no-numeric-dns-names.md)).
 
 Suites: parsing, comparison (byte-wise on the lowercase text).
 
@@ -25,24 +25,25 @@ There is no `tld` accessor ([ADR 0003](../adr/0003-syntax-not-resolution.md)); t
 
 ## `libnet.dnsName`
 
-Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count. A parse error names `dnsName.parse` and keeps the domain's detail for text with a dot and the hostname's otherwise, such as `libnet.dnsName.parse: invalid hostname "host_name" …`.
+Pass-through union over `hostname` and `domain` that rejects IP literals and any text a resolver reads as an IPv4 address, so a numeric hostname such as `2130706433` or `0x7f` is rejected along with `127.1` ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). `parse` picks by label count. A numeric hostname value, such as `hostname.parse "1234"`, is the wrong kind: `is` and `isHostname` are `false` for it, `eq` returns `false`, and the functions that take a DNS name, here and in `host` and `dnsEndpoint`, throw `expected hostname or domain value, got hostname "1234", which reads as an IPv4 address`. A parse error names `dnsName.parse` and keeps the domain's detail for text with a dot and the hostname's otherwise, such as `libnet.dnsName.parse: invalid hostname "host_name" …`.
 
 Suites: parsing, comparison (hostnames before domains, then by the lowercase text).
 
-| Function                 | Signature    | Notes |
-| ------------------------ | ------------ | ----- |
-| `isHostname`, `isDomain` | `Any → Bool` |       |
+| Function     | Signature    | Notes                                          |
+| ------------ | ------------ | ---------------------------------------------- |
+| `isHostname` | `Any → Bool` | A `hostname` value whose label is not numeric. |
+| `isDomain`   | `Any → Bool` | A `domain` value.                              |
 
 ## `libnet.host`
 
-Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it. A parse error names `host.parse` and keeps the IP's detail for text with a colon or only digits and dots, and the DNS name's otherwise: `host.parse "010.0.0.1"` reports `libnet.host.parse: invalid octet in "010.0.0.1"`.
+Pass-through union over `ip` and `dnsName`. `parse` tries an IP first, so a dotted quad is an `ipv4` value, not a domain. Text that is not an `ip` but reads as IPv4, such as `010.0.0.1` or `127.1`, is not a DNS name either, so `parse` throws for it. A parse error names `host.parse` and keeps the IP's detail for text with a colon or only digits and dots, and the DNS name's otherwise: `host.parse "010.0.0.1"` reports `libnet.host.parse: invalid octet in "010.0.0.1"`, and `host.parse "example.com:80"`, which has a colon, reports `libnet.host.parse: invalid group "example.com" in "example.com:80"`. A numeric hostname value is not a host, as it is not a DNS name.
 
 Suites: parsing, comparison (IPv4, IPv6, hostname, then domain; within a kind, that kind's order).
 
-| Function    | Signature    | Notes                           |
-| ----------- | ------------ | ------------------------------- |
-| `isIp`      | `Any → Bool` | An `ipv4` or `ipv6` value.      |
-| `isDnsName` | `Any → Bool` | A `hostname` or `domain` value. |
+| Function    | Signature    | Notes                                                               |
+| ----------- | ------------ | ------------------------------------------------------------------- |
+| `isIp`      | `Any → Bool` | An `ipv4` or `ipv6` value.                                          |
+| `isDnsName` | `Any → Bool` | A `domain` value, or a `hostname` value whose label is not numeric. |
 
 ## `libnet.interfaceName`
 

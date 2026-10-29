@@ -79,7 +79,7 @@ let
       let
         number = parsing.decimal maxValue input;
       in
-      if builtins.match "0[0-9]+" input != null then
+      if parsing.hasLeadingZero input then
         parseError "leading zero in \"${input}\""
       else if !(parsing.isDecimal input) then
         parseError "not a decimal number: \"${input}\""

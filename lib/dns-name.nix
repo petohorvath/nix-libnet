@@ -31,7 +31,8 @@ let
   comparison = import ./internal/comparison.nix;
 
   # Return a DNS name argument of `function`, throwing for any other value.
-  dnsNameArgument = function: errors.expect "dnsName.${function}" "hostname or domain value" is;
+  dnsNameArgument =
+    function: dnsLabel.expectDnsName "dnsName.${function}" "hostname or domain value" is;
 
   parseError = detail: types.tryErr (errors.message "dnsName.parse" detail);
 
@@ -118,22 +119,25 @@ let
   isValid = input: (tryParse input).success;
 
   /*
+    Recognize a tagged hostname value that is a DNS name.
+
+    `value`: any value.
+
+    Returns true when `value` carries the `hostname` tag on a label that
+    is not numeric.
+  */
+  isHostname = value: types.isHostname value && !dnsLabel.isNumericHostname value;
+
+  /*
     Recognize a tagged DNS name value.
 
     `value`: any value.
 
-    Returns true when `value` carries the `hostname` or `domain` tag.
+    Returns true when `value` carries the `domain` tag, or the `hostname`
+    tag on a label that is not numeric: `hostname.parse "1234"` is not a
+    DNS name, since a resolver reads it as an IPv4 address (ADR 0021).
   */
-  is = value: types.isHostname value || types.isDomain value;
-
-  /*
-    Recognize a tagged hostname value.
-
-    `value`: any value.
-
-    Returns true when `value` carries the `hostname` tag.
-  */
-  isHostname = value: types.isHostname value;
+  is = value: types.isDomain value || isHostname value;
 
   /*
     Recognize a tagged domain value.
@@ -157,11 +161,12 @@ let
     `a`, `b`: values to compare.
 
     Returns true when both are hostnames or both are domains with the
-    same text; false otherwise, without throwing.
+    same text; false otherwise, including for a numeric hostname, which
+    is not a DNS name, without throwing.
   */
   eq =
     a: b:
-    if types.isHostname a && types.isHostname b then
+    if isHostname a && isHostname b then
       hostname.eq a b
     else if types.isDomain a && types.isDomain b then
       domain.eq a b

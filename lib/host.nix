@@ -21,12 +21,14 @@ let
   types = import ./internal/types.nix;
   ip = import ./ip.nix;
   dnsName = import ./dns-name.nix;
+  dnsLabel = import ./internal/dns-label.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
   # Return a host argument of `function`, throwing for any other value.
-  hostArgument = function: errors.expect "host.${function}" "ip, hostname or domain value" is;
+  hostArgument =
+    function: dnsLabel.expectDnsName "host.${function}" "ip, hostname or domain value" is;
 
   parseError = detail: types.tryErr (errors.message "host.parse" detail);
 
@@ -111,7 +113,8 @@ let
 
     `value`: any value.
 
-    Returns true when `value` carries the `hostname` or `domain` tag.
+    Returns true when `dnsName.is` holds: a domain, or a hostname whose
+    label is not numeric (ADR 0021).
   */
   isDnsName = value: dnsName.is value;
 
@@ -121,7 +124,7 @@ let
     `value`: any value.
 
     Returns true when `value` is a tagged ipv4, ipv6, hostname, or
-    domain value.
+    domain value, except a hostname whose label is numeric.
   */
   is = value: types.isIp value || dnsName.is value;
 

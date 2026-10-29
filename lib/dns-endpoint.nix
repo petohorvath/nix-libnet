@@ -19,6 +19,7 @@
 */
 let
   comparison = import ./internal/comparison.nix;
+  dnsLabel = import ./internal/dns-label.nix;
   errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
@@ -109,24 +110,17 @@ let
     `portValue`: port value.
 
     Returns a dnsEndpoint value; throws if either argument has the wrong
-    kind, or if the name is not a valid DNS name, such as the hostname
-    `1234`, which reads as an IPv4 address.
+    kind, including a hostname that is not a DNS name, such as `1234`,
+    which reads as an IPv4 address.
   */
   make =
     nameValue: portValue:
     let
       caller = "dnsEndpoint.make";
-      # Recheck the name against `dnsName`'s full rule, since a hostname
-      # value may be numeric, so that `make` builds only what `parse`
-      # accepts.
-      nameResult = dnsName.tryParse (
-        dnsName.toString (errors.expect caller "hostname or domain value" dnsName.is nameValue)
-      );
     in
-    if nameResult.success then
-      mk nameResult.value (errors.expectKind caller "port" portValue)
-    else
-      errors.fail caller (errors.detail "dnsName.parse" nameResult.error);
+    mk (dnsLabel.expectDnsName caller "hostname or domain value" dnsName.is nameValue) (
+      errors.expectKind caller "port" portValue
+    );
 
   # ===== Predicates =====
 
