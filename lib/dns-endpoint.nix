@@ -18,6 +18,7 @@
     => { _type = "dnsEndpoint"; name = <hostname>; port = <port 22>; }
 */
 let
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   dnsName = import ./dns-name.nix;
@@ -28,6 +29,11 @@ let
     name = nameValue;
     port = portValue;
   };
+
+  # Check the endpoint argument of `function`, throwing for any other kind.
+  endpointOf = function: endpoint: errors.expectKind "dnsEndpoint.${function}" "dnsEndpoint" endpoint;
+
+  parseError = detail: types.tryErr (errors.message "dnsEndpoint.parse" detail);
 
   # ===== Parsing =====
 
@@ -44,11 +50,11 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.dnsEndpoint.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if parsing.startsWith "[" input then
-      types.tryErr "libnet.dnsEndpoint.parse: bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
+      parseError "bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
     else if parsing.countOccurrences ":" input != 1 then
-      types.tryErr "libnet.dnsEndpoint.parse: expected exactly one ':' (name:port): \"${input}\""
+      parseError "expected exactly one ':' (name:port): \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
@@ -58,9 +64,9 @@ let
         portResult = port.tryParse portString;
       in
       if !nameResult.success then
-        types.tryErr "libnet.dnsEndpoint.parse: ${nameResult.error}"
+        parseError (errors.detail "dnsName.parse" nameResult.error)
       else if !portResult.success then
-        types.tryErr "libnet.dnsEndpoint.parse: invalid port in \"${input}\""
+        parseError "invalid port in \"${input}\""
       else
         types.tryOk (mk nameResult.value portResult.value);
 
@@ -86,7 +92,12 @@ let
 
     Returns `"<name>:<port>"`, preserving the name's input case.
   */
-  toString = endpoint: "${dnsName.toString endpoint.name}:${port.toString endpoint.port}";
+  toString =
+    endpoint:
+    let
+      checked = endpointOf "toString" endpoint;
+    in
+    "${dnsName.toString checked.name}:${port.toString checked.port}";
 
   /*
     Combine an already-parsed DNS name and port into an endpoint.
@@ -95,16 +106,13 @@ let
     `portValue`: port value.
 
     Returns a dnsEndpoint value; throws if either argument has the wrong
-    type.
+    kind.
   */
   make =
     nameValue: portValue:
-    if !(dnsName.is nameValue) then
-      throw "libnet.dnsEndpoint.make: name must be a hostname or domain"
-    else if !(types.isPort portValue) then
-      throw "libnet.dnsEndpoint.make: expected port value"
-    else
-      mk nameValue portValue;
+    mk (errors.expect "dnsEndpoint.make" "hostname or domain value" dnsName.is nameValue) (
+      errors.expectKind "dnsEndpoint.make" "port" portValue
+    );
 
   # ===== Predicates =====
 
@@ -133,7 +141,7 @@ let
 
     Returns a Boolean.
   */
-  isHostname = endpoint: types.isHostname endpoint.name;
+  isHostname = endpoint: types.isHostname (endpointOf "isHostname" endpoint).name;
 
   /*
     Test whether the endpoint's name is a multi-label domain.
@@ -142,7 +150,7 @@ let
 
     Returns a Boolean.
   */
-  isDomain = endpoint: types.isDomain endpoint.name;
+  isDomain = endpoint: types.isDomain (endpointOf "isDomain" endpoint).name;
 
   # ===== Accessors =====
 
@@ -153,11 +161,21 @@ let
 
     Returns a hostname or domain value.
   */
-  name = endpoint: endpoint.name;
+  name = endpoint: (endpointOf "name" endpoint).name;
 
   # ===== Comparison =====
   #
-  # Dispatch on the name (case-insensitive per DNS), then port.
+  # Dispatch on the name (case-insensitive per DNS), then port. Each
+  # ordering function passes its own name, which its errors report.
+
+  compareFor =
+    function: a: b:
+    let
+      left = endpointOf function a;
+      right = endpointOf function b;
+      nameOrder = dnsName.compare left.name right.name;
+    in
+    if nameOrder != 0 then nameOrder else port.compare left.port right.port;
 
   /*
     Test two endpoints for equality of name (case-insensitive) and port.
@@ -169,18 +187,14 @@ let
   eq = a: b: types.hasSameTag a b && dnsName.eq a.name b.name && port.eq a.port b.port;
 
   /*
-    Order two endpoints by name (case-insensitive), then port.
+    Order two endpoints by name, hostnames before domains and then by
+    name (case-insensitive), then by port.
 
     `a`, `b`: dnsEndpoint values.
 
     Returns `-1`, `0`, or `1`.
   */
-  compare =
-    a: b:
-    let
-      nameOrder = dnsName.compare a.name b.name;
-    in
-    if nameOrder != 0 then nameOrder else port.compare a.port b.port;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` orders strictly before `b` under `compare`.
@@ -189,7 +203,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` orders before or equal to `b` under `compare`.
@@ -198,7 +212,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` orders strictly after `b` under `compare`.
@@ -207,7 +221,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` orders after or equal to `b` under `compare`.
@@ -216,7 +230,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two endpoints under `compare`.
@@ -225,7 +239,7 @@ let
 
     Returns `a` when they order equal, otherwise the lesser value.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two endpoints under `compare`.
@@ -234,7 +248,7 @@ let
 
     Returns `a` when they order equal, otherwise the greater value.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
@@ -265,5 +279,5 @@ in
 
     Returns a port value.
   */
-  port = endpoint: endpoint.port;
+  port = endpoint: (endpointOf "port" endpoint).port;
 }

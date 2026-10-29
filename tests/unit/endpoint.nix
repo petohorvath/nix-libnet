@@ -37,8 +37,8 @@ in
 
   # ===== Reject =====
   testRejectEmpty = {
-    expr = throws (parse "");
-    expected = true;
+    expr = parse "";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: \"\" is not a valid IP, name, or unix-socket endpoint$";
   };
   testRejectNoPort = {
     expr = throws (parse "nas");
@@ -53,7 +53,18 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (endpoint.parse 42);
+    expr = endpoint.parse 42;
+    expectedError.msg = "^libnet\\.endpoint\\.parse: expected string, got int$";
+  };
+  # A Unix socket's failure keeps its detail under the union's name.
+  testRejectAtOnlyNamesUnion = {
+    expr = parse "@";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: invalid socket \"@\" ";
+  };
+  testTryParseSlashOnlyNamesUnion = {
+    expr =
+      builtins.match "libnet[.]endpoint[.]parse: invalid socket \"/\" .*" (endpoint.tryParse "/").error
+      != null;
     expected = true;
   };
 
@@ -195,6 +206,14 @@ in
     expr = endpoint.compare (parse "/run/foo.sock") (parse "10.0.0.1:80");
     expected = 1;
   };
+  testCompareNamesItself = {
+    expr = endpoint.ge (parse "/run/foo.sock") (libnet.ipBindpoint.parse ":80");
+    expectedError.msg = "^libnet\\.endpoint\\.ge: expected ipEndpoint, dnsEndpoint or unixSocket value, got ipBindpoint value$";
+  };
+  testToStringNamesItself = {
+    expr = endpoint.toString 80;
+    expectedError.msg = "^libnet\\.endpoint\\.toString: expected ipEndpoint, dnsEndpoint or unixSocket value, got int$";
+  };
   testMinPicksIp = {
     expr = (endpoint.min (parse "nas:22") (parse "10.0.0.1:80"))._type;
     expected = "ipEndpoint";
@@ -220,6 +239,19 @@ in
   testIsUnixSocketNo = {
     expr = endpoint.isUnixSocket (parse "192.0.2.1:80");
     expected = false;
+  };
+  # The union predicates accept any value.
+  testMemberPredicatesAcceptAnyValue = {
+    expr = map (predicate: predicate "/run/foo.sock") [
+      endpoint.isIpEndpoint
+      endpoint.isDnsEndpoint
+      endpoint.isUnixSocket
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
   };
   testIsValidUnix = {
     expr = endpoint.isValid "/run/foo.sock";
