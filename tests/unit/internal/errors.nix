@@ -106,6 +106,16 @@ in
     expectedError.msg = "^libnet\\.port\\.fromInt: expected int, got port value$";
   };
 
+  # ===== intArgument =====
+  testIntArgumentReturnsValue = {
+    expr = errors.intArgument "cidr" "addressAt" 3;
+    expected = 3;
+  };
+  testIntArgumentNamesFunction = {
+    expr = errors.intArgument "cidr" "addressAt" "3";
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: expected int, got string$";
+  };
+
   # ===== expect =====
   testExpectNamesExpectedKinds = {
     expr = errors.expect "ip.toString" "ipv4 or ipv6 value" (_: false) port;

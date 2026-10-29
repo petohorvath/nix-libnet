@@ -36,7 +36,7 @@ let
   # Unwrap a scalar argument of `function`, throwing for any other kind.
   valueOf = function: scalar: (errors.expectKind "${typeName}.${function}" typeName scalar).value;
 
-  intArgument = function: errors.expectType "${typeName}.${function}" "int";
+  intArgument = errors.intArgument typeName;
 
   outOfRange =
     function: text: errors.fail "${typeName}.${function}" "out of range ${rangeText}: ${text}";

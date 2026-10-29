@@ -59,7 +59,7 @@ let
     and `order`, take values the public function has already checked.
   */
   ipRangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
-  intArgument = function: errors.expectType "ipRange.${function}" "int";
+  intArgument = errors.intArgument "ipRange";
   addressArgument = function: errors.expect "ipRange.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both range operands of a binary `function`, then apply

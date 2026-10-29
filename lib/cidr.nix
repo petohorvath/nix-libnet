@@ -52,7 +52,7 @@ let
     already checked.
   */
   cidrArgument = function: errors.expectKind "cidr.${function}" "cidr";
-  intArgument = function: errors.expectType "cidr.${function}" "int";
+  intArgument = errors.intArgument "cidr";
   addressArgument = function: errors.expect "cidr.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # Check both block operands of a binary `function`, then apply

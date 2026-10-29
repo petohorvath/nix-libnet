@@ -42,7 +42,7 @@ let
   # the public `function`.
   portRangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
   portArgument = function: errors.expectKind "portRange.${function}" "port";
-  intArgument = function: errors.expectType "portRange.${function}" "int";
+  intArgument = errors.intArgument "portRange";
 
   # Check both range operands of a binary `function`, then apply
   # `relation` to them. Unchecked helpers such as `order` and `sizeOf`
