@@ -590,17 +590,17 @@ let
   # `ipv4.fromInt` returns: { _type = "ipv4"; value = <int>; }.
 
   /*
-    Embed an IPv4 address in the IPv4-mapped block, e.g. 1.2.3.4 becomes
-    ::ffff:1.2.3.4.
+    Embed an IPv4 address in the IPv4-mapped block (RFC 4291 section
+    2.5.5.2), e.g. 1.2.3.4 becomes ::ffff:1.2.3.4.
 
     `ipv4`: IPv4 value.
 
     Returns an IPv6 value; throws if `ipv4` is not an IPv4 value.
   */
-  fromIpv4Mapped =
+  fromIpv4 =
     ipv4:
     if !(types.isIpv4 ipv4) then
-      throw "libnet.ipv6.fromIpv4Mapped: expected ipv4 value"
+      throw "libnet.ipv6.fromIpv4: expected ipv4 value"
     else
       mk [
         0
@@ -616,10 +616,10 @@ let
 
     Returns an IPv4 value; throws if `ip` is not IPv4-mapped.
   */
-  toIpv4Mapped =
+  toIpv4 =
     ip:
     if !(isIpv4Mapped ip) then
-      throw "libnet.ipv6.toIpv4Mapped: address is not in ::ffff:0:0/96"
+      throw "libnet.ipv6.toIpv4: address is not in ::ffff:0:0/96"
     else
       {
         _type = "ipv4";
@@ -629,32 +629,32 @@ let
   # ===== EUI-64 =====
 
   /*
-    Build a SLAAC-style address from a network prefix and a MAC address.
+    Build a SLAAC-style address from a CIDR and a MAC address.
 
     `cidrValue`: IPv6 CIDR value with a prefix length of at most 64; its
-    network bits form the upper 64 bits.
+    network address forms the upper 64 bits.
     `macValue`: MAC value; its modified EUI-64 form (RFC 4291) becomes
     the lower 64 bits.
 
     Returns an IPv6 value; throws if `cidrValue` is not an IPv6 CIDR,
     `macValue` is not a MAC, or the prefix length exceeds 64.
   */
-  fromEui64 =
+  fromMac =
     cidrValue: macValue:
     let
-      isValidCidr = types.isCidr cidrValue && cidrValue.network._type == "ipv6";
+      isValidCidr = types.isCidr cidrValue && cidrValue.networkAddress._type == "ipv6";
     in
     if !isValidCidr then
-      throw "libnet.ipv6.fromEui64: first argument must be an IPv6 cidr"
+      throw "libnet.ipv6.fromMac: first argument must be an IPv6 cidr"
     else if !(types.isMac macValue) then
-      throw "libnet.ipv6.fromEui64: second argument must be a mac"
+      throw "libnet.ipv6.fromMac: second argument must be a mac"
     else if cidrValue.prefix > 64 then
-      throw "libnet.ipv6.fromEui64: CIDR prefix must be <= 64, got /${builtins.toString cidrValue.prefix}"
+      throw "libnet.ipv6.fromMac: CIDR prefix must be <= 64, got /${builtins.toString cidrValue.prefix}"
     else
       let
-        # The network has no host bits, so its upper two words are the
-        # prefix and its lower two are zero.
-        networkWords = cidrValue.network.words;
+        # The network address has no host bits, so its upper two words
+        # are the prefix and its lower two are zero.
+        networkWords = cidrValue.networkAddress.words;
         euiBytes = mac.toEui64 macValue;
         euiByteAt = i: builtins.elemAt euiBytes i;
         interfaceWord =
@@ -952,9 +952,9 @@ in
     diff
     eq
     fromBytes
-    fromEui64
     fromGroups
-    fromIpv4Mapped
+    fromIpv4
+    fromMac
     fromWords
     ge
     gt
@@ -986,7 +986,7 @@ in
     toArpa
     toBytes
     toGroups
-    toIpv4Mapped
+    toIpv4
     toString
     toStringBracketed
     toStringExpanded

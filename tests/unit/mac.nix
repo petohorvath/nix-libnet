@@ -294,7 +294,7 @@ in
     expected = "11:22:33:44:55:66";
   };
   testOuiToStringFormat = {
-    expr = mac.ouiToString 1122867;
+    expr = mac.ouiToString (parse "11:22:33:44:55:66");
     expected = "11:22:33";
   };
   testFromOuiNicOutOfRange = {

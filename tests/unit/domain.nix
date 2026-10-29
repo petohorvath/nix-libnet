@@ -274,6 +274,44 @@ in
     expected = false;
   };
 
+  # ===== isSuperdomainOf =====
+  testSuperdomainDirect = {
+    expr = domain.isSuperdomainOf (parse "example.com") (parse "foo.example.com");
+    expected = true;
+  };
+  testSuperdomainSelf = {
+    expr = domain.isSuperdomainOf (parse "example.com") (parse "example.com");
+    expected = true;
+  };
+  testSuperdomainLonger = {
+    expr = domain.isSuperdomainOf (parse "foo.example.com") (parse "example.com");
+    expected = false;
+  };
+  testSuperdomainNotSuffix = {
+    expr = domain.isSuperdomainOf (parse "example.com") (parse "evil.foo.com");
+    expected = false;
+  };
+  testSuperdomainCaseInsensitive = {
+    expr = domain.isSuperdomainOf (parse "EXAMPLE.com") (parse "Foo.Example.COM");
+    expected = true;
+  };
+  # Partially applied, it keeps the names inside the zone.
+  testSuperdomainPartial = {
+    expr = map domain.toString (
+      builtins.filter (domain.isSuperdomainOf (parse "example.com")) (
+        map parse [
+          "www.example.com"
+          "example.org"
+          "example.com"
+        ]
+      )
+    );
+    expected = [
+      "www.example.com"
+      "example.com"
+    ];
+  };
+
   # ===== toHostname =====
   testToHostnameExtractsLeftmost = {
     expr = (domain.toHostname (parse "foo.example.com")).value;

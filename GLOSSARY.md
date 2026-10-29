@@ -51,8 +51,15 @@ _Avoid_: public address
 ## Networks
 
 **CIDR**:
-A network block written `network/prefix`, with every host bit zero. Text with host bits set, such as `10.0.0.5/24`, is an interface address.
+A block of addresses written `address/prefix`, with every host bit zero. Text with host bits set, such as `10.0.0.5/24`, is an interface address.
 _Avoid_: subnet (as the type name), netblock, network (as the type name)
+
+**Network address**:
+The lowest address of a CIDR, with every host bit zero.
+_Avoid_: network (for the address)
+
+**Top address**:
+The highest address of a CIDR, with every host bit set; for IPv4, the broadcast address.
 
 **Prefix**:
 The number of leading network bits in a CIDR or interface address.
@@ -67,7 +74,7 @@ A contiguous, same-family span of addresses from one address to another, with no
 _Avoid_: address pool, range (unqualified)
 
 **Interface address**:
-A host address together with the prefix of the network it sits on, host bits preserved: "host X is on network Y".
+An address together with the prefix of the CIDR it sits on, host bits preserved: "address X is on CIDR Y".
 _Avoid_: interface, CIDR (when the host bits matter)
 
 **Interface name**:

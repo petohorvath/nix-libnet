@@ -435,7 +435,7 @@ let
     if !(types.isCidr cidrValue) then
       throw "libnet.ipRange.fromCidr: expected a cidr value"
     else
-      mk (cidr.network cidrValue) (cidr.topAddress cidrValue);
+      mk (cidr.networkAddress cidrValue) (cidr.topAddress cidrValue);
 
   /*
     Cover a range exactly with the fewest CIDR blocks, for tools that
@@ -475,10 +475,10 @@ let
             else
               let
                 block = cidr.supernet (maxPrefix - prefix) (cidr.fromAddress start);
-                network = cidr.network block;
+                networkAddress = cidr.networkAddress block;
                 topAddress = cidr.topAddress block;
               in
-              if (sameAddress network start) && (lessOrEqual topAddress end) then
+              if (sameAddress networkAddress start) && (lessOrEqual topAddress end) then
                 prefix
               else
                 tryPrefix (prefix + 1);

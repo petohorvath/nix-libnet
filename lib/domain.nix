@@ -4,7 +4,7 @@
   Validated multi-label DNS name (≥ 2 labels). Each label follows the
   same RFC 1123 syntax as `libnet.hostname` (delegated to the shared
   internal helper); the domain itself adds zone-arithmetic operations
-  (`parent`, `isSubdomainOf`, `toHostname`).
+  (`parent`, `isSubdomainOf`, `isSuperdomainOf`, `toHostname`).
 
   Validation: ≥ 2 labels separated by `.`, each label 1..63 ASCII
   chars from `[A-Za-z0-9-]` (must start and end with alnum), total
@@ -179,6 +179,18 @@ let
     lengthA >= lengthB && suffix == labelsB;
 
   /*
+    Test whether one domain's zone contains another; the converse of
+    `isSubdomainOf`.
+
+    `a`: candidate enclosing domain.
+    `b`: candidate subdomain.
+
+    Returns true when the labels of `a` are a case-insensitive suffix
+    of the labels of `b`; a domain is a superdomain of itself.
+  */
+  isSuperdomainOf = a: b: isSubdomainOf b a;
+
+  /*
     Get the leftmost label of a domain as a hostname.
 
     `domain`: domain value.
@@ -297,6 +309,7 @@ in
     gt
     is
     isSubdomainOf
+    isSuperdomainOf
     isValid
     labels
     le

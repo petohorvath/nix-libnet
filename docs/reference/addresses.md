@@ -47,9 +47,9 @@ Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cro
 | `fromGroups`, `toGroups` | `[Int] ↔ Ipv6`      | Eight 16-bit groups.                                                                                     |
 | `fromBytes`, `toBytes`   | `[Int] ↔ Ipv6`      | Sixteen bytes.                                                                                           |
 | `toArpa`                 | `Ipv6 → String`     | 32 reversed nibbles under `ip6.arpa`.                                                                    |
-| `fromEui64`              | `Cidr → Mac → Ipv6` | Upper 64 bits from the CIDR, lower 64 from the MAC's modified EUI-64. Throws when the prefix exceeds 64. |
-| `fromIpv4Mapped`         | `Ipv4 → Ipv6`       | `1.2.3.4` → `::ffff:1.2.3.4`.                                                                            |
-| `toIpv4Mapped`           | `Ipv6 → Ipv4`       | Throws outside `::ffff:0:0/96`.                                                                          |
+| `fromMac`                | `Cidr → Mac → Ipv6` | Upper 64 bits from the CIDR, lower 64 from the MAC's modified EUI-64. Throws when the prefix exceeds 64. |
+| `fromIpv4`               | `Ipv4 → Ipv6`       | The IPv4-mapped form (RFC 4291 §2.5.5.2): `1.2.3.4` → `::ffff:1.2.3.4`.                                  |
+| `toIpv4`                 | `Ipv6 → Ipv4`       | Inverse of `fromIpv4`. Throws outside `::ffff:0:0/96`.                                                   |
 
 Constants: `unspecified` (`::`), `loopback` (`::1`). IPv6 has no broadcast.
 
@@ -96,7 +96,7 @@ Suites: parsing, comparison, arithmetic.
 | `fromBytes`, `toBytes`                                   | `[Int] ↔ Mac`     | Six bytes, most significant first.                                                               |
 | `oui`, `nic`                                             | `Mac → Int`       | Upper and lower 24 bits.                                                                         |
 | `fromOuiNic`                                             | `Int → Int → Mac` | Inverse of `oui` and `nic`.                                                                      |
-| `ouiToString`                                            | `Int → String`    | `aa:bb:cc`.                                                                                      |
+| `ouiToString`                                            | `Mac → String`    | The OUI as `aa:bb:cc`.                                                                           |
 | `isUnicast`, `isMulticast`                               | `Mac → Bool`      | Bit 0 of the first octet clear or set.                                                           |
 | `isUniversal`, `isLocal`                                 | `Mac → Bool`      | Bit 1 of the first octet clear or set.                                                           |
 | `isBroadcast`, `isUnspecified`                           | `Mac → Bool`      | All ones, all zeros.                                                                             |

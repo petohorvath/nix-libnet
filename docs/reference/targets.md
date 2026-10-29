@@ -60,7 +60,6 @@ Suites: parsing, comparison (null address first, then by family, address and por
 | `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                         |
 | `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                        |
 | `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.     |
-| `isRange`              | `IpBindpoint → Bool`                   | More than one port.                                |
 | `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Offset into the port range.                        |
 | `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports. |
 | `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard.                                     |

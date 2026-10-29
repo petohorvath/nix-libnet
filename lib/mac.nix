@@ -422,15 +422,16 @@ let
       mk (ouiValue * bits.pow2_24 + nicValue);
 
   /*
-    Format an OUI as three colon-separated octets.
+    Format the OUI of a MAC address as three colon-separated octets.
 
-    `ouiValue`: integer in [0, 2^24 - 1], as returned by `oui`.
+    `mac`: mac value.
 
     Returns a lowercase string such as `aa:bb:cc`.
   */
   ouiToString =
-    ouiValue:
+    mac:
     let
+      ouiValue = oui mac;
       high = bits.bits 16 8 ouiValue;
       middle = bits.bits 8 8 ouiValue;
       low = bits.bits 0 8 ouiValue;
