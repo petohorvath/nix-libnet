@@ -354,6 +354,11 @@ in
     expr = parsing.hexInt "0x1";
     expected = null;
   };
+  # Long text is rejected without exhausting the stack.
+  testHexIntLongInput = {
+    expr = parsing.hexInt (builtins.concatStringsSep "" (builtins.genList (_: "a") 100000) + "g");
+    expected = null;
+  };
 
   # ===== octet =====
   testOctet0 = {

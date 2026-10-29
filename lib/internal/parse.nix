@@ -93,9 +93,7 @@ let
 
   hexInt =
     input:
-    if input == "" then
-      null
-    else if builtins.match "[0-9a-fA-F]+" input == null then
+    if !(isRepetitionOf "[0-9a-fA-F]" input) then
       null
     else
       let
