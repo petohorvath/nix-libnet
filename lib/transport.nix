@@ -31,8 +31,9 @@ let
     inherit value;
   };
 
-  # The protocol name of a transport argument of `caller`.
-  valueOf = caller: transport: (errors.expectKind caller "transport" transport).value;
+  # The protocol name of a transport argument of `function`.
+  valueOf =
+    function: transport: (errors.expectKind "transport.${function}" "transport" transport).value;
 
   parseError = detail: types.tryErr (errors.message "transport.parse" detail);
 
@@ -79,7 +80,7 @@ let
 
     Returns "tcp", "udp", or "sctp".
   */
-  toString = valueOf "transport.toString";
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -109,7 +110,7 @@ let
 
     Returns true for `tcp`.
   */
-  isTcp = transport: valueOf "transport.isTcp" transport == "tcp";
+  isTcp = transport: valueOf "isTcp" transport == "tcp";
 
   /*
     Check whether a transport is UDP.
@@ -118,7 +119,7 @@ let
 
     Returns true for `udp`.
   */
-  isUdp = transport: valueOf "transport.isUdp" transport == "udp";
+  isUdp = transport: valueOf "isUdp" transport == "udp";
 
   /*
     Check whether a transport is SCTP.
@@ -127,7 +128,7 @@ let
 
     Returns true for `sctp`.
   */
-  isSctp = transport: valueOf "transport.isSctp" transport == "sctp";
+  isSctp = transport: valueOf "isSctp" transport == "sctp";
 
   # ===== Comparison =====
   #
@@ -143,12 +144,10 @@ let
   */
   eq = a: b: types.bothHaveTag types.tags.transport a b && a.value == b.value;
 
-  ordering = comparison.suite {
-    namespace = "transport";
-    compareFor =
-      caller: a: b:
-      comparison.order (valueOf caller a) (valueOf caller b);
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 
   # ===== Constants =====
 

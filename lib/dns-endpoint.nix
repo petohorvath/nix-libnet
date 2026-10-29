@@ -37,7 +37,8 @@ let
     );
 
   # Check the endpoint argument of `function`, throwing for any other kind.
-  endpointOf = function: endpoint: errors.expectKind "dnsEndpoint.${function}" "dnsEndpoint" endpoint;
+  dnsEndpointArgument =
+    function: endpoint: errors.expectKind "dnsEndpoint.${function}" "dnsEndpoint" endpoint;
 
   parseError = detail: types.tryErr (errors.message "dnsEndpoint.parse" detail);
 
@@ -101,7 +102,7 @@ let
   toString =
     endpoint:
     let
-      checked = endpointOf "toString" endpoint;
+      checked = dnsEndpointArgument "toString" endpoint;
     in
     "${dnsName.toString checked.name}:${port.toString checked.port}";
 
@@ -158,7 +159,7 @@ let
 
     Returns a Boolean.
   */
-  isHostname = endpoint: types.isHostname (endpointOf "isHostname" endpoint).name;
+  isHostname = endpoint: types.isHostname (dnsEndpointArgument "isHostname" endpoint).name;
 
   /*
     Test whether the endpoint's name is a multi-label domain.
@@ -167,7 +168,7 @@ let
 
     Returns a Boolean.
   */
-  isDomain = endpoint: types.isDomain (endpointOf "isDomain" endpoint).name;
+  isDomain = endpoint: types.isDomain (dnsEndpointArgument "isDomain" endpoint).name;
 
   # ===== Accessors =====
 
@@ -178,7 +179,7 @@ let
 
     Returns a hostname or domain value.
   */
-  name = endpoint: (endpointOf "name" endpoint).name;
+  name = endpoint: (dnsEndpointArgument "name" endpoint).name;
 
   # ===== Comparison =====
   #
@@ -188,8 +189,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = endpointOf function a;
-      right = endpointOf function b;
+      left = dnsEndpointArgument function a;
+      right = dnsEndpointArgument function b;
       nameOrder = dnsName.compare left.name right.name;
     in
     if nameOrder != 0 then nameOrder else port.compare left.port right.port;
@@ -298,5 +299,5 @@ in
 
     Returns a port value.
   */
-  port = endpoint: (endpointOf "port" endpoint).port;
+  port = endpoint: (dnsEndpointArgument "port" endpoint).port;
 }

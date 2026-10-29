@@ -81,7 +81,8 @@ let
 
   # Check the secureSocketUrl argument of `function`, throwing for any
   # other kind.
-  secureSocketUrlOf = function: errors.expectKind "secureSocketUrl.${function}" "secureSocketUrl";
+  secureSocketUrlArgument =
+    function: errors.expectKind "secureSocketUrl.${function}" "secureSocketUrl";
 
   parseError = detail: types.tryErr (errors.message "secureSocketUrl.parse" detail);
 
@@ -158,7 +159,7 @@ let
   toString =
     secureSocketUrl:
     let
-      checked = secureSocketUrlOf "toString" secureSocketUrl;
+      checked = secureSocketUrlArgument "toString" secureSocketUrl;
     in
     "${checked.scheme}://${endpoint.toString checked.endpoint}";
 
@@ -218,7 +219,8 @@ let
 
     Returns true; every scheme in the registry encrypts with TLS.
   */
-  isSecure = secureSocketUrl: schemes.${(secureSocketUrlOf "isSecure" secureSocketUrl).scheme}.secure;
+  isSecure =
+    secureSocketUrl: schemes.${(secureSocketUrlArgument "isSecure" secureSocketUrl).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -229,7 +231,7 @@ let
 
     Returns "dtls", "quic", or "tls".
   */
-  scheme = secureSocketUrl: (secureSocketUrlOf "scheme" secureSocketUrl).scheme;
+  scheme = secureSocketUrl: (secureSocketUrlArgument "scheme" secureSocketUrl).scheme;
 
   # ===== Comparison =====
   #
@@ -241,8 +243,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = secureSocketUrlOf function a;
-      right = secureSocketUrlOf function b;
+      left = secureSocketUrlArgument function a;
+      right = secureSocketUrlArgument function b;
     in
     if left.scheme < right.scheme then
       -1
@@ -359,7 +361,7 @@ in
 
     Returns the ipEndpoint or dnsEndpoint value.
   */
-  endpoint = secureSocketUrl: (secureSocketUrlOf "endpoint" secureSocketUrl).endpoint;
+  endpoint = secureSocketUrl: (secureSocketUrlArgument "endpoint" secureSocketUrl).endpoint;
 
   /*
     Get the transport a secure socket URL runs over, derived from its
@@ -371,5 +373,5 @@ in
   */
   transport =
     secureSocketUrl:
-    transport.parse schemes.${(secureSocketUrlOf "transport" secureSocketUrl).scheme}.transport;
+    transport.parse schemes.${(secureSocketUrlArgument "transport" secureSocketUrl).scheme}.transport;
 }

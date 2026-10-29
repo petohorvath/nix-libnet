@@ -55,8 +55,9 @@ let
       builtins.genList (i: i) (builtins.stringLength name)
     );
 
-  # The stored name of an interfaceName argument of `caller`.
-  valueOf = caller: name: (errors.expectKind caller "interfaceName" name).value;
+  # The stored name of an interfaceName argument of `function`.
+  valueOf =
+    function: name: (errors.expectKind "interfaceName.${function}" "interfaceName" name).value;
 
   parseError = detail: types.tryErr (errors.message "interfaceName.parse" detail);
 
@@ -110,7 +111,7 @@ let
 
     Returns the name verbatim.
   */
-  toString = valueOf "interfaceName.toString";
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -146,12 +147,10 @@ let
   */
   eq = a: b: types.bothHaveTag types.tags.interfaceName a b && a.value == b.value;
 
-  ordering = comparison.suite {
-    namespace = "interfaceName";
-    compareFor =
-      caller: a: b:
-      comparison.order (valueOf caller a) (valueOf caller b);
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit

@@ -37,7 +37,7 @@ let
 
   # Check the bindpoint argument of `function`, throwing for a value of
   # any other kind.
-  memberOf =
+  bindpointArgument =
     function: errors.expect "bindpoint.${function}" "ipBindpoint or unixSocket value" isMember;
 
   # Report a member parser's failure under the union's name, keeping its
@@ -98,7 +98,7 @@ let
   toString =
     bindpoint:
     let
-      checked = memberOf "toString" bindpoint;
+      checked = bindpointArgument "toString" bindpoint;
     in
     if types.isIpBindpoint checked then ipBindpoint.toString checked else unixSocket.toString checked;
 
@@ -150,8 +150,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = memberOf function a;
-      right = memberOf function b;
+      left = bindpointArgument function a;
+      right = bindpointArgument function b;
       rankA = rank left;
       rankB = rank right;
     in

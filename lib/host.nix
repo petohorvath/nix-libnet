@@ -25,8 +25,8 @@ let
   parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
-  # Return a host argument of `caller`, throwing for any other value.
-  expectHost = caller: errors.expect caller "ip, hostname or domain value" is;
+  # Return a host argument of `function`, throwing for any other value.
+  hostArgument = function: errors.expect "host.${function}" "ip, hostname or domain value" is;
 
   parseError = detail: types.tryErr (errors.message "host.parse" detail);
 
@@ -90,7 +90,7 @@ let
   toString =
     host:
     let
-      checked = expectHost "host.toString" host;
+      checked = hostArgument "toString" host;
     in
     if types.isIp checked then ip.toString checked else dnsName.toString checked;
 
@@ -161,22 +161,12 @@ let
 
   # The operands are checked first, so the delegated comparison cannot
   # fail and name itself.
-  ordering = comparison.suite {
-    namespace = "host";
-    compareFor =
-      caller: a: b:
-      let
-        left = expectHost caller a;
-        right = expectHost caller b;
-        rankOrder = comparison.order (rank left) (rank right);
-      in
-      if rankOrder != 0 then
-        rankOrder
-      else if rank left == 0 then
-        ip.compare left right
-      else
-        dnsName.compare left right;
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.byRank rank (
+      left: right: if rank left == 0 then ip.compare left right else dnsName.compare left right
+    ) (hostArgument function a) (hostArgument function b)
+  );
 in
 {
   inherit

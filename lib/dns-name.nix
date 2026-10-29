@@ -30,8 +30,8 @@ let
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
 
-  # Return a DNS name argument of `caller`, throwing for any other value.
-  expectName = caller: errors.expect caller "hostname or domain value" is;
+  # Return a DNS name argument of `function`, throwing for any other value.
+  dnsNameArgument = function: errors.expect "dnsName.${function}" "hostname or domain value" is;
 
   parseError = detail: types.tryErr (errors.message "dnsName.parse" detail);
 
@@ -104,7 +104,7 @@ let
 
     Returns the name in lowercase; throws for any other value.
   */
-  toString = name: (expectName "dnsName.toString" name).value;
+  toString = name: (dnsNameArgument "toString" name).value;
 
   # ===== Predicates =====
 
@@ -168,17 +168,12 @@ let
     else
       false;
 
-  ordering = comparison.suite {
-    namespace = "dnsName";
-    compareFor =
-      caller: a: b:
-      let
-        left = expectName caller a;
-        right = expectName caller b;
-        rankOrder = comparison.order (familyRank left) (familyRank right);
-      in
-      if rankOrder != 0 then rankOrder else comparison.order left.value right.value;
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.byRank familyRank (
+      left: right: comparison.order left.value right.value
+    ) (dnsNameArgument function a) (dnsNameArgument function b)
+  );
 in
 {
   inherit

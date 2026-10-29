@@ -41,17 +41,17 @@ let
     inherit value;
   };
 
-  # The stored text of a domain argument of `caller`.
-  valueOf = caller: domain: (errors.expectKind caller "domain" domain).value;
+  # The stored text of a domain argument of `function`.
+  valueOf = function: domain: (errors.expectKind "domain.${function}" "domain" domain).value;
 
-  labelsOf = caller: domain: parsing.splitOn "." (valueOf caller domain);
+  labelsOf = function: domain: parsing.splitOn "." (valueOf function domain);
 
-  # Validate a domain, naming `caller` in the error, so that `fromLabels`
-  # reports itself rather than `parse`.
+  # Validate a domain, naming `function` in the error, so that
+  # `fromLabels` reports itself rather than `parse`.
   tryParseFor =
-    caller: input:
+    function: input:
     let
-      failure = detail: types.tryErr (errors.message caller detail);
+      failure = detail: types.tryErr (errors.message "domain.${function}" detail);
     in
     if !(builtins.isString input) then
       failure "expected string, got ${errors.describe input}"
@@ -72,19 +72,19 @@ let
         types.tryOk (mk (dnsLabel.toLowerAscii input));
 
   parseFor =
-    caller: input:
+    function: input:
     let
-      result = tryParseFor caller input;
+      result = tryParseFor function input;
     in
     if result.success then result.value else throw result.error;
 
-  # Whether `a` lies within `b`'s zone, for the zone relations that
-  # report `caller`.
+  # Whether `a` lies within `b`'s zone, for the zone relation named
+  # `function`.
   subdomainFor =
-    caller: a: b:
+    function: a: b:
     let
-      labelsA = labelsOf caller a;
-      labelsB = labelsOf caller b;
+      labelsA = labelsOf function a;
+      labelsB = labelsOf function b;
       lengthA = builtins.length labelsA;
       lengthB = builtins.length labelsB;
       suffix = builtins.genList (i: builtins.elemAt labelsA (lengthA - lengthB + i)) lengthB;
@@ -102,7 +102,7 @@ let
     Returns a tryResult `{ success, value, error }` holding the domain
     on success or an error message on failure.
   */
-  tryParse = tryParseFor "domain.parse";
+  tryParse = tryParseFor "parse";
 
   /*
     Parse a multi-label domain, lowercasing it.
@@ -113,7 +113,7 @@ let
 
     Returns a domain value; throws on non-string or invalid input.
   */
-  parse = parseFor "domain.parse";
+  parse = parseFor "parse";
 
   /*
     Render a domain as a string.
@@ -122,7 +122,7 @@ let
 
     Returns the domain in lowercase.
   */
-  toString = valueOf "domain.toString";
+  toString = valueOf "toString";
 
   # ===== Construction =====
 
@@ -150,7 +150,7 @@ let
       in
       errors.fail caller "expected list of strings, got ${errors.describe (builtins.elemAt labels index)} at index ${builtins.toString index}"
     else
-      parseFor caller (builtins.concatStringsSep "." labels);
+      parseFor "fromLabels" (builtins.concatStringsSep "." labels);
 
   # ===== Predicates =====
 
@@ -181,7 +181,7 @@ let
 
     Returns the list of label strings, leftmost first.
   */
-  labels = labelsOf "domain.labels";
+  labels = labelsOf "labels";
 
   # ===== Zone arithmetic =====
 
@@ -196,7 +196,7 @@ let
   parent =
     domain:
     let
-      parentLabels = builtins.tail (labelsOf "domain.parent" domain);
+      parentLabels = builtins.tail (labelsOf "parent" domain);
     in
     if builtins.length parentLabels < minLabels then
       null
@@ -212,7 +212,7 @@ let
     Returns true when the labels of `b` are a suffix of the labels of
     `a`; a domain is a subdomain of itself.
   */
-  isSubdomainOf = subdomainFor "domain.isSubdomainOf";
+  isSubdomainOf = subdomainFor "isSubdomainOf";
 
   /*
     Test whether one domain's zone contains another; the converse of
@@ -224,7 +224,7 @@ let
     Returns true when the labels of `a` are a suffix of the labels of
     `b`; a domain is a superdomain of itself.
   */
-  isSuperdomainOf = a: b: subdomainFor "domain.isSuperdomainOf" b a;
+  isSuperdomainOf = a: b: subdomainFor "isSuperdomainOf" b a;
 
   /*
     Get the leftmost label of a domain as a hostname.
@@ -234,7 +234,7 @@ let
     Returns a hostname value. Never throws for a valid domain, because
     every domain label satisfies the hostname syntax.
   */
-  toHostname = domain: hostname.parse (builtins.head (labelsOf "domain.toHostname" domain));
+  toHostname = domain: hostname.parse (builtins.head (labelsOf "toHostname" domain));
 
   # ===== Comparison =====
 
@@ -249,12 +249,10 @@ let
   eq = a: b: types.bothHaveTag types.tags.domain a b && a.value == b.value;
 
   # Byte-wise on the lowercase text.
-  ordering = comparison.suite {
-    namespace = "domain";
-    compareFor =
-      caller: a: b:
-      comparison.order (valueOf caller a) (valueOf caller b);
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit

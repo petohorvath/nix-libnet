@@ -28,9 +28,9 @@ let
   };
 
   # An IPv4 argument of `function`, which throws for any other kind.
-  checked = function: errors.expectKind "ipv4.${function}" "ipv4";
+  ipv4Argument = function: errors.expectKind "ipv4.${function}" "ipv4";
 
-  valueOf = function: ip: (checked function ip).value;
+  valueOf = function: ip: (ipv4Argument function ip).value;
 
   # Apply `f` to the integer of an IPv4 argument of `function`.
   withValue =
@@ -379,7 +379,7 @@ let
   isBogon =
     argument:
     let
-      ip = checked "isBogon" argument;
+      ip = ipv4Argument "isBogon" argument;
     in
     isLoopback ip
     || isPrivate ip
@@ -403,7 +403,7 @@ let
 
     Returns a Boolean.
   */
-  isGlobal = ip: !(isBogon (checked "isGlobal" ip));
+  isGlobal = ip: !(isBogon (ipv4Argument "isGlobal" ip));
 
   # ===== Arithmetic =====
 
@@ -416,7 +416,7 @@ let
     Returns an IPv4 value; throws if `n` is not an integer or the result
     leaves the address space.
   */
-  add = n: ip: arithmetic.add "ipv4.add" n (checked "add" ip);
+  add = n: ip: arithmetic.add "ipv4.add" n (ipv4Argument "add" ip);
 
   /*
     Offset an address downwards by an integer.
@@ -427,7 +427,7 @@ let
     Returns an IPv4 value; throws if `n` is not an integer or the result
     leaves the address space.
   */
-  sub = n: ip: arithmetic.sub "ipv4.sub" n (checked "sub" ip);
+  sub = n: ip: arithmetic.sub "ipv4.sub" n (ipv4Argument "sub" ip);
 
   /*
     Measure the distance between two addresses.
@@ -447,7 +447,7 @@ let
 
     Returns an IPv4 value; throws at 255.255.255.255.
   */
-  next = ip: arithmetic.add "ipv4.next" 1 (checked "next" ip);
+  next = ip: arithmetic.add "ipv4.next" 1 (ipv4Argument "next" ip);
 
   /*
     Get the address one below `ip`. Equivalent to `sub 1`, so it can be
@@ -457,7 +457,7 @@ let
 
     Returns an IPv4 value; throws at 0.0.0.0.
   */
-  prev = ip: arithmetic.sub "ipv4.prev" 1 (checked "prev" ip);
+  prev = ip: arithmetic.sub "ipv4.prev" 1 (ipv4Argument "prev" ip);
 
   # ===== Comparison =====
 

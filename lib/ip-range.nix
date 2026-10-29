@@ -56,7 +56,7 @@ let
     the public `function`. The unchecked helpers below, such as `sizeFor`
     and `order`, take values the public function has already checked.
   */
-  rangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
+  ipRangeArgument = function: errors.expectKind "ipRange.${function}" "ipRange";
   intArgument = function: errors.expectType "ipRange.${function}" "int";
   addressArgument = function: errors.expect "ipRange.${function}" "ipv4 or ipv6 value" types.isIp;
 
@@ -64,7 +64,7 @@ let
   # `relation` to them.
   binary =
     function: relation: a: b:
-    relation (rangeArgument function a) (rangeArgument function b);
+    relation (ipRangeArgument function a) (ipRangeArgument function b);
 
   # ===== Parsing =====
 
@@ -142,7 +142,7 @@ let
   toString =
     range:
     let
-      checked = rangeArgument "toString" range;
+      checked = ipRangeArgument "toString" range;
       formatAddress = if isV4 checked.from then ipv4.toString else ipv6.toString;
     in
     "${formatAddress checked.from}-${formatAddress checked.to}";
@@ -212,7 +212,7 @@ let
 
     Returns true for an IPv4 range.
   */
-  isIpv4 = range: isV4 (rangeArgument "isIpv4" range).from;
+  isIpv4 = range: isV4 (ipRangeArgument "isIpv4" range).from;
 
   /*
     Check whether a range holds IPv6 addresses.
@@ -221,7 +221,7 @@ let
 
     Returns true for an IPv6 range.
   */
-  isIpv6 = range: isV6 (rangeArgument "isIpv6" range).from;
+  isIpv6 = range: isV6 (ipRangeArgument "isIpv6" range).from;
 
   /*
     Check whether a range holds a single address.
@@ -233,7 +233,7 @@ let
   isSingleton =
     range:
     let
-      checked = rangeArgument "isSingleton" range;
+      checked = ipRangeArgument "isSingleton" range;
     in
     sameAddress checked.from checked.to;
 
@@ -246,7 +246,7 @@ let
 
     Returns the `from` address value.
   */
-  from = range: (rangeArgument "from" range).from;
+  from = range: (ipRangeArgument "from" range).from;
 
   /*
     Get the highest address of a range.
@@ -255,7 +255,7 @@ let
 
     Returns the `to` address value.
   */
-  to = range: (rangeArgument "to" range).to;
+  to = range: (ipRangeArgument "to" range).to;
 
   /*
     Get the IP version of a range.
@@ -264,7 +264,7 @@ let
 
     Returns 4 or 6.
   */
-  version = range: if isV4 (rangeArgument "version" range).from then 4 else 6;
+  version = range: if isV4 (ipRangeArgument "version" range).from then 4 else 6;
 
   /*
     The address count of `range`, throwing on behalf of `function` when
@@ -306,7 +306,7 @@ let
     Returns `to - from + 1` as an integer; throws for IPv6 ranges of 2^63
     or more addresses, which a Nix int cannot hold.
   */
-  size = range: sizeFor "size" (rangeArgument "size" range);
+  size = range: sizeFor "size" (ipRangeArgument "size" range);
 
   # ===== Containment & relationships =====
 
@@ -322,7 +322,7 @@ let
   contains =
     range: address:
     let
-      checkedRange = rangeArgument "contains" range;
+      checkedRange = ipRangeArgument "contains" range;
       checkedAddress = addressArgument "contains" address;
       lessOrEqual = leFor checkedRange.from;
     in
@@ -450,7 +450,7 @@ let
   addressesUnbounded =
     range:
     let
-      checked = rangeArgument "addressesUnbounded" range;
+      checked = ipRangeArgument "addressesUnbounded" range;
     in
     listAddresses checked (sizeFor "addressesUnbounded" checked);
 
@@ -467,7 +467,7 @@ let
   addresses =
     range:
     let
-      checked = rangeArgument "addresses" range;
+      checked = ipRangeArgument "addresses" range;
       rangeSize = sizeFor "addresses" checked;
     in
     if rangeSize > bits.pow2 16 then
@@ -490,7 +490,7 @@ let
     n: range:
     let
       offset = intArgument "addressAt" n;
-      checked = rangeArgument "addressAt" range;
+      checked = ipRangeArgument "addressAt" range;
       rangeSize = sizeFor "addressAt" checked;
       index = if offset < 0 then rangeSize + offset else offset;
     in
@@ -527,7 +527,7 @@ let
   toCidrs =
     toCidrsArgument:
     let
-      range = rangeArgument "toCidrs" toCidrsArgument;
+      range = ipRangeArgument "toCidrs" toCidrsArgument;
       maxPrefix = if isV4 range.from then 32 else 128;
       nextAddress = (addFor range.from) 1;
       isTopAddress =

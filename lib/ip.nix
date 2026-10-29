@@ -22,7 +22,7 @@ let
   types = import ./internal/types.nix;
 
   # An address argument of `function`, which throws for any other kind.
-  checked = function: errors.expect "ip.${function}" "ipv4 or ipv6 value" types.isIp;
+  ipArgument = function: errors.expect "ip.${function}" "ipv4 or ipv6 value" types.isIp;
 
   # The family arithmetic, run under the `ip` function's name so its
   # errors name the function the caller called.
@@ -37,7 +37,7 @@ let
   # which throws for an argument that is not an address.
   dispatch =
     function: onIpv4: onIpv6: ip:
-    if types.isIpv4 (checked function ip) then onIpv4 ip else onIpv6 ip;
+    if types.isIpv4 (ipArgument function ip) then onIpv4 ip else onIpv6 ip;
 
   # Report a member's parse failure as `ip.parse`, keeping its detail.
   fromMember =
@@ -217,8 +217,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = checked function a;
-      right = checked function b;
+      left = ipArgument function a;
+      right = ipArgument function b;
     in
     if types.isIpv4 left && types.isIpv6 right then
       -1
@@ -364,8 +364,8 @@ let
   diff =
     a: b:
     let
-      left = checked "diff" a;
-      right = checked "diff" b;
+      left = ipArgument "diff" a;
+      right = ipArgument "diff" b;
     in
     if left._type != right._type then
       errors.fail "ip.diff" "cross-family difference is undefined"

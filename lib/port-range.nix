@@ -39,7 +39,7 @@ let
 
   # Each returns its argument, throwing for the wrong kind on behalf of
   # the public `function`.
-  rangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
+  portRangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
   portArgument = function: errors.expectKind "portRange.${function}" "port";
   intArgument = function: errors.expectType "portRange.${function}" "int";
 
@@ -48,7 +48,7 @@ let
   # below take ranges the public function has already checked.
   binary =
     function: relation: a: b:
-    relation (rangeArgument function a) (rangeArgument function b);
+    relation (portRangeArgument function a) (portRangeArgument function b);
 
   # ===== Parsing =====
 
@@ -141,7 +141,7 @@ let
 
     Returns "from-to", or just "from" for a single-port range.
   */
-  toString = range: formatWith "-" (rangeArgument "toString" range);
+  toString = range: formatWith "-" (portRangeArgument "toString" range);
 
   /*
     Format a range in iptables colon form.
@@ -150,7 +150,7 @@ let
 
     Returns "from:to", or just "from" for a single-port range.
   */
-  toStringColon = range: formatWith ":" (rangeArgument "toStringColon" range);
+  toStringColon = range: formatWith ":" (portRangeArgument "toStringColon" range);
 
   /*
     Build a range from its two end ports, parallel to `ipRange.make`.
@@ -216,7 +216,7 @@ let
   isSingleton =
     range:
     let
-      checked = rangeArgument "isSingleton" range;
+      checked = portRangeArgument "isSingleton" range;
     in
     port.eq checked.from checked.to;
 
@@ -229,7 +229,7 @@ let
 
     Returns the tagged `from` port.
   */
-  from = range: (rangeArgument "from" range).from;
+  from = range: (portRangeArgument "from" range).from;
 
   /*
     Get the highest port of a range.
@@ -238,7 +238,7 @@ let
 
     Returns the tagged `to` port.
   */
-  to = range: (rangeArgument "to" range).to;
+  to = range: (portRangeArgument "to" range).to;
 
   sizeOf = range: port.toInt range.to - port.toInt range.from + 1;
 
@@ -249,7 +249,7 @@ let
 
     Returns `toInt to - toInt from + 1`.
   */
-  size = range: sizeOf (rangeArgument "size" range);
+  size = range: sizeOf (portRangeArgument "size" range);
 
   # ===== Containment =====
 
@@ -265,7 +265,7 @@ let
   contains =
     range: portValue:
     let
-      checkedRange = rangeArgument "contains" range;
+      checkedRange = portRangeArgument "contains" range;
       checkedPort = portArgument "contains" portValue;
     in
     port.le checkedRange.from checkedPort && port.le checkedPort checkedRange.to;
@@ -354,7 +354,7 @@ let
 
     Returns the ports from `from` to `to` in ascending order.
   */
-  portsUnbounded = range: listPorts (rangeArgument "portsUnbounded" range);
+  portsUnbounded = range: listPorts (portRangeArgument "portsUnbounded" range);
 
   /*
     List every port in a range, guarding against accidentally huge lists.
@@ -367,7 +367,7 @@ let
   ports =
     range:
     let
-      checked = rangeArgument "ports" range;
+      checked = portRangeArgument "ports" range;
       rangeSize = sizeOf checked;
     in
     if rangeSize > bits.pow2 12 then
@@ -389,7 +389,7 @@ let
     n: range:
     let
       offset = intArgument "portAt" n;
-      checked = rangeArgument "portAt" range;
+      checked = portRangeArgument "portAt" range;
       rangeSize = sizeOf checked;
       index = if offset < 0 then rangeSize + offset else offset;
     in

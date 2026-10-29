@@ -33,9 +33,9 @@ let
   mkStrict = value: builtins.seq value (mk value);
 
   # A MAC argument of `function`, which throws for any other kind.
-  checked = function: errors.expectKind "mac.${function}" "mac";
+  macArgument = function: errors.expectKind "mac.${function}" "mac";
 
-  valueOf = function: mac: (checked function mac).value;
+  valueOf = function: mac: (macArgument function mac).value;
 
   # Apply `f` to the integer of a MAC argument of `function`.
   withValue =
@@ -513,7 +513,7 @@ let
     Returns a mac value; throws when `n` is not an integer or the result
     leaves [0, 2^48 - 1].
   */
-  add = n: mac: arithmetic.add "mac.add" n (checked "add" mac);
+  add = n: mac: arithmetic.add "mac.add" n (macArgument "add" mac);
 
   /*
     Offset a MAC address downward.
@@ -524,7 +524,7 @@ let
     Returns a mac value; throws when `n` is not an integer or the result
     leaves [0, 2^48 - 1].
   */
-  sub = n: mac: arithmetic.sub "mac.sub" n (checked "sub" mac);
+  sub = n: mac: arithmetic.sub "mac.sub" n (macArgument "sub" mac);
 
   /*
     Measure the distance between two MAC addresses.
@@ -542,7 +542,7 @@ let
 
     Returns a mac value; throws past `ff:ff:ff:ff:ff:ff`.
   */
-  next = mac: arithmetic.add "mac.next" 1 (checked "next" mac);
+  next = mac: arithmetic.add "mac.next" 1 (macArgument "next" mac);
 
   /*
     Step to the preceding MAC address.
@@ -551,7 +551,7 @@ let
 
     Returns a mac value; throws below `00:00:00:00:00:00`.
   */
-  prev = mac: arithmetic.sub "mac.prev" 1 (checked "prev" mac);
+  prev = mac: arithmetic.sub "mac.prev" 1 (macArgument "prev" mac);
 
   # ===== Comparison =====
 

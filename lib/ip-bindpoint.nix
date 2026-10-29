@@ -40,7 +40,7 @@ let
 
   # Check the bindpoint argument of `function`, throwing for any other
   # kind.
-  bindpointOf =
+  ipBindpointArgument =
     function: bindpoint: errors.expectKind "ipBindpoint.${function}" "ipBindpoint" bindpoint;
 
   parseError = detail: types.tryErr (errors.message "ipBindpoint.parse" detail);
@@ -197,7 +197,7 @@ let
   toString =
     bindpoint:
     let
-      checked = bindpointOf "toString" bindpoint;
+      checked = ipBindpointArgument "toString" bindpoint;
       inherit (checked) address;
       portRangeString = portRange.toString checked.portRange;
     in
@@ -254,7 +254,7 @@ let
   isWildcard =
     bindpoint:
     let
-      inherit (bindpointOf "isWildcard" bindpoint) address;
+      inherit (ipBindpointArgument "isWildcard" bindpoint) address;
     in
     address == null
     || (isV4 address && address.value == 0)
@@ -279,7 +279,7 @@ let
   isIpv4 =
     bindpoint:
     let
-      inherit (bindpointOf "isIpv4" bindpoint) address;
+      inherit (ipBindpointArgument "isIpv4" bindpoint) address;
     in
     address != null && isV4 address;
 
@@ -293,7 +293,7 @@ let
   isIpv6 =
     bindpoint:
     let
-      inherit (bindpointOf "isIpv6" bindpoint) address;
+      inherit (ipBindpointArgument "isIpv6" bindpoint) address;
     in
     address != null && isV6 address;
 
@@ -307,7 +307,7 @@ let
   forwardToAddress =
     function: ipv4Function: ipv6Function: bindpoint:
     let
-      inherit (bindpointOf function bindpoint) address;
+      inherit (ipBindpointArgument function bindpoint) address;
     in
     if address == null then
       false
@@ -392,7 +392,7 @@ let
   toArpa =
     bindpoint:
     let
-      inherit (bindpointOf "toArpa" bindpoint) address;
+      inherit (ipBindpointArgument "toArpa" bindpoint) address;
     in
     if address == null then
       errors.fail "ipBindpoint.toArpa" "null address has no reverse-DNS form"
@@ -410,7 +410,7 @@ let
 
     Returns an ipv4 or ipv6 value, or null for any interface.
   */
-  address = bindpoint: (bindpointOf "address" bindpoint).address;
+  address = bindpoint: (ipBindpointArgument "address" bindpoint).address;
 
   /*
     Get the IP family of the bindpoint's address.
@@ -422,7 +422,7 @@ let
   version =
     bindpoint:
     let
-      inherit (bindpointOf "version" bindpoint) address;
+      inherit (ipBindpointArgument "version" bindpoint) address;
     in
     if address == null then
       null
@@ -453,7 +453,7 @@ let
     address.
   */
   endpointsUnbounded =
-    bindpoint: endpointsFor "endpointsUnbounded" (bindpointOf "endpointsUnbounded" bindpoint);
+    bindpoint: endpointsFor "endpointsUnbounded" (ipBindpointArgument "endpointsUnbounded" bindpoint);
 
   /*
     Materialize every port in the range as a concrete endpoint.
@@ -467,7 +467,7 @@ let
   endpoints =
     bindpoint:
     let
-      checked = bindpointOf "endpoints" bindpoint;
+      checked = ipBindpointArgument "endpoints" bindpoint;
       size = portRange.size checked.portRange;
     in
     if size > 4096 then
@@ -488,7 +488,7 @@ let
     n: bindpoint:
     let
       offset = errors.expectType "ipBindpoint.endpointAt" "int" n;
-      checked = bindpointOf "endpointAt" bindpoint;
+      checked = ipBindpointArgument "endpointAt" bindpoint;
     in
     if checked.address == null then
       errors.fail "ipBindpoint.endpointAt" "null address cannot be materialized"
@@ -509,8 +509,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = bindpointOf function a;
-      right = bindpointOf function b;
+      left = ipBindpointArgument function a;
+      right = ipBindpointArgument function b;
     in
     if left.address == null && right.address != null then
       -1
@@ -663,5 +663,5 @@ in
 
     Returns a portRange value.
   */
-  portRange = bindpoint: (bindpointOf "portRange" bindpoint).portRange;
+  portRange = bindpoint: (ipBindpointArgument "portRange" bindpoint).portRange;
 }

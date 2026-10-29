@@ -3,7 +3,10 @@
   where `caller` is the public function the user called, written
   `<namespace>.<function>`, such as `port.prev`. A public function adds the
   prefix once; a helper that throws on its behalf takes the caller as an
-  argument instead of naming itself.
+  argument instead of naming itself. Within a namespace, the argument
+  guards are named `<kind>Argument`, such as `cidrArgument`, and take the
+  short name of the public function, such as `contains`, adding the
+  namespace themselves.
 
   The argument-kind guards check a tagged argument's `_type` or a raw
   argument's builtin type. Their messages describe the bad value without

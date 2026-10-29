@@ -31,9 +31,9 @@ let
   };
 
   # An IPv6 argument of `function`, which throws for any other kind.
-  checked = function: errors.expectKind "ipv6.${function}" "ipv6";
+  ipv6Argument = function: errors.expectKind "ipv6.${function}" "ipv6";
 
-  wordsOf = function: ip: (checked function ip).words;
+  wordsOf = function: ip: (ipv6Argument function ip).words;
 
   # Apply `f` to the words of an IPv6 argument of `function`.
   withWords =
@@ -517,7 +517,7 @@ let
   isBogon =
     argument:
     let
-      ip = checked "isBogon" argument;
+      ip = ipv6Argument "isBogon" argument;
     in
     isUnspecified ip
     || isLoopback ip
@@ -542,7 +542,7 @@ let
   isGlobal =
     argument:
     let
-      ip = checked "isGlobal" argument;
+      ip = ipv6Argument "isGlobal" argument;
     in
     !(isBogon ip || isIpv4Mapped ip || isIpv4Compatible ip || is6to4 ip);
 
@@ -703,7 +703,7 @@ let
     past ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff, or on underflow below
     `::`.
   */
-  add = n: ip: arithmetic.add "ipv6.add" n (checked "add" ip);
+  add = n: ip: arithmetic.add "ipv6.add" n (ipv6Argument "add" ip);
 
   /*
     Offset an address downwards by an integer.
@@ -714,7 +714,7 @@ let
     Returns an IPv6 value; throws when `n` is not an integer or the result
     leaves the address space.
   */
-  sub = n: ip: arithmetic.sub "ipv6.sub" n (checked "sub" ip);
+  sub = n: ip: arithmetic.sub "ipv6.sub" n (ipv6Argument "sub" ip);
 
   /*
     Get the address one above `ip`. Equivalent to `add 1`, so it can be
@@ -725,7 +725,7 @@ let
     Returns an IPv6 value; throws at the highest address,
     ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff.
   */
-  next = ip: arithmetic.add "ipv6.next" 1 (checked "next" ip);
+  next = ip: arithmetic.add "ipv6.next" 1 (ipv6Argument "next" ip);
 
   /*
     Get the address one below `ip`. Equivalent to `sub 1`, so it can be
@@ -735,7 +735,7 @@ let
 
     Returns an IPv6 value; throws at `::`.
   */
-  prev = ip: arithmetic.sub "ipv6.prev" 1 (checked "prev" ip);
+  prev = ip: arithmetic.sub "ipv6.prev" 1 (ipv6Argument "prev" ip);
 
   /*
     Measure the distance between two addresses.
@@ -746,7 +746,7 @@ let
     Returns `b - a` as an integer, negative when `b` precedes `a`; throws
     if the difference does not fit in a Nix integer, [-2^63, 2^63 - 1].
   */
-  diff = a: b: arithmetic.diff "ipv6.diff" (checked "diff" a) (checked "diff" b);
+  diff = a: b: arithmetic.diff "ipv6.diff" (ipv6Argument "diff" a) (ipv6Argument "diff" b);
 
   # ===== Comparison =====
 

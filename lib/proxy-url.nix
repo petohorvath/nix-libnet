@@ -58,7 +58,7 @@ let
 
   # Check the proxyUrl argument of `function`, throwing for any other
   # kind.
-  proxyUrlOf = function: errors.expectKind "proxyUrl.${function}" "proxyUrl";
+  proxyUrlArgument = function: errors.expectKind "proxyUrl.${function}" "proxyUrl";
 
   parseError = detail: types.tryErr (errors.message "proxyUrl.parse" detail);
 
@@ -128,7 +128,7 @@ let
   toString =
     proxyUrl:
     let
-      checked = proxyUrlOf "toString" proxyUrl;
+      checked = proxyUrlArgument "toString" proxyUrl;
     in
     "${checked.scheme}://${authority.toString checked.authority}";
 
@@ -187,7 +187,7 @@ let
 
     Returns true only for the `https` scheme.
   */
-  isSecure = proxyUrl: schemes.${(proxyUrlOf "isSecure" proxyUrl).scheme}.secure;
+  isSecure = proxyUrl: schemes.${(proxyUrlArgument "isSecure" proxyUrl).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -198,7 +198,7 @@ let
 
     Returns the lowercase scheme string.
   */
-  scheme = proxyUrl: (proxyUrlOf "scheme" proxyUrl).scheme;
+  scheme = proxyUrl: (proxyUrlArgument "scheme" proxyUrl).scheme;
 
   /*
     Get the userinfo of a proxy URL.
@@ -207,7 +207,7 @@ let
 
     Returns the authority's raw userinfo string, or null when absent.
   */
-  userinfo = proxyUrl: (proxyUrlOf "userinfo" proxyUrl).authority.userinfo;
+  userinfo = proxyUrl: (proxyUrlArgument "userinfo" proxyUrl).authority.userinfo;
 
   /*
     Get the host of a proxy URL.
@@ -216,7 +216,7 @@ let
 
     Returns the authority's host: an ipv4, ipv6, or regName value.
   */
-  host = proxyUrl: (proxyUrlOf "host" proxyUrl).authority.host;
+  host = proxyUrl: (proxyUrlArgument "host" proxyUrl).authority.host;
 
   # ===== Conversions =====
 
@@ -232,7 +232,7 @@ let
   toEndpoint =
     proxyUrl:
     let
-      checked = proxyUrlOf "toEndpoint" proxyUrl;
+      checked = proxyUrlArgument "toEndpoint" proxyUrl;
       hostValue = checked.authority.host;
       targetPort = checked.authority.port;
     in
@@ -255,8 +255,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = proxyUrlOf function a;
-      right = proxyUrlOf function b;
+      left = proxyUrlArgument function a;
+      right = proxyUrlArgument function b;
     in
     if left.scheme < right.scheme then
       -1
@@ -378,7 +378,7 @@ in
 
     Returns the authority value.
   */
-  authority = proxyUrl: (proxyUrlOf "authority" proxyUrl).authority;
+  authority = proxyUrl: (proxyUrlArgument "authority" proxyUrl).authority;
 
   /*
     Get the port of a proxy URL.
@@ -387,7 +387,7 @@ in
 
     Returns the authority's port value, which a proxy URL always carries.
   */
-  port = proxyUrl: (proxyUrlOf "port" proxyUrl).authority.port;
+  port = proxyUrl: (proxyUrlArgument "port" proxyUrl).authority.port;
 
   /*
     Get the transport of a proxy URL's scheme.
@@ -396,5 +396,6 @@ in
 
     Returns the `tcp` transport value; every proxy scheme runs over TCP.
   */
-  transport = proxyUrl: transport.parse schemes.${(proxyUrlOf "transport" proxyUrl).scheme}.transport;
+  transport =
+    proxyUrl: transport.parse schemes.${(proxyUrlArgument "transport" proxyUrl).scheme}.transport;
 }

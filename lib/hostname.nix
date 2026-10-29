@@ -33,8 +33,8 @@ let
     inherit value;
   };
 
-  # The stored text of a hostname argument of `caller`.
-  valueOf = caller: hostname: (errors.expectKind caller "hostname" hostname).value;
+  # The stored text of a hostname argument of `function`.
+  valueOf = function: hostname: (errors.expectKind "hostname.${function}" "hostname" hostname).value;
 
   # ===== Parsing =====
 
@@ -80,7 +80,7 @@ let
 
     Returns the hostname in lowercase.
   */
-  toString = valueOf "hostname.toString";
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -115,12 +115,10 @@ let
   eq = a: b: types.bothHaveTag types.tags.hostname a b && a.value == b.value;
 
   # Byte-wise on the lowercase text.
-  ordering = comparison.suite {
-    namespace = "hostname";
-    compareFor =
-      caller: a: b:
-      comparison.order (valueOf caller a) (valueOf caller b);
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit

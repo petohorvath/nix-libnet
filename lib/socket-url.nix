@@ -77,7 +77,7 @@ let
 
   # Check the socketUrl argument of `function`, throwing for any other
   # kind.
-  socketUrlOf = function: errors.expectKind "socketUrl.${function}" "socketUrl";
+  socketUrlArgument = function: errors.expectKind "socketUrl.${function}" "socketUrl";
 
   parseError = detail: types.tryErr (errors.message "socketUrl.parse" detail);
 
@@ -159,7 +159,7 @@ let
   toString =
     socketUrl:
     let
-      checked = socketUrlOf "toString" socketUrl;
+      checked = socketUrlArgument "toString" socketUrl;
     in
     "${checked.scheme}://${endpoint.toString checked.endpoint}";
 
@@ -223,7 +223,7 @@ let
 
     Returns true for the `unix` scheme.
   */
-  isUnix = socketUrl: (socketUrlOf "isUnix" socketUrl).scheme == unixScheme;
+  isUnix = socketUrl: (socketUrlArgument "isUnix" socketUrl).scheme == unixScheme;
 
   /*
     Check whether a socket URL's scheme is secure: its protocol encrypts
@@ -233,7 +233,7 @@ let
 
     Returns false; no socket scheme encrypts (see `secureSocketUrl`).
   */
-  isSecure = socketUrl: schemes.${(socketUrlOf "isSecure" socketUrl).scheme}.secure;
+  isSecure = socketUrl: schemes.${(socketUrlArgument "isSecure" socketUrl).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -244,7 +244,7 @@ let
 
     Returns "sctp", "tcp", "udp", or "unix".
   */
-  scheme = socketUrl: (socketUrlOf "scheme" socketUrl).scheme;
+  scheme = socketUrl: (socketUrlArgument "scheme" socketUrl).scheme;
 
   # ===== Comparison =====
   #
@@ -255,8 +255,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = socketUrlOf function a;
-      right = socketUrlOf function b;
+      left = socketUrlArgument function a;
+      right = socketUrlArgument function b;
     in
     if left.scheme < right.scheme then
       -1
@@ -377,7 +377,7 @@ in
   transport =
     socketUrl:
     let
-      transportName = schemes.${(socketUrlOf "transport" socketUrl).scheme}.transport;
+      transportName = schemes.${(socketUrlArgument "transport" socketUrl).scheme}.transport;
     in
     if transportName == null then null else transport.parse transportName;
 
@@ -388,5 +388,5 @@ in
 
     Returns the endpoint value (ipEndpoint, dnsEndpoint, or unixSocket).
   */
-  endpoint = socketUrl: (socketUrlOf "endpoint" socketUrl).endpoint;
+  endpoint = socketUrl: (socketUrlArgument "endpoint" socketUrl).endpoint;
 }

@@ -45,8 +45,8 @@ let
       [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
     );
 
-  # The stored text of a regName argument of `caller`.
-  valueOf = caller: regName: (errors.expectKind caller "regName" regName).value;
+  # The stored text of a regName argument of `function`.
+  valueOf = function: regName: (errors.expectKind "regName.${function}" "regName" regName).value;
 
   parseError = detail: types.tryErr (errors.message "regName.parse" detail);
 
@@ -118,7 +118,7 @@ let
     Returns the name in canonical form: letters lowercase,
     percent-encoding hex digits uppercase.
   */
-  toString = valueOf "regName.toString";
+  toString = valueOf "toString";
 
   # ===== Predicates =====
 
@@ -153,12 +153,10 @@ let
   eq = a: b: types.bothHaveTag types.tags.regName a b && a.value == b.value;
 
   # Byte-wise on the folded text.
-  ordering = comparison.suite {
-    namespace = "regName";
-    compareFor =
-      caller: a: b:
-      comparison.order (valueOf caller a) (valueOf caller b);
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.order (valueOf function a) (valueOf function b)
+  );
 in
 {
   inherit

@@ -3,12 +3,13 @@ let
   inherit (internal) comparison errors;
 
   # A kind of plain integers named `number`, checked like a raw argument.
-  number = comparison.suite {
-    namespace = "number";
-    compareFor =
-      caller: a: b:
-      comparison.order (errors.expectType caller "int" a) (errors.expectType caller "int" b);
-  };
+  number = comparison.suite (
+    function: a: b:
+    let
+      caller = "number.${function}";
+    in
+    comparison.order (errors.expectType caller "int" a) (errors.expectType caller "int" b)
+  );
 in
 {
   # ===== order =====
@@ -23,6 +24,59 @@ in
       0
       1
     ];
+  };
+
+  # ===== byRank =====
+  # Strings rank before integers; values of one rank compare by `order`.
+  testByRank =
+    let
+      compare = comparison.byRank (value: if builtins.isString value then 0 else 1) comparison.order;
+    in
+    {
+      expr = [
+        (compare "z" 1)
+        (compare 1 "a")
+        (compare 1 2)
+        (compare "b" "a")
+        (compare 2 2)
+      ];
+      expected = [
+        (-1)
+        1
+        (-1)
+        1
+        0
+      ];
+    };
+
+  # ===== lexicographic =====
+  testLexicographic = {
+    expr = [
+      (comparison.lexicographic [ ])
+      (comparison.lexicographic [
+        0
+        0
+        1
+      ])
+      (comparison.lexicographic [
+        0
+        (-1)
+        1
+      ])
+    ];
+    expected = [
+      0
+      1
+      (-1)
+    ];
+  };
+  # A later key is not evaluated once an earlier one differs.
+  testLexicographicIsLazy = {
+    expr = comparison.lexicographic [
+      1
+      (throw "evaluated")
+    ];
+    expected = 1;
   };
 
   # ===== suite =====

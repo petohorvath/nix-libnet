@@ -94,7 +94,7 @@ let
   };
 
   # Check the url argument of `function`, throwing for any other kind.
-  urlOf = function: url: errors.expectKind "url.${function}" "url" url;
+  urlArgument = function: url: errors.expectKind "url.${function}" "url" url;
 
   # The default and effective ports of a checked url.
   defaultPortOf = url: mkPort schemes.${url.scheme}.defaultPort;
@@ -220,7 +220,7 @@ let
   toString =
     url:
     let
-      checked = urlOf "toString" url;
+      checked = urlArgument "toString" url;
       queryPart = if checked.query == null then "" else "?${checked.query}";
       fragmentPart = if checked.fragment == null then "" else "#${checked.fragment}";
     in
@@ -310,7 +310,7 @@ let
 
     Returns the scheme's `secure` flag.
   */
-  isSecure = url: schemes.${(urlOf "isSecure" url).scheme}.secure;
+  isSecure = url: schemes.${(urlArgument "isSecure" url).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -321,7 +321,7 @@ let
 
     Returns the lowercase scheme string.
   */
-  scheme = url: (urlOf "scheme" url).scheme;
+  scheme = url: (urlArgument "scheme" url).scheme;
 
   /*
     Get the userinfo of a URL.
@@ -330,7 +330,7 @@ let
 
     Returns the authority's raw userinfo string, or null when absent.
   */
-  userinfo = url: (urlOf "userinfo" url).authority.userinfo;
+  userinfo = url: (urlArgument "userinfo" url).authority.userinfo;
 
   /*
     Get the host of a URL.
@@ -339,7 +339,7 @@ let
 
     Returns the authority's host: an ipv4, ipv6, or regName value.
   */
-  host = url: (urlOf "host" url).authority.host;
+  host = url: (urlArgument "host" url).authority.host;
 
   /*
     Get the default port of a URL's scheme.
@@ -348,7 +348,7 @@ let
 
     Returns the registry default as a port value.
   */
-  defaultPort = url: defaultPortOf (urlOf "defaultPort" url);
+  defaultPort = url: defaultPortOf (urlArgument "defaultPort" url);
 
   /*
     Get the port a URL connects to, filling in the scheme default.
@@ -357,7 +357,7 @@ let
 
     Returns the explicit port value, or the scheme's default port value.
   */
-  effectivePort = url: effectivePortOf (urlOf "effectivePort" url);
+  effectivePort = url: effectivePortOf (urlArgument "effectivePort" url);
 
   /*
     Get the path of a URL.
@@ -366,7 +366,7 @@ let
 
     Returns the raw path: "" or a string starting with `/`.
   */
-  path = url: (urlOf "path" url).path;
+  path = url: (urlArgument "path" url).path;
 
   /*
     Get the query of a URL.
@@ -375,7 +375,7 @@ let
 
     Returns the raw query string without `?`, or null when absent.
   */
-  query = url: (urlOf "query" url).query;
+  query = url: (urlArgument "query" url).query;
 
   /*
     Get the fragment of a URL.
@@ -384,7 +384,7 @@ let
 
     Returns the raw fragment string without `#`, or null when absent.
   */
-  fragment = url: (urlOf "fragment" url).fragment;
+  fragment = url: (urlArgument "fragment" url).fragment;
 
   # ===== Conversions =====
 
@@ -400,7 +400,7 @@ let
   toEndpoint =
     url:
     let
-      checked = urlOf "toEndpoint" url;
+      checked = urlArgument "toEndpoint" url;
       hostValue = checked.authority.host;
       targetPort = effectivePortOf checked;
     in
@@ -461,23 +461,20 @@ let
   # `/`), query, then fragment (null userinfo, query, or fragment first).
   # The operands are checked first, so the delegated comparison cannot
   # fail and name itself.
-  ordering = comparison.suite {
-    namespace = "url";
-    compareFor =
-      caller: a: b:
-      let
-        left = errors.expectKind caller "url" a;
-        right = errors.expectKind caller "url" b;
-        orders = [
-          (comparison.order left.scheme right.scheme)
-          (authority.compare (effectiveAuthority left) (effectiveAuthority right))
-          (comparison.order (effectivePath left) (effectivePath right))
-          (compareOptionalStrings left.query right.query)
-          (compareOptionalStrings left.fragment right.fragment)
-        ];
-      in
-      builtins.foldl' (result: order: if result != 0 then result else order) 0 orders;
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    let
+      left = urlArgument function a;
+      right = urlArgument function b;
+    in
+    comparison.lexicographic [
+      (comparison.order left.scheme right.scheme)
+      (authority.compare (effectiveAuthority left) (effectiveAuthority right))
+      (comparison.order (effectivePath left) (effectivePath right))
+      (compareOptionalStrings left.query right.query)
+      (compareOptionalStrings left.fragment right.fragment)
+    ]
+  );
 in
 {
   inherit
@@ -519,7 +516,7 @@ in
 
     Returns the authority value: userinfo, host, and explicit port.
   */
-  authority = url: (urlOf "authority" url).authority;
+  authority = url: (urlArgument "authority" url).authority;
 
   /*
     Get the explicit port of a URL; see `effectivePort` for the port in use.
@@ -528,7 +525,7 @@ in
 
     Returns the authority's port value, or null when the input omitted it.
   */
-  port = url: (urlOf "port" url).authority.port;
+  port = url: (urlArgument "port" url).authority.port;
 
   /*
     Get the L4 transport of a URL's scheme.
@@ -537,5 +534,5 @@ in
 
     Returns a transport value (`tcp` or `udp`) from the scheme registry.
   */
-  transport = url: transport.parse schemes.${(urlOf "transport" url).scheme}.transport;
+  transport = url: transport.parse schemes.${(urlArgument "transport" url).scheme}.transport;
 }

@@ -37,7 +37,7 @@ let
 
   # Check the endpoint argument of `function`, throwing for a value of
   # any other kind.
-  memberOf =
+  endpointArgument =
     function:
     errors.expect "endpoint.${function}" "ipEndpoint, dnsEndpoint or unixSocket value" isMember;
 
@@ -119,7 +119,7 @@ let
   toString =
     endpoint:
     let
-      checked = memberOf "toString" endpoint;
+      checked = endpointArgument "toString" endpoint;
     in
     if types.isIpEndpoint checked then
       ipEndpoint.toString checked
@@ -193,8 +193,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = memberOf function a;
-      right = memberOf function b;
+      left = endpointArgument function a;
+      right = endpointArgument function b;
       rankA = rank left;
       rankB = rank right;
     in

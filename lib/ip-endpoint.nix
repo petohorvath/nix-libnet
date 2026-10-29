@@ -32,7 +32,8 @@ let
     );
 
   # Check the endpoint argument of `function`, throwing for any other kind.
-  endpointOf = function: endpoint: errors.expectKind "ipEndpoint.${function}" "ipEndpoint" endpoint;
+  ipEndpointArgument =
+    function: endpoint: errors.expectKind "ipEndpoint.${function}" "ipEndpoint" endpoint;
 
   parseError = detail: types.tryErr (errors.message "ipEndpoint.parse" detail);
 
@@ -137,7 +138,7 @@ let
   toString =
     endpoint:
     let
-      checked = endpointOf "toString" endpoint;
+      checked = ipEndpointArgument "toString" endpoint;
       portString = port.toString checked.port;
     in
     if types.isIpv4 checked.address then
@@ -187,7 +188,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv4 = endpoint: types.isIpv4 (endpointOf "isIpv4" endpoint).address;
+  isIpv4 = endpoint: types.isIpv4 (ipEndpointArgument "isIpv4" endpoint).address;
 
   /*
     Test whether the endpoint's address is IPv6.
@@ -196,7 +197,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv6 = endpoint: types.isIpv6 (endpointOf "isIpv6" endpoint).address;
+  isIpv6 = endpoint: types.isIpv6 (ipEndpointArgument "isIpv6" endpoint).address;
 
   # ===== Accessors =====
 
@@ -207,7 +208,7 @@ let
 
     Returns an ipv4 or ipv6 value.
   */
-  address = endpoint: (endpointOf "address" endpoint).address;
+  address = endpoint: (ipEndpointArgument "address" endpoint).address;
 
   /*
     Get the IP family of the endpoint's address.
@@ -216,7 +217,7 @@ let
 
     Returns `4` or `6`.
   */
-  version = endpoint: if types.isIpv4 (endpointOf "version" endpoint).address then 4 else 6;
+  version = endpoint: if types.isIpv4 (ipEndpointArgument "version" endpoint).address then 4 else 6;
 
   # ===== Forwarded predicates (apply to address) =====
 
@@ -225,7 +226,7 @@ let
   forwardToAddress =
     function: ipv4Function: ipv6Function: endpoint:
     let
-      inherit (endpointOf function endpoint) address;
+      inherit (ipEndpointArgument function endpoint) address;
     in
     if types.isIpv4 address then ipv4Function address else ipv6Function address;
 
@@ -310,8 +311,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = endpointOf function a;
-      right = endpointOf function b;
+      left = ipEndpointArgument function a;
+      right = ipEndpointArgument function b;
     in
     if types.isIpv4 left.address && types.isIpv6 right.address then
       -1
@@ -442,5 +443,5 @@ in
 
     Returns a port value.
   */
-  port = endpoint: (endpointOf "port" endpoint).port;
+  port = endpoint: (ipEndpointArgument "port" endpoint).port;
 }

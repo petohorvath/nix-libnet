@@ -30,8 +30,9 @@ let
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
 
-  # Return a URL host argument of `caller`, throwing for any other value.
-  expectUrlHost = caller: errors.expect caller "ip or regName value" types.isUrlHost;
+  # Return a URL host argument of `function`, throwing for any other value.
+  urlHostArgument =
+    function: errors.expect "urlHost.${function}" "ip or regName value" types.isUrlHost;
 
   parseError = detail: types.tryErr (errors.message "urlHost.parse" detail);
 
@@ -102,7 +103,7 @@ let
   toString =
     urlHost:
     let
-      checked = expectUrlHost "urlHost.toString" urlHost;
+      checked = urlHostArgument "toString" urlHost;
     in
     if types.isIpv6 checked then
       "[${ipv6.toString checked}]"
@@ -164,7 +165,7 @@ let
   toHost =
     urlHost:
     let
-      checked = expectUrlHost "urlHost.toHost" urlHost;
+      checked = urlHostArgument "toHost" urlHost;
       result = dnsName.tryParse checked.value;
     in
     if types.isIp checked then
@@ -201,22 +202,12 @@ let
 
   # The operands are checked first, so the delegated comparison cannot
   # fail and name itself.
-  ordering = comparison.suite {
-    namespace = "urlHost";
-    compareFor =
-      caller: a: b:
-      let
-        left = expectUrlHost caller a;
-        right = expectUrlHost caller b;
-        rankOrder = comparison.order (rank left) (rank right);
-      in
-      if rankOrder != 0 then
-        rankOrder
-      else if rank left == 0 then
-        ip.compare left right
-      else
-        regName.compare left right;
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    comparison.byRank rank (
+      left: right: if rank left == 0 then ip.compare left right else regName.compare left right
+    ) (urlHostArgument function a) (urlHostArgument function b)
+  );
 in
 {
   inherit

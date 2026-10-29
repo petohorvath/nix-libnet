@@ -33,7 +33,8 @@ let
 
   # Check the authority argument of `function`, throwing for any other
   # kind.
-  authorityOf = function: authority: errors.expectKind "authority.${function}" "authority" authority;
+  authorityArgument =
+    function: authority: errors.expectKind "authority.${function}" "authority" authority;
 
   # RFC 3986 §3.2.1: userinfo = *( unreserved / pct-encoded / sub-delims /
   # ":" ). The bracket expression admits only ASCII, so a non-ASCII byte,
@@ -169,7 +170,7 @@ let
   toString =
     authority:
     let
-      checked = authorityOf "toString" authority;
+      checked = authorityArgument "toString" authority;
       userinfoPart = if checked.userinfo == null then "" else "${checked.userinfo}@";
       portPart = if checked.port == null then "" else ":${port.toString checked.port}";
     in
@@ -245,7 +246,7 @@ let
 
     Returns the raw userinfo string, or null when absent.
   */
-  userinfo = authority: (authorityOf "userinfo" authority).userinfo;
+  userinfo = authority: (authorityArgument "userinfo" authority).userinfo;
 
   /*
     Get the host of an authority.
@@ -254,7 +255,7 @@ let
 
     Returns the urlHost value: an ipv4, ipv6, or regName value.
   */
-  host = authority: (authorityOf "host" authority).host;
+  host = authority: (authorityArgument "host" authority).host;
 
   # ===== Comparison =====
   #
@@ -303,23 +304,18 @@ let
   # Order by host, then port (null first), then userinfo (null first).
   # The operands are checked first, so the delegated comparisons cannot
   # fail and name themselves.
-  ordering = comparison.suite {
-    namespace = "authority";
-    compareFor =
-      caller: a: b:
-      let
-        left = errors.expectKind caller "authority" a;
-        right = errors.expectKind caller "authority" b;
-        hostOrder = urlHost.compare left.host right.host;
-        portOrder = compareOptional port.compare left.port right.port;
-      in
-      if hostOrder != 0 then
-        hostOrder
-      else if portOrder != 0 then
-        portOrder
-      else
-        compareOptional comparison.order left.userinfo right.userinfo;
-  };
+  ordering = comparison.suite (
+    function: a: b:
+    let
+      left = authorityArgument function a;
+      right = authorityArgument function b;
+    in
+    comparison.lexicographic [
+      (urlHost.compare left.host right.host)
+      (compareOptional port.compare left.port right.port)
+      (compareOptional comparison.order left.userinfo right.userinfo)
+    ]
+  );
 in
 {
   inherit
@@ -352,5 +348,5 @@ in
 
     Returns the port value, or null when omitted (no default applies).
   */
-  port = authority: (authorityOf "port" authority).port;
+  port = authority: (authorityArgument "port" authority).port;
 }

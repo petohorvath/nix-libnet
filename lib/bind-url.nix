@@ -62,7 +62,7 @@ let
   };
 
   # Check the bindUrl argument of `function`, throwing for any other kind.
-  bindUrlOf = function: errors.expectKind "bindUrl.${function}" "bindUrl";
+  bindUrlArgument = function: errors.expectKind "bindUrl.${function}" "bindUrl";
 
   parseError = detail: types.tryErr (errors.message "bindUrl.parse" detail);
 
@@ -144,7 +144,7 @@ let
   toString =
     bindUrl:
     let
-      checked = bindUrlOf "toString" bindUrl;
+      checked = bindUrlArgument "toString" bindUrl;
     in
     "${checked.scheme}://${bindpoint.toString checked.bindpoint}";
 
@@ -206,7 +206,7 @@ let
 
     Returns true for the `unix` scheme.
   */
-  isUnix = bindUrl: (bindUrlOf "isUnix" bindUrl).scheme == unixScheme;
+  isUnix = bindUrl: (bindUrlArgument "isUnix" bindUrl).scheme == unixScheme;
 
   /*
     Check whether a bind URL's scheme is secure: its protocol encrypts
@@ -216,7 +216,7 @@ let
 
     Returns false; no bind scheme encrypts.
   */
-  isSecure = bindUrl: schemes.${(bindUrlOf "isSecure" bindUrl).scheme}.secure;
+  isSecure = bindUrl: schemes.${(bindUrlArgument "isSecure" bindUrl).scheme}.secure;
 
   # ===== Accessors =====
 
@@ -227,7 +227,7 @@ let
 
     Returns "sctp", "tcp", "udp", or "unix".
   */
-  scheme = bindUrl: (bindUrlOf "scheme" bindUrl).scheme;
+  scheme = bindUrl: (bindUrlArgument "scheme" bindUrl).scheme;
 
   # ===== Comparison =====
   #
@@ -238,8 +238,8 @@ let
   compareFor =
     function: a: b:
     let
-      left = bindUrlOf function a;
-      right = bindUrlOf function b;
+      left = bindUrlArgument function a;
+      right = bindUrlArgument function b;
     in
     if left.scheme < right.scheme then
       -1
@@ -360,7 +360,7 @@ in
   transport =
     bindUrl:
     let
-      transportName = schemes.${(bindUrlOf "transport" bindUrl).scheme}.transport;
+      transportName = schemes.${(bindUrlArgument "transport" bindUrl).scheme}.transport;
     in
     if transportName == null then null else transport.parse transportName;
 
@@ -371,5 +371,5 @@ in
 
     Returns the bindpoint value (ipBindpoint or unixSocket).
   */
-  bindpoint = bindUrl: (bindUrlOf "bindpoint" bindUrl).bindpoint;
+  bindpoint = bindUrl: (bindUrlArgument "bindpoint" bindUrl).bindpoint;
 }
