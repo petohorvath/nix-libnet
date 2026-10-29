@@ -297,9 +297,13 @@ in
     expr = mac.toString (mac.fromOuiNic 1122867 4478310);
     expected = "11:22:33:44:55:66";
   };
-  testOuiToStringFormat = {
-    expr = mac.ouiToString (parse "11:22:33:44:55:66");
+  testToStringOuiFormat = {
+    expr = mac.toStringOui (parse "11:22:33:44:55:66");
     expected = "11:22:33";
+  };
+  testNoOuiToString = {
+    expr = mac ? ouiToString;
+    expected = false;
   };
   testFromOuiNicOutOfRange = {
     expr = mac.fromOuiNic 16777216 0;

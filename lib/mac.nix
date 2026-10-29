@@ -464,10 +464,10 @@ let
 
     Returns a lowercase string such as `aa:bb:cc`.
   */
-  ouiToString =
+  toStringOui =
     mac:
     let
-      ouiValue = bits.shr 24 (valueOf "ouiToString" mac);
+      ouiValue = bits.shr 24 (valueOf "toStringOui" mac);
       high = bits.bits 16 8 ouiValue;
       middle = bits.bits 8 8 ouiValue;
       low = bits.bits 0 8 ouiValue;
@@ -598,7 +598,6 @@ in
     next
     nic
     oui
-    ouiToString
     parse
     prev
     setLocal
@@ -613,6 +612,7 @@ in
     toStringBare
     toStringCisco
     toStringHyphen
+    toStringOui
     tryParse
     unspecified
     ;
