@@ -16,6 +16,7 @@
 */
 let
   bits = import ./internal/bits.nix;
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   port = import ./port.nix;
@@ -27,6 +28,21 @@ let
     from = first;
     to = last;
   };
+
+  # ===== Argument kinds =====
+
+  # Each returns its argument, throwing for the wrong kind on behalf of
+  # the public `function`.
+  rangeArgument = function: errors.expectKind "portRange.${function}" "portRange";
+  portArgument = function: errors.expectKind "portRange.${function}" "port";
+  intArgument = function: errors.expectType "portRange.${function}" "int";
+
+  # Check both range operands of a binary `function`, then apply
+  # `relation` to them. Unchecked helpers such as `order` and `sizeOf`
+  # below take ranges the public function has already checked.
+  binary =
+    function: relation: a: b:
+    relation (rangeArgument function a) (rangeArgument function b);
 
   # ===== Parsing =====
 
@@ -47,7 +63,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.portRange.parse: input must be a string"
+      types.tryErr (errors.message "portRange.parse" "expected string, got ${errors.describe input}")
     else
       let
         hyphenParts = parsing.splitOn "-" input;
@@ -105,6 +121,13 @@ let
     in
     if result.success then result.value else throw result.error;
 
+  formatWith =
+    separator: range:
+    if port.eq range.from range.to then
+      port.toString range.from
+    else
+      "${port.toString range.from}${separator}${port.toString range.to}";
+
   /*
     Format a range in canonical hyphen form.
 
@@ -112,12 +135,7 @@ let
 
     Returns "from-to", or just "from" for a single-port range.
   */
-  toString =
-    range:
-    if port.eq range.from range.to then
-      port.toString range.from
-    else
-      "${port.toString range.from}-${port.toString range.to}";
+  toString = range: formatWith "-" (rangeArgument "toString" range);
 
   /*
     Format a range in iptables colon form.
@@ -126,12 +144,7 @@ let
 
     Returns "from:to", or just "from" for a single-port range.
   */
-  toStringColon =
-    range:
-    if port.eq range.from range.to then
-      port.toString range.from
-    else
-      "${port.toString range.from}:${port.toString range.to}";
+  toStringColon = range: formatWith ":" (rangeArgument "toStringColon" range);
 
   /*
     Build a range from its two end ports, parallel to `ipRange.make`.
@@ -143,12 +156,14 @@ let
   */
   make =
     first: last:
-    if !(types.isPort first) || !(types.isPort last) then
-      throw "libnet.portRange.make: from and to must be port values"
-    else if port.gt first last then
-      throw "libnet.portRange.make: from > to"
+    let
+      lowest = portArgument "make" first;
+      highest = portArgument "make" last;
+    in
+    if port.gt lowest highest then
+      errors.fail "portRange.make" "from > to: ${port.toString lowest}-${port.toString highest}"
     else
-      mk first last;
+      mk lowest highest;
 
   /*
     Build a range holding exactly one port, parallel to
@@ -160,10 +175,10 @@ let
   */
   fromPort =
     portValue:
-    if !(types.isPort portValue) then
-      throw "libnet.portRange.fromPort: expected a port value"
-    else
-      mk portValue portValue;
+    let
+      checked = portArgument "fromPort" portValue;
+    in
+    mk checked checked;
 
   # ===== Predicates =====
 
@@ -192,7 +207,12 @@ let
 
     Returns true when from equals to.
   */
-  isSingleton = range: port.eq range.from range.to;
+  isSingleton =
+    range:
+    let
+      checked = rangeArgument "isSingleton" range;
+    in
+    port.eq checked.from checked.to;
 
   # ===== Accessors =====
 
@@ -203,7 +223,7 @@ let
 
     Returns the tagged `from` port.
   */
-  from = range: range.from;
+  from = range: (rangeArgument "from" range).from;
 
   /*
     Get the highest port of a range.
@@ -212,7 +232,9 @@ let
 
     Returns the tagged `to` port.
   */
-  to = range: range.to;
+  to = range: (rangeArgument "to" range).to;
+
+  sizeOf = range: port.toInt range.to - port.toInt range.from + 1;
 
   /*
     Count the ports in a range.
@@ -221,7 +243,7 @@ let
 
     Returns `toInt to - toInt from + 1`.
   */
-  size = range: port.toInt range.to - port.toInt range.from + 1;
+  size = range: sizeOf (rangeArgument "size" range);
 
   # ===== Containment =====
 
@@ -231,15 +253,18 @@ let
     `range`: portRange value.
     `portValue`: value to test.
 
-    Returns true when `portValue` is a port within [from, to]; false for
-    non-port values.
+    Returns true when `portValue` is a port within [from, to]; throws for
+    a value of any other kind.
   */
   contains =
     range: portValue:
-    if !(types.isPort portValue) then
-      false
-    else
-      port.le range.from portValue && port.le portValue range.to;
+    let
+      checkedRange = rangeArgument "contains" range;
+      checkedPort = portArgument "contains" portValue;
+    in
+    port.le checkedRange.from checkedPort && port.le checkedPort checkedRange.to;
+
+  overlapping = a: b: port.le a.from b.to && port.le b.from a.to;
 
   /*
     Check whether two ranges share at least one port. Symmetric.
@@ -248,7 +273,9 @@ let
 
     Returns true when the ranges intersect.
   */
-  overlaps = a: b: port.le a.from b.to && port.le b.from a.to;
+  overlaps = binary "overlaps" overlapping;
+
+  subrange = a: b: port.le b.from a.from && port.le a.to b.to;
 
   /*
     Check whether one range lies within another, subject first like
@@ -259,7 +286,7 @@ let
 
     Returns true when `a` is a subset of `b` (including equal ranges).
   */
-  isSubrangeOf = a: b: port.le b.from a.from && port.le a.to b.to;
+  isSubrangeOf = binary "isSubrangeOf" subrange;
 
   /*
     Check whether one range encloses another; inverse of `isSubrangeOf`.
@@ -269,18 +296,9 @@ let
 
     Returns true when `b` is a subset of `a` (including equal ranges).
   */
-  isSuperrangeOf = a: b: isSubrangeOf b a;
+  isSuperrangeOf = binary "isSuperrangeOf" (a: b: subrange b a);
 
-  /*
-    Check whether two ranges touch with no gap and no overlap. Compares
-    plain ints, so a range ending at 65535 has no upward neighbour and
-    nothing overflows.
-
-    `a`, `b`: portRange values.
-
-    Returns true when `a.to + 1 == b.from` or `b.to + 1 == a.from`.
-  */
-  isAdjacent =
+  adjacent =
     a: b:
     let
       aTo = port.toInt a.to;
@@ -291,17 +309,36 @@ let
     aTo + 1 == bFrom || bTo + 1 == aFrom;
 
   /*
+    Check whether two ranges touch with no gap and no overlap. Compares
+    plain ints, so a range ending at 65535 has no upward neighbour and
+    nothing overflows.
+
+    `a`, `b`: portRange values.
+
+    Returns true when `a.to + 1 == b.from` or `b.to + 1 == a.from`.
+  */
+  isAdjacent = binary "isAdjacent" adjacent;
+
+  /*
     Combine two ranges into one when they overlap or touch.
 
     `a`, `b`: portRange values.
 
     Returns the spanning portRange, or null when a gap separates them.
   */
-  merge =
+  merge = binary "merge" (
     a: b:
-    if overlaps a b || isAdjacent a b then mk (port.min a.from b.from) (port.max a.to b.to) else null;
+    if overlapping a b || adjacent a b then mk (port.min a.from b.from) (port.max a.to b.to) else null
+  );
 
   # ===== Enumeration =====
+
+  listPorts =
+    range:
+    let
+      base = port.toInt range.from;
+    in
+    builtins.genList (i: port.fromInt (base + i)) (sizeOf range);
 
   /*
     List every port in a range with no size guard; the caller bounds the
@@ -311,12 +348,7 @@ let
 
     Returns the ports from `from` to `to` in ascending order.
   */
-  portsUnbounded =
-    range:
-    let
-      base = port.toInt range.from;
-    in
-    builtins.genList (i: port.fromInt (base + i)) (size range);
+  portsUnbounded = range: listPorts (rangeArgument "portsUnbounded" range);
 
   /*
     List every port in a range, guarding against accidentally huge lists.
@@ -329,12 +361,13 @@ let
   ports =
     range:
     let
-      rangeSize = size range;
+      checked = rangeArgument "ports" range;
+      rangeSize = sizeOf checked;
     in
     if rangeSize > bits.pow2 12 then
-      throw "libnet.portRange.ports: range too large (${builtins.toString rangeSize} > 4096); use portsUnbounded"
+      errors.fail "portRange.ports" "range too large (${builtins.toString rangeSize} > 4096); use portsUnbounded"
     else
-      portsUnbounded range;
+      listPorts checked;
 
   /*
     Index into a range, parallel to `cidr.addressAt` and
@@ -343,18 +376,21 @@ let
     `n`: 0-based offset from `from`; negative values count from the end.
     `range`: portRange value.
 
-    Returns the selected port; throws when `n` falls outside the range.
+    Returns the selected port; throws when `n` is not an integer or falls
+    outside the range.
   */
   portAt =
     n: range:
     let
-      rangeSize = size range;
-      index = if n < 0 then rangeSize + n else n;
+      offset = intArgument "portAt" n;
+      checked = rangeArgument "portAt" range;
+      rangeSize = sizeOf checked;
+      index = if offset < 0 then rangeSize + offset else offset;
     in
     if index < 0 || index >= rangeSize then
-      throw "libnet.portRange.portAt: index out of range [0, ${builtins.toString rangeSize})"
+      errors.fail "portRange.portAt" "index out of range [0, ${builtins.toString rangeSize}): ${builtins.toString offset}"
     else
-      port.add index range.from;
+      port.add index checked.from;
 
   # ===== Comparison =====
 
@@ -367,6 +403,13 @@ let
   */
   eq = a: b: types.hasSameTag a b && port.eq a.from b.from && port.eq a.to b.to;
 
+  order =
+    a: b:
+    let
+      fromOrder = port.compare a.from b.from;
+    in
+    if fromOrder != 0 then fromOrder else port.compare a.to b.to;
+
   /*
     Order two ranges lexicographically on (from, to).
 
@@ -374,12 +417,7 @@ let
 
     Returns -1, 0, or 1 as `a` sorts before, equal to, or after `b`.
   */
-  compare =
-    a: b:
-    let
-      fromOrder = port.compare a.from b.from;
-    in
-    if fromOrder != 0 then fromOrder else port.compare a.to b.to;
+  compare = binary "compare" order;
 
   /*
     Test whether one range sorts before another.
@@ -388,7 +426,7 @@ let
 
     Returns true when `compare a b == -1`.
   */
-  lt = a: b: compare a b == -1;
+  lt = binary "lt" (a: b: order a b == -1);
 
   /*
     Test whether one range sorts before or equal to another.
@@ -397,7 +435,7 @@ let
 
     Returns true when `compare a b <= 0`.
   */
-  le = a: b: compare a b <= 0;
+  le = binary "le" (a: b: order a b <= 0);
 
   /*
     Test whether one range sorts after another.
@@ -406,7 +444,7 @@ let
 
     Returns true when `compare a b == 1`.
   */
-  gt = a: b: compare a b == 1;
+  gt = binary "gt" (a: b: order a b == 1);
 
   /*
     Test whether one range sorts after or equal to another.
@@ -415,7 +453,7 @@ let
 
     Returns true when `compare a b >= 0`.
   */
-  ge = a: b: compare a b >= 0;
+  ge = binary "ge" (a: b: order a b >= 0);
 
   /*
     Pick the earlier of two ranges in sort order.
@@ -424,7 +462,7 @@ let
 
     Returns the lesser range; `a` when they compare equal.
   */
-  min = a: b: if le a b then a else b;
+  min = binary "min" (a: b: if order a b <= 0 then a else b);
 
   /*
     Pick the later of two ranges in sort order.
@@ -433,7 +471,7 @@ let
 
     Returns the greater range; `a` when they compare equal.
   */
-  max = a: b: if ge a b then a else b;
+  max = binary "max" (a: b: if order a b >= 0 then a else b);
 in
 {
   inherit

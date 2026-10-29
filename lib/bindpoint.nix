@@ -27,10 +27,27 @@
     libnet.bindpoint.parse "/run/foo.sock"   # tagged unixSocket
 */
 let
+  errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
   ipBindpoint = import ./ip-bindpoint.nix;
   unixSocket = import ./unix-socket.nix;
+
+  isMember = value: types.isIpBindpoint value || types.isUnixSocket value;
+
+  # Check the bindpoint argument of `function`, throwing for a value of
+  # any other kind.
+  memberOf =
+    function: errors.expect "bindpoint.${function}" "ipBindpoint or unixSocket value" isMember;
+
+  # Report a member parser's failure under the union's name, keeping its
+  # detail.
+  fromMember =
+    member: result:
+    if result.success then
+      result
+    else
+      types.tryErr (errors.message "bindpoint.parse" (errors.detail "${member}.parse" result.error));
 
   # ===== Parsing =====
 
@@ -42,16 +59,17 @@ let
     `"[::1]:8000-8100"`.
 
     Returns a tryResult whose value is an ipBindpoint or unixSocket; on
-    failure, `error` comes from the member parser that was tried.
+    failure, `error` names `bindpoint.parse` with the detail of the
+    member parser that was tried.
   */
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.bindpoint.parse: input must be a string"
+      types.tryErr (errors.message "bindpoint.parse" "expected string, got ${errors.describe input}")
     else if parsing.startsWith "/" input || parsing.startsWith "@" input then
-      unixSocket.tryParse input
+      fromMember "unixSocket" (unixSocket.tryParse input)
     else
-      ipBindpoint.tryParse input;
+      fromMember "ipBindpoint" (ipBindpoint.tryParse input);
 
   /*
     Parse any bind target, classifying it by shape as `tryParse` does.
@@ -79,12 +97,10 @@ let
   */
   toString =
     bindpoint:
-    if types.isIpBindpoint bindpoint then
-      ipBindpoint.toString bindpoint
-    else if types.isUnixSocket bindpoint then
-      unixSocket.toString bindpoint
-    else
-      throw "libnet.bindpoint.toString: expected ipBindpoint or unixSocket value";
+    let
+      checked = memberOf "toString" bindpoint;
+    in
+    if types.isIpBindpoint checked then ipBindpoint.toString checked else unixSocket.toString checked;
 
   # ===== Predicates =====
 
@@ -104,7 +120,7 @@ let
 
     Returns a Boolean.
   */
-  is = value: types.isIpBindpoint value || types.isUnixSocket value;
+  is = isMember;
 
   /*
     Test whether a value is an ipBindpoint.
@@ -127,15 +143,26 @@ let
   # ===== Comparison =====
   #
   # Cross-kind order: ipBindpoint < unixSocket. Within a kind, delegates.
+  # Each ordering function passes its own name, which its errors report.
 
-  rank =
-    value:
-    if types.isIpBindpoint value then
-      0
-    else if types.isUnixSocket value then
+  rank = value: if types.isIpBindpoint value then 0 else 1;
+
+  compareFor =
+    function: a: b:
+    let
+      left = memberOf function a;
+      right = memberOf function b;
+      rankA = rank left;
+      rankB = rank right;
+    in
+    if rankA < rankB then
+      -1
+    else if rankA > rankB then
       1
+    else if rankA == 0 then
+      ipBindpoint.compare left right
     else
-      throw "libnet.bindpoint.compare: expected ipBindpoint or unixSocket value";
+      unixSocket.compare left right;
 
   /*
     Test two bindpoints for equality using their member module's `eq`.
@@ -162,20 +189,7 @@ let
     Returns `-1`, `0`, or `1`; throws if either is not a bindpoint
     member.
   */
-  compare =
-    a: b:
-    let
-      rankA = rank a;
-      rankB = rank b;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ipBindpoint.compare a b
-    else
-      unixSocket.compare a b;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` orders strictly before `b` under `compare`.
@@ -184,7 +198,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` orders before or equal to `b` under `compare`.
@@ -193,7 +207,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` orders strictly after `b` under `compare`.
@@ -202,7 +216,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` orders after or equal to `b` under `compare`.
@@ -211,7 +225,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two bindpoints under `compare`.
@@ -220,7 +234,7 @@ let
 
     Returns `a` when they order equal, otherwise the lesser value.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two bindpoints under `compare`.
@@ -229,7 +243,7 @@ let
 
     Returns `a` when they order equal, otherwise the greater value.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit

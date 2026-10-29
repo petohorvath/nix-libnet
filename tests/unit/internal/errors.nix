@@ -18,14 +18,14 @@ in
     expectedError.msg = "^libnet\\.port\\.add: out of range$";
   };
 
-  # ===== detailOf =====
-  testDetailOfStripsPrefix = {
-    expr = errors.detailOf "ipv4.parse" "libnet.ipv4.parse: invalid octet in \"300.1.1.1\"";
-    expected = "invalid octet in \"300.1.1.1\"";
+  # ===== detail =====
+  testDetailDropsCallersPrefix = {
+    expr = errors.detail "dnsName.parse" "libnet.dnsName.parse: \"a_b\" is not valid";
+    expected = "\"a_b\" is not valid";
   };
-  testDetailOfKeepsOtherCaller = {
-    expr = errors.detailOf "ipv4.parse" "libnet.ipv6.parse: empty string";
-    expected = "libnet.ipv6.parse: empty string";
+  testDetailKeepsOtherText = {
+    expr = errors.detail "dnsName.parse" "libnet.hostname.parse: bad";
+    expected = "libnet.hostname.parse: bad";
   };
 
   # ===== describe =====

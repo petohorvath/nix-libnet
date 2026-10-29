@@ -18,12 +18,13 @@ let
 
   fail = caller: detail: throw (message caller detail);
 
-  # The detail of a message raised by `caller`, so a union can report a
-  # member's failure under its own name. Other text is returned as is.
-  detailOf =
+  # The detail of a `text` that `caller` raised, without its prefix, so a
+  # function can report a member's failure under its own name. Other text
+  # is returned unchanged.
+  detail =
     caller: text:
     let
-      prefix = message caller "";
+      prefix = "libnet.${caller}: ";
       prefixLength = builtins.stringLength prefix;
     in
     if builtins.substring 0 prefixLength text == prefix then
@@ -56,7 +57,7 @@ in
 {
   inherit
     describe
-    detailOf
+    detail
     expect
     expectKind
     expectType

@@ -12,6 +12,7 @@
     => "[2001:db8::1]:80"
 */
 let
+  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   types = import ./internal/types.nix;
   ipv4 = import ./ipv4.nix;
@@ -24,6 +25,11 @@ let
     port = portValue;
   };
 
+  # Check the endpoint argument of `function`, throwing for any other kind.
+  endpointOf = function: endpoint: errors.expectKind "ipEndpoint.${function}" "ipEndpoint" endpoint;
+
+  parseError = detail: types.tryErr (errors.message "ipEndpoint.parse" detail);
+
   # ===== Parsing =====
 
   # Bracketed form: [<ipv6>]:<port>
@@ -33,7 +39,7 @@ let
       parts = parsing.splitOn "]:" input;
     in
     if builtins.length parts != 2 then
-      types.tryErr "libnet.ipEndpoint.parse: malformed bracketed form \"${input}\""
+      parseError "malformed bracketed form \"${input}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -43,16 +49,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addressString == null then
-        types.tryErr "libnet.ipEndpoint.parse: missing '[' in \"${input}\""
+        parseError "missing '[' in \"${input}\""
       else
         let
           addressResult = ipv6.tryParse addressString;
           portResult = port.tryParse portString;
         in
         if !addressResult.success then
-          types.tryErr "libnet.ipEndpoint.parse: invalid IPv6 in \"${input}\""
+          parseError "invalid IPv6 in \"${input}\""
         else if !portResult.success then
-          types.tryErr "libnet.ipEndpoint.parse: invalid port in \"${input}\""
+          parseError "invalid port in \"${input}\""
         else
           types.tryOk (mk addressResult.value portResult.value);
 
@@ -63,9 +69,9 @@ let
       colons = parsing.countOccurrences ":" input;
     in
     if colons == 0 then
-      types.tryErr "libnet.ipEndpoint.parse: missing ':port' in \"${input}\""
+      parseError "missing ':port' in \"${input}\""
     else if colons > 1 then
-      types.tryErr "libnet.ipEndpoint.parse: unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
+      parseError "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
@@ -75,9 +81,9 @@ let
         portResult = port.tryParse portString;
       in
       if !addressResult.success then
-        types.tryErr "libnet.ipEndpoint.parse: invalid IPv4 in \"${input}\""
+        parseError "invalid IPv4 in \"${input}\""
       else if !portResult.success then
-        types.tryErr "libnet.ipEndpoint.parse: invalid port in \"${input}\""
+        parseError "invalid port in \"${input}\""
       else
         types.tryOk (mk addressResult.value portResult.value);
 
@@ -93,7 +99,7 @@ let
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.ipEndpoint.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if parsing.startsWith "[" input then
       tryParseBracketed input
     else
@@ -125,12 +131,13 @@ let
   toString =
     endpoint:
     let
-      portString = port.toString endpoint.port;
+      checked = endpointOf "toString" endpoint;
+      portString = port.toString checked.port;
     in
-    if types.isIpv4 endpoint.address then
-      "${ipv4.toString endpoint.address}:${portString}"
+    if types.isIpv4 checked.address then
+      "${ipv4.toString checked.address}:${portString}"
     else
-      "[${ipv6.toString endpoint.address}]:${portString}";
+      "[${ipv6.toString checked.address}]:${portString}";
 
   /*
     Combine an already-parsed address and port into an endpoint.
@@ -139,16 +146,13 @@ let
     `portValue`: port value.
 
     Returns an ipEndpoint value; throws if either argument has the wrong
-    type.
+    kind.
   */
   make =
     addressValue: portValue:
-    if !(types.isIp addressValue) then
-      throw "libnet.ipEndpoint.make: address must be ipv4 or ipv6"
-    else if !(types.isPort portValue) then
-      throw "libnet.ipEndpoint.make: expected port value"
-    else
-      mk addressValue portValue;
+    mk (errors.expect "ipEndpoint.make" "ipv4 or ipv6 value" types.isIp addressValue) (
+      errors.expectKind "ipEndpoint.make" "port" portValue
+    );
 
   # ===== Predicates =====
 
@@ -177,7 +181,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv4 = endpoint: types.isIpv4 endpoint.address;
+  isIpv4 = endpoint: types.isIpv4 (endpointOf "isIpv4" endpoint).address;
 
   /*
     Test whether the endpoint's address is IPv6.
@@ -186,7 +190,7 @@ let
 
     Returns a Boolean.
   */
-  isIpv6 = endpoint: types.isIpv6 endpoint.address;
+  isIpv6 = endpoint: types.isIpv6 (endpointOf "isIpv6" endpoint).address;
 
   # ===== Accessors =====
 
@@ -197,7 +201,7 @@ let
 
     Returns an ipv4 or ipv6 value.
   */
-  address = endpoint: endpoint.address;
+  address = endpoint: (endpointOf "address" endpoint).address;
 
   /*
     Get the IP family of the endpoint's address.
@@ -206,16 +210,18 @@ let
 
     Returns `4` or `6`.
   */
-  version = endpoint: if types.isIpv4 endpoint.address then 4 else 6;
+  version = endpoint: if types.isIpv4 (endpointOf "version" endpoint).address then 4 else 6;
 
   # ===== Forwarded predicates (apply to address) =====
 
+  # Apply the family's function to the address; `function` names the
+  # public function for the argument-kind error.
   forwardToAddress =
-    ipv4Function: ipv6Function: endpoint:
-    if types.isIpv4 endpoint.address then
-      ipv4Function endpoint.address
-    else
-      ipv6Function endpoint.address;
+    function: ipv4Function: ipv6Function: endpoint:
+    let
+      inherit (endpointOf function endpoint) address;
+    in
+    if types.isIpv4 address then ipv4Function address else ipv6Function address;
 
   /*
     Test whether the endpoint's address is a loopback address.
@@ -224,7 +230,7 @@ let
 
     Returns a Boolean.
   */
-  isLoopback = endpoint: forwardToAddress ipv4.isLoopback ipv6.isLoopback endpoint;
+  isLoopback = forwardToAddress "isLoopback" ipv4.isLoopback ipv6.isLoopback;
 
   /*
     Test whether the endpoint's address is the unspecified address.
@@ -233,7 +239,7 @@ let
 
     Returns a Boolean.
   */
-  isUnspecified = endpoint: forwardToAddress ipv4.isUnspecified ipv6.isUnspecified endpoint;
+  isUnspecified = forwardToAddress "isUnspecified" ipv4.isUnspecified ipv6.isUnspecified;
 
   /*
     Test whether the endpoint's address is link-local.
@@ -242,7 +248,7 @@ let
 
     Returns a Boolean.
   */
-  isLinkLocal = endpoint: forwardToAddress ipv4.isLinkLocal ipv6.isLinkLocal endpoint;
+  isLinkLocal = forwardToAddress "isLinkLocal" ipv4.isLinkLocal ipv6.isLinkLocal;
 
   /*
     Test whether the endpoint's address is multicast.
@@ -251,7 +257,7 @@ let
 
     Returns a Boolean.
   */
-  isMulticast = endpoint: forwardToAddress ipv4.isMulticast ipv6.isMulticast endpoint;
+  isMulticast = forwardToAddress "isMulticast" ipv4.isMulticast ipv6.isMulticast;
 
   /*
     Test whether the endpoint's address is reserved for documentation.
@@ -260,7 +266,7 @@ let
 
     Returns a Boolean.
   */
-  isDocumentation = endpoint: forwardToAddress ipv4.isDocumentation ipv6.isDocumentation endpoint;
+  isDocumentation = forwardToAddress "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation;
 
   /*
     Test whether the endpoint's address is globally routable.
@@ -269,7 +275,7 @@ let
 
     Returns a Boolean.
   */
-  isGlobal = endpoint: forwardToAddress ipv4.isGlobal ipv6.isGlobal endpoint;
+  isGlobal = forwardToAddress "isGlobal" ipv4.isGlobal ipv6.isGlobal;
 
   /*
     Test whether the endpoint's address is a bogon (not expected on the
@@ -279,7 +285,7 @@ let
 
     Returns a Boolean.
   */
-  isBogon = endpoint: forwardToAddress ipv4.isBogon ipv6.isBogon endpoint;
+  isBogon = forwardToAddress "isBogon" ipv4.isBogon ipv6.isBogon;
 
   /*
     Render the endpoint's address as a reverse-DNS name; the port is
@@ -289,9 +295,31 @@ let
 
     Returns an `in-addr.arpa` or `ip6.arpa` name string.
   */
-  toArpa = endpoint: forwardToAddress ipv4.toArpa ipv6.toArpa endpoint;
+  toArpa = forwardToAddress "toArpa" ipv4.toArpa ipv6.toArpa;
 
   # ===== Comparison =====
+
+  # The order behind `compare`; each ordering function passes its own
+  # name, which its errors report.
+  compareFor =
+    function: a: b:
+    let
+      left = endpointOf function a;
+      right = endpointOf function b;
+    in
+    if types.isIpv4 left.address && types.isIpv6 right.address then
+      -1
+    else if types.isIpv6 left.address && types.isIpv4 right.address then
+      1
+    else
+      let
+        addressOrder =
+          if types.isIpv4 left.address then
+            ipv4.compare left.address right.address
+          else
+            ipv6.compare left.address right.address;
+      in
+      if addressOrder != 0 then addressOrder else port.compare left.port right.port;
 
   /*
     Test two endpoints for equality of family, address, and port.
@@ -314,21 +342,7 @@ let
 
     Returns `-1`, `0`, or `1`.
   */
-  compare =
-    a: b:
-    if types.isIpv4 a.address && types.isIpv6 b.address then
-      -1
-    else if types.isIpv6 a.address && types.isIpv4 b.address then
-      1
-    else
-      let
-        addressOrder =
-          if types.isIpv4 a.address then
-            ipv4.compare a.address b.address
-          else
-            ipv6.compare a.address b.address;
-      in
-      if addressOrder != 0 then addressOrder else port.compare a.port b.port;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` orders strictly before `b` under `compare`.
@@ -337,7 +351,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` orders before or equal to `b` under `compare`.
@@ -346,7 +360,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` orders strictly after `b` under `compare`.
@@ -355,7 +369,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` orders after or equal to `b` under `compare`.
@@ -364,7 +378,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two endpoints under `compare`.
@@ -373,7 +387,7 @@ let
 
     Returns `a` when they order equal, otherwise the lesser value.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two endpoints under `compare`.
@@ -382,7 +396,7 @@ let
 
     Returns `a` when they order equal, otherwise the greater value.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit
@@ -422,5 +436,5 @@ in
 
     Returns a port value.
   */
-  port = endpoint: endpoint.port;
+  port = endpoint: (endpointOf "port" endpoint).port;
 }

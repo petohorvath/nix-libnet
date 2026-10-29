@@ -92,7 +92,7 @@ let
   };
   unixSocket = {
     _type = "unixSocket";
-    path = "/run/foo.sock";
+    value = "/run/foo.sock";
   };
   socketUrl = {
     _type = "socketUrl";

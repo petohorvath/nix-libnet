@@ -226,6 +226,10 @@ in
     expr = secureSocketUrl.eq (parse "tls://1.2.3.4:443") (parse "tls://1.2.3.4:444");
     expected = false;
   };
+  testToStringDnsLowercase = {
+    expr = secureSocketUrl.toString (parse "tls://Example.COM:443");
+    expected = "tls://example.com:443";
+  };
   testEqDnsCaseInsensitive = {
     expr = secureSocketUrl.eq (parse "tls://Example.COM:443") (parse "tls://example.com:443");
     expected = true;

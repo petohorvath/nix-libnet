@@ -15,7 +15,7 @@
     endpoint = ipEndpoint | dnsEndpoint | unixSocket
 
   The three members are heterogeneous — `ipEndpoint` has `address` +
-  `port`, `dnsEndpoint` has `name` + `port`, `unixSocket` has `path` —
+  `port`, `dnsEndpoint` has `name` + `port`, `unixSocket` holds a path —
   so this union exposes predicates + `toString` + comparison rather
   than uniform accessors. Branch with `isIpEndpoint` / `isDnsEndpoint`
   / `isUnixSocket` and use the member module's accessors.
@@ -26,11 +26,22 @@
     libnet.endpoint.parse "/run/foo.sock"      # tagged unixSocket
 */
 let
+  errors = import ./internal/errors.nix;
   types = import ./internal/types.nix;
   parsing = import ./internal/parse.nix;
   ipEndpoint = import ./ip-endpoint.nix;
   dnsEndpoint = import ./dns-endpoint.nix;
   unixSocket = import ./unix-socket.nix;
+
+  isMember = value: types.isIpEndpoint value || types.isDnsEndpoint value || types.isUnixSocket value;
+
+  # Check the endpoint argument of `function`, throwing for a value of
+  # any other kind.
+  memberOf =
+    function:
+    errors.expect "endpoint.${function}" "ipEndpoint, dnsEndpoint or unixSocket value" isMember;
+
+  parseError = detail: types.tryErr (errors.message "endpoint.parse" detail);
 
   # ===== Parsing =====
 
@@ -44,14 +55,18 @@ let
     ipEndpoint rather than a dnsEndpoint.
 
     Returns a tryResult whose value is an ipEndpoint, dnsEndpoint, or
-    unixSocket; on failure, `error` explains why no member matched.
+    unixSocket; on failure, `error` names `endpoint.parse` and explains
+    why no member matched.
   */
   tryParse =
     input:
     if !(builtins.isString input) then
-      types.tryErr "libnet.endpoint.parse: input must be a string"
+      parseError "expected string, got ${errors.describe input}"
     else if parsing.startsWith "/" input || parsing.startsWith "@" input then
-      unixSocket.tryParse input
+      let
+        result = unixSocket.tryParse input;
+      in
+      if result.success then result else parseError (errors.detail "unixSocket.parse" result.error)
     else
       let
         ipEndpointResult = ipEndpoint.tryParse input;
@@ -65,7 +80,7 @@ let
         if dnsEndpointResult.success then
           dnsEndpointResult
         else
-          types.tryErr "libnet.endpoint.parse: \"${input}\" is not a valid IP, name, or unix-socket endpoint";
+          parseError "\"${input}\" is not a valid IP, name, or unix-socket endpoint";
 
   /*
     Parse any connection target, classifying it by shape as `tryParse`
@@ -94,14 +109,15 @@ let
   */
   toString =
     endpoint:
-    if types.isIpEndpoint endpoint then
-      ipEndpoint.toString endpoint
-    else if types.isDnsEndpoint endpoint then
-      dnsEndpoint.toString endpoint
-    else if types.isUnixSocket endpoint then
-      unixSocket.toString endpoint
+    let
+      checked = memberOf "toString" endpoint;
+    in
+    if types.isIpEndpoint checked then
+      ipEndpoint.toString checked
+    else if types.isDnsEndpoint checked then
+      dnsEndpoint.toString checked
     else
-      throw "libnet.endpoint.toString: expected ipEndpoint, dnsEndpoint, or unixSocket value";
+      unixSocket.toString checked;
 
   # ===== Predicates =====
 
@@ -121,7 +137,7 @@ let
 
     Returns a Boolean.
   */
-  is = value: types.isIpEndpoint value || types.isDnsEndpoint value || types.isUnixSocket value;
+  is = isMember;
 
   /*
     Test whether a value is an ipEndpoint.
@@ -153,7 +169,8 @@ let
   # ===== Comparison =====
   #
   # Cross-kind order: ipEndpoint < dnsEndpoint < unixSocket. Within a
-  # kind, delegates to that kind's comparator.
+  # kind, delegates to that kind's comparator. Each ordering function
+  # passes its own name, which its errors report.
 
   rank =
     value:
@@ -161,10 +178,27 @@ let
       0
     else if types.isDnsEndpoint value then
       1
-    else if types.isUnixSocket value then
-      2
     else
-      throw "libnet.endpoint.compare: expected ipEndpoint, dnsEndpoint, or unixSocket value";
+      2;
+
+  compareFor =
+    function: a: b:
+    let
+      left = memberOf function a;
+      right = memberOf function b;
+      rankA = rank left;
+      rankB = rank right;
+    in
+    if rankA < rankB then
+      -1
+    else if rankA > rankB then
+      1
+    else if rankA == 0 then
+      ipEndpoint.compare left right
+    else if rankA == 1 then
+      dnsEndpoint.compare left right
+    else
+      unixSocket.compare left right;
 
   /*
     Test two endpoints for equality using their member module's `eq`.
@@ -193,22 +227,7 @@ let
     Returns `-1`, `0`, or `1`; throws if either is not an endpoint
     member.
   */
-  compare =
-    a: b:
-    let
-      rankA = rank a;
-      rankB = rank b;
-    in
-    if rankA < rankB then
-      -1
-    else if rankA > rankB then
-      1
-    else if rankA == 0 then
-      ipEndpoint.compare a b
-    else if rankA == 1 then
-      dnsEndpoint.compare a b
-    else
-      unixSocket.compare a b;
+  compare = compareFor "compare";
 
   /*
     Test whether `a` orders strictly before `b` under `compare`.
@@ -217,7 +236,7 @@ let
 
     Returns a Boolean.
   */
-  lt = a: b: compare a b == -1;
+  lt = a: b: compareFor "lt" a b == -1;
 
   /*
     Test whether `a` orders before or equal to `b` under `compare`.
@@ -226,7 +245,7 @@ let
 
     Returns a Boolean.
   */
-  le = a: b: compare a b <= 0;
+  le = a: b: compareFor "le" a b <= 0;
 
   /*
     Test whether `a` orders strictly after `b` under `compare`.
@@ -235,7 +254,7 @@ let
 
     Returns a Boolean.
   */
-  gt = a: b: compare a b == 1;
+  gt = a: b: compareFor "gt" a b == 1;
 
   /*
     Test whether `a` orders after or equal to `b` under `compare`.
@@ -244,7 +263,7 @@ let
 
     Returns a Boolean.
   */
-  ge = a: b: compare a b >= 0;
+  ge = a: b: compareFor "ge" a b >= 0;
 
   /*
     Pick the lesser of two endpoints under `compare`.
@@ -253,7 +272,7 @@ let
 
     Returns `a` when they order equal, otherwise the lesser value.
   */
-  min = a: b: if le a b then a else b;
+  min = a: b: if compareFor "min" a b <= 0 then a else b;
 
   /*
     Pick the greater of two endpoints under `compare`.
@@ -262,7 +281,7 @@ let
 
     Returns `a` when they order equal, otherwise the greater value.
   */
-  max = a: b: if ge a b then a else b;
+  max = a: b: if compareFor "max" a b >= 0 then a else b;
 in
 {
   inherit

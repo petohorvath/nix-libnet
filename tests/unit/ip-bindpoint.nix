@@ -4,6 +4,7 @@ let
     ipBindpoint
     ipEndpoint
     ipv4
+    ipv6
     port
     portRange
     ;
@@ -59,16 +60,16 @@ in
     expected = true;
   };
   testRejectBadPort = {
-    expr = throws (parse ":70000");
-    expected = true;
+    expr = parse ":70000";
+    expectedError.msg = "^libnet\\.ipBindpoint\\.parse: invalid port field \"70000\"$";
   };
   testRejectOpenRange = {
     expr = throws (parse "1.2.3.4:5500-");
     expected = true;
   };
   testRejectReversedRange = {
-    expr = throws (parse "1.2.3.4:6000-5500");
-    expected = true;
+    expr = parse "1.2.3.4:6000-5500";
+    expectedError.msg = "^libnet\\.ipBindpoint\\.parse: invalid port field in \"1\\.2\\.3\\.4:6000-5500\"$";
   };
   testRejectLeadingZeros = {
     expr = map (input: (ipBindpoint.tryParse input).success) [
@@ -87,8 +88,8 @@ in
     expected = ":0";
   };
   testRejectNotString = {
-    expr = throws (ipBindpoint.parse 123);
-    expected = true;
+    expr = ipBindpoint.parse 123;
+    expectedError.msg = "^libnet\\.ipBindpoint\\.parse: expected string, got int$";
   };
 
   # ===== tryParse =====
@@ -197,12 +198,16 @@ in
     ];
   };
   testEndpointsNull = {
-    expr = throws (ipBindpoint.endpoints (parse ":80-82"));
-    expected = true;
+    expr = ipBindpoint.endpoints (parse ":80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpoints: null address cannot be materialized";
+  };
+  testEndpointsAtLimit = {
+    expr = builtins.length (ipBindpoint.endpoints (parse "1.2.3.4:0-4095"));
+    expected = 4096;
   };
   testEndpointsTooLarge = {
-    expr = throws (ipBindpoint.endpoints (parse "1.2.3.4:0-5000"));
-    expected = true;
+    expr = ipBindpoint.endpoints (parse "1.2.3.4:0-4096");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpoints: range too large \\(4097 > 4096\\); use endpointsUnbounded$";
   };
 
   testEndpointAt0 = {
@@ -217,13 +222,35 @@ in
     expr = ipEndpoint.toString (ipBindpoint.endpointAt (-1) (parse "1.2.3.4:80-82"));
     expected = "1.2.3.4:82";
   };
+  testEndpointAtFirstFromEnd = {
+    expr = ipEndpoint.toString (ipBindpoint.endpointAt (-3) (parse "1.2.3.4:80-82"));
+    expected = "1.2.3.4:80";
+  };
   testEndpointAtOutOfRange = {
-    expr = throws (ipBindpoint.endpointAt 3 (parse "1.2.3.4:80-82"));
-    expected = true;
+    expr = ipBindpoint.endpointAt 3 (parse "1.2.3.4:80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[0, 3\\)$";
+  };
+  testEndpointAtOutOfRangeFromEnd = {
+    expr = ipBindpoint.endpointAt (-4) (parse "1.2.3.4:80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[0, 3\\)$";
   };
   testEndpointAtNull = {
-    expr = throws (ipBindpoint.endpointAt 0 (parse ":80-82"));
-    expected = true;
+    expr = ipBindpoint.endpointAt 0 (parse ":80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: null address cannot be materialized$";
+  };
+  testEndpointAtFloatIndex = {
+    expr = ipBindpoint.endpointAt 1.5 (parse "1.2.3.4:80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: expected int, got float$";
+  };
+  testEndpointAtPartial = {
+    expr = map (bindpoint: ipEndpoint.toString (ipBindpoint.endpointAt 1 bindpoint)) [
+      (parse "1.2.3.4:80-82")
+      (parse "[::1]:443-444")
+    ];
+    expected = [
+      "1.2.3.4:81"
+      "[::1]:444"
+    ];
   };
 
   # ===== Forwarded predicates =====
@@ -288,8 +315,8 @@ in
     expected = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
   };
   testForwardedToArpaNull = {
-    expr = throws (ipBindpoint.toArpa (parse ":80"));
-    expected = true;
+    expr = ipBindpoint.toArpa (parse ":80");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.toArpa: null address has no reverse-DNS form$";
   };
 
   # ===== make / accessors / unbounded expansion =====
@@ -305,13 +332,25 @@ in
     );
     expected = ":80";
   };
-  testMakeBadAddress = {
-    expr = throws (ipBindpoint.make "1.2.3.4" (portRange.make (port.fromInt 80) (port.fromInt 80)));
+  testMakeRoundTrips = {
+    expr =
+      let
+        made = ipBindpoint.make (ipv6.parse "::1") (portRange.make (port.fromInt 80) (port.fromInt 82));
+      in
+      ipBindpoint.eq (parse (ipBindpoint.toString made)) made;
     expected = true;
   };
+  testMakeBadAddress = {
+    expr = ipBindpoint.make "1.2.3.4" (portRange.make (port.fromInt 80) (port.fromInt 80));
+    expectedError.msg = "^libnet\\.ipBindpoint\\.make: expected ipv4 or ipv6 value or null, got string$";
+  };
   testMakeBadPortRange = {
-    expr = throws (ipBindpoint.make (ipv4.parse "1.2.3.4") 80);
-    expected = true;
+    expr = ipBindpoint.make (ipv4.parse "1.2.3.4") 80;
+    expectedError.msg = "^libnet\\.ipBindpoint\\.make: expected portRange value, got int$";
+  };
+  testEndpointsUnboundedNullNamesItself = {
+    expr = ipBindpoint.endpointsUnbounded (parse ":80-82");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointsUnbounded: null address cannot be materialized";
   };
   testEndpointsUnboundedLength = {
     expr = builtins.length (ipBindpoint.endpointsUnbounded (parse "1.2.3.4:0-5000"));

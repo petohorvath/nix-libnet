@@ -34,16 +34,16 @@ in
 
   # ===== Reject =====
   testRejectUnbracketedV6 = {
-    expr = throws (parse "::1:80");
-    expected = true;
+    expr = parse "::1:80";
+    expectedError.msg = "^libnet\\.ipEndpoint\\.parse: unbracketed IPv6 is ambiguous";
   };
   testRejectNoPort = {
     expr = throws (parse "1.2.3.4");
     expected = true;
   };
   testRejectBracketedV4 = {
-    expr = throws (parse "[1.2.3.4]:80");
-    expected = true;
+    expr = parse "[1.2.3.4]:80";
+    expectedError.msg = "^libnet\\.ipEndpoint\\.parse: invalid IPv6 in \"\\[1\\.2\\.3\\.4\\]:80\"$";
   };
   testRejectEmptyPort = {
     expr = throws (parse "1.2.3.4:");
@@ -54,8 +54,8 @@ in
     expected = true;
   };
   testRejectPortOutOfRange = {
-    expr = throws (parse "1.2.3.4:70000");
-    expected = true;
+    expr = parse "1.2.3.4:70000";
+    expectedError.msg = "^libnet\\.ipEndpoint\\.parse: invalid port in \"1\\.2\\.3\\.4:70000\"$";
   };
   testRejectPortLeadingZero = {
     expr = map (input: throws (parse input)) [
@@ -76,8 +76,8 @@ in
     expected = true;
   };
   testRejectNotString = {
-    expr = throws (ipEndpoint.parse 123);
-    expected = true;
+    expr = ipEndpoint.parse 123;
+    expectedError.msg = "^libnet\\.ipEndpoint\\.parse: expected string, got int$";
   };
 
   # ===== tryParse =====
@@ -86,8 +86,12 @@ in
     expected = true;
   };
   testTryParseBad = {
-    expr = (ipEndpoint.tryParse "bad").success;
-    expected = false;
+    expr = ipEndpoint.tryParse "bad";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.ipEndpoint.parse: missing ':port' in \"bad\"";
+    };
   };
 
   # ===== Round-trip =====
@@ -101,6 +105,22 @@ in
   };
 
   # ===== make / accessors =====
+  testMakeRoundTrips = {
+    expr =
+      let
+        made = ipEndpoint.make (ipv6.parse "2001:db8::1") (port.fromInt 443);
+      in
+      ipEndpoint.eq (parse (ipEndpoint.toString made)) made;
+    expected = true;
+  };
+  testMakeRejectsString = {
+    expr = ipEndpoint.make "1.2.3.4" (port.fromInt 80);
+    expectedError.msg = "^libnet\\.ipEndpoint\\.make: expected ipv4 or ipv6 value, got string$";
+  };
+  testMakeRejectsIntPort = {
+    expr = ipEndpoint.make (ipv4.parse "1.2.3.4") 80;
+    expectedError.msg = "^libnet\\.ipEndpoint\\.make: expected port value, got int$";
+  };
   testMakeV4 = {
     expr = ipEndpoint.toString (ipEndpoint.make (ipv4.parse "1.2.3.4") (port.fromInt 80));
     expected = "1.2.3.4:80";

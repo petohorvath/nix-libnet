@@ -3,6 +3,8 @@ let
   # Sample texts per namespace with a comparison suite, including
   # spellings that differ without changing meaning (case, a default port,
   # an input spelling such as `ssl`), so that both outcomes of `eq` occur.
+  # Mixed-case names parse to the same value (ADR 0020); interface names
+  # keep their case, so `eth0` and `ETH0` differ.
   samples = {
     authority = [
       "example.com"
@@ -146,6 +148,8 @@ let
     regName = [
       "my_host"
       "MY_HOST"
+      "a%2fb"
+      "A%2Fb"
       "other"
     ];
     secureSocketUrl = [
@@ -187,6 +191,8 @@ let
     urlHost = [
       "example.com"
       "EXAMPLE.com"
+      "a%2f"
+      "a%2F"
       "192.0.2.1"
       "[::1]"
       "[0::1]"
@@ -212,6 +218,44 @@ let
           b = module.parse textB;
         in
         if (module.compare a b == 0) == module.eq a b then
+          [ ]
+        else
+          [
+            [
+              textA
+              textB
+            ]
+          ]
+      ) texts
+    ) texts;
+
+  # Kinds whose `parse` folds every spelling that `eq` ignores, so that
+  # `eq`, and `compare a b == 0`, hold exactly when the values are equal.
+  structural = [
+    "dnsName"
+    "domain"
+    "host"
+    "hostname"
+    "interfaceName"
+    "regName"
+    "urlHost"
+  ];
+
+  # The pairs, as texts, where `eq a b` disagrees with `a == b`.
+  nonStructural =
+    name: texts:
+    let
+      module = libnet.${name};
+    in
+    builtins.concatMap (
+      textA:
+      builtins.concatMap (
+        textB:
+        let
+          a = module.parse textA;
+          b = module.parse textB;
+        in
+        if module.eq a b == (a == b) then
           [ ]
         else
           [
@@ -294,6 +338,15 @@ in
     expected = namespacesWithCompare;
   };
 }
+// builtins.listToAttrs (
+  map (name: {
+    name = "test${capitalize name}IsStructural";
+    value = {
+      expr = nonStructural name samples.${name};
+      expected = [ ];
+    };
+  }) structural
+)
 // builtins.listToAttrs (
   map (name: {
     name = "test${capitalize name}";

@@ -40,13 +40,26 @@ in
     expr = throws (parse "");
     expected = true;
   };
-  testRejectBadPort = {
-    expr = throws (parse ":99999");
-    expected = true;
+  # A member's failure keeps its detail under the union's name.
+  testRejectBadPortNamesUnion = {
+    expr = parse ":99999";
+    expectedError.msg = "^libnet\\.bindpoint\\.parse: invalid port field \"99999\"$";
+  };
+  testRejectSlashOnlyNamesUnion = {
+    expr = parse "/";
+    expectedError.msg = "^libnet\\.bindpoint\\.parse: invalid socket \"/\" ";
+  };
+  testRejectNameNamesUnion = {
+    expr = parse "x";
+    expectedError.msg = "^libnet\\.bindpoint\\.parse: missing ':port' in \"x\"$";
+  };
+  testTryParseBadNamesUnion = {
+    expr = (bindpoint.tryParse "localhost:80").error;
+    expected = "libnet.bindpoint.parse: invalid IPv4 in \"localhost:80\"";
   };
   testRejectNotString = {
-    expr = throws (bindpoint.parse 42);
-    expected = true;
+    expr = bindpoint.parse 42;
+    expectedError.msg = "^libnet\\.bindpoint\\.parse: expected string, got int$";
   };
 
   testTryParseOkIp = {
@@ -146,6 +159,24 @@ in
   testCompareUnixAfterIp = {
     expr = bindpoint.compare (parse "/run/foo.sock") (parse ":8080");
     expected = 1;
+  };
+  testCompareNamesItself = {
+    expr = bindpoint.lt (parse ":80") (libnet.ipEndpoint.parse "192.0.2.1:80");
+    expectedError.msg = "^libnet\\.bindpoint\\.lt: expected ipBindpoint or unixSocket value, got ipEndpoint value$";
+  };
+  testToStringNamesItself = {
+    expr = bindpoint.toString { };
+    expectedError.msg = "^libnet\\.bindpoint\\.toString: expected ipBindpoint or unixSocket value, got set$";
+  };
+  testMemberPredicatesAcceptAnyValue = {
+    expr = map (predicate: predicate ":80") [
+      bindpoint.isIpBindpoint
+      bindpoint.isUnixSocket
+    ];
+    expected = [
+      false
+      false
+    ];
   };
   testMinPicksIp = {
     expr = (bindpoint.min (parse "/run/foo.sock") (parse ":8080"))._type;

@@ -45,7 +45,7 @@ let
     if result.success then
       result
     else
-      types.tryErr (errors.message "ip.parse" (errors.detailOf "${member}.parse" result.error));
+      types.tryErr (errors.message "ip.parse" (errors.detail "${member}.parse" result.error));
 
   # ===== Parsing =====
 

@@ -254,6 +254,395 @@ let
           ge.intOperand = icmpType.ge value 8;
         };
       };
+    cidr =
+      let
+        inherit (libnet) cidr ipv4;
+        value = cidr.parse "10.0.0.0/24";
+        address = ipv4.parse "10.0.0.1";
+      in
+      {
+        module = cidr;
+        inherit value;
+        rejects = {
+          toString.ipv4Operand = cidr.toString address;
+          make = {
+            stringAddress = cidr.make "10.0.0.0" 24;
+            cidrAddress = cidr.make value 24;
+            floatPrefix = cidr.make address 24.0;
+          };
+          fromAddress.string = cidr.fromAddress "10.0.0.1";
+          contains = {
+            string = cidr.contains value "10.0.0.1";
+            cidrOperand = cidr.contains value value;
+            ipv4Block = cidr.contains address address;
+          };
+          addressAt = {
+            floatIndex = cidr.addressAt 1.5 value;
+            stringIndex = cidr.addressAt "1" value;
+          };
+          subnets.floatCount = cidr.subnets 1.0 value;
+          supernet.nullCount = cidr.supernet null value;
+          size.ipv4Operand = cidr.size address;
+          hosts.interfaceAddressOperand = cidr.hosts (libnet.interfaceAddress.parse "10.0.0.1/24");
+          isSubnetOf.ipv4Operand = cidr.isSubnetOf address value;
+          overlaps.ipRangeOperand = cidr.overlaps value (libnet.ipRange.fromCidr value);
+          lt.stringOperand = cidr.lt value "10.0.0.0/24";
+          summarize = {
+            set = cidr.summarize { };
+            ipv4Element = cidr.summarize [ address ];
+          };
+        };
+      };
+    ipRange =
+      let
+        inherit (libnet) cidr ipRange ipv4;
+        value = ipRange.parse "10.0.0.1-10.0.0.9";
+        address = ipv4.parse "10.0.0.5";
+      in
+      {
+        module = ipRange;
+        inherit value;
+        rejects = {
+          toString.cidrOperand = ipRange.toString (cidr.parse "10.0.0.0/24");
+          make = {
+            stringFrom = ipRange.make "10.0.0.1" address;
+            cidrTo = ipRange.make address (cidr.parse "10.0.0.0/24");
+          };
+          fromAddress.int = ipRange.fromAddress 167772161;
+          fromCidr.ipv4 = ipRange.fromCidr address;
+          contains = {
+            cidrOperand = ipRange.contains value (cidr.parse "10.0.0.0/30");
+            string = ipRange.contains value "10.0.0.5";
+            ipv4Range = ipRange.contains address address;
+          };
+          addressAt = {
+            floatIndex = ipRange.addressAt 1.5 value;
+            nullIndex = ipRange.addressAt null value;
+          };
+          size.cidrOperand = ipRange.size (cidr.parse "10.0.0.0/24");
+          addresses.portRangeOperand = ipRange.addresses (libnet.portRange.parse "80-90");
+          overlaps.cidrOperand = ipRange.overlaps value (cidr.parse "10.0.0.0/24");
+          isAdjacent.ipv4Operand = ipRange.isAdjacent address value;
+          toCidrs.cidrOperand = ipRange.toCidrs (cidr.parse "10.0.0.0/24");
+          le.stringOperand = ipRange.le value "10.0.0.1-10.0.0.9";
+        };
+      };
+    interfaceAddress =
+      let
+        inherit (libnet) cidr interfaceAddress ipv4;
+        value = interfaceAddress.parse "10.0.0.1/24";
+        address = ipv4.parse "10.0.0.1";
+      in
+      {
+        module = interfaceAddress;
+        inherit value;
+        rejects = {
+          toString.cidrOperand = interfaceAddress.toString (cidr.parse "10.0.0.0/24");
+          make = {
+            cidrAddress = interfaceAddress.make (cidr.parse "10.0.0.0/24") 24;
+            stringPrefix = interfaceAddress.make address "24";
+          };
+          fromAddress.string = interfaceAddress.fromAddress "10.0.0.1";
+          fromCidrAndAddress = {
+            ipv4Block = interfaceAddress.fromCidrAndAddress address address;
+            cidrAddress = interfaceAddress.fromCidrAndAddress (cidr.parse "10.0.0.0/24") (
+              cidr.parse "10.0.0.0/24"
+            );
+          };
+          address.ipv4Operand = interfaceAddress.address address;
+          cidr.cidrOperand = interfaceAddress.cidr (cidr.parse "10.0.0.0/24");
+          broadcast.ipv4Operand = interfaceAddress.broadcast address;
+          isGlobal.ipv4Operand = interfaceAddress.isGlobal address;
+          gt.cidrOperand = interfaceAddress.gt value (cidr.parse "10.0.0.0/24");
+        };
+      };
+    portRange =
+      let
+        inherit (libnet) port portRange;
+        value = portRange.parse "80-90";
+      in
+      {
+        module = portRange;
+        inherit value;
+        rejects = {
+          toString.portOperand = portRange.toString (port.fromInt 80);
+          make = {
+            intFrom = portRange.make 80 (port.fromInt 90);
+            intTo = portRange.make (port.fromInt 80) 90;
+          };
+          fromPort.int = portRange.fromPort 80;
+          contains = {
+            intPort = portRange.contains value 85;
+            portOperand = portRange.contains (port.fromInt 80) (port.fromInt 80);
+          };
+          portAt = {
+            floatIndex = portRange.portAt 1.5 value;
+            stringIndex = portRange.portAt "1" value;
+          };
+          overlaps.portOperand = portRange.overlaps value (port.fromInt 85);
+          isSubrangeOf.stringOperand = portRange.isSubrangeOf "80-90" value;
+          compare.intOperand = portRange.compare value 80;
+          size.int = portRange.size 80;
+          ports.portOperand = portRange.ports (port.fromInt 80);
+        };
+      };
+    hostname =
+      let
+        inherit (libnet) hostname;
+        value = hostname.parse "nas";
+      in
+      {
+        module = hostname;
+        inherit value;
+        rejects = {
+          toString.string = hostname.toString "nas";
+          compare.domainOperand = hostname.compare value (libnet.domain.parse "nas.example");
+          max.string = hostname.max "nas" value;
+        };
+      };
+    domain =
+      let
+        inherit (libnet) domain;
+        value = domain.parse "example.com";
+      in
+      {
+        module = domain;
+        inherit value;
+        rejects = {
+          toString.hostnameOperand = domain.toString (libnet.hostname.parse "example");
+          fromLabels = {
+            string = domain.fromLabels "example.com";
+            intLabel = domain.fromLabels [
+              "example"
+              1
+            ];
+          };
+          labels.string = domain.labels "example.com";
+          parent.regNameOperand = domain.parent (libnet.regName.parse "example.com");
+          isSubdomainOf.string = domain.isSubdomainOf value "example.com";
+          isSuperdomainOf.null = domain.isSuperdomainOf null value;
+          toHostname.set = domain.toHostname { };
+          le.string = domain.le "example.com" value;
+        };
+      };
+    dnsName =
+      let
+        inherit (libnet) dnsName;
+        value = dnsName.parse "example.com";
+      in
+      {
+        module = dnsName;
+        inherit value;
+        rejects = {
+          toString.ipv4Operand = dnsName.toString (libnet.ipv4.parse "192.0.2.1");
+          compare.regNameOperand = dnsName.compare value (libnet.regName.parse "example.com");
+          gt.string = dnsName.gt "example.com" value;
+        };
+      };
+    host =
+      let
+        inherit (libnet) host;
+        value = host.parse "example.com";
+      in
+      {
+        module = host;
+        inherit value;
+        rejects = {
+          toString.regNameOperand = host.toString (libnet.regName.parse "example.com");
+          compare.string = host.compare value "example.com";
+          min.portOperand = host.min (libnet.port.fromInt 80) value;
+        };
+      };
+    regName =
+      let
+        inherit (libnet) regName;
+        value = regName.parse "my_host";
+      in
+      {
+        module = regName;
+        inherit value;
+        rejects = {
+          toString.domainOperand = regName.toString (libnet.domain.parse "example.com");
+          compare.string = regName.compare value "my_host";
+          lt.hostnameOperand = regName.lt (libnet.hostname.parse "a") value;
+        };
+      };
+    urlHost =
+      let
+        inherit (libnet) urlHost;
+        value = urlHost.parse "example.com";
+      in
+      {
+        module = urlHost;
+        inherit value;
+        rejects = {
+          toString.domainOperand = urlHost.toString (libnet.domain.parse "example.com");
+          toHost.string = urlHost.toHost "example.com";
+          compare.hostnameOperand = urlHost.compare value (libnet.hostname.parse "a");
+          ge.null = urlHost.ge null value;
+        };
+      };
+    interfaceName =
+      let
+        inherit (libnet) interfaceName;
+        value = interfaceName.parse "eth0";
+      in
+      {
+        module = interfaceName;
+        inherit value;
+        rejects = {
+          toString.string = interfaceName.toString "eth0";
+          compare.hostnameOperand = interfaceName.compare value (libnet.hostname.parse "eth0");
+          min.set = interfaceName.min { } value;
+        };
+      };
+    unixSocket =
+      let
+        inherit (libnet) unixSocket;
+        value = unixSocket.parse "/run/foo.sock";
+      in
+      {
+        module = unixSocket;
+        inherit value;
+        rejects = {
+          toString = {
+            string = unixSocket.toString "/run/foo.sock";
+            untagged = unixSocket.toString { value = "/run/foo.sock"; };
+          };
+          isPathname.ipEndpointOperand = unixSocket.isPathname (libnet.ipEndpoint.parse "192.0.2.1:80");
+          isAbstract.string = unixSocket.isAbstract "@foo";
+          compare.stringOperand = unixSocket.compare value "/run/foo.sock";
+          lt.intOperand = unixSocket.lt 1 value;
+          max.stringOperand = unixSocket.max value "/run/foo.sock";
+        };
+      };
+    ipEndpoint =
+      let
+        inherit (libnet) ipEndpoint;
+        value = ipEndpoint.parse "192.0.2.1:80";
+        address = libnet.ipv4.parse "192.0.2.1";
+        port = libnet.port.fromInt 80;
+      in
+      {
+        module = ipEndpoint;
+        inherit value;
+        rejects = {
+          toString.string = ipEndpoint.toString "192.0.2.1:80";
+          make = {
+            stringAddress = ipEndpoint.make "192.0.2.1" port;
+            macAddress = ipEndpoint.make (libnet.mac.parse "00:00:5e:00:53:01") port;
+            intPort = ipEndpoint.make address 80;
+          };
+          address.dnsEndpointOperand = ipEndpoint.address (libnet.dnsEndpoint.parse "nas:22");
+          port.ipBindpointOperand = ipEndpoint.port (libnet.ipBindpoint.parse "192.0.2.1:80");
+          version.ipv4Operand = ipEndpoint.version address;
+          isIpv6.string = ipEndpoint.isIpv6 "[::1]:80";
+          isLoopback.ipv4Operand = ipEndpoint.isLoopback address;
+          toArpa.null = ipEndpoint.toArpa null;
+          compare.unixSocketOperand = ipEndpoint.compare value (libnet.unixSocket.parse "/run/foo.sock");
+          le.stringOperand = ipEndpoint.le "192.0.2.1:80" value;
+          min.intOperand = ipEndpoint.min value 80;
+        };
+      };
+    dnsEndpoint =
+      let
+        inherit (libnet) dnsEndpoint;
+        value = dnsEndpoint.parse "nas:22";
+        port = libnet.port.fromInt 22;
+      in
+      {
+        module = dnsEndpoint;
+        inherit value;
+        rejects = {
+          toString.ipEndpointOperand = dnsEndpoint.toString (libnet.ipEndpoint.parse "192.0.2.1:22");
+          make = {
+            stringName = dnsEndpoint.make "nas" port;
+            ipv4Name = dnsEndpoint.make (libnet.ipv4.parse "192.0.2.1") port;
+            intPort = dnsEndpoint.make (libnet.dnsName.parse "nas") 22;
+          };
+          name.string = dnsEndpoint.name "nas:22";
+          port.null = dnsEndpoint.port null;
+          isHostname.hostnameOperand = dnsEndpoint.isHostname (libnet.hostname.parse "nas");
+          isDomain.set = dnsEndpoint.isDomain { };
+          compare.stringOperand = dnsEndpoint.compare "nas:22" value;
+          gt.ipEndpointOperand = dnsEndpoint.gt value (libnet.ipEndpoint.parse "192.0.2.1:22");
+          max.intOperand = dnsEndpoint.max 22 value;
+        };
+      };
+    endpoint =
+      let
+        inherit (libnet) endpoint;
+        value = endpoint.parse "/run/foo.sock";
+      in
+      {
+        module = endpoint;
+        inherit value;
+        rejects = {
+          toString = {
+            string = endpoint.toString "/run/foo.sock";
+            ipBindpointOperand = endpoint.toString (libnet.ipBindpoint.parse ":80");
+          };
+          compare.stringOperand = endpoint.compare value "/run/foo.sock";
+          lt.ipv4Operand = endpoint.lt (libnet.ipv4.parse "192.0.2.1") value;
+          min.intOperand = endpoint.min value 80;
+        };
+      };
+    ipBindpoint =
+      let
+        inherit (libnet) ipBindpoint;
+        value = ipBindpoint.parse "192.0.2.1:80-82";
+        address = libnet.ipv4.parse "192.0.2.1";
+        portRange = libnet.portRange.parse "80-82";
+        endpoint = libnet.ipEndpoint.parse "192.0.2.1:80";
+      in
+      {
+        module = ipBindpoint;
+        inherit value;
+        rejects = {
+          toString.string = ipBindpoint.toString ":80";
+          make = {
+            stringAddress = ipBindpoint.make "192.0.2.1" portRange;
+            macAddress = ipBindpoint.make (libnet.mac.parse "00:00:5e:00:53:01") portRange;
+            portOperand = ipBindpoint.make address (libnet.port.fromInt 80);
+            stringPortRange = ipBindpoint.make null "80-82";
+          };
+          address.ipEndpointOperand = ipBindpoint.address endpoint;
+          portRange.portRangeOperand = ipBindpoint.portRange portRange;
+          version.null = ipBindpoint.version null;
+          isWildcard.string = ipBindpoint.isWildcard ":80";
+          isIpv4.ipEndpointOperand = ipBindpoint.isIpv4 endpoint;
+          isGlobal.ipv4Operand = ipBindpoint.isGlobal address;
+          toArpa.ipEndpointOperand = ipBindpoint.toArpa endpoint;
+          endpoints.string = ipBindpoint.endpoints "192.0.2.1:80-82";
+          endpointsUnbounded.ipEndpointOperand = ipBindpoint.endpointsUnbounded endpoint;
+          endpointAt = {
+            floatIndex = ipBindpoint.endpointAt 1.5 value;
+            stringIndex = ipBindpoint.endpointAt "1" value;
+            ipEndpointOperand = ipBindpoint.endpointAt 0 endpoint;
+          };
+          compare.unixSocketOperand = ipBindpoint.compare value (libnet.unixSocket.parse "/run/foo.sock");
+          ge.stringOperand = ipBindpoint.ge ":80" value;
+          max.intOperand = ipBindpoint.max value 80;
+        };
+      };
+    bindpoint =
+      let
+        inherit (libnet) bindpoint;
+        value = bindpoint.parse ":80";
+      in
+      {
+        module = bindpoint;
+        inherit value;
+        rejects = {
+          toString = {
+            string = bindpoint.toString ":80";
+            ipEndpointOperand = bindpoint.toString (libnet.ipEndpoint.parse "192.0.2.1:80");
+          };
+          compare.dnsEndpointOperand = bindpoint.compare value (libnet.dnsEndpoint.parse "nas:22");
+          le.intOperand = bindpoint.le 80 value;
+          max.stringOperand = bindpoint.max value ":80";
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a
