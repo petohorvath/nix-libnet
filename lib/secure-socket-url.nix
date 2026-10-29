@@ -6,9 +6,9 @@
   every scheme implies TLS. Not a general URL parser (no userinfo, path,
   query, fragment, or percent-encoding; see `url` for that).
 
-  Schemes (a closed registry; `secure` is therefore always true):
+  Schemes (a closed registry, every one TLS-secured):
   - `tls` — TLS over TCP (`tls://1.2.3.4:443`). `ssl` is accepted on
-    input as an alias and canonicalizes to `tls`.
+    input as another spelling and canonicalizes to `tls`.
   - `dtls` — DTLS over UDP (`dtls://[::1]:5684`).
   - `quic` — QUIC over UDP (`quic://example.com:443`); QUIC mandates
     TLS 1.3, so it has no plaintext form.
@@ -37,28 +37,30 @@ let
 
   lowerAscii = dnsLabel.toLowerAscii;
 
-  # Closed registry of secured schemes, `scheme -> { transport }`. Every
-  # scheme is TLS-secured, so `secure` is a constant of the type rather
-  # than a per-scheme field.
+  # Closed registry of secured schemes, `scheme -> { transport; secure; }`.
+  # Every scheme is TLS-secured.
   schemes = {
-    tls = {
-      transport = "tcp";
-    };
     dtls = {
       transport = "udp";
+      secure = true;
     };
     quic = {
       transport = "udp";
+      secure = true;
+    };
+    tls = {
+      transport = "tcp";
+      secure = true;
     };
   };
 
-  # Input aliases that canonicalize to a registry scheme. `ssl` is the
+  # Input spellings that canonicalize to a registry scheme. `ssl` is the
   # obsolete spelling of `tls`; both mean TLS-over-TCP.
-  aliases = {
+  inputSpellings = {
     ssl = "tls";
   };
 
-  canonicalizeScheme = schemeName: aliases.${schemeName} or schemeName;
+  canonicalizeScheme = schemeName: inputSpellings.${schemeName} or schemeName;
 
   schemeHint = "expected tls/ssl, dtls, or quic";
 
@@ -75,7 +77,7 @@ let
     report or recover from invalid input.
 
     `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
-    `ssl` (alias of `tls`), `dtls`, or `quic`, matched
+    `ssl` (read as `tls`), `dtls`, or `quic`, matched
     case-insensitively; the port is required.
 
     Returns a tryResult: `{ success = true; value; }` with a
@@ -100,7 +102,7 @@ let
           # rejected by the endpoint parser).
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
         in
-        if !(builtins.hasAttr canonicalScheme schemes) then
+        if !(schemes ? ${canonicalScheme}) then
           types.tryErr "libnet.secureSocketUrl.parse: unknown scheme \"${rawScheme}\" (${schemeHint})"
         else
           let
@@ -117,7 +119,7 @@ let
     Parse a secure socket URL.
 
     `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
-    `ssl` (alias of `tls`), `dtls`, or `quic`, matched
+    `ssl` (read as `tls`), `dtls`, or `quic`, matched
     case-insensitively; the port is required.
 
     Returns a secureSocketUrl value with the canonical scheme; throws on
@@ -162,7 +164,7 @@ let
       let
         canonicalScheme = canonicalizeScheme (lowerAscii inputScheme);
       in
-      if !(builtins.hasAttr canonicalScheme schemes) then
+      if !(schemes ? ${canonicalScheme}) then
         throw "libnet.secureSocketUrl.make: unknown scheme \"${inputScheme}\" (${schemeHint})"
       else if !(endpoint.is endpointValue) then
         throw "libnet.secureSocketUrl.make: expected an endpoint value"
@@ -194,14 +196,14 @@ let
   is = value: types.isSecureSocketUrl value;
 
   /*
-    Report whether a secure socket URL is TLS-secured, for code that
-    handles it alongside other socket types.
+    Check whether a secure socket URL's scheme implies TLS, per the scheme
+    registry.
 
-    `_`: secureSocketUrl value (ignored).
+    `secureSocketUrl`: secureSocketUrl value.
 
     Returns true; every scheme in the registry is TLS-secured.
   */
-  isSecure = _: true;
+  isSecure = secureSocketUrl: schemes.${secureSocketUrl.scheme}.secure;
 
   # ===== Accessors =====
 
@@ -210,24 +212,15 @@ let
 
     `secureSocketUrl`: secureSocketUrl value.
 
-    Returns "tls", "dtls", or "quic".
+    Returns "dtls", "quic", or "tls".
   */
   scheme = secureSocketUrl: secureSocketUrl.scheme;
 
   # ===== Comparison =====
   #
-  # Sorted by a fixed scheme rank (tls < dtls < quic), then by endpoint.
-  # Ranking on the scheme (not the derived transport) keeps `dtls` and
-  # `quic` — both UDP — distinct.
-
-  schemeRank =
-    canonicalScheme:
-    if canonicalScheme == "tls" then
-      0
-    else if canonicalScheme == "dtls" then
-      1
-    else
-      2;
+  # Sorted by scheme name (dtls < quic < tls), for determinism only, then
+  # by endpoint. Comparing the scheme (not the derived transport) keeps
+  # `dtls` and `quic` — both UDP — distinct.
 
   /*
     Compare two secure socket URLs for equality.
@@ -239,8 +232,8 @@ let
   eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && endpoint.eq a.endpoint b.endpoint;
 
   /*
-    Order two secure socket URLs by scheme (tls < dtls < quic), then by
-    endpoint.
+    Order two secure socket URLs by scheme name (dtls < quic < tls), then
+    by endpoint.
 
     `a`, `b`: secureSocketUrl values.
 
@@ -248,13 +241,9 @@ let
   */
   compare =
     a: b:
-    let
-      rankA = schemeRank a.scheme;
-      rankB = schemeRank b.scheme;
-    in
-    if rankA < rankB then
+    if a.scheme < b.scheme then
       -1
-    else if rankA > rankB then
+    else if a.scheme > b.scheme then
       1
     else
       endpoint.compare a.endpoint b.endpoint;
@@ -315,7 +304,6 @@ let
 in
 {
   inherit
-    aliases
     compare
     eq
     ge

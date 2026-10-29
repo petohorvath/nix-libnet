@@ -33,19 +33,19 @@ in
 
 ## Types
 
-| Type                                                                                 | Accepts                                                        |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `ipv4`, `ipv6`, `ip`                                                                 | An address of that family, or either.                          |
-| `mac`                                                                                | A MAC address in any input form; not normalized.               |
-| `cidr`, `ipv4Cidr`, `ipv6Cidr`                                                       | A CIDR with host bits zero, optionally restricted to a family. |
-| `ipRange`                                                                            | `from-to`.                                                     |
-| `interfaceAddress`, `ipv4InterfaceAddress`, `ipv6InterfaceAddress`                   | `address/prefix`, optionally restricted to a family.           |
-| `interfaceName`                                                                      | A Linux interface name.                                        |
-| `port`                                                                               | A port as an integer or decimal string; merges to an integer.  |
-| `portRange`                                                                          | A port or `from-to`.                                           |
-| `transport`                                                                          | `tcp`, `udp` or `sctp`.                                        |
-| `hostname`, `domain`, `dnsName`, `host`                                              | The matching name kind.                                        |
-| `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`                                | The matching target.                                           |
-| `ipBindpoint`, `bindpoint`                                                           | The matching bind target.                                      |
-| `socketUrl`, `bindUrl`, `secureSocketUrl`, `url`, `urlHost`, `authority`, `proxyUrl` | The matching URL form or part.                                 |
-| `vlanId`, `mtu`, `icmpType`                                                          | An integer or decimal string; merges to an integer.            |
+| Type                                                                                            | Accepts                                                        |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `ipv4`, `ipv6`, `ip`                                                                            | An address of that family, or either.                          |
+| `mac`                                                                                           | A MAC address in any input form; not normalized.               |
+| `cidr`, `ipv4Cidr`, `ipv6Cidr`                                                                  | A CIDR with host bits zero, optionally restricted to a family. |
+| `ipRange`                                                                                       | `from-to`.                                                     |
+| `interfaceAddress`, `ipv4InterfaceAddress`, `ipv6InterfaceAddress`                              | `address/prefix`, optionally restricted to a family.           |
+| `interfaceName`                                                                                 | A Linux interface name.                                        |
+| `port`                                                                                          | A port as an integer or decimal string; merges to an integer.  |
+| `portRange`                                                                                     | A port or `from-to`.                                           |
+| `transport`                                                                                     | `tcp`, `udp` or `sctp`.                                        |
+| `hostname`, `domain`, `dnsName`, `host`                                                         | The matching name kind.                                        |
+| `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`                                           | The matching target.                                           |
+| `ipBindpoint`, `bindpoint`                                                                      | The matching bind target.                                      |
+| `socketUrl`, `bindUrl`, `secureSocketUrl`, `url`, `urlHost`, `regName`, `authority`, `proxyUrl` | The matching URL form or part.                                 |
+| `vlanId`, `mtu`, `icmpType`                                                                     | An integer or decimal string; merges to an integer.            |

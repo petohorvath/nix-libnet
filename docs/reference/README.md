@@ -2,17 +2,17 @@
 
 This reference is the contract for libnet's public API: the value each namespace produces, its canonical text, and the behavior of every function. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md); the reasons behind the design are in [`docs/adr/`](../adr/).
 
-| Area                                    | Namespaces                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------ |
-| [Addresses](addresses.md)               | `ipv4`, `ipv6`, `ip`, `mac`                                                          |
-| [Networks](networks.md)                 | `cidr`, `ipRange`, `interfaceAddress`                                                |
-| [Ports and transports](ports.md)        | `port`, `portRange`, `transport`                                                     |
-| [Names](names.md)                       | `hostname`, `domain`, `dnsName`, `host`, `interfaceName`                             |
-| [Targets](targets.md)                   | `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`, `ipBindpoint`, `bindpoint`    |
-| [URL forms](urls.md)                    | `socketUrl`, `bindUrl`, `secureSocketUrl`, `urlHost`, `authority`, `url`, `proxyUrl` |
-| [Bounded integers](bounded-integers.md) | `port`, `vlanId`, `mtu`, `icmpType`                                                  |
-| [Registry](registry.md)                 | `registry`                                                                           |
-| [Module types](module-types.md)         | `withLib`, `types`                                                                   |
+| Area                                    | Namespaces                                                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Addresses](addresses.md)               | `ipv4`, `ipv6`, `ip`, `mac`                                                                     |
+| [Networks](networks.md)                 | `cidr`, `ipRange`, `interfaceAddress`                                                           |
+| [Ports and transports](ports.md)        | `port`, `portRange`, `transport`                                                                |
+| [Names](names.md)                       | `hostname`, `domain`, `dnsName`, `host`, `interfaceName`                                        |
+| [Targets](targets.md)                   | `ipEndpoint`, `dnsEndpoint`, `unixSocket`, `endpoint`, `ipBindpoint`, `bindpoint`               |
+| [URL forms](urls.md)                    | `socketUrl`, `bindUrl`, `secureSocketUrl`, `urlHost`, `regName`, `authority`, `url`, `proxyUrl` |
+| [Bounded integers](bounded-integers.md) | `port`, `vlanId`, `mtu`, `icmpType`                                                             |
+| [Registry](registry.md)                 | `registry`                                                                                      |
+| [Module types](module-types.md)         | `withLib`, `types`                                                                              |
 
 Signatures are Haskell-style reading aids; Nix is dynamically typed. `lib/internal/` is not reachable through `libnet` and is not part of the contract.
 
@@ -32,7 +32,7 @@ Each namespace page lists which suites it provides and documents only what diffe
 
 `TryResult T` is `{ success = Bool; value = T or null; error = String or null; }`, with `error` set only on failure.
 
-**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
+**Comparison**: `eq`, `lt`, `le`, `gt`, `ge` of type `T → T → Bool`; `compare :: T → T → Int` returning `-1`, `0` or `1`; and `min`, `max` of type `T → T → T`. `eq` ignores spelling that does not change meaning, such as the case of a case-insensitive component or a port equal to the scheme default, and counts every stored component. `compare a b` is `0` exactly when `eq a b`. Across kinds and families, and for operands that are not tagged values, `eq` is `false` and never throws, and ordering puts IPv4 before IPv6 ([ADR 0007](../adr/0007-cross-type-comparison.md)).
 
 **Arithmetic**:
 
@@ -51,7 +51,7 @@ Each namespace page lists which suites it provides and documents only what diffe
 | `isGlobal`, `isBogon`                                                          | Family-aware routability ([ADR 0014](../adr/0014-address-classification.md)). |
 | `toArpa`                                                                       | Reverse-DNS name.                                                             |
 
-Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call them on the address directly.
+Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call them on the address directly. Composites may forward accessors and predicates from a nested part in the same way, as `url.host` reads the host of `url.authority`.
 
 ## Conventions
 
@@ -60,7 +60,8 @@ Family-specific predicates such as `ipv4.isPrivate` are never forwarded; call th
 - **One name per operation**: the library has no function aliases. Input spellings, such as `ssl` for `tls` or `any` for the wildcard address, are not aliases.
 - **Accessors** share their name with the field they read, such as `cidr.prefix`. A scalar's generic `value` field has no accessor; read it with `toString` or `toInt`.
 - **Union predicates**: a pass-through union has one `is<Member>` predicate per direct member, such as `host.isIp` and `host.isDnsName`. Test a leaf kind with its own `is`, such as `hostname.is`.
-- **Constants** are tagged values of the kind, such as `ipv4.loopback`; integer domain bounds, such as `port.highestValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
+- **Constants** are tagged values of the kind, such as `ipv4.loopback` and `transport.values`; integer domain bounds, such as `port.highestValue` and `interfaceName.maxLength`; or scheme tables, such as `url.schemes`. They are named for their meaning in libnet, not copied from C headers.
+- **Tagged results**: functions return tagged values for tagged kinds, so `url.defaultPort` returns a `Port`. Constant tables, such as `url.schemes` and `registry.ports`, and integer domain bounds hold plain literals.
 - **Constructors**: `make` takes a tagged value for a tagged field and a raw value for a raw one ([ADR 0004](../adr/0004-tagged-values.md)), so `portRange.make` takes two `Port` values and `cidr.make` an `Ip` and an integer prefix. Build tagged arguments with `parse` or `fromInt`.
 - **Errors** throw messages that begin with `libnet` and name the function. Only `tryParse` recovers ([ADR 0006](../adr/0006-parse-throws-tryparse-recovers.md)).
 - **Enumeration** functions throw above a size guard and have an `*Unbounded` sibling ([ADR 0015](../adr/0015-enumeration-size-guards.md)).

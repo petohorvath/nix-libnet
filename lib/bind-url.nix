@@ -18,7 +18,8 @@
   - `unix` → a socket path follows (`unix:///run/foo.sock`,
     `unix://@abstract`); no port.
 
-  Schemes match case-insensitively and are emitted lowercase.
+  Schemes match case-insensitively and are emitted lowercase, and sort
+  by name (sctp < tcp < udp < unix).
 
   Stored as the underlying `transport` + `bindpoint` pair:
 
@@ -41,10 +42,14 @@ let
   dnsLabel = import ./internal/dns-label.nix;
   transport = import ./transport.nix;
   bindpoint = import ./bindpoint.nix;
+  socketUrl = import ./socket-url.nix;
 
   lowerAscii = dnsLabel.toLowerAscii;
 
   unixScheme = "unix";
+
+  # The socket URL registry: a bind URL takes the same schemes.
+  inherit (socketUrl) schemes;
 
   mk = transportValue: bindpointValue: {
     _type = "bindUrl";
@@ -85,6 +90,8 @@ let
         in
         if !bindpointResult.success then
           types.tryErr "libnet.bindUrl.parse: invalid bind address in \"${input}\""
+        else if !(schemes ? ${lowerScheme}) then
+          types.tryErr "libnet.bindUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
         else
           let
             bindpointValue = bindpointResult.value;
@@ -94,16 +101,10 @@ let
               types.tryOk (mk null bindpointValue)
             else
               types.tryErr "libnet.bindUrl.parse: 'unix://' requires a socket path: \"${input}\""
+          else if types.isUnixSocket bindpointValue then
+            types.tryErr "libnet.bindUrl.parse: '${lowerScheme}://' requires [addr]:port, not a socket path: \"${input}\""
           else
-            let
-              transportResult = transport.tryParse lowerScheme;
-            in
-            if !transportResult.success then
-              types.tryErr "libnet.bindUrl.parse: unknown scheme \"${rawScheme}\" (expected tcp, udp, sctp, or unix)"
-            else if types.isUnixSocket bindpointValue then
-              types.tryErr "libnet.bindUrl.parse: '${lowerScheme}://' requires [addr]:port, not a socket path: \"${input}\""
-            else
-              types.tryOk (mk transportResult.value bindpointValue);
+            types.tryOk (mk (transport.parse schemes.${lowerScheme}.transport) bindpointValue);
 
   /*
     Parse a bind URL.
@@ -130,12 +131,7 @@ let
     Returns `<scheme>://<bindpoint>`, such as "tcp://:8080" or
     "unix:///run/foo.sock".
   */
-  toString =
-    bindUrl:
-    let
-      scheme = if bindUrl.transport == null then unixScheme else transport.toString bindUrl.transport;
-    in
-    "${scheme}://${bindpoint.toString bindUrl.bindpoint}";
+  toString = bindUrl: "${scheme bindUrl}://${bindpoint.toString bindUrl.bindpoint}";
 
   # ===== Construction =====
 
@@ -195,47 +191,45 @@ let
   */
   isUnix = bindUrl: bindUrl.transport == null;
 
+  /*
+    Check whether a bind URL's scheme implies TLS, per the scheme
+    registry.
+
+    `bindUrl`: bindUrl value.
+
+    Returns false; no bind scheme is TLS-secured.
+  */
+  isSecure = bindUrl: schemes.${scheme bindUrl}.secure;
+
   # ===== Accessors =====
+
+  /*
+    Get the canonical scheme of a bind URL.
+
+    `bindUrl`: bindUrl value.
+
+    Returns "sctp", "tcp", "udp", or "unix".
+  */
+  scheme =
+    bindUrl: if bindUrl.transport == null then unixScheme else transport.toString bindUrl.transport;
 
   # ===== Comparison =====
   #
-  # `transport` itself has no canonical order, so binds sort by a fixed
-  # scheme rank (tcp < udp < sctp < unix), then by bindpoint.
-
-  schemeRank =
-    transportValue:
-    if transportValue == null then
-      3
-    else if transport.isTcp transportValue then
-      0
-    else if transport.isUdp transportValue then
-      1
-    else
-      2;
-
-  transportEq =
-    a: b:
-    if a == null && b == null then
-      true
-    else if a == null || b == null then
-      false
-    else
-      transport.eq a b;
+  # Sorted by scheme name (sctp < tcp < udp < unix), for determinism
+  # only, then by bindpoint.
 
   /*
     Compare two bind URLs for equality.
 
     `a`, `b`: bindUrl values.
 
-    Returns true when the type tags, transports, and bindpoints match.
+    Returns true when the type tags, schemes, and bindpoints match.
   */
-  eq =
-    a: b:
-    types.hasSameTag a b && transportEq a.transport b.transport && bindpoint.eq a.bindpoint b.bindpoint;
+  eq = a: b: types.hasSameTag a b && scheme a == scheme b && bindpoint.eq a.bindpoint b.bindpoint;
 
   /*
-    Order two bind URLs by scheme (tcp < udp < sctp < unix), then by
-    bindpoint.
+    Order two bind URLs by scheme name (sctp < tcp < udp < unix), then
+    by bindpoint.
 
     `a`, `b`: bindUrl values.
 
@@ -244,12 +238,12 @@ let
   compare =
     a: b:
     let
-      rankA = schemeRank a.transport;
-      rankB = schemeRank b.transport;
+      schemeA = scheme a;
+      schemeB = scheme b;
     in
-    if rankA < rankB then
+    if schemeA < schemeB then
       -1
-    else if rankA > rankB then
+    else if schemeA > schemeB then
       1
     else
       bindpoint.compare a.bindpoint b.bindpoint;
@@ -307,13 +301,6 @@ let
     Returns the one that sorts last; `a` when they are equal.
   */
   max = a: b: if ge a b then a else b;
-
-  schemes = [
-    "tcp"
-    "udp"
-    "sctp"
-    "unix"
-  ];
 in
 {
   inherit
@@ -322,6 +309,7 @@ in
     ge
     gt
     is
+    isSecure
     isUnix
     isValid
     le
@@ -330,6 +318,7 @@ in
     max
     min
     parse
+    scheme
     schemes
     toString
     tryParse

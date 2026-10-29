@@ -8,9 +8,10 @@
 
   Schemes (closed registry): `http` / `https` (an HTTP proxy, reached
   plain or over TLS), `socks4` / `socks4a`, `socks5` / `socks5h` (the
-  `a` / `h` variants resolve DNS at the proxy). Schemes match
-  case-insensitively and are emitted lowercase. The port is required —
-  proxy default ports are not standardized.
+  `a` / `h` variants resolve DNS at the proxy). Every scheme runs over
+  TCP. Schemes match case-insensitively, are emitted lowercase, and sort
+  by name. The port is required — proxy default ports are not
+  standardized.
 
     { _type = "proxyUrl"; scheme = <scheme>; authority = <authority>; }
 
@@ -23,17 +24,28 @@ let
   parsing = import ./internal/parse.nix;
   dnsLabel = import ./internal/dns-label.nix;
   authority = import ./authority.nix;
+  urlHost = import ./url-host.nix;
+  transport = import ./transport.nix;
+  ipEndpoint = import ./ip-endpoint.nix;
+  dnsEndpoint = import ./dns-endpoint.nix;
 
   lowerAscii = dnsLabel.toLowerAscii;
 
-  schemes = [
-    "http"
-    "https"
-    "socks4"
-    "socks4a"
-    "socks5"
-    "socks5h"
-  ];
+  # Closed registry of proxy schemes, `scheme -> { transport; secure; }`.
+  # `secure` covers the client-to-proxy hop: only `https` reaches the
+  # proxy over TLS; `socks5h`'s `h` means remote DNS, not TLS.
+  mkScheme = secure: {
+    transport = "tcp";
+    inherit secure;
+  };
+  schemes = {
+    http = mkScheme false;
+    https = mkScheme true;
+    socks4 = mkScheme false;
+    socks4a = mkScheme false;
+    socks5 = mkScheme false;
+    socks5h = mkScheme false;
+  };
 
   schemeHint = "expected http, https, socks4, socks4a, socks5, or socks5h";
 
@@ -72,7 +84,7 @@ let
           lowerScheme = lowerAscii rawScheme;
           rest = builtins.concatStringsSep "://" (builtins.tail parts);
         in
-        if !(builtins.elem lowerScheme schemes) then
+        if !(schemes ? ${lowerScheme}) then
           types.tryErr "libnet.proxyUrl.parse: unknown scheme \"${rawScheme}\" (${schemeHint})"
         else
           let
@@ -113,7 +125,7 @@ let
   /*
     Build a proxy URL from a scheme and an existing authority value.
 
-    `schemeName`: one of `schemes`, matched case-insensitively.
+    `schemeName`: a key of `schemes`, matched case-insensitively.
     `authorityValue`: an authority value that carries an explicit port.
 
     Returns a proxyUrl value with the scheme lowercased; throws on a
@@ -127,7 +139,7 @@ let
       let
         lowerScheme = lowerAscii schemeName;
       in
-      if !(builtins.elem lowerScheme schemes) then
+      if !(schemes ? ${lowerScheme}) then
         throw "libnet.proxyUrl.make: unknown scheme \"${schemeName}\" (${schemeHint})"
       else if !(authority.is authorityValue) then
         throw "libnet.proxyUrl.make: expected an authority value"
@@ -157,15 +169,15 @@ let
   is = value: types.isProxyUrl value;
 
   /*
-    Check whether the client-to-proxy hop uses TLS. Only `https` does;
-    `http` and every SOCKS scheme (including `socks5h`, whose `h` means
-    remote DNS) reach the proxy in plaintext.
+    Check whether the client-to-proxy hop uses TLS, per the scheme
+    registry. Only `https` does; `http` and every SOCKS scheme (including
+    `socks5h`, whose `h` means remote DNS) reach the proxy in plaintext.
 
     `proxyUrl`: a proxyUrl value.
 
     Returns true only for the `https` scheme.
   */
-  isSecure = proxyUrl: proxyUrl.scheme == "https";
+  isSecure = proxyUrl: schemes.${proxyUrl.scheme}.secure;
 
   # ===== Accessors =====
 
@@ -178,25 +190,55 @@ let
   */
   scheme = proxyUrl: proxyUrl.scheme;
 
+  /*
+    Get the userinfo of a proxy URL.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the authority's raw userinfo string, or null when absent.
+  */
+  userinfo = proxyUrl: proxyUrl.authority.userinfo;
+
+  /*
+    Get the host of a proxy URL.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the authority's host: an ipv4, ipv6, or regName value.
+  */
+  host = proxyUrl: proxyUrl.authority.host;
+
+  # ===== Conversions =====
+
+  /*
+    Convert a proxy URL to the L4 connect target for its host and port.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns an ipEndpoint for IP hosts or a dnsEndpoint for registered
+    names that are valid DNS names; throws for other registered names,
+    which have no endpoint.
+  */
+  toEndpoint =
+    proxyUrl:
+    let
+      hostValue = host proxyUrl;
+      targetPort = proxyUrl.authority.port;
+    in
+    if urlHost.isIp hostValue then
+      ipEndpoint.make hostValue targetPort
+    else
+      let
+        dnsHost = urlHost.toHost hostValue;
+      in
+      if dnsHost == null then
+        throw "libnet.proxyUrl.toEndpoint: registered name \"${urlHost.toString hostValue}\" is not a valid DNS name"
+      else
+        dnsEndpoint.make dnsHost targetPort;
+
   # ===== Comparison =====
   #
-  # Fixed scheme rank (http < https < socks4 < socks4a < socks5 <
-  # socks5h), then by authority.
-
-  schemeRank =
-    schemeValue:
-    if schemeValue == "http" then
-      0
-    else if schemeValue == "https" then
-      1
-    else if schemeValue == "socks4" then
-      2
-    else if schemeValue == "socks4a" then
-      3
-    else if schemeValue == "socks5" then
-      4
-    else
-      5;
+  # Sorted by scheme name, for determinism only, then by authority.
 
   /*
     Test two proxy URLs for equality.
@@ -209,7 +251,7 @@ let
   eq = a: b: types.hasSameTag a b && a.scheme == b.scheme && authority.eq a.authority b.authority;
 
   /*
-    Order two proxy URLs by scheme rank (http < https < socks4 < socks4a <
+    Order two proxy URLs by scheme name (http < https < socks4 < socks4a <
     socks5 < socks5h), then by authority.
 
     `a`, `b`: proxyUrl values.
@@ -218,13 +260,9 @@ let
   */
   compare =
     a: b:
-    let
-      rankA = schemeRank a.scheme;
-      rankB = schemeRank b.scheme;
-    in
-    if rankA < rankB then
+    if a.scheme < b.scheme then
       -1
-    else if rankA > rankB then
+    else if a.scheme > b.scheme then
       1
     else
       authority.compare a.authority b.authority;
@@ -289,6 +327,7 @@ in
     eq
     ge
     gt
+    host
     is
     isSecure
     isValid
@@ -300,12 +339,14 @@ in
     parse
     scheme
     schemes
+    toEndpoint
     toString
     tryParse
+    userinfo
     ;
 
-  # Defined here rather than in `let`, where `authority` names the
-  # authority module.
+  # Defined here rather than in `let`, where `authority`, `port` and
+  # `transport` name the imported modules.
   /*
     Get the authority of a proxy URL; reach the host, userinfo, and port
     through it.
@@ -315,4 +356,22 @@ in
     Returns the authority value.
   */
   authority = proxyUrl: proxyUrl.authority;
+
+  /*
+    Get the port of a proxy URL.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the authority's port value, which a proxy URL always carries.
+  */
+  port = proxyUrl: proxyUrl.authority.port;
+
+  /*
+    Get the L4 transport of a proxy URL's scheme.
+
+    `proxyUrl`: a proxyUrl value.
+
+    Returns the `tcp` transport value; every proxy scheme runs over TCP.
+  */
+  transport = proxyUrl: transport.parse schemes.${proxyUrl.scheme}.transport;
 }

@@ -48,11 +48,11 @@ in
     expected = "u:pw";
   };
   testParseUnderscoreHost = {
-    expr = (authority.host (parse "my_host")).name;
+    expr = (authority.host (parse "my_host")).value;
     expected = "my_host";
   };
   testParseHostCasePreserved = {
-    expr = (authority.host (parse "Example.COM")).name;
+    expr = (authority.host (parse "Example.COM")).value;
     expected = "Example.COM";
   };
 
@@ -66,12 +66,12 @@ in
     expected = null;
   };
   testAccessorHostName = {
-    expr = (authority.host (parse "h")).name;
+    expr = (authority.host (parse "h")).value;
     expected = "h";
   };
-  testAccessorHostKindIp = {
-    expr = (authority.host (parse "1.2.3.4")).kind;
-    expected = "ip";
+  testAccessorHostIpv4 = {
+    expr = authority.host (parse "1.2.3.4");
+    expected = ipv4.parse "1.2.3.4";
   };
   testAccessorPort = {
     expr = port.toInt (authority.port (parse "h:8080"));
@@ -167,8 +167,17 @@ in
     expr = throws (authority.make { host = "example.com"; });
     expected = true;
   };
-  testMakeBadHostIpv4 = {
-    expr = throws (authority.make { host = ipv4.parse "1.2.3.4"; });
+  testMakeIpv4Host = {
+    expr = authority.toString (
+      authority.make {
+        host = ipv4.parse "1.2.3.4";
+        port = port.fromInt 80;
+      }
+    );
+    expected = "1.2.3.4:80";
+  };
+  testMakeBadHostDomain = {
+    expr = throws (authority.make { host = libnet.domain.parse "example.com"; });
     expected = true;
   };
   testMakeBadPortInt = {

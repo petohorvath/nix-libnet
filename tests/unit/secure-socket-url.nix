@@ -230,13 +230,18 @@ in
     expr = secureSocketUrl.eq (parse "tls://Example.COM:443") (parse "tls://example.com:443");
     expected = true;
   };
-  testCompareTlsBeforeDtls = {
-    expr = secureSocketUrl.compare (parse "tls://1.2.3.4:443") (parse "dtls://1.2.3.4:443");
+  # Schemes sort by name: dtls < quic < tls.
+  testCompareDtlsBeforeTls = {
+    expr = secureSocketUrl.compare (parse "dtls://1.2.3.4:443") (parse "tls://1.2.3.4:443");
     expected = -1;
   };
   testCompareDtlsBeforeQuic = {
     expr = secureSocketUrl.compare (parse "dtls://1.2.3.4:443") (parse "quic://1.2.3.4:443");
     expected = -1;
+  };
+  testCompareSslSortsAsTls = {
+    expr = secureSocketUrl.compare (parse "ssl://1.2.3.4:443") (parse "quic://1.2.3.4:443");
+    expected = 1;
   };
   testCompareWithinSchemeByEndpoint = {
     expr = secureSocketUrl.compare (parse "tls://1.2.3.4:443") (parse "tls://1.2.3.4:444");
@@ -251,21 +256,23 @@ in
   testSchemesRegistry = {
     expr = secureSocketUrl.schemes;
     expected = {
-      tls = {
-        transport = "tcp";
-      };
       dtls = {
         transport = "udp";
+        secure = true;
       };
       quic = {
         transport = "udp";
+        secure = true;
+      };
+      tls = {
+        transport = "tcp";
+        secure = true;
       };
     };
   };
-  testAliasesConstant = {
-    expr = secureSocketUrl.aliases;
-    expected = {
-      ssl = "tls";
-    };
+  # `ssl` is an input spelling of `tls`, not a scheme of its own.
+  testSchemesExcludeSsl = {
+    expr = secureSocketUrl.schemes ? ssl;
+    expected = false;
   };
 }

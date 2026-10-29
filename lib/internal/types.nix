@@ -23,7 +23,7 @@ let
     bindUrl = "bindUrl";
     secureSocketUrl = "secureSocketUrl";
     url = "url";
-    urlHost = "urlHost";
+    regName = "regName";
     authority = "authority";
     proxyUrl = "proxyUrl";
   };
@@ -57,10 +57,11 @@ let
   isBindUrl = hasTag tags.bindUrl;
   isSecureSocketUrl = hasTag tags.secureSocketUrl;
   isUrl = hasTag tags.url;
-  isUrlHost = hasTag tags.urlHost;
+  isRegName = hasTag tags.regName;
   isAuthority = hasTag tags.authority;
   isProxyUrl = hasTag tags.proxyUrl;
   isIp = value: isIpv4 value || isIpv6 value;
+  isUrlHost = value: isIp value || isRegName value;
 
   tryOk = value: {
     success = true;
@@ -107,6 +108,7 @@ in
     isPort
     isPortRange
     isProxyUrl
+    isRegName
     isSecureSocketUrl
     isSocketUrl
     isTransport

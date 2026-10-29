@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `domain.isSuperdomainOf`, the converse of `isSubdomainOf`, so either side of the relation can be partially applied.
 - `vlanId.parse`, `mtu.parse` and `icmpType.parse`, with `tryParse`, over decimal text, so every bounded integer has the parsing suite that `port` has.
 - `types.vlanId`, `types.mtu` and `types.icmpType` accept a decimal string as well as an integer and merge to an integer, like `types.port`.
+- `regName`, the RFC 3986 registered name, as `{ _type = "regName"; value = String; }` with the parsing suite and case-insensitive comparison, and `types.regName`.
+- `transport.compare`, `lt`, `le`, `gt`, `ge`, `min` and `max`, ordering transports by name (`sctp < tcp < udp`) for determinism only.
+- Every URL form has `scheme`, `transport` and `isSecure`: `socketUrl` and `bindUrl` gain `scheme` and `isSecure` (always `false`), and `proxyUrl` gains `transport` (always `tcp`).
+- `proxyUrl.host`, `proxyUrl.port`, `proxyUrl.userinfo` and `proxyUrl.toEndpoint`, which `url` has too, and `url.authority`.
 
 ### Changed
 
@@ -30,6 +34,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** rename `host.isName` to `host.isDnsName`, so each union's predicates name its direct members.
 - **Breaking:** replace `interfaceName.ifnamsiz` (`16`, the kernel buffer size) with `interfaceName.maxLength` (`15`, the longest valid name).
 - **Breaking:** `vlanId.isValid`, `mtu.isValid` and `icmpType.isValid` take decimal text, like every other `isValid`, so `vlanId.isValid 100` is now `false`. Integer callers use `fromInt` or the module types.
+- **Breaking:** `urlHost` is a pass-through union over `ip` and `regName`: `urlHost.parse "[::1]"` returns an `ipv6` value and `urlHost.parse "my_host"` a `regName` value, instead of a `urlHost` value with `kind`, `ip` and `name` fields. `authority.make` and `url.make` accept an `ipv4` or `ipv6` value as the host.
+- **Breaking:** `url` stores its authority nested, as `{ _type = "url"; scheme; authority; path; query; fragment; }`, like `proxyUrl`. `url.make` takes `{ scheme; authority; path ? ""; query ? null; fragment ? null; }`: write `authority = authority.make { host = urlHost.parse "example.com"; port = port.fromInt 8443; };`. Read the host, port and userinfo with `url.host`, `url.port` and `url.userinfo` rather than fields.
+- **Breaking:** `url.eq` counts userinfo, so `https://alice@h` no longer equals `https://bob@h`, and `url.compare` orders by userinfo after the effective port, `null` first.
+- **Breaking:** `url.defaultPort` returns a port value instead of an integer, so `port.eq (url.effectivePort u) (url.defaultPort u)` works directly. Wrap it in `port.toInt` for the integer.
+- **Breaking:** every URL form sorts schemes by name: `socketUrl` and `bindUrl` as `sctp < tcp < udp < unix`, and `secureSocketUrl` as `dtls < quic < tls`.
+- **Breaking:** every URL form's `schemes` is an attribute set from scheme name to `{ transport; secure; }`, with `url` adding `defaultPort`. `socketUrl.schemes`, `bindUrl.schemes` and `proxyUrl.schemes` were lists of names; use `builtins.attrNames`.
+- **Breaking:** `transport.values` holds the tagged transports in sorted order, `[ sctp tcp udp ]`, instead of the name strings `[ "tcp" "udp" "sctp" ]`.
 - Format through treefmt-nix: `nix fmt` runs nixfmt, deadnix, actionlint, and prettier instead of only nixfmt, and `checks.<system>.treefmt` replaces `checks.<system>.formatting`.
 
 ### Removed
@@ -43,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking:** `cidr.containsAddress` and `cidr.containsCidr`; use `cidr.contains` and `cidr.isSupernetOf`.
 - **Breaking:** `ipBindpoint.isRange`, since a single port is also a port range; use `portRange.isSingleton (ipBindpoint.portRange b)`.
 - **Breaking:** the constants `urlHost.regNamePattern`, the parser's internal grammar, and `unixSocket.sunPathMax`, which gave one limit for two: a pathname socket allows 107 bytes and an abstract name 108.
+- **Breaking:** `secureSocketUrl.aliases`; `ssl` remains an input spelling of `tls` that `parse` and `make` accept.
 
 ## [0.1.0] - 2026-10-13
 

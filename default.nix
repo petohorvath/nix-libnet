@@ -16,6 +16,7 @@ let
     secureSocketUrl = import ./lib/secure-socket-url.nix;
     url = import ./lib/url.nix;
     urlHost = import ./lib/url-host.nix;
+    regName = import ./lib/reg-name.nix;
     authority = import ./lib/authority.nix;
     proxyUrl = import ./lib/proxy-url.nix;
     ipBindpoint = import ./lib/ip-bindpoint.nix;

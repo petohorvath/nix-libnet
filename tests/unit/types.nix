@@ -537,6 +537,40 @@ else
       expected = true;
     };
 
+    # ===== regName =====
+    testRegNameOk = {
+      expr = types.regName.check "my_host";
+      expected = true;
+    };
+    testRegNamePercentEncoded = {
+      expr = types.regName.check "a%20b";
+      expected = true;
+    };
+    testRegNameBracketedV6 = {
+      expr = types.regName.check "[::1]";
+      expected = false;
+    };
+    testRegNameBad = {
+      expr = types.regName.check "bad host";
+      expected = false;
+    };
+    testRegNameInt = {
+      expr = types.regName.check 42;
+      expected = false;
+    };
+    testRegNameMkOk = {
+      expr = types.regName.mk "my_host";
+      expected = "my_host";
+    };
+    testRegNameMkBad = {
+      expr = throws (types.regName.mk "bad host");
+      expected = true;
+    };
+    testRegNameDescription = {
+      expr = builtins.isString types.regName.description;
+      expected = true;
+    };
+
     # ===== authority =====
     testAuthorityHostOnly = {
       expr = types.authority.check "example.com";
