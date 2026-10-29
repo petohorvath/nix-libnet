@@ -148,10 +148,10 @@ let
     else
       let
         rawScheme = split.scheme;
-        lowerScheme = lowerAscii rawScheme;
+        canonicalScheme = lowerAscii rawScheme;
         inherit (split) rest;
       in
-      if !(schemes ? ${lowerScheme}) then
+      if !(schemes ? ${canonicalScheme}) then
         types.tryErr "unknown scheme \"${rawScheme}\": \"${input}\""
       else
         let
@@ -184,7 +184,7 @@ let
         else if componentDetail != null then
           types.tryErr componentDetail
         else
-          types.tryOk (mk lowerScheme authorityResult.value pathValue queryValue fragmentValue);
+          types.tryOk (mk canonicalScheme authorityResult.value pathValue queryValue fragmentValue);
 
   parsers = parsing.suite "url" tryParseDetail;
 
@@ -242,7 +242,7 @@ let
         ];
       } arguments;
       schemeValue = errors.expectType caller "string" checked.scheme;
-      lowerScheme = lowerAscii schemeValue;
+      canonicalScheme = lowerAscii schemeValue;
       authorityValue = errors.expectKind caller "authority" checked.authority;
       pathValue = errors.expectType caller "string" (checked.path or "");
       optionalString = errors.expect caller "string or null" (
@@ -252,12 +252,12 @@ let
       fragmentValue = optionalString (checked.fragment or null);
       componentDetail = componentError pathValue queryValue fragmentValue;
     in
-    if !(schemes ? ${lowerScheme}) then
+    if !(schemes ? ${canonicalScheme}) then
       errors.fail caller "unknown scheme \"${schemeValue}\""
     else if componentDetail != null then
       errors.fail caller componentDetail
     else
-      mk lowerScheme authorityValue pathValue queryValue fragmentValue;
+      mk canonicalScheme authorityValue pathValue queryValue fragmentValue;
 
   # ===== Predicates =====
 

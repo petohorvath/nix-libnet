@@ -30,6 +30,17 @@ let
     else
       types.tryErr "bad address \"${input}\"";
   addressPrefix = parsing.addressPrefix addressStub;
+
+  # A registry of `tcp` and `tls`, which `ssl` spells too; schemes are
+  # matched case-sensitively here.
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = scheme: if scheme == "ssl" then "tls" else scheme;
+    schemes = {
+      tcp = { };
+      tls = { };
+    };
+    hint = "expected tcp or tls";
+  };
 in
 {
   # ===== suite =====
@@ -701,6 +712,39 @@ in
     expected = [
       (types.tryErr "prefix /33 out of range")
       (types.tryErr "prefix /129 out of range")
+    ];
+  };
+
+  # ===== splitKnownScheme =====
+  testSplitKnownSchemeCanonicalizes = {
+    expr = map splitKnownScheme [
+      "tcp://a:1"
+      "ssl://b://c"
+    ];
+    expected = map types.tryOk [
+      {
+        scheme = "tcp";
+        rest = "a:1";
+      }
+      {
+        scheme = "tls";
+        rest = "b://c";
+      }
+    ];
+  };
+  testSplitKnownSchemeMissingSeparator = {
+    expr = splitKnownScheme "tcp:/a";
+    expected = types.tryErr "missing '<scheme>://': \"tcp:/a\"";
+  };
+  # The unknown scheme is quoted as written, before canonicalizing.
+  testSplitKnownSchemeUnknown = {
+    expr = map splitKnownScheme [
+      "TCP://a:1"
+      "://a:1"
+    ];
+    expected = [
+      (types.tryErr "unknown scheme \"TCP\" (expected tcp or tls)")
+      (types.tryErr "unknown scheme \"\" (expected tcp or tls)")
     ];
   };
 

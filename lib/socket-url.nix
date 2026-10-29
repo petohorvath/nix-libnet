@@ -70,9 +70,15 @@ let
 
   schemeHint = "expected tcp, udp, sctp, or unix";
 
-  mk = schemeName: endpointValue: {
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
+  mk = canonicalScheme: endpointValue: {
     _type = "socketUrl";
-    scheme = schemeName;
+    scheme = canonicalScheme;
     endpoint = endpointValue;
   };
 
@@ -95,34 +101,28 @@ let
   tryParseDetail =
     input:
     let
-      split = parsing.splitScheme input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if split == null then
-      types.tryErr "missing '<scheme>://': \"${input}\""
+    if !schemeResult.success then
+      schemeResult
     else
       let
-        rawScheme = split.scheme;
-        schemeName = lowerAscii rawScheme;
-        inherit (split) rest;
+        endpointResult = endpoint.tryParseDetail rest;
+        endpointValue = endpointResult.value;
       in
-      if !(schemes ? ${schemeName}) then
-        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
-      else
-        let
-          endpointResult = endpoint.tryParseDetail rest;
-          endpointValue = endpointResult.value;
-        in
-        if !endpointResult.success then
-          endpointResult
-        else if schemeName == unixScheme then
-          if types.isUnixSocket endpointValue then
-            types.tryOk (mk schemeName endpointValue)
-          else
-            types.tryErr "'unix://' requires a socket path: \"${input}\""
-        else if types.isUnixSocket endpointValue then
-          types.tryErr "'${schemeName}://' requires host:port, not a socket path: \"${input}\""
+      if !endpointResult.success then
+        endpointResult
+      else if canonicalScheme == unixScheme then
+        if types.isUnixSocket endpointValue then
+          types.tryOk (mk canonicalScheme endpointValue)
         else
-          types.tryOk (mk schemeName endpointValue);
+          types.tryErr "'unix://' requires a socket path: \"${input}\""
+      else if types.isUnixSocket endpointValue then
+        types.tryErr "'${canonicalScheme}://' requires host:port, not a socket path: \"${input}\""
+      else
+        types.tryOk (mk canonicalScheme endpointValue);
 
   parsers = parsing.suite "socketUrl" tryParseDetail;
 

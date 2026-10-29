@@ -56,9 +56,15 @@ let
 
   schemeHint = "expected tcp, udp, sctp, or unix";
 
-  mk = schemeName: bindpointValue: {
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
+  mk = canonicalScheme: bindpointValue: {
     _type = "bindUrl";
-    scheme = schemeName;
+    scheme = canonicalScheme;
     bindpoint = bindpointValue;
   };
 
@@ -81,34 +87,28 @@ let
   tryParseDetail =
     input:
     let
-      split = parsing.splitScheme input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if split == null then
-      types.tryErr "missing '<scheme>://': \"${input}\""
+    if !schemeResult.success then
+      schemeResult
     else
       let
-        rawScheme = split.scheme;
-        schemeName = lowerAscii rawScheme;
-        inherit (split) rest;
+        bindpointResult = bindpoint.tryParseDetail rest;
+        bindpointValue = bindpointResult.value;
       in
-      if !(schemes ? ${schemeName}) then
-        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
-      else
-        let
-          bindpointResult = bindpoint.tryParseDetail rest;
-          bindpointValue = bindpointResult.value;
-        in
-        if !bindpointResult.success then
-          bindpointResult
-        else if schemeName == unixScheme then
-          if types.isUnixSocket bindpointValue then
-            types.tryOk (mk schemeName bindpointValue)
-          else
-            types.tryErr "'unix://' requires a socket path: \"${input}\""
-        else if types.isUnixSocket bindpointValue then
-          types.tryErr "'${schemeName}://' requires [addr]:port, not a socket path: \"${input}\""
+      if !bindpointResult.success then
+        bindpointResult
+      else if canonicalScheme == unixScheme then
+        if types.isUnixSocket bindpointValue then
+          types.tryOk (mk canonicalScheme bindpointValue)
         else
-          types.tryOk (mk schemeName bindpointValue);
+          types.tryErr "'unix://' requires a socket path: \"${input}\""
+      else if types.isUnixSocket bindpointValue then
+        types.tryErr "'${canonicalScheme}://' requires [addr]:port, not a socket path: \"${input}\""
+      else
+        types.tryOk (mk canonicalScheme bindpointValue);
 
   parsers = parsing.suite "bindUrl" tryParseDetail;
 

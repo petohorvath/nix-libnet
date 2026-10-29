@@ -231,6 +231,37 @@ let
           inherit prefix;
         };
 
+  /*
+    Split a URL with `splitScheme` and check its scheme against a closed
+    registry, for the URL forms whose unknown-scheme error carries a hint.
+    `canonicalize` maps the scheme as written to a registry key, such as
+    by lowercasing it, `schemes` is the registry keyed by canonical
+    scheme, and `hint` lists the accepted schemes.
+
+    Returns a tryResult whose `value` is `{ scheme, rest }` with the
+    canonical scheme, or whose `error` is the detail of the failure.
+  */
+  splitKnownScheme =
+    {
+      canonicalize,
+      schemes,
+      hint,
+    }:
+    input:
+    let
+      split = splitScheme input;
+      canonicalScheme = canonicalize split.scheme;
+    in
+    if split == null then
+      types.tryErr "missing '<scheme>://': \"${input}\""
+    else if !(schemes ? ${canonicalScheme}) then
+      types.tryErr "unknown scheme \"${split.scheme}\" (${hint})"
+    else
+      types.tryOk {
+        scheme = canonicalScheme;
+        inherit (split) rest;
+      };
+
   startsWith =
     prefix: input:
     let
@@ -332,6 +363,7 @@ in
     isDottedDigits
     isRepetitionOf
     octet
+    splitKnownScheme
     splitOn
     splitScheme
     startsWith

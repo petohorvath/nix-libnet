@@ -62,9 +62,15 @@ let
     ssl = "tls";
   };
 
-  canonicalizeScheme = schemeName: inputSpellings.${schemeName} or schemeName;
+  canonicalizeScheme = scheme: inputSpellings.${scheme} or scheme;
 
   schemeHint = "expected tls/ssl, dtls, or quic";
+
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = scheme: canonicalizeScheme (lowerAscii scheme);
+    inherit schemes;
+    hint = schemeHint;
+  };
 
   mk =
     canonicalScheme: endpointValue:
@@ -95,28 +101,22 @@ let
   tryParseDetail =
     input:
     let
-      split = parsing.splitScheme input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if split == null then
-      types.tryErr "missing '<scheme>://': \"${input}\""
+    if !schemeResult.success then
+      schemeResult
     else
       let
-        rawScheme = split.scheme;
-        canonicalScheme = canonicalizeScheme (lowerAscii rawScheme);
-        inherit (split) rest;
+        endpointResult = endpoint.tryParseDetail rest;
       in
-      if !(schemes ? ${canonicalScheme}) then
-        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
+      if !endpointResult.success then
+        endpointResult
+      else if types.isUnixSocket endpointResult.value then
+        types.tryErr "'${canonicalScheme}://' requires host:port, not a socket path: \"${input}\""
       else
-        let
-          endpointResult = endpoint.tryParseDetail rest;
-        in
-        if !endpointResult.success then
-          endpointResult
-        else if types.isUnixSocket endpointResult.value then
-          types.tryErr "'${canonicalScheme}://' needs host:port, not a socket path: \"${input}\""
-        else
-          types.tryOk (mk canonicalScheme endpointResult.value);
+        types.tryOk (mk canonicalScheme endpointResult.value);
 
   parsers = parsing.suite "secureSocketUrl" tryParseDetail;
 
@@ -141,7 +141,7 @@ let
     Build a secure socket URL from a scheme and an already-parsed
     endpoint.
 
-    `inputScheme`: `tls`, `ssl`, `dtls`, or `quic`, matched
+    `schemeName`: `tls`, `ssl`, `dtls`, or `quic`, matched
     case-insensitively and canonicalized.
     `endpointValue`: ipEndpoint or dnsEndpoint value.
 
@@ -149,13 +149,13 @@ let
     scheme, a non-endpoint value, or a unixSocket endpoint.
   */
   make =
-    inputScheme: endpointValue:
+    schemeName: endpointValue:
     let
       caller = "secureSocketUrl.make";
-      canonicalScheme = canonicalizeScheme (lowerAscii (errors.expectType caller "string" inputScheme));
+      canonicalScheme = canonicalizeScheme (lowerAscii (errors.expectType caller "string" schemeName));
     in
     if !(schemes ? ${canonicalScheme}) then
-      errors.fail caller "unknown scheme \"${inputScheme}\" (${schemeHint})"
+      errors.fail caller "unknown scheme \"${schemeName}\" (${schemeHint})"
     else
       mk canonicalScheme (
         errors.expect caller "ipEndpoint or dnsEndpoint value" isNetworkEndpoint endpointValue

@@ -52,6 +52,12 @@ let
 
   schemeHint = "expected http, https, socks4, socks4a, socks5, or socks5h";
 
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
   mk = schemeValue: authorityValue: {
     _type = "proxyUrl";
     scheme = schemeValue;
@@ -76,28 +82,22 @@ let
   tryParseDetail =
     input:
     let
-      split = parsing.splitScheme input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if split == null then
-      types.tryErr "missing '<scheme>://': \"${input}\""
+    if !schemeResult.success then
+      schemeResult
     else
       let
-        rawScheme = split.scheme;
-        lowerScheme = lowerAscii rawScheme;
-        inherit (split) rest;
+        authorityResult = authority.tryParseDetail rest;
       in
-      if !(schemes ? ${lowerScheme}) then
-        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
+      if !authorityResult.success then
+        authorityResult
+      else if authority.port authorityResult.value == null then
+        types.tryErr "a proxy URL requires an explicit port: \"${input}\""
       else
-        let
-          authorityResult = authority.tryParseDetail rest;
-        in
-        if !authorityResult.success then
-          authorityResult
-        else if authority.port authorityResult.value == null then
-          types.tryErr "a proxy URL requires an explicit port: \"${input}\""
-        else
-          types.tryOk (mk lowerScheme authorityResult.value);
+        types.tryOk (mk canonicalScheme authorityResult.value);
 
   parsers = parsing.suite "proxyUrl" tryParseDetail;
 
@@ -130,15 +130,15 @@ let
     schemeName: authorityValue:
     let
       caller = "proxyUrl.make";
-      lowerScheme = lowerAscii (errors.expectType caller "string" schemeName);
+      canonicalScheme = lowerAscii (errors.expectType caller "string" schemeName);
       checked = errors.expectKind caller "authority" authorityValue;
     in
-    if !(schemes ? ${lowerScheme}) then
+    if !(schemes ? ${canonicalScheme}) then
       errors.fail caller "unknown scheme \"${schemeName}\" (${schemeHint})"
     else if checked.port == null then
       errors.fail caller "a proxy URL requires an explicit port"
     else
-      mk lowerScheme checked;
+      mk canonicalScheme checked;
 
   # ===== Predicates =====
 
