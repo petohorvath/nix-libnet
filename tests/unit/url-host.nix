@@ -46,6 +46,19 @@ in
     expr = (parseValue "192.0.2.1")._type;
     expected = "ipv4";
   };
+  # Neither an IPv4 address nor a registered name (ADR 0021).
+  testNumericRejected = {
+    expr = map (input: (tryParse input).success) [
+      "127.1"
+      "0x7f.0.0.1"
+      "2130706433"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
   testIpv6UnbracketedRejected = {
     expr = (tryParse "::1").success;
     expected = false;
@@ -69,10 +82,11 @@ in
     expr = (parseValue "a%20b")._type;
     expected = "regName";
   };
-  # Not a valid IPv4 address, so the registered-name grammar applies.
-  testOutOfRangeQuadIsRegName = {
-    expr = (parseValue "256.0.0.1")._type;
-    expected = "regName";
+  # Not a valid IPv4 address, but a client still reads it as one, so it
+  # is no registered name either (ADR 0021).
+  testOutOfRangeQuadRejected = {
+    expr = (tryParse "256.0.0.1").error;
+    expected = "libnet.urlHost.parse: invalid host \"256.0.0.1\"";
   };
 
   # ===== Reject =====
@@ -191,6 +205,12 @@ in
   testToHostRejectsString = {
     expr = urlHost.toHost "example.com";
     expectedError.msg = "^libnet\\.urlHost\\.toHost: expected ip or regName value, got string$";
+  };
+  # The `dnsName` rule rejects numeric names, but they never reach
+  # `toHost`: `regName` rejects them first.
+  testToHostHexLikeName = {
+    expr = urlHost.toHost (parseValue "0x7g");
+    expected = libnet.hostname.parse "0x7g";
   };
   testToHostUnderscoreNull = {
     expr = urlHost.toHost (parseValue "my_host") == null;

@@ -5,8 +5,10 @@
   an IP literal. This is the "name" half of `host` (host = ip |
   dnsName). `parse` dispatches by label count: a single label parses
   as a hostname, multiple labels as a domain. IP literals are rejected
-  (use `libnet.ip` for those) — that is what distinguishes a dnsName
-  from a bare `domain`, which accepts all-numeric dotted forms.
+  (use `libnet.ip` for those), and so is any text a resolver reads as
+  an IPv4 address (ADR 0021): a numeric hostname such as `2130706433`
+  or `0x7f`, which `libnet.hostname` accepts, and a domain whose
+  rightmost label is numeric, such as `127.1`.
 
   No new `_type` tag: the result is the underlying hostname or domain
   value; consumers branch on `value._type`. Same pattern as
@@ -23,6 +25,8 @@ let
   ip = import ./ip.nix;
   hostname = import ./hostname.nix;
   domain = import ./domain.nix;
+  dnsLabel = import ./internal/dns-label.nix;
+  parsing = import ./internal/parse.nix;
   errors = import ./internal/errors.nix;
   comparison = import ./internal/comparison.nix;
 
@@ -30,6 +34,13 @@ let
   expectName = caller: errors.expect caller "hostname or domain value" is;
 
   parseError = detail: types.tryErr (errors.message "dnsName.parse" detail);
+
+  # Well-formed labels whose rightmost one is numeric, such as `127.1` or
+  # `2130706433`, which `inet_aton` reads as an IPv4 address (ADR 0021).
+  readsAsIpv4 =
+    input:
+    dnsLabel.hasNumericRightmostLabel input
+    && builtins.all dnsLabel.isValidLabel (parsing.splitOn "." input);
 
   # ===== Parsing =====
 
@@ -41,7 +52,7 @@ let
 
     Returns a tryResult `{ success, value, error }` holding the
     hostname or domain value on success, or an error message for IP
-    literals and invalid names.
+    literals, text that reads as an IPv4 address, and invalid names.
   */
   tryParse =
     input:
@@ -49,6 +60,8 @@ let
       parseError "expected string, got ${errors.describe input}"
     else if ip.isValid input then
       parseError "\"${input}\" is an IP address, not a DNS name"
+    else if readsAsIpv4 input then
+      parseError "\"${input}\" reads as an IPv4 address, not a DNS name"
     else
       let
         hostnameResult = hostname.tryParse input;
@@ -70,7 +83,8 @@ let
     `input`: single-label hostname or multi-label domain string.
 
     Returns a lowercase hostname value for one label or domain value
-    for several; throws on IP literals and invalid names.
+    for several; throws on IP literals, text that reads as an IPv4
+    address, and invalid names.
   */
   parse =
     input:

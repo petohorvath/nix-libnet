@@ -83,9 +83,64 @@ in
     expr = throws (parse "192.0.2.1");
     expected = true;
   };
-  testOutOfRangeQuad = {
-    expr = regName.toString (parse "256.0.0.1");
-    expected = "256.0.0.1";
+  # curl and browsers read a numeric rightmost label as IPv4, though
+  # RFC 3986 reads only a dotted quad as an IP literal (ADR 0021).
+  testRejectShortQuad = {
+    expr = parse "127.1";
+    expectedError.msg = "^libnet\\.regName\\.parse: \"127\\.1\" reads as an IPv4 address, not a registered name$";
+  };
+  testRejectHexQuad = {
+    expr = parse "0x7f.0.0.1";
+    expectedError.msg = "^libnet\\.regName\\.parse: \"0x7f\\.0\\.0\\.1\" reads as an IPv4 address";
+  };
+  testRejectNumericRightmostLabels = {
+    expr = map regName.isValid [
+      "2130706433"
+      "0x7f"
+      "0X"
+      "010.0.0.1"
+      "256.0.0.1"
+      "my_host.1"
+      "a~b.0xFF"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # Browsers ignore one trailing dot when reading a host as IPv4.
+  testRejectNumericBeforeTrailingDot = {
+    expr = map regName.isValid [
+      "127.1."
+      "1.2.3.4."
+    ];
+    expected = [
+      false
+      false
+    ];
+  };
+  testAcceptNonNumericRightmostLabel = {
+    expr = map regName.isValid [
+      "1.2.3.example"
+      "127.1x"
+      "0x7g"
+      "1%41"
+      "127.1.."
+      "."
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+      true
+      true
+    ];
   };
   testRejectEmpty = {
     expr = regName.isValid "";

@@ -9,7 +9,9 @@
   Validation: ≥ 2 labels separated by `.`, each label 1..63 ASCII
   chars from `[A-Za-z0-9-]` (must start and end with alnum), total
   ≤ 253 chars per RFC 1035 §3.1. No leading/trailing dot, no
-  consecutive dots, no underscores, no IDN.
+  consecutive dots, no underscores, no IDN. The rightmost label is not
+  numeric (all digits, or `0x` followed by hex digits), because a
+  resolver reads such text as an IPv4 address (ADR 0021).
 
   Domains are case-insensitive (DNS semantics), so `parse` lowercases
   them (ADR 0020): `toString` prints canonical text, and equality,
@@ -64,6 +66,8 @@ let
         failure "needs at least ${builtins.toString minLabels} labels (got ${builtins.toString partCount}): \"${input}\""
       else if !(builtins.all dnsLabel.isValidLabel parts) then
         failure "invalid label in \"${input}\" (each label must be 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)"
+      else if dnsLabel.isNumericLabel (builtins.elemAt parts (partCount - 1)) then
+        failure "\"${input}\" reads as an IPv4 address (numeric rightmost label)"
       else
         types.tryOk (mk (dnsLabel.toLowerAscii input));
 
@@ -104,7 +108,8 @@ let
     Parse a multi-label domain, lowercasing it.
 
     `input`: at least two dot-separated RFC 1123 labels, at most 253
-    characters, without leading or trailing dot.
+    characters, without leading or trailing dot, whose rightmost label
+    is neither all digits nor `0x` followed by hex digits.
 
     Returns a domain value; throws on non-string or invalid input.
   */

@@ -3,8 +3,8 @@
 
   A DNS name (hostname or domain) paired with a port — the name-only
   counterpart to libnet.ipEndpoint. The name is a `dnsName`, so IP
-  literals are rejected (use `ipEndpoint`, or the `endpoint` union,
-  for those).
+  literals and names that read as an IPv4 address are rejected (use
+  `ipEndpoint`, or the `endpoint` union, for addresses).
 
   No IP-classification predicates (isLoopback, isGlobal, toArpa, …): a
   name has no resolved address until DNS runs, and libnet does no
@@ -90,7 +90,7 @@ let
 
     `endpoint`: dnsEndpoint value.
 
-    Returns `"<name>:<port>"`, preserving the name's input case.
+    Returns `"<name>:<port>"`, with the name in lowercase.
   */
   toString =
     endpoint:
@@ -106,13 +106,24 @@ let
     `portValue`: port value.
 
     Returns a dnsEndpoint value; throws if either argument has the wrong
-    kind.
+    kind, or if the name is not a valid DNS name, such as the hostname
+    `1234`, which reads as an IPv4 address.
   */
   make =
     nameValue: portValue:
-    mk (errors.expect "dnsEndpoint.make" "hostname or domain value" dnsName.is nameValue) (
-      errors.expectKind "dnsEndpoint.make" "port" portValue
-    );
+    let
+      caller = "dnsEndpoint.make";
+      # Recheck the name against `dnsName`'s full rule, since a hostname
+      # value may be numeric, so that `make` builds only what `parse`
+      # accepts.
+      nameResult = dnsName.tryParse (
+        dnsName.toString (errors.expect caller "hostname or domain value" dnsName.is nameValue)
+      );
+    in
+    if nameResult.success then
+      mk nameResult.value (errors.expectKind caller "port" portValue)
+    else
+      errors.fail caller (errors.detail "dnsName.parse" nameResult.error);
 
   # ===== Predicates =====
 
@@ -165,8 +176,8 @@ let
 
   # ===== Comparison =====
   #
-  # Dispatch on the name (case-insensitive per DNS), then port. Each
-  # ordering function passes its own name, which its errors report.
+  # Order by name, then port. Each ordering function passes its own name,
+  # which its errors report.
 
   compareFor =
     function: a: b:
@@ -178,7 +189,7 @@ let
     if nameOrder != 0 then nameOrder else port.compare left.port right.port;
 
   /*
-    Test two endpoints for equality of name (case-insensitive) and port.
+    Test two endpoints for equality of name and port.
 
     `a`, `b`: values to compare.
 
@@ -188,7 +199,7 @@ let
 
   /*
     Order two endpoints by name, hostnames before domains and then by
-    name (case-insensitive), then by port.
+    name, then by port.
 
     `a`, `b`: dnsEndpoint values.
 

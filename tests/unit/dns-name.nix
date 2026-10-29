@@ -44,10 +44,49 @@ in
     expr = (dnsName.tryParse "10.0.0.1").success;
     expected = false;
   };
-  # A 4-numeric-label string that is NOT a valid IP is still a domain.
-  testParseNumericNotIp = {
-    expr = (parse "192.0.2.300")._type;
-    expected = "domain";
+
+  # ===== Text that reads as IPv4 rejected (ADR 0021) =====
+  testRejectNumericHostname = {
+    expr = parse "2130706433";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: \"2130706433\" reads as an IPv4 address, not a DNS name$";
+  };
+  testRejectHexHostname = {
+    expr = parse "0x7f";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: \"0x7f\" reads as an IPv4 address, not a DNS name$";
+  };
+  testRejectNumericDomain = {
+    expr = parse "127.1";
+    expectedError.msg = "^libnet\\.dnsName\\.parse: \"127\\.1\" reads as an IPv4 address, not a DNS name$";
+  };
+  # inet_aton reads every one of these as an address, though none is a
+  # valid `ip`.
+  testRejectInetAtonForms = {
+    expr = map dnsName.isValid [
+      "010.0.0.1"
+      "0x7f.0.0.1"
+      "192.0.2.300"
+      "0X7F"
+      "0x"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  testAcceptNumericLeftLabels = {
+    expr = map (name: (parse name).value) [
+      "1234a"
+      "0x7g"
+      "192.0.2.example"
+    ];
+    expected = [
+      "1234a"
+      "0x7g"
+      "192.0.2.example"
+    ];
   };
 
   # ===== Other rejects =====

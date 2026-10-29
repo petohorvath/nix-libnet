@@ -27,6 +27,15 @@ in
     expr = (parse "3com").value;
     expected = "3com";
   };
+  # A valid Linux kernel hostname; only `dnsName` rejects it (ADR 0021).
+  testParseAllDigits = {
+    expr = (parse "1234").value;
+    expected = "1234";
+  };
+  testParseHexDigits = {
+    expr = (parse "0X7F").value;
+    expected = "0x7f";
+  };
   testParseWithHyphen = {
     expr = (parse "my-server").value;
     expected = "my-server";

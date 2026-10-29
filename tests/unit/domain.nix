@@ -114,6 +114,60 @@ in
     expected = true;
   };
 
+  # ===== Numeric rightmost label (ADR 0021) =====
+  testRejectDottedQuad = {
+    expr = parse "192.0.2.1";
+    expectedError.msg = "^libnet\\.domain\\.parse: \"192\\.0\\.2\\.1\" reads as an IPv4 address \\(numeric rightmost label\\)$";
+  };
+  testRejectHexRightmostLabel = {
+    expr = parse "127.1.0x1";
+    expectedError.msg = "^libnet\\.domain\\.parse: \"127\\.1\\.0x1\" reads as an IPv4 address";
+  };
+  testRejectNumericRightmostLabels = {
+    expr = map domain.isValid [
+      "example.1"
+      "127.1"
+      "010.0.0.1"
+      "192.0.2.300"
+      "example.0x"
+      "example.0X7F"
+      "example.0xdeadBEEF"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # Only the rightmost label counts, and only digits or `0x` hex.
+  testAcceptNonNumericRightmostLabel = {
+    expr = map domain.isValid [
+      "192.0.2.example"
+      "example.1a"
+      "example.0x7g"
+      "example.x7f"
+      "example.00x1"
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+      true
+    ];
+  };
+  testFromLabelsRejectsNumericRightmostLabel = {
+    expr = domain.fromLabels [
+      "a"
+      "1"
+    ];
+    expectedError.msg = "^libnet\\.domain\\.fromLabels: \"a\\.1\" reads as an IPv4 address";
+  };
+
   testTryParseOk = {
     expr = (domain.tryParse "example.com").success;
     expected = true;

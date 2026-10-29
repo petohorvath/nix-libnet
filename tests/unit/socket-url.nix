@@ -103,6 +103,11 @@ in
     expr = (socketUrl.tryParse "UNIX://1.2.3.4:80").error;
     expected = "libnet.socketUrl.parse: 'unix://' requires a socket path: \"UNIX://1.2.3.4:80\"";
   };
+  # The host reads as IPv4 but is not an `ip` (ADR 0021).
+  testRejectNumericName = {
+    expr = throws (parse "tcp://127.1:80");
+    expected = true;
+  };
   testRejectBadEndpoint = {
     expr = throws (parse "tcp://host_name:1");
     expected = true;

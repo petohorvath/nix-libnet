@@ -274,6 +274,10 @@ else
       expr = types.dnsEndpoint.check "192.0.2.1:80";
       expected = false;
     };
+    testDnsEndpointNumericNameRejected = {
+      expr = types.dnsEndpoint.check "127.1:80";
+      expected = false;
+    };
     testDnsEndpointNoPort = {
       expr = types.dnsEndpoint.check "nas";
       expected = false;
@@ -602,6 +606,16 @@ else
       expr = types.regName.check "192.0.2.1";
       expected = false;
     };
+    testRegNameNumericRejected = {
+      expr = map types.regName.check [
+        "127.1"
+        "0x7f.0.0.1"
+      ];
+      expected = [
+        false
+        false
+      ];
+    };
     testRegNameBracketedV6 = {
       expr = types.regName.check "[::1]";
       expected = false;
@@ -905,6 +919,10 @@ else
       expr = types.hostname.check "3com";
       expected = true;
     };
+    testHostnameCheckAllDigits = {
+      expr = types.hostname.check "1234";
+      expected = true;
+    };
     testHostnameCheckUnderscore = {
       expr = types.hostname.check "host_name";
       expected = false;
@@ -955,6 +973,15 @@ else
       expr = types.domain.check "example.com.";
       expected = false;
     };
+    # Reads as an IPv4 address (ADR 0021).
+    testDomainCheckDottedQuad = {
+      expr = types.domain.check "192.0.2.1";
+      expected = false;
+    };
+    testDomainMkNumericThrows = {
+      expr = types.domain.mk "127.1.0x1";
+      expectedError.msg = "^libnet\\.types\\.domain\\.mk: invalid value \"127\\.1\\.0x1\"$";
+    };
     testDomainCheckUnderscore = {
       expr = types.domain.check "host_name.com";
       expected = false;
@@ -987,6 +1014,10 @@ else
     };
     testDnsNameCheckIpRejected = {
       expr = types.dnsName.check "192.0.2.1";
+      expected = false;
+    };
+    testDnsNameCheckNumericHostname = {
+      expr = types.dnsName.check "2130706433";
       expected = false;
     };
     testDnsNameCheckBad = {
@@ -1026,6 +1057,18 @@ else
     testHostCheckDomain = {
       expr = types.host.check "example.com";
       expected = true;
+    };
+    testHostCheckNumericName = {
+      expr = map types.host.check [
+        "010.0.0.1"
+        "127.1"
+        "0x7f"
+      ];
+      expected = [
+        false
+        false
+        false
+      ];
     };
     testHostCheckBad = {
       expr = types.host.check "host_name";

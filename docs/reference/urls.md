@@ -75,7 +75,7 @@ Constant: `schemes`, `{ dtls = { transport = "udp"; secure = true; }; quic = …
 
 ## `libnet.urlHost`
 
-Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bracketed IPv6 literal, or an RFC 3986 registered name. `parse` returns the member's own value, so `urlHost.parse "[::1]"` is an `ipv6` value and `urlHost.parse "my_host"` a `regName` value. IPs are tried first, so a dotted quad is an `ipv4` value.
+Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bracketed IPv6 literal, or an RFC 3986 registered name. `parse` returns the member's own value, so `urlHost.parse "[::1]"` is an `ipv6` value and `urlHost.parse "my_host"` a `regName` value. IPs are tried first, so a dotted quad is an `ipv4` value. Other text that reads as IPv4, such as `127.1`, is neither member, so `parse` throws for it.
 
 |           | `host`                            | `urlHost`                                      |
 | --------- | --------------------------------- | ---------------------------------------------- |
@@ -93,7 +93,7 @@ Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registe
 
 ## `libnet.regName`
 
-Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text that is a valid IPv4 address, such as `192.0.2.1`, is rejected, since RFC 3986 reads it as an IP literal. `parse` folds the name to its RFC 3986 §6.2.2.1 canonical form, lowercase letters and uppercase percent-encoding hex digits, so `regName.parse "My_Host%2f"` prints `my_host%2F` ([ADR 0020](../adr/0020-case-folded-at-parse.md)).
+Value: `{ _type = "regName"; value = String; }`, a non-empty RFC 3986 registered name: unreserved characters, sub-delimiters and percent-encoding, with no label structure, such as `my_host` or `a%20b`. Text whose rightmost label is numeric, meaning all digits or `0x` or `0X` followed by zero or more hex digits, is rejected, ignoring one trailing dot: `192.0.2.1`, `127.1`, `0x7f.0.0.1`, `2130706433` and `127.1.`. RFC 3986 reads only a dotted quad as an IP literal, but curl and browsers read the others as IPv4 addresses too, so `url.parse "http://127.1/"` throws ([ADR 0021](../adr/0021-no-numeric-dns-names.md)). Percent-encoded digits are not decoded for this check. `parse` folds the name to its RFC 3986 §6.2.2.1 canonical form, lowercase letters and uppercase percent-encoding hex digits, so `regName.parse "My_Host%2f"` prints `my_host%2F` ([ADR 0020](../adr/0020-case-folded-at-parse.md)).
 
 Suites: parsing, comparison (byte-wise on the folded text).
 
