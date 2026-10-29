@@ -181,6 +181,21 @@ let
 
   countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
 
+  # Split a URL at its first `://` into the scheme, as written, and the
+  # rest, or return null when `input` has no `://`.
+  splitScheme =
+    input:
+    let
+      parts = splitOn "://" input;
+    in
+    if builtins.length parts < 2 then
+      null
+    else
+      {
+        scheme = builtins.head parts;
+        rest = builtins.concatStringsSep "://" (builtins.tail parts);
+      };
+
   startsWith =
     prefix: input:
     let
@@ -290,6 +305,7 @@ in
     isRepetitionOf
     octet
     splitOn
+    splitScheme
     startsWith
     stripPrefix
     stripSuffix

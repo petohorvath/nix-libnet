@@ -95,16 +95,15 @@ let
   tryParseDetail =
     input:
     let
-      parts = parsing.splitOn "://" input;
+      split = parsing.splitScheme input;
     in
-    if builtins.length parts < 2 then
+    if split == null then
       types.tryErr "missing '<scheme>://': \"${input}\""
     else
       let
-        rawScheme = builtins.elemAt parts 0;
+        rawScheme = split.scheme;
         schemeName = lowerAscii rawScheme;
-        # Rejoin the remainder so a stray '://' inside a path is kept.
-        rest = builtins.concatStringsSep "://" (builtins.tail parts);
+        inherit (split) rest;
       in
       if !(schemes ? ${schemeName}) then
         types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"

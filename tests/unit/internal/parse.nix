@@ -588,6 +588,42 @@ in
     expected = true;
   };
 
+  # ===== splitScheme =====
+  testSplitSchemeKeepsCase = {
+    expr = parsing.splitScheme "TCP://192.0.2.1:80";
+    expected = {
+      scheme = "TCP";
+      rest = "192.0.2.1:80";
+    };
+  };
+  # Only the first separator splits, so a later one stays in the rest.
+  testSplitSchemeKeepsLaterSeparators = {
+    expr = parsing.splitScheme "unix:///run/a://b";
+    expected = {
+      scheme = "unix";
+      rest = "/run/a://b";
+    };
+  };
+  testSplitSchemeEmptyParts = {
+    expr = parsing.splitScheme "://";
+    expected = {
+      scheme = "";
+      rest = "";
+    };
+  };
+  testSplitSchemeMissingSeparator = {
+    expr = map parsing.splitScheme [
+      ""
+      "tcp:/x"
+      "tcp:x"
+    ];
+    expected = [
+      null
+      null
+      null
+    ];
+  };
+
   # ===== stripPrefix =====
   testStripPrefixSimple = {
     expr = parsing.stripPrefix "ab" "abcdef";
