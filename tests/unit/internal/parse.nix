@@ -38,6 +38,103 @@ in
     ];
   };
 
+  # ===== isRepetitionOf =====
+  testIsRepetitionOfAccepts = {
+    expr = map (parsing.isRepetitionOf "[a-z]|%[0-9]") [
+      "a"
+      "abc"
+      "%1"
+      "a%1b%2"
+    ];
+    expected = [
+      true
+      true
+      true
+      true
+    ];
+  };
+  testIsRepetitionOfRejects = {
+    expr = map (parsing.isRepetitionOf "[a-z]|%[0-9]") [
+      ""
+      "A"
+      "%"
+      "a%"
+      "%x"
+      "ab1"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+  # A repetition in builtins.match would exhaust the stack.
+  testIsRepetitionOfLongInput = {
+    expr = parsing.isRepetitionOf "[0-9]" (
+      builtins.concatStringsSep "" (builtins.genList (_: "1") 100000)
+    );
+    expected = true;
+  };
+
+  # ===== hasLeadingZero =====
+  testHasLeadingZeroAccepts = {
+    expr = map parsing.hasLeadingZero [
+      "00"
+      "08"
+      "0080"
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testHasLeadingZeroRejects = {
+    expr = map parsing.hasLeadingZero [
+      ""
+      "0"
+      "80"
+      "0x"
+      "-08"
+    ];
+    expected = [
+      false
+      false
+      false
+      false
+      false
+    ];
+  };
+
+  # ===== isDottedDigits =====
+  testIsDottedDigitsAccepts = {
+    expr = map parsing.isDottedDigits [
+      "1"
+      "10.0.0.1"
+      "1."
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  testIsDottedDigitsRejects = {
+    expr = map parsing.isDottedDigits [
+      ""
+      "a.1"
+      "1:2"
+    ];
+    expected = [
+      false
+      false
+      false
+    ];
+  };
+
   # ===== decimal =====
   testDecimal0 = {
     expr = parsing.decimal 255 "0";
@@ -275,6 +372,60 @@ in
     expr = parsing.splitOn "" "abc";
     expected = [ "abc" ];
   };
+  testSplitOnRepeatedMultiChar = {
+    expr = parsing.splitOn "::" "a:::b::::c";
+    expected = [
+      "a"
+      ":b"
+      ""
+      "c"
+    ];
+  };
+  # The delimiter is literal text, not a regular expression.
+  testSplitOnRegexSpecialDelimiters = {
+    expr = map (delimiter: parsing.splitOn delimiter "a${delimiter}b") [
+      "."
+      "]"
+      "]:"
+      "["
+      "("
+      ")"
+      "{"
+      "}"
+      "*"
+      "+"
+      "?"
+      "|"
+      "^"
+      "$"
+      "\\"
+      "%"
+      "://"
+    ];
+    expected = builtins.genList (_: [
+      "a"
+      "b"
+    ]) 17;
+  };
+  testSplitOnDotIsNotAWildcard = {
+    expr = parsing.splitOn "." "abc";
+    expected = [ "abc" ];
+  };
+  # Recursing once per character would exceed the maximum call depth.
+  testSplitOnLongInput =
+    let
+      parts = parsing.splitOn "." (builtins.concatStringsSep "." (builtins.genList (_: "a") 20000));
+    in
+    {
+      expr = {
+        length = builtins.length parts;
+        allA = builtins.all (part: part == "a") parts;
+      };
+      expected = {
+        length = 20000;
+        allA = true;
+      };
+    };
 
   # ===== countOccurrences =====
   testCountZero = {

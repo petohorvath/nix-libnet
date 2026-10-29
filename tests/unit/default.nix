@@ -42,6 +42,7 @@ in
   ip-range = import ./ip-range.nix testContext;
   ipv4 = import ./ipv4.nix testContext;
   ipv6 = import ./ipv6.nix testContext;
+  long-input = import ./long-input.nix testContext;
   mac = import ./mac.nix testContext;
   mtu = import ./mtu.nix testContext;
   port = import ./port.nix testContext;

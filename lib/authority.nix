@@ -39,9 +39,9 @@ let
   # RFC 3986 §3.2.1: userinfo = *( unreserved / pct-encoded / sub-delims /
   # ":" ). The bracket expression admits only ASCII, so a non-ASCII byte,
   # a space or a control character fails the match.
-  userinfoPattern = "([-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f])*";
-
-  isUserinfo = text: builtins.match userinfoPattern text != null;
+  isUserinfo =
+    text:
+    text == "" || parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f]" text;
 
   parseError = detail: types.tryErr (errors.message "authority.parse" detail);
 

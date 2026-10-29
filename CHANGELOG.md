@@ -97,6 +97,7 @@ This release makes the API consistent and breaks it wherever consistency require
 - `ipv6.diff` and `ip.diff` return −2⁶³ when the difference is exactly that, which fits in a Nix integer, instead of throwing.
 - `ipRange.size`, `ipRange.addressAt` and `ipRange.addresses` on an IPv6 range of exactly 2⁶³ addresses, such as `::-::7fff:ffff:ffff:ffff`, throw `libnet.ipRange.<fn>: range too large for a Nix integer` instead of failing with a raw integer overflow, or returning a negative size on Nix versions that wrap overflow silently.
 - `tryParse` and `isValid` fail on a decimal number too long for a 64-bit integer, such as `port.tryParse "99999999999999999999"`, instead of throwing an integer overflow error. On Nix versions that wrap overflow silently, such text no longer parses as a small value.
+- `tryParse` and `isValid` fail on arbitrarily long text instead of crashing the evaluator with `stack overflow`. Splitting text recursed once per character, and some character checks recursed once per character in the regular expression engine, so about 10,000 characters crashed `dnsName`, `url`, `ipv6`, `host`, `portRange` and the other parsers.
 
 ## [0.1.0] - 2026-10-13
 

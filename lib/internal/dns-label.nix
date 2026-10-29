@@ -22,12 +22,27 @@
   module by relative import.
 */
 let
+  parsing = import ./parse.nix;
+
   # `builtins.match` anchors the pattern against the whole string.
   labelPattern = "[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?";
 
   isValidLabel = input: builtins.isString input && builtins.match labelPattern input != null;
 
-  isNumericLabel = label: builtins.match "[0-9]+|0[xX][0-9A-Fa-f]*" label != null;
+  # All digits, or `0x` followed by hex digits.
+  isNumericLabel =
+    label:
+    let
+      hexDigits = builtins.substring 2 (builtins.stringLength label) label;
+    in
+    parsing.isRepetitionOf "[0-9]" label
+    || (
+      builtins.elem (builtins.substring 0 2 label) [
+        "0x"
+        "0X"
+      ]
+      && (hexDigits == "" || parsing.isRepetitionOf "[0-9A-Fa-f]" hexDigits)
+    );
 
   # Whether a resolver reads the dotted `name` as an IPv4 address.
   hasNumericRightmostLabel =

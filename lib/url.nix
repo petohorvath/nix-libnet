@@ -109,11 +109,10 @@ let
     *( pchar / "/" / "?" ). The bracket expressions admit only ASCII.
   */
   pchar = "[-A-Za-z0-9._~!$&'()*+,;=:@]|%[0-9A-Fa-f][0-9A-Fa-f]";
-  pathPattern = "(/(${pchar})*)*";
-  queryPattern = "(${pchar}|[/?])*";
 
-  isPath = text: builtins.match pathPattern text != null;
-  isQuery = text: builtins.match queryPattern text != null;
+  isPath =
+    text: text == "" || (parsing.startsWith "/" text && parsing.isRepetitionOf "${pchar}|/" text);
+  isQuery = text: text == "" || parsing.isRepetitionOf "${pchar}|[/?]" text;
 
   # The detail for the first component outside its grammar, or null.
   componentError =
