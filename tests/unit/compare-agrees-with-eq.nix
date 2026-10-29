@@ -2,7 +2,8 @@
 let
   # Sample texts per namespace with a comparison suite, including
   # spellings that differ without changing meaning (case, a default port,
-  # an input spelling such as `ssl`), so that both outcomes of `eq` occur.
+  # an empty URL path for `/`, an input spelling such as `ssl`), so that
+  # both outcomes of `eq` occur.
   # Mixed-case names parse to the same value (ADR 0020); interface names
   # keep their case, so `eth0` and `ETH0` differ.
   samples = {
@@ -178,7 +179,8 @@ let
     ];
     url = [
       "https://example.com"
-      "https://Example.COM:443"
+      "https://example.com/"
+      "https://Example.COM:443/"
       "https://example.com:8443"
       "https://u@example.com"
       "https://u@example.com:443"

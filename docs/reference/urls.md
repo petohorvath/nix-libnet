@@ -101,31 +101,35 @@ Suites: parsing, comparison (byte-wise on the folded text).
 
 Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port = Port or null; }`. Text is `[userinfo@]host[:port]`: `example.com`, `host:8443`, `user@[::1]:443`. `userinfo` is opaque and may carry credentials; a missing port stays `null`, because an authority has no scheme default. The port rejects leading zeros (`host:0080`), although RFC 3986 allows them, so every port round-trips ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
 
-Suites: parsing, comparison (by host, port with `null` first, then userinfo with `null` first; `eq` includes userinfo and ignores host case).
+Userinfo must match RFC 3986 `*( unreserved / pct-encoded / sub-delims / ":" )`: ASCII only, with every `%` followed by two hex digits, so `a b@h`, `a/b@h` and `%zz@h` are rejected. It is stored verbatim, keeping its case and percent-encoding ([ADR 0011](../adr/0011-bounded-url-forms.md)).
 
-| Function                   | Signature                                             | Notes                                             |
-| -------------------------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `make`                     | `{ host; userinfo ? null; port ? null; } → Authority` | `host` is a `UrlHost`; `port` a `Port` or `null`. |
-| `userinfo`, `host`, `port` |                                                       | Accessors.                                        |
+Suites: parsing, comparison (by host, port with `null` first, then userinfo with `null` first; `eq` includes userinfo).
+
+| Function                   | Signature                                             | Notes                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make`                     | `{ host; userinfo ? null; port ? null; } → Authority` | `host` is a `UrlHost`; `userinfo` a `String` matching the userinfo grammar, or `null`; `port` a `Port` or `null`. Rejects other attributes. |
+| `userinfo`, `host`, `port` |                                                       | Accessors.                                                                                                                                  |
 
 ## `libnet.url`
 
 Value: `{ _type = "url"; scheme; authority = Authority; path; query; fragment; }`. `path` is `""` or starts with `/`; `query` and `fragment` are strings or `null`. `toString` round-trips, printing a port only when the input had one.
 
+Each component must match its RFC 3986 grammar, in ASCII with every `%` followed by two hex digits: the path is `/`-separated segments of `pchar` (unreserved, percent-encoded, sub-delimiters, `:` and `@`), and the query and fragment are `pchar`, `/` and `?`. A space, `"`, `<`, `>`, a control character such as a newline, a non-ASCII byte, `%zz` or a second `#` is rejected. Components are stored verbatim, never percent-decoded ([ADR 0011](../adr/0011-bounded-url-forms.md)).
+
 `url.schemes` maps each scheme to `{ defaultPort; transport; secure; }`, with default ports from `registry.ports`: `amqp`, `amqps`, `coap`, `coaps`, `ftp`, `ftps`, `git`, `http`, `https`, `irc`, `ircs`, `ldap`, `ldaps`, `mongodb`, `mqtt`, `mqtts`, `mysql`, `postgres`, `rdp`, `redis`, `rsync`, `sftp`, `ssh`, `svn`, `telnet`, `tftp`, `vnc`, `ws`, `wss`, `xmpp`.
 
-Suites: parsing, comparison. `eq` compares the scheme, the authority with its effective port, then path, query and fragment, so `https://h` equals `https://h:443` and `https://alice@h` differs from `https://bob@h`. `compare` orders by scheme, host, effective port, userinfo (`null` first), path, query, then fragment (`null` first).
+Suites: parsing, comparison. `eq` compares the scheme, the authority with its effective port, then path, query and fragment, so `https://h` equals `https://h:443` and `https://alice@h` differs from `https://bob@h`. Both `eq` and `compare` read an empty path as `/` (RFC 3986 §6.2.3), so `http://h` equals `http://h/`, while `toString` prints the path as given. `compare` orders by scheme, host, effective port, userinfo (`null` first), path, query, then fragment (`null` first).
 
-| Function                                           | Signature                                                                | Notes                                                                         |
-| -------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `make`                                             | `{ scheme; authority; path ? ""; query ? null; fragment ? null; } → Url` | A `null` authority port means the scheme default.                             |
-| `scheme`, `authority`, `path`, `query`, `fragment` |                                                                          | Accessors.                                                                    |
-| `host`, `port`, `userinfo`                         |                                                                          | Forwarded from the authority; `port` is the explicit port or `null`.          |
-| `defaultPort`                                      | `Url → Port`                                                             | From the scheme.                                                              |
-| `effectivePort`                                    | `Url → Port`                                                             | Explicit port, else the default.                                              |
-| `transport`                                        | `Url → Transport`                                                        | From the scheme.                                                              |
-| `isSecure`                                         | `Url → Bool`                                                             | From the scheme.                                                              |
-| `toEndpoint`                                       | `Url → IpEndpoint or DnsEndpoint`                                        | Host and effective port. Throws for a registered name that is not a DNS name. |
+| Function                                           | Signature                                                                | Notes                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `make`                                             | `{ scheme; authority; path ? ""; query ? null; fragment ? null; } → Url` | Validates like `parse`, so `/a#b` is not a path. A `null` authority port means the scheme default. |
+| `scheme`, `authority`, `path`, `query`, `fragment` |                                                                          | Accessors.                                                                                         |
+| `host`, `port`, `userinfo`                         |                                                                          | Forwarded from the authority; `port` is the explicit port or `null`.                               |
+| `defaultPort`                                      | `Url → Port`                                                             | From the scheme.                                                                                   |
+| `effectivePort`                                    | `Url → Port`                                                             | Explicit port, else the default.                                                                   |
+| `transport`                                        | `Url → Transport`                                                        | From the scheme.                                                                                   |
+| `isSecure`                                         | `Url → Bool`                                                             | From the scheme.                                                                                   |
+| `toEndpoint`                                       | `Url → IpEndpoint or DnsEndpoint`                                        | Host and effective port. Throws for a registered name that is not a DNS name.                      |
 
 `port.eq (url.effectivePort u) (url.defaultPort u)` tests whether a URL uses its scheme's default port.
 

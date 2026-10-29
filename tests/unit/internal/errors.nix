@@ -111,4 +111,45 @@ in
     expr = errors.expect "ip.toString" "ipv4 or ipv6 value" (_: false) port;
     expectedError.msg = "^libnet\\.ip\\.toString: expected ipv4 or ipv6 value, got port value$";
   };
+
+  # ===== expectFields =====
+  testExpectFieldsReturnsArguments = {
+    expr = errors.expectFields "url.make" {
+      required = [ "scheme" ];
+      optional = [ "path" ];
+    } { scheme = "http"; };
+    expected = {
+      scheme = "http";
+    };
+  };
+  testExpectFieldsDoesNotForceValues = {
+    expr =
+      (errors.expectFields "url.make" {
+        required = [ "scheme" ];
+        optional = [ ];
+      } { scheme = throw "value forced"; })
+        ? scheme;
+    expected = true;
+  };
+  testExpectFieldsRejectsNonSet = {
+    expr = errors.expectFields "url.make" {
+      required = [ ];
+      optional = [ ];
+    } "http://h";
+    expectedError.msg = "^libnet\\.url\\.make: expected set, got string$";
+  };
+  testExpectFieldsRejectsMissing = {
+    expr = errors.expectFields "url.make" {
+      required = [ "scheme" ];
+      optional = [ ];
+    } { };
+    expectedError.msg = "^libnet\\.url\\.make: missing attribute \"scheme\"$";
+  };
+  testExpectFieldsRejectsUnexpected = {
+    expr = errors.expectFields "url.make" {
+      required = [ ];
+      optional = [ "path" ];
+    } { host = "h"; };
+    expectedError.msg = "^libnet\\.url\\.make: unexpected attribute \"host\"$";
+  };
 }

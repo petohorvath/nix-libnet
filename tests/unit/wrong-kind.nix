@@ -339,6 +339,97 @@ let
           max.stringOperand = bindpoint.max value ":80";
         };
       };
+    authority =
+      let
+        inherit (libnet) authority;
+        value = authority.parse "u@example.com:80";
+        host = libnet.urlHost.parse "example.com";
+      in
+      {
+        module = authority;
+        inherit value;
+        rejects = {
+          toString.urlOperand = authority.toString (libnet.url.parse "http://example.com");
+          make = {
+            string = authority.make "u@example.com:80";
+            stringHost = authority.make { host = "example.com"; };
+            domainHost = authority.make { host = libnet.domain.parse "example.com"; };
+            intUserinfo = authority.make {
+              inherit host;
+              userinfo = 1;
+            };
+            intPort = authority.make {
+              inherit host;
+              port = 80;
+            };
+          };
+          userinfo.string = authority.userinfo "u@example.com";
+          host.urlHostOperand = authority.host host;
+          port.null = authority.port null;
+          compare.stringOperand = authority.compare value "example.com";
+          lt.urlOperand = authority.lt (libnet.url.parse "http://example.com") value;
+          max.set = authority.max value { };
+        };
+      };
+    url =
+      let
+        inherit (libnet) url;
+        value = url.parse "https://u@example.com/p?q#f";
+        authority = libnet.authority.parse "example.com";
+        proxyUrl = libnet.proxyUrl.parse "http://example.com:8080";
+      in
+      {
+        module = url;
+        inherit value;
+        rejects = {
+          toString.string = url.toString "https://example.com";
+          make = {
+            string = url.make "https://example.com";
+            intScheme = url.make {
+              scheme = 1;
+              inherit authority;
+            };
+            stringAuthority = url.make {
+              scheme = "https";
+              authority = "example.com";
+            };
+            nullPath = url.make {
+              scheme = "https";
+              inherit authority;
+              path = null;
+            };
+            intQuery = url.make {
+              scheme = "https";
+              inherit authority;
+              query = 1;
+            };
+            listFragment = url.make {
+              scheme = "https";
+              inherit authority;
+              fragment = [ ];
+            };
+          };
+          scheme.proxyUrlOperand = url.scheme proxyUrl;
+          authority.proxyUrlOperand = url.authority proxyUrl;
+          userinfo.authorityOperand = url.userinfo authority;
+          host.string = url.host "https://example.com";
+          port.null = url.port null;
+          defaultPort.set = url.defaultPort { };
+          effectivePort.proxyUrlOperand = url.effectivePort proxyUrl;
+          path.string = url.path "/p";
+          query.authorityOperand = url.query authority;
+          fragment.int = url.fragment 1;
+          transport.secureSocketUrlOperand = url.transport (
+            libnet.secureSocketUrl.parse "tls://192.0.2.1:443"
+          );
+          isSecure.proxyUrlOperand = url.isSecure proxyUrl;
+          toEndpoint.string = url.toEndpoint "https://example.com";
+          compare.proxyUrlOperand = url.compare value proxyUrl;
+          le.string = url.le "https://example.com" value;
+          gt.authorityOperand = url.gt value authority;
+          min.null = url.min null value;
+        };
+      };
   };
 
   # Arguments of the wrong kind for every namespace: each builtin type, a

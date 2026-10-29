@@ -97,7 +97,7 @@ in
 
 - libnet works on syntax and arithmetic only: it performs no DNS resolution and carries no GeoIP, WHOIS or Public Suffix List data ([ADR 0003](docs/adr/0003-syntax-not-resolution.md)).
 - Internationalized domain names and IPv6 zone identifiers such as `fe80::1%eth0` are rejected.
-- The URL forms accept fixed shapes over closed scheme sets, not general URLs, and store components without percent-decoding ([ADR 0011](docs/adr/0011-bounded-url-forms.md)).
+- The URL forms accept fixed shapes over closed scheme sets, not general URLs, and validate components against RFC 3986 but store them without percent-decoding ([ADR 0011](docs/adr/0011-bounded-url-forms.md)).
 - IPv6 sizes and differences of 2⁶³ or more throw, such as `cidr.size` on `/65` and shorter prefixes ([ADR 0005](docs/adr/0005-integer-representations.md)).
 
 ## Contributing

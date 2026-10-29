@@ -53,12 +53,34 @@ let
   # Expect a raw value of a builtin type, named as `builtins.typeOf` names
   # it, such as `int` or `string`.
   expectType = caller: typeName: expect caller typeName (value: builtins.typeOf value == typeName);
+
+  # Expect an attribute set argument, such as that of `url.make`, holding
+  # every name in `required` and no name outside `required` and
+  # `optional`. The attribute values are not forced.
+  expectFields =
+    caller:
+    { required, optional }:
+    arguments:
+    let
+      checked = expectType caller "set" arguments;
+      missing = builtins.filter (name: !(checked ? ${name})) required;
+      unexpected = builtins.filter (name: !(builtins.elem name (required ++ optional))) (
+        builtins.attrNames checked
+      );
+    in
+    if missing != [ ] then
+      fail caller "missing attribute \"${builtins.head missing}\""
+    else if unexpected != [ ] then
+      fail caller "unexpected attribute \"${builtins.head unexpected}\""
+    else
+      checked;
 in
 {
   inherit
     describe
     detail
     expect
+    expectFields
     expectKind
     expectType
     fail

@@ -534,6 +534,22 @@ else
       expr = types.url.check 42;
       expected = false;
     };
+    testUrlPathSpaceRejected = {
+      expr = types.url.check "https://example.com/a b";
+      expected = false;
+    };
+    testUrlSecondHashRejected = {
+      expr = types.url.check "https://example.com/p#a#b";
+      expected = false;
+    };
+    testUrlMalformedPercentRejected = {
+      expr = types.url.check "https://example.com/%zz";
+      expected = false;
+    };
+    testUrlMkKeepsSpelling = {
+      expr = types.url.mk "HTTPS://Example.COM/P?Q#F";
+      expected = "HTTPS://Example.COM/P?Q#F";
+    };
     testUrlMkOk = {
       expr = types.url.mk "https://example.com/p";
       expected = "https://example.com/p";
@@ -650,6 +666,14 @@ else
     };
     testAuthorityInt = {
       expr = types.authority.check 42;
+      expected = false;
+    };
+    testAuthorityUserinfoSpaceRejected = {
+      expr = types.authority.check "a b@h";
+      expected = false;
+    };
+    testAuthorityUserinfoSlashRejected = {
+      expr = types.authority.check "a/b@h";
       expected = false;
     };
     testAuthorityMkOk = {
