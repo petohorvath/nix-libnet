@@ -22,7 +22,6 @@ let
   ip = import ./ip.nix;
   dnsName = import ./dns-name.nix;
   dnsLabel = import ./internal/dns-label.nix;
-  errors = import ./internal/errors.nix;
   parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
@@ -30,57 +29,39 @@ let
   hostArgument =
     function: dnsLabel.expectDnsName "host.${function}" "ip, hostname or domain value" is;
 
-  parseError = detail: types.tryErr (errors.message "host.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a host without throwing, for callers that branch on validity
-    or report the error themselves. IPs are tried first so dotted-quad
-    strings classify as IPs rather than as four-label domains.
+    Parse a host: the detail parser of the parsing suite. IPs are tried
+    first so dotted-quad strings classify as IPs rather than as
+    four-label domains.
 
     `input`: candidate IP, hostname, or domain string.
 
-    Returns a tryResult `{ success, value, error }` holding the ipv4,
-    ipv6, hostname, or domain value on success, or an error message.
+    Returns a tryResult holding the ipv4, ipv6, hostname, or domain value,
+    or the detail of the member whose shape the text has.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        ipResult = ip.tryParse input;
-      in
-      if ipResult.success then
-        ipResult
-      else
-        let
-          nameResult = dnsName.tryParse input;
-        in
-        if nameResult.success then
-          nameResult
-        # Keep the detail of the member whose shape the text has: no DNS
-        # name holds a colon or only digits and dots.
-        else if parsing.isDottedDigits input || parsing.countOccurrences ":" input > 0 then
-          parseError (errors.detail "ip.parse" ipResult.error)
-        else
-          parseError (errors.detail "dnsName.parse" nameResult.error);
-
-  /*
-    Parse an address a service consumer might connect to.
-
-    `input`: IPv4, IPv6, hostname, or domain string.
-
-    Returns the ipv4, ipv6, hostname, or domain value; throws when no
-    family matches.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      ipResult = ip.tryParseDetail input;
     in
-    if result.success then result.value else throw result.error;
+    if ipResult.success then
+      ipResult
+    else
+      let
+        nameResult = dnsName.tryParseDetail input;
+      in
+      if nameResult.success then
+        nameResult
+      # Keep the detail of the member whose shape the text has: no DNS
+      # name holds a colon or only digits and dots.
+      else if parsing.isDottedDigits input || parsing.countOccurrences ":" input > 0 then
+        ipResult
+      else
+        nameResult;
+
+  parsers = parsing.suite "host" tryParseDetail;
 
   /*
     Render a host as a string using its family's formatting.
@@ -128,15 +109,6 @@ let
   */
   is = value: types.isIp value || dnsName.is value;
 
-  /*
-    Check whether a value parses as a host.
-
-    `input`: any value; non-strings are invalid.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
-
   # ===== Comparison =====
   #
   # Cross-family order: ip < name (hostname < domain within names).
@@ -177,9 +149,11 @@ in
     is
     isDnsName
     isIp
+    toString
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

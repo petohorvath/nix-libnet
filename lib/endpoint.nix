@@ -42,12 +42,11 @@ let
     function:
     errors.expect "endpoint.${function}" "ipEndpoint, dnsEndpoint or unixSocket value" isMember;
 
-  parseError = detail: types.tryErr (errors.message "endpoint.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse any connection target without throwing, classifying it by shape.
+    Parse any connection target, classifying it by shape: the detail
+    parser of the parsing suite.
 
     `input`: a unix socket path (leading `/` or `@`), `"<ip>:<port>"`,
     `"[<ipv6>]:<port>"`, or `"<name>:<port>"`. A leading `/` or `@`
@@ -55,28 +54,23 @@ let
     forms are tried before names so a literal address yields a full
     ipEndpoint rather than a dnsEndpoint.
 
-    Returns a tryResult whose value is an ipEndpoint, dnsEndpoint, or
-    unixSocket; on failure, `error` names `endpoint.parse` and explains
-    why no member matched.
+    Returns a tryResult holding an ipEndpoint, dnsEndpoint, or unixSocket
+    value; on failure, `error` is the detail of the member whose shape the
+    text has.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if parsing.startsWith "/" input || parsing.startsWith "@" input then
-      let
-        result = unixSocket.tryParse input;
-      in
-      if result.success then result else parseError (errors.detail "unixSocket.parse" result.error)
+    if parsing.startsWith "/" input || parsing.startsWith "@" input then
+      unixSocket.tryParseDetail input
     else
       let
-        ipEndpointResult = ipEndpoint.tryParse input;
+        ipEndpointResult = ipEndpoint.tryParseDetail input;
       in
       if ipEndpointResult.success then
         ipEndpointResult
       else
         let
-          dnsEndpointResult = dnsEndpoint.tryParse input;
+          dnsEndpointResult = dnsEndpoint.tryParseDetail input;
         in
         if dnsEndpointResult.success then
           dnsEndpointResult
@@ -88,26 +82,11 @@ let
           || parsing.countOccurrences ":" input > 1
           || parsing.isDottedDigits (builtins.head (parsing.splitOn ":" input))
         then
-          parseError (errors.detail "ipEndpoint.parse" ipEndpointResult.error)
+          ipEndpointResult
         else
-          parseError (errors.detail "dnsEndpoint.parse" dnsEndpointResult.error);
+          dnsEndpointResult;
 
-  /*
-    Parse any connection target, classifying it by shape as `tryParse`
-    does.
-
-    `input`: a unix socket path, `"<ip>:<port>"`, `"[<ipv6>]:<port>"`,
-    or `"<name>:<port>"`.
-
-    Returns an ipEndpoint, dnsEndpoint, or unixSocket value; throws if
-    no member matches.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "endpoint" tryParseDetail;
 
   /*
     Render any endpoint member in its canonical text form.
@@ -130,15 +109,6 @@ let
       unixSocket.toString checked;
 
   # ===== Predicates =====
-
-  /*
-    Test whether a string parses as any endpoint member.
-
-    `input`: value to test; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Test whether a value is an ipEndpoint, dnsEndpoint, or unixSocket.
@@ -230,9 +200,12 @@ in
     isDnsEndpoint
     isIpEndpoint
     isUnixSocket
+    toString
+    tryParseDetail
+    ;
+  inherit (parsers)
     isValid
     parse
-    toString
     tryParse
     ;
   inherit (ordering)

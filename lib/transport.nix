@@ -18,6 +18,7 @@
 let
   types = import ./internal/types.nix;
   errors = import ./internal/errors.nix;
+  parsing = import ./internal/parse.nix;
   comparison = import ./internal/comparison.nix;
 
   names = [
@@ -35,43 +36,26 @@ let
   valueOf =
     function: transport: (errors.expectKind "transport.${function}" "transport" transport).value;
 
-  parseError = detail: types.tryErr (errors.message "transport.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a transport protocol name without throwing, for callers that
-    want to report or recover from invalid input.
+    Parse a transport protocol name: the detail parser of the parsing
+    suite.
 
     `input`: protocol name, one of "tcp", "udp", or "sctp"
     (case-sensitive).
 
-    Returns a tryResult: `{ success = true; value; }` with a transport
-    value, or `{ success = false; error; }` describing the problem.
+    Returns a tryResult holding a transport value, or the detail of the
+    failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if !(builtins.elem input names) then
-      parseError "unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
+    if !(builtins.elem input names) then
+      types.tryErr "unknown protocol \"${input}\" (expected one of: tcp, udp, sctp)"
     else
       types.tryOk (mk input);
 
-  /*
-    Parse a transport protocol name.
-
-    `input`: protocol name, one of "tcp", "udp", or "sctp"
-    (case-sensitive).
-
-    Returns a transport value; throws on a non-string or unknown name.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "transport" tryParseDetail;
 
   /*
     Render a transport as its protocol name.
@@ -83,15 +67,6 @@ let
   toString = valueOf "toString";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a protocol name parses, without throwing.
-
-    `input`: value to check.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a transport value.
@@ -165,14 +140,16 @@ in
     isSctp
     isTcp
     isUdp
-    isValid
-    parse
     sctp
     tcp
     toString
-    tryParse
     udp
     values
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

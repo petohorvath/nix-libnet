@@ -37,8 +37,6 @@ let
   ipEndpointArgument =
     function: endpoint: errors.expectKind "ipEndpoint.${function}" "ipEndpoint" endpoint;
 
-  parseError = detail: types.tryErr (errors.message "ipEndpoint.parse" detail);
-
   # ===== Parsing =====
 
   # Bracketed form: [<ipv6>]:<port>
@@ -48,7 +46,7 @@ let
       parts = parsing.splitOn "]:" input;
     in
     if builtins.length parts != 2 then
-      parseError "malformed bracketed form \"${input}\""
+      types.tryErr "malformed bracketed form \"${input}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -58,16 +56,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addressString == null then
-        parseError "missing '[' in \"${input}\""
+        types.tryErr "missing '[' in \"${input}\""
       else
         let
           addressResult = ipv6.tryParse addressString;
           portResult = port.tryParse portString;
         in
         if !addressResult.success then
-          parseError "invalid IPv6 in \"${input}\""
+          types.tryErr "invalid IPv6 in \"${input}\""
         else if !portResult.success then
-          parseError "invalid port in \"${input}\""
+          types.tryErr "invalid port in \"${input}\""
         else
           types.tryOk (mk addressResult.value portResult.value);
 
@@ -78,9 +76,9 @@ let
       colons = parsing.countOccurrences ":" input;
     in
     if colons == 0 then
-      parseError "missing ':port' in \"${input}\""
+      types.tryErr "missing ':port' in \"${input}\""
     else if colons > 1 then
-      parseError "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
+      types.tryErr "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
@@ -90,45 +88,25 @@ let
         portResult = port.tryParse portString;
       in
       if !addressResult.success then
-        parseError "invalid IPv4 in \"${input}\""
+        types.tryErr "invalid IPv4 in \"${input}\""
       else if !portResult.success then
-        parseError "invalid port in \"${input}\""
+        types.tryErr "invalid port in \"${input}\""
       else
         types.tryOk (mk addressResult.value portResult.value);
 
   /*
-    Parse an IP endpoint without throwing, for validating untrusted text.
+    Parse an IP endpoint: the detail parser of the parsing suite.
 
     `input`: `"<ipv4>:<port>"` or `"[<ipv6>]:<port>"`; IPv6 must be
     bracketed.
 
-    Returns a tryResult: `{ success = true; value; }` with an ipEndpoint,
-    or `{ success = false; error; }` for non-strings and malformed input.
+    Returns a tryResult holding an ipEndpoint value, or the detail of the
+    failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if parsing.startsWith "[" input then
-      tryParseBracketed input
-    else
-      tryParseV4Form input;
+  tryParseDetail =
+    input: if parsing.startsWith "[" input then tryParseBracketed input else tryParseV4Form input;
 
-  /*
-    Parse an IP endpoint from its text form.
-
-    `input`: `"<ipv4>:<port>"` or `"[<ipv6>]:<port>"`; IPv6 must be
-    bracketed.
-
-    Returns an ipEndpoint value; throws on unbracketed IPv6, a missing
-    port, or an invalid address or port.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "ipEndpoint" tryParseDetail;
 
   /*
     Render an IP endpoint in canonical RFC 3986 form.
@@ -164,15 +142,6 @@ let
     );
 
   # ===== Predicates =====
-
-  /*
-    Test whether a string parses as an IP endpoint.
-
-    `input`: value to test; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Test whether a value is an ipEndpoint.
@@ -350,13 +319,16 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     make
-    parse
     toArpa
     toString
-    tryParse
+    tryParseDetail
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

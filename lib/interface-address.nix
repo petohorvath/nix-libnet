@@ -66,61 +66,39 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an interface address without throwing, so callers can handle
-    invalid input themselves.
+    Parse an interface address, such as a per-NIC address assignment,
+    keeping the host bits: the detail parser of the parsing suite.
 
     `input`: "<address>/<prefix>", such as "192.168.1.5/24" or
     "2001:db8::5/64"; the prefix must fit the address family.
 
-    Returns a tryResult: `{ success = true; value = <interfaceAddress>; }`
-    or `{ success = false; error = <message>; }`.
+    Returns a tryResult whose `value` is an interfaceAddress value, or
+    whose `error` is the detail of the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
     let
-      parseError = detail: types.tryErr (errors.message "interfaceAddress.parse" detail);
+      parts = parsing.splitOn "/" input;
     in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
+    if builtins.length parts != 2 then
+      types.tryErr "missing '/': \"${input}\""
     else
       let
-        parts = parsing.splitOn "/" input;
+        addressInput = builtins.elemAt parts 0;
+        prefixInput = builtins.elemAt parts 1;
+        addressResult = ip.tryParseDetail addressInput;
+        prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
       in
-      if builtins.length parts != 2 then
-        parseError "missing '/': \"${input}\""
+      if !addressResult.success then
+        addressResult
+      else if !(parsing.isDecimal prefixInput) then
+        types.tryErr "invalid prefix \"${prefixInput}\""
+      else if prefixLength == null then
+        types.tryErr "prefix /${prefixInput} out of range"
       else
-        let
-          addressInput = builtins.elemAt parts 0;
-          prefixInput = builtins.elemAt parts 1;
-          isV6Input = parsing.countOccurrences ":" addressInput > 0;
-          addressResult = if isV6Input then ipv6.tryParse addressInput else ipv4.tryParse addressInput;
-          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixInput;
-        in
-        if !addressResult.success then
-          parseError (errors.detail (if isV6Input then "ipv6.parse" else "ipv4.parse") addressResult.error)
-        else if !(parsing.isDecimal prefixInput) then
-          parseError "invalid prefix \"${prefixInput}\""
-        else if prefixLength == null then
-          parseError "prefix /${prefixInput} out of range"
-        else
-          types.tryOk (mk addressResult.value prefixLength);
+        types.tryOk (mk addressResult.value prefixLength);
 
-  /*
-    Parse an interface address from text, such as a per-NIC address
-    assignment. The host bits are kept, not zeroed to the network address.
-
-    `input`: "<address>/<prefix>", such as "192.168.1.5/24" or
-    "2001:db8::5/64"; the prefix must fit the address family.
-
-    Returns an interfaceAddress value; throws on malformed input or a
-    missing or out-of-range prefix.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "interfaceAddress" tryParseDetail;
 
   # ===== Formatting =====
 
@@ -206,15 +184,6 @@ let
       mk checkedAddress block.prefix;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an interface address.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is an interfaceAddress value.
@@ -461,15 +430,17 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     make
     netmask
-    parse
     prefix
     toArpa
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

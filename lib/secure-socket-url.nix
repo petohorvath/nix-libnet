@@ -85,69 +85,47 @@ let
   secureSocketUrlArgument =
     function: errors.expectKind "secureSocketUrl.${function}" "secureSocketUrl";
 
-  parseError = detail: types.tryErr (errors.message "secureSocketUrl.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a secure socket URL without throwing, for callers that want to
-    report or recover from invalid input.
+    Parse a secure socket URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
     `ssl` (read as `tls`), `dtls`, or `quic`, matched
     case-insensitively; the port is required.
 
-    Returns a tryResult: `{ success = true; value; }` with a
-    secureSocketUrl value, or `{ success = false; error; }` describing
-    the problem.
+    Returns a tryResult holding a secureSocketUrl value, or the detail of
+    the failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "://" input;
-      in
-      if builtins.length parts < 2 then
-        parseError "missing '<scheme>://': \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt parts 0;
-          canonicalScheme = canonicalizeScheme (lowerAscii rawScheme);
-          # Rejoin the remainder so a stray '://' is kept (and then
-          # rejected by the endpoint parser).
-          rest = builtins.concatStringsSep "://" (builtins.tail parts);
-        in
-        if !(schemes ? ${canonicalScheme}) then
-          parseError "unknown scheme \"${rawScheme}\" (${schemeHint})"
-        else
-          let
-            endpointResult = endpoint.tryParse rest;
-          in
-          if !endpointResult.success then
-            parseError (errors.detail "endpoint.parse" endpointResult.error)
-          else if types.isUnixSocket endpointResult.value then
-            parseError "'${canonicalScheme}://' needs host:port, not a socket path: \"${input}\""
-          else
-            types.tryOk (mk canonicalScheme endpointResult.value);
-
-  /*
-    Parse a secure socket URL.
-
-    `input`: `<scheme>://<host>:<port>` string. The scheme is `tls`,
-    `ssl` (read as `tls`), `dtls`, or `quic`, matched
-    case-insensitively; the port is required.
-
-    Returns a secureSocketUrl value with the canonical scheme; throws on
-    malformed input, an unknown scheme, or a socket path.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "://" input;
     in
-    if result.success then result.value else throw result.error;
+    if builtins.length parts < 2 then
+      types.tryErr "missing '<scheme>://': \"${input}\""
+    else
+      let
+        rawScheme = builtins.elemAt parts 0;
+        canonicalScheme = canonicalizeScheme (lowerAscii rawScheme);
+        # Rejoin the remainder so a stray '://' is kept (and then
+        # rejected by the endpoint parser).
+        rest = builtins.concatStringsSep "://" (builtins.tail parts);
+      in
+      if !(schemes ? ${canonicalScheme}) then
+        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
+      else
+        let
+          endpointResult = endpoint.tryParseDetail rest;
+        in
+        if !endpointResult.success then
+          endpointResult
+        else if types.isUnixSocket endpointResult.value then
+          types.tryErr "'${canonicalScheme}://' needs host:port, not a socket path: \"${input}\""
+        else
+          types.tryOk (mk canonicalScheme endpointResult.value);
+
+  parsers = parsing.suite "secureSocketUrl" tryParseDetail;
 
   /*
     Render a secure socket URL in canonical text form.
@@ -191,16 +169,6 @@ let
       );
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a secure socket URL, without
-    throwing.
-
-    `input`: value to check.
-
-    Returns true when `parse` would succeed.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a secureSocketUrl value.
@@ -273,12 +241,14 @@ in
     eq
     is
     isSecure
-    isValid
     make
-    parse
     scheme
     schemes
     toString
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

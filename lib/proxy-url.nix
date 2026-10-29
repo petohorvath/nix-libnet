@@ -62,63 +62,44 @@ let
   # kind.
   proxyUrlArgument = function: errors.expectKind "proxyUrl.${function}" "proxyUrl";
 
-  parseError = detail: types.tryErr (errors.message "proxyUrl.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a proxy URL without throwing, for callers that branch on
-    validity.
+    Parse a proxy URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://[userinfo@]host:port` text; the scheme is matched
     case-insensitively and nothing may follow the authority.
 
-    Returns a tryResult: `{ success = true; value = <proxyUrl>; }` or
-    `{ success = false; error = <string>; }` for an unknown scheme, an
-    invalid authority, or a missing port. Never throws.
+    Returns a tryResult holding a proxyUrl value, or the detail of the
+    failure: an unknown scheme, an invalid authority, or a missing port.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "://" input;
-      in
-      if builtins.length parts < 2 then
-        parseError "missing '<scheme>://': \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt parts 0;
-          lowerScheme = lowerAscii rawScheme;
-          rest = builtins.concatStringsSep "://" (builtins.tail parts);
-        in
-        if !(schemes ? ${lowerScheme}) then
-          parseError "unknown scheme \"${rawScheme}\" (${schemeHint})"
-        else
-          let
-            authorityResult = authority.tryParse rest;
-          in
-          if !authorityResult.success then
-            parseError (errors.detail "authority.parse" authorityResult.error)
-          else if authority.port authorityResult.value == null then
-            parseError "a proxy URL requires an explicit port: \"${input}\""
-          else
-            types.tryOk (mk lowerScheme authorityResult.value);
-
-  /*
-    Parse a proxy URL, for values that must be valid.
-
-    `input`: proxy URL text as accepted by `tryParse`.
-
-    Returns a proxyUrl value; throws on invalid input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "://" input;
     in
-    if result.success then result.value else throw result.error;
+    if builtins.length parts < 2 then
+      types.tryErr "missing '<scheme>://': \"${input}\""
+    else
+      let
+        rawScheme = builtins.elemAt parts 0;
+        lowerScheme = lowerAscii rawScheme;
+        rest = builtins.concatStringsSep "://" (builtins.tail parts);
+      in
+      if !(schemes ? ${lowerScheme}) then
+        types.tryErr "unknown scheme \"${rawScheme}\" (${schemeHint})"
+      else
+        let
+          authorityResult = authority.tryParseDetail rest;
+        in
+        if !authorityResult.success then
+          authorityResult
+        else if authority.port authorityResult.value == null then
+          types.tryErr "a proxy URL requires an explicit port: \"${input}\""
+        else
+          types.tryOk (mk lowerScheme authorityResult.value);
+
+  parsers = parsing.suite "proxyUrl" tryParseDetail;
 
   /*
     Render a proxy URL as `<scheme>://<authority>`.
@@ -160,15 +141,6 @@ let
       mk lowerScheme checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a proxy URL.
-
-    `input`: candidate proxy URL text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a proxyUrl value.
@@ -289,15 +261,17 @@ in
     host
     is
     isSecure
-    isValid
     make
-    parse
     scheme
     schemes
     toEndpoint
     toString
-    tryParse
     userinfo
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

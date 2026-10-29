@@ -46,8 +46,6 @@ let
     in
     builtins.seq value (f value);
 
-  parseError = detail: types.tryErr (errors.message "mac.parse" detail);
-
   bytesOf = value: [
     (bits.bits 40 8 value)
     (bits.bits 32 8 value)
@@ -197,55 +195,38 @@ let
         mk (builtins.foldl' (acc: octet: acc * 256 + (parsing.hexInt octet)) 0 parts);
 
   /*
-    Parse a MAC address without throwing, for callers that validate
-    untrusted text.
+    Parse a MAC address: the detail parser of the parsing suite.
 
     `input`: string in colon (`aa:bb:cc:dd:ee:ff`), hyphen, Cisco dotted
     (`aabb.ccdd.eeff`), or bare (`aabbccddeeff`) form; case-insensitive.
 
-    Returns a tryParse result whose `value` is a mac value.
+    Returns a tryResult holding a mac value, or the detail of the failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        inputLength = builtins.stringLength input;
-        parsed =
-          if inputLength == 12 then
-            parseBare input
-          else if inputLength == 14 then
-            parseCisco input
-          else if inputLength == 17 then
-            let
-              separator = builtins.substring 2 1 input;
-            in
-            if separator == ":" then
-              parseSeparated ":" input
-            else if separator == "-" then
-              parseSeparated "-" input
-            else
-              null
-          else
-            null;
-      in
-      if parsed == null then parseError "invalid MAC address \"${input}\"" else types.tryOk parsed;
-
-  /*
-    Parse a MAC address written in any common notation.
-
-    `input`: string in colon, hyphen, Cisco dotted, or bare form;
-    case-insensitive.
-
-    Returns a mac value; throws on invalid input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      inputLength = builtins.stringLength input;
+      parsed =
+        if inputLength == 12 then
+          parseBare input
+        else if inputLength == 14 then
+          parseCisco input
+        else if inputLength == 17 then
+          let
+            separator = builtins.substring 2 1 input;
+          in
+          if separator == ":" then
+            parseSeparated ":" input
+          else if separator == "-" then
+            parseSeparated "-" input
+          else
+            null
+        else
+          null;
     in
-    if result.success then result.value else throw result.error;
+    if parsed == null then types.tryErr "invalid MAC address \"${input}\"" else types.tryOk parsed;
+
+  parsers = parsing.suite "mac" tryParseDetail;
 
   # ===== Formatting =====
 
@@ -292,15 +273,6 @@ let
   toStringBare = withValue "toStringBare" (hexBytes "");
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a MAC address.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Structural check for a tagged MAC address.
@@ -594,11 +566,9 @@ in
     isUnicast
     isUniversal
     isUnspecified
-    isValid
     next
     nic
     oui
-    parse
     prev
     setLocal
     setMulticast
@@ -613,8 +583,12 @@ in
     toStringCisco
     toStringHyphen
     toStringOui
-    tryParse
     unspecified
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

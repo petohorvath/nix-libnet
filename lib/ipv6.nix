@@ -41,8 +41,6 @@ let
     function: f: ip:
     f (wordsOf function ip);
 
-  parseError = detail: types.tryErr (errors.message "ipv6.parse" detail);
-
   # Check a list of `count` integers in [0, maxValue] for `function`,
   # and build an address from the checked list with `build`.
   fromParts =
@@ -242,36 +240,34 @@ let
   splitGroups = text: if text == "" then [ ] else parsing.splitOn ":" text;
 
   /*
-    Parse an IPv6 address without throwing, for validating untrusted
-    input. Accepts any RFC 4291 text form, including `::` compression,
-    mixed case, and a trailing dotted-quad IPv4 part.
+    Parse an IPv6 address: the detail parser of the parsing suite.
+    Accepts any RFC 4291 text form, including `::` compression, mixed
+    case, and a trailing dotted-quad IPv4 part.
 
     `input`: string such as "2001:db8::1".
 
-    Returns a tryParse result: `{ success, value, error }`, where `value`
-    is the IPv6 value on success and `error` describes the failure.
+    Returns a tryResult holding the IPv6 value, or the detail of the
+    failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if input == "" then
-      parseError "empty string"
+    if input == "" then
+      types.tryErr "empty string"
     else
       let
         doubleColonCount = parsing.countOccurrences "::" input;
       in
       if doubleColonCount > 1 then
-        parseError "more than one \"::\" in \"${input}\""
+        types.tryErr "more than one \"::\" in \"${input}\""
       else if doubleColonCount == 0 then
         let
           result = partsToGroups input true (parsing.splitOn ":" input);
           groupCount = builtins.length result.groups;
         in
         if result ? error then
-          parseError result.error
+          types.tryErr result.error
         else if groupCount != 8 then
-          parseError "must have 8 groups, got ${builtins.toString groupCount}: \"${input}\""
+          types.tryErr "must have 8 groups, got ${builtins.toString groupCount}: \"${input}\""
         else
           types.tryOk (fromGroups result.groups)
       else
@@ -283,39 +279,18 @@ let
           groupCount = builtins.length left.groups + builtins.length right.groups;
         in
         if left ? error then
-          parseError left.error
+          types.tryErr left.error
         else if right ? error then
-          parseError right.error
+          types.tryErr right.error
         # "::" stands for at least one zero group.
         else if groupCount > 7 then
-          parseError "must have at most 7 groups with \"::\", got ${builtins.toString groupCount}: \"${input}\""
+          types.tryErr "must have at most 7 groups with \"::\", got ${builtins.toString groupCount}: \"${input}\""
         else
           types.tryOk (fromGroups (left.groups ++ builtins.genList (_: 0) (8 - groupCount) ++ right.groups));
 
-  /*
-    Parse an IPv6 address, for trusted configuration values.
-
-    `input`: string such as "2001:db8::1".
-
-    Returns an IPv6 value; throws on malformed input.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "ipv6" tryParseDetail;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an IPv6 address.
-
-    `input`: value to check; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a parsed IPv6 value by its `_type` tag, as
@@ -798,10 +773,8 @@ in
     isSiteLocal
     isUniqueLocal
     isUnspecified
-    isValid
     loopback
     next
-    parse
     prev
     sub
     toArpa
@@ -812,8 +785,13 @@ in
     toStringBracketed
     toStringExpanded
     toWords
-    tryParse
+    tryParseDetail
     unspecified
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

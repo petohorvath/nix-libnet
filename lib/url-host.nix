@@ -34,38 +34,34 @@ let
   urlHostArgument =
     function: errors.expect "urlHost.${function}" "ip or regName value" types.isUrlHost;
 
-  parseError = detail: types.tryErr (errors.message "urlHost.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a URL host without throwing, for callers that branch on validity.
+    Parse a URL host: the detail parser of the parsing suite.
 
     `input`: a bracketed IPv6 literal (`[::1]`), dotted IPv4, or a non-empty
     registered name (unreserved, sub-delims, and `%XX` escapes).
 
-    Returns a tryResult: `{ success = true; value = <ipv4 | ipv6 | regName>; }`
-    or `{ success = false; error = <string>; }`. Never throws.
+    Returns a tryResult holding an ipv4, ipv6, or regName value, or the
+    detail of the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if input == "" then
-      parseError "empty host"
+    if input == "" then
+      types.tryErr "empty host"
     else if parsing.startsWith "[" input then
       if parsing.endsWith "]" input then
         let
           inner = builtins.substring 1 (builtins.stringLength input - 2) input;
           result = ipv6.tryParse inner;
         in
-        if result.success then result else parseError "invalid IPv6 literal \"${input}\""
+        if result.success then result else types.tryErr "invalid IPv6 literal \"${input}\""
       else
-        parseError "unclosed IPv6 literal \"${input}\""
+        types.tryErr "unclosed IPv6 literal \"${input}\""
     else
       let
-        ipv4Result = ipv4.tryParse input;
-        regNameResult = regName.tryParse input;
+        ipv4Result = ipv4.tryParseDetail input;
+        regNameResult = regName.tryParseDetail input;
       in
       if ipv4Result.success then
         ipv4Result
@@ -74,23 +70,11 @@ let
       # Keep the detail of the member whose shape the text has; a
       # registered name of only digits and dots reads as IPv4 (ADR 0021).
       else if parsing.isDottedDigits input then
-        parseError (errors.detail "ipv4.parse" ipv4Result.error)
+        ipv4Result
       else
-        parseError (errors.detail "regName.parse" regNameResult.error);
+        regNameResult;
 
-  /*
-    Parse a URL host, for values that must be valid.
-
-    `input`: host text as accepted by `tryParse`.
-
-    Returns an ipv4, ipv6, or regName value; throws on invalid input.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "urlHost" tryParseDetail;
 
   /*
     Render a URL host as it appears in a URL authority.
@@ -113,15 +97,6 @@ let
       regName.toString checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a URL host.
-
-    `input`: candidate host text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a URL host value.
@@ -216,10 +191,12 @@ in
     is
     isIp
     isRegName
-    isValid
-    parse
     toHost
     toString
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

@@ -45,8 +45,6 @@ let
   ipBindpointArgument =
     function: bindpoint: errors.expectKind "ipBindpoint.${function}" "ipBindpoint" bindpoint;
 
-  parseError = detail: types.tryErr (errors.message "ipBindpoint.parse" detail);
-
   isV4 = addressValue: addressValue._type == "ipv4";
   isV6 = addressValue: addressValue._type == "ipv6";
 
@@ -89,7 +87,7 @@ let
       portRangeOrNull = parsePortField portString;
     in
     if portRangeOrNull == null then
-      parseError "invalid port field \"${portString}\""
+      types.tryErr "invalid port field \"${portString}\""
     else
       types.tryOk (mk null portRangeOrNull);
 
@@ -99,7 +97,7 @@ let
       parts = parsing.splitOn "]:" input;
     in
     if builtins.length parts != 2 then
-      parseError "malformed bracketed form \"${input}\""
+      types.tryErr "malformed bracketed form \"${input}\""
     else
       let
         left = builtins.elemAt parts 0;
@@ -109,16 +107,16 @@ let
           if hasOpenBracket then builtins.substring 1 (builtins.stringLength left - 1) left else null;
       in
       if addressString == null then
-        parseError "missing '[' in \"${input}\""
+        types.tryErr "missing '[' in \"${input}\""
       else
         let
           addressResult = ipv6.tryParse addressString;
           portRangeOrNull = parsePortField portString;
         in
         if !addressResult.success then
-          parseError "invalid IPv6 in \"${input}\""
+          types.tryErr "invalid IPv6 in \"${input}\""
         else if portRangeOrNull == null then
-          parseError "invalid port field in \"${input}\""
+          types.tryErr "invalid port field in \"${input}\""
         else
           types.tryOk (mk addressResult.value portRangeOrNull);
 
@@ -128,9 +126,9 @@ let
       colons = parsing.countOccurrences ":" input;
     in
     if colons == 0 then
-      parseError "missing ':port' in \"${input}\""
+      types.tryErr "missing ':port' in \"${input}\""
     else if colons > 1 then
-      parseError "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
+      types.tryErr "unbracketed IPv6 is ambiguous, use [addr]:port: \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
@@ -140,14 +138,14 @@ let
         portRangeOrNull = parsePortField portString;
       in
       if !addressResult.success then
-        parseError "invalid IPv4 in \"${input}\""
+        types.tryErr "invalid IPv4 in \"${input}\""
       else if portRangeOrNull == null then
-        parseError "invalid port field in \"${input}\""
+        types.tryErr "invalid port field in \"${input}\""
       else
         types.tryOk (mk addressResult.value portRangeOrNull);
 
   /*
-    Parse an IP bindpoint without throwing, for validating untrusted text.
+    Parse an IP bindpoint: the detail parser of the parsing suite.
 
     `input`: `[address]:from[-to]`, such as `":8080"`, `"*:80"`,
     `"any:80"`, `"0.0.0.0:80"`, `"192.0.2.1:8000-8100"`, or
@@ -155,15 +153,12 @@ let
     all mean "any interface" and give `address = null`, so
     `toString (parse s)` emits the canonical `:PORT` for all three.
 
-    Returns a tryResult: `{ success = true; value; }` with an
-    ipBindpoint, or `{ success = false; error; }` for non-strings and
-    malformed input.
+    Returns a tryResult holding an ipBindpoint value, or the detail of
+    the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if parsing.startsWith "*:" input then
+    if parsing.startsWith "*:" input then
       tryParseNullAddress (parsing.stripPrefix "*:" input)
     else if parsing.startsWith "any:" input then
       tryParseNullAddress (parsing.stripPrefix "any:" input)
@@ -174,19 +169,7 @@ let
     else
       tryParseV4Form input;
 
-  /*
-    Parse an IP bindpoint from its text form.
-
-    `input`: `[address]:from[-to]`; see `tryParse` for accepted forms.
-
-    Returns an ipBindpoint value; throws on malformed input.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "ipBindpoint" tryParseDetail;
 
   /*
     Render an IP bindpoint in canonical form.
@@ -226,15 +209,6 @@ let
     ) addressValue) (errors.expectKind "ipBindpoint.make" "portRange" portRangeValue);
 
   # ===== Predicates =====
-
-  /*
-    Test whether a string parses as an IP bindpoint.
-
-    `input`: value to test; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Test whether a value is an ipBindpoint.
@@ -566,14 +540,17 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     isWildcard
     make
-    parse
     toArpa
     toString
-    tryParse
+    tryParseDetail
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

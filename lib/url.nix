@@ -101,8 +101,6 @@ let
   defaultPortOf = url: mkPort schemes.${url.scheme}.defaultPort;
   effectivePortOf = url: if url.authority.port != null then url.authority.port else defaultPortOf url;
 
-  parseError = detail: types.tryErr (errors.message "url.parse" detail);
-
   /*
     RFC 3986 grammars for the components after the authority. A pchar is
     unreserved / pct-encoded / sub-delims / ":" / "@"; a path is
@@ -130,84 +128,64 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an absolute URL without throwing, for callers that branch on
-    validity.
+    Parse an absolute URL: the detail parser of the parsing suite.
 
     `input`: `<scheme>://[userinfo@]host[:port][/path][?query][#fragment]`
     text; the scheme must be a key of `schemes` (matched
     case-insensitively).
 
-    Returns a tryResult: `{ success = true; value = <url>; }` or
-    `{ success = false; error = <string>; }`, whose error names
-    `url.parse` and keeps the detail of an authority failure. Never
-    throws.
+    Returns a tryResult holding a url value, or the detail of the
+    failure, which keeps the detail of an authority failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        schemeParts = parsing.splitOn "://" input;
-      in
-      if builtins.length schemeParts < 2 then
-        parseError "missing \"<scheme>://\": \"${input}\""
-      else
-        let
-          rawScheme = builtins.elemAt schemeParts 0;
-          lowerScheme = lowerAscii rawScheme;
-          rest = builtins.concatStringsSep "://" (builtins.tail schemeParts);
-        in
-        if !(schemes ? ${lowerScheme}) then
-          parseError "unknown scheme \"${rawScheme}\": \"${input}\""
-        else
-          let
-            fragmentParts = parsing.splitOn "#" rest;
-            beforeFragment = builtins.elemAt fragmentParts 0;
-            fragmentValue =
-              if builtins.length fragmentParts > 1 then
-                builtins.concatStringsSep "#" (builtins.tail fragmentParts)
-              else
-                null;
-            queryParts = parsing.splitOn "?" beforeFragment;
-            beforeQuery = builtins.elemAt queryParts 0;
-            queryValue =
-              if builtins.length queryParts > 1 then
-                builtins.concatStringsSep "?" (builtins.tail queryParts)
-              else
-                null;
-            slashParts = parsing.splitOn "/" beforeQuery;
-            authorityText = builtins.elemAt slashParts 0;
-            pathValue =
-              if builtins.length slashParts > 1 then
-                "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
-              else
-                "";
-            authorityResult = authority.tryParse authorityText;
-            componentDetail = componentError pathValue queryValue fragmentValue;
-          in
-          if !authorityResult.success then
-            parseError (errors.detail "authority.parse" authorityResult.error)
-          else if componentDetail != null then
-            parseError componentDetail
-          else
-            types.tryOk (mk lowerScheme authorityResult.value pathValue queryValue fragmentValue);
-
-  /*
-    Parse an absolute URL, for values that must be valid.
-
-    `input`: URL text as accepted by `tryParse`.
-
-    Returns a url value; throws on an unknown scheme, a missing or invalid
-    host, a bad port, invalid userinfo, a path, query, or fragment
-    outside its RFC 3986 grammar, or relative or opaque input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      schemeParts = parsing.splitOn "://" input;
     in
-    if result.success then result.value else throw result.error;
+    if builtins.length schemeParts < 2 then
+      types.tryErr "missing \"<scheme>://\": \"${input}\""
+    else
+      let
+        rawScheme = builtins.elemAt schemeParts 0;
+        lowerScheme = lowerAscii rawScheme;
+        rest = builtins.concatStringsSep "://" (builtins.tail schemeParts);
+      in
+      if !(schemes ? ${lowerScheme}) then
+        types.tryErr "unknown scheme \"${rawScheme}\": \"${input}\""
+      else
+        let
+          fragmentParts = parsing.splitOn "#" rest;
+          beforeFragment = builtins.elemAt fragmentParts 0;
+          fragmentValue =
+            if builtins.length fragmentParts > 1 then
+              builtins.concatStringsSep "#" (builtins.tail fragmentParts)
+            else
+              null;
+          queryParts = parsing.splitOn "?" beforeFragment;
+          beforeQuery = builtins.elemAt queryParts 0;
+          queryValue =
+            if builtins.length queryParts > 1 then
+              builtins.concatStringsSep "?" (builtins.tail queryParts)
+            else
+              null;
+          slashParts = parsing.splitOn "/" beforeQuery;
+          authorityText = builtins.elemAt slashParts 0;
+          pathValue =
+            if builtins.length slashParts > 1 then
+              "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
+            else
+              "";
+          authorityResult = authority.tryParseDetail authorityText;
+          componentDetail = componentError pathValue queryValue fragmentValue;
+        in
+        if !authorityResult.success then
+          authorityResult
+        else if componentDetail != null then
+          types.tryErr componentDetail
+        else
+          types.tryOk (mk lowerScheme authorityResult.value pathValue queryValue fragmentValue);
+
+  parsers = parsing.suite "url" tryParseDetail;
 
   /*
     Render a URL back to text.
@@ -282,15 +260,6 @@ let
       builtins.seq authorityValue (mk lowerScheme authorityValue pathValue queryValue fragmentValue);
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as a URL.
-
-    `input`: candidate URL text.
-
-    Returns true when `tryParse` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a url value.
@@ -486,17 +455,19 @@ in
     host
     is
     isSecure
-    isValid
     make
-    parse
     path
     query
     scheme
     schemes
     toEndpoint
     toString
-    tryParse
     userinfo
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

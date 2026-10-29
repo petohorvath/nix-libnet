@@ -21,20 +21,6 @@ let
 
   fail = caller: detail: throw (message caller detail);
 
-  # The detail of a `text` that `caller` raised, without its prefix, so a
-  # function can report a member's failure under its own name. Other text
-  # is returned unchanged.
-  detail =
-    caller: text:
-    let
-      prefix = "libnet.${caller}: ";
-      prefixLength = builtins.stringLength prefix;
-    in
-    if builtins.substring 0 prefixLength text == prefix then
-      builtins.substring prefixLength (builtins.stringLength text) text
-    else
-      text;
-
   # A tagged value reads as `<kind> value`, anything else as its builtin
   # type, such as `int` or `set`. A non-string `_type` is not a tag.
   describe =
@@ -89,7 +75,6 @@ in
 {
   inherit
     describe
-    detail
     expect
     expectFields
     expectKind

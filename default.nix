@@ -1,5 +1,10 @@
 let
-  core = {
+  # A namespace's `tryParseDetail`, its parse failure without the
+  # `libnet.<ns>.parse: ` prefix, serves the namespaces built on it and is
+  # not public API.
+  public = namespace: removeAttrs namespace [ "tryParseDetail" ];
+
+  core = builtins.mapAttrs (_: public) {
     ipv4 = import ./lib/ipv4.nix;
     ipv6 = import ./lib/ipv6.nix;
     ip = import ./lib/ip.nix;

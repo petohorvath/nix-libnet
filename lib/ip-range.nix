@@ -84,68 +84,41 @@ let
   # ===== Parsing =====
 
   /*
-    Parse an address range without throwing, so callers can handle
-    invalid input themselves.
+    Parse an address range, such as a firewall iprange rule or DHCP
+    pool: the detail parser of the parsing suite.
 
     `input`: "<from>-<to>" with two same-family addresses, such as
     "1.2.3.4-1.2.3.10" or "2001:db8::1-2001:db8::ff".
 
-    Returns a tryResult: `{ success = true; value = <ipRange>; }` or
-    `{ success = false; error = <message>; }`. Fails on malformed
-    addresses, mixed families, or from > to.
-  */
-  tryParse =
-    input:
-    let
-      parseError = detail: types.tryErr (errors.message "ipRange.parse" detail);
-      isV6Input = text: parsing.countOccurrences ":" text > 0;
-      # The address parser's detail, without its own prefix.
-      addressDetail =
-        text: result: errors.detail (if isV6Input text then "ipv6.parse" else "ipv4.parse") result.error;
-    in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "-" input;
-        partCount = builtins.length parts;
-      in
-      if partCount != 2 then
-        parseError "missing '-' or too many: \"${input}\""
-      else
-        let
-          fromInput = builtins.elemAt parts 0;
-          toInput = builtins.elemAt parts 1;
-          fromResult = if isV6Input fromInput then ipv6.tryParse fromInput else ipv4.tryParse fromInput;
-          toResult = if isV6Input toInput then ipv6.tryParse toInput else ipv4.tryParse toInput;
-        in
-        if !fromResult.success then
-          parseError "invalid 'from': ${addressDetail fromInput fromResult}"
-        else if !toResult.success then
-          parseError "invalid 'to': ${addressDetail toInput toResult}"
-        else if fromResult.value._type != toResult.value._type then
-          parseError "mixed families in \"${input}\""
-        else if !(leFor fromResult.value fromResult.value toResult.value) then
-          parseError "'from' > 'to' in \"${input}\""
-        else
-          types.tryOk (mk fromResult.value toResult.value);
-
-  /*
-    Parse an address range from text, such as a firewall iprange rule
-    or DHCP pool.
-
-    `input`: "<from>-<to>" with two same-family addresses, such as
-    "1.2.3.4-1.2.3.10" or "2001:db8::1-2001:db8::ff".
-
-    Returns an ipRange value; throws on malformed addresses, mixed
+    Returns a tryResult whose `value` is an ipRange value, or whose
+    `error` is the detail of the failure: malformed addresses, mixed
     families, or from > to.
   */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "-" input;
+      partCount = builtins.length parts;
     in
-    if result.success then result.value else throw result.error;
+    if partCount != 2 then
+      types.tryErr "missing '-' or too many: \"${input}\""
+    else
+      let
+        fromResult = ip.tryParseDetail (builtins.elemAt parts 0);
+        toResult = ip.tryParseDetail (builtins.elemAt parts 1);
+      in
+      if !fromResult.success then
+        types.tryErr "invalid 'from': ${fromResult.error}"
+      else if !toResult.success then
+        types.tryErr "invalid 'to': ${toResult.error}"
+      else if fromResult.value._type != toResult.value._type then
+        types.tryErr "mixed families in \"${input}\""
+      else if !(leFor fromResult.value fromResult.value toResult.value) then
+        types.tryErr "'from' > 'to' in \"${input}\""
+      else
+        types.tryOk (mk fromResult.value toResult.value);
+
+  parsers = parsing.suite "ipRange" tryParseDetail;
 
   /*
     Format a range in canonical hyphen form.
@@ -201,15 +174,6 @@ let
     mk checked checked;
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an address range.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is an ipRange value.
@@ -644,17 +608,19 @@ in
     isSingleton
     isSubrangeOf
     isSuperrangeOf
-    isValid
     make
     merge
     overlaps
-    parse
     size
     to
     toCidrs
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

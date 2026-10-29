@@ -41,8 +41,6 @@ let
     in
     builtins.seq value (f value);
 
-  parseError = detail: types.tryErr (errors.message "ipv4.parse" detail);
-
   bytesOf = value: [
     (bits.bits 24 8 value)
     (bits.bits 16 8 value)
@@ -120,44 +118,29 @@ let
   # ===== Parsing & formatting =====
 
   /*
-    Parse a dotted-quad string without throwing, for validating untrusted
-    input. Octets with leading zeros or above 255 are rejected.
+    Parse a dotted-quad string: the detail parser of the parsing suite.
+    Octets with leading zeros or above 255 are rejected.
 
     `input`: string such as "192.0.2.1".
 
-    Returns a tryParse result: `{ success, value, error }`, where `value`
-    is the IPv4 value on success and `error` describes the failure.
+    Returns a tryResult holding the IPv4 value, or the detail of the
+    failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        parts = parsing.splitOn "." input;
-        partCount = builtins.length parts;
-        octets = map parsing.octet parts;
-      in
-      if partCount != 4 then
-        parseError "must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
-      else if builtins.elem null octets then
-        parseError "invalid octet in \"${input}\""
-      else
-        types.tryOk (fromBytes octets);
-
-  /*
-    Parse a dotted-quad string, for trusted configuration values.
-
-    `input`: string such as "192.0.2.1".
-
-    Returns an IPv4 value; throws on malformed input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      parts = parsing.splitOn "." input;
+      partCount = builtins.length parts;
+      octets = map parsing.octet parts;
     in
-    if result.success then result.value else throw result.error;
+    if partCount != 4 then
+      types.tryErr "must have 4 octets, got ${builtins.toString partCount}: \"${input}\""
+    else if builtins.elem null octets then
+      types.tryErr "invalid octet in \"${input}\""
+    else
+      types.tryOk (fromBytes octets);
+
+  parsers = parsing.suite "ipv4" tryParseDetail;
 
   /*
     Format an address in canonical dotted-quad form.
@@ -184,15 +167,6 @@ let
     "${byteText 3}.${byteText 2}.${byteText 1}.${byteText 0}.in-addr.arpa";
 
   # ===== Predicates =====
-
-  /*
-    Check whether a string parses as an IPv4 address.
-
-    `input`: value to check; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Check whether a value is a parsed IPv4 value by its `_type` tag, as
@@ -514,18 +488,21 @@ in
     isSharedAddressSpace
     isThisNetwork
     isUnspecified
-    isValid
     loopback
     next
-    parse
     prev
     sub
     toArpa
     toBytes
     toInt
     toString
-    tryParse
+    tryParseDetail
     unspecified
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

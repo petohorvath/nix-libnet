@@ -42,57 +42,40 @@ let
   dnsEndpointArgument =
     function: endpoint: errors.expectKind "dnsEndpoint.${function}" "dnsEndpoint" endpoint;
 
-  parseError = detail: types.tryErr (errors.message "dnsEndpoint.parse" detail);
-
   # ===== Parsing =====
 
   /*
-    Parse a DNS endpoint without throwing, for validating untrusted text.
+    Parse a DNS endpoint: the detail parser of the parsing suite.
 
     `input`: `"<name>:<port>"` with exactly one `:` (DNS names contain no
     colons). The bracketed form is rejected: brackets denote an IPv6
     literal, which is an IP, not a name.
 
-    Returns a tryResult: `{ success = true; value; }` with a dnsEndpoint,
-    or `{ success = false; error; }` for non-strings and malformed input.
+    Returns a tryResult holding a dnsEndpoint value, or the detail of the
+    failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else if parsing.startsWith "[" input then
-      parseError "bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
+    if parsing.startsWith "[" input then
+      types.tryErr "bracketed form is for IPv6; a dnsEndpoint holds a DNS name: \"${input}\""
     else if parsing.countOccurrences ":" input != 1 then
-      parseError "expected exactly one ':' (name:port): \"${input}\""
+      types.tryErr "expected exactly one ':' (name:port): \"${input}\""
     else
       let
         parts = parsing.splitOn ":" input;
         nameString = builtins.elemAt parts 0;
         portString = builtins.elemAt parts 1;
-        nameResult = dnsName.tryParse nameString;
+        nameResult = dnsName.tryParseDetail nameString;
         portResult = port.tryParse portString;
       in
       if !nameResult.success then
-        parseError (errors.detail "dnsName.parse" nameResult.error)
+        nameResult
       else if !portResult.success then
-        parseError "invalid port in \"${input}\""
+        types.tryErr "invalid port in \"${input}\""
       else
         types.tryOk (mk nameResult.value portResult.value);
 
-  /*
-    Parse a DNS endpoint from its text form.
-
-    `input`: `"<name>:<port>"` with exactly one `:` and no brackets.
-
-    Returns a dnsEndpoint value; throws on IP literals, an invalid name,
-    or an invalid port.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "dnsEndpoint" tryParseDetail;
 
   /*
     Render a DNS endpoint as text.
@@ -128,15 +111,6 @@ let
     );
 
   # ===== Predicates =====
-
-  /*
-    Test whether a string parses as a DNS endpoint.
-
-    `input`: value to test; non-strings yield false.
-
-    Returns a Boolean.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Test whether a value is a dnsEndpoint.
@@ -211,11 +185,14 @@ in
     is
     isDomain
     isHostname
-    isValid
     make
     name
-    parse
     toString
+    tryParseDetail
+    ;
+  inherit (parsers)
+    isValid
+    parse
     tryParse
     ;
   inherit (ordering)

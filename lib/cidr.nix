@@ -128,60 +128,40 @@ let
   # ===== Parsing =====
 
   /*
-    Parse a CIDR block without throwing, for callers that validate
-    untrusted text.
+    Parse a CIDR block: the detail parser of the parsing suite.
 
     `input`: `address/prefix` string such as `10.0.0.0/24` or
     `2001:db8::/32`; host bits must be zero.
 
-    Returns a tryParse result whose `value` is a cidr value.
+    Returns a tryResult whose `value` is a cidr value, or whose `error`
+    is the detail of the failure.
   */
-  tryParse =
+  tryParseDetail =
     input:
     let
-      parseError = detail: types.tryErr (errors.message "cidr.parse" detail);
+      parts = parsing.splitOn "/" input;
     in
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
+    if builtins.length parts != 2 then
+      types.tryErr "missing '/': \"${input}\""
     else
       let
-        parts = parsing.splitOn "/" input;
+        addressText = builtins.elemAt parts 0;
+        prefixText = builtins.elemAt parts 1;
+        addressResult = ip.tryParseDetail addressText;
+        prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixText;
       in
-      if builtins.length parts != 2 then
-        parseError "missing '/': \"${input}\""
+      if !addressResult.success then
+        addressResult
+      else if !(parsing.isDecimal prefixText) then
+        types.tryErr "invalid prefix \"${prefixText}\""
+      else if prefixLength == null then
+        types.tryErr "prefix /${prefixText} out of range"
+      else if hasHostBits addressResult.value prefixLength then
+        types.tryErr (hostBitsError addressResult.value prefixLength)
       else
-        let
-          addressText = builtins.elemAt parts 0;
-          prefixText = builtins.elemAt parts 1;
-          isIpv6Text = parsing.countOccurrences ":" addressText > 0;
-          addressResult = if isIpv6Text then ipv6.tryParse addressText else ipv4.tryParse addressText;
-          prefixLength = parsing.decimal (maxPrefix addressResult.value) prefixText;
-        in
-        if !addressResult.success then
-          parseError (errors.detail (if isIpv6Text then "ipv6.parse" else "ipv4.parse") addressResult.error)
-        else if !(parsing.isDecimal prefixText) then
-          parseError "invalid prefix \"${prefixText}\""
-        else if prefixLength == null then
-          parseError "prefix /${prefixText} out of range"
-        else if hasHostBits addressResult.value prefixLength then
-          parseError (hostBitsError addressResult.value prefixLength)
-        else
-          types.tryOk (mk addressResult.value prefixLength);
+        types.tryOk (mk addressResult.value prefixLength);
 
-  /*
-    Parse a CIDR block from its text form.
-
-    `input`: `address/prefix` string such as `10.0.0.0/24` or
-    `2001:db8::/32`; host bits must be zero.
-
-    Returns a cidr value; throws on invalid input or set host bits.
-  */
-  parse =
-    input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+  parsers = parsing.suite "cidr" tryParseDetail;
 
   /*
     Format a CIDR block as `address/prefix`.
@@ -280,15 +260,6 @@ let
     Returns a Boolean.
   */
   isIpv6 = cidr: isV6 (cidrArgument "isIpv6" cidr).networkAddress;
-
-  /*
-    Check whether a string parses as a CIDR block.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Structural check for a tagged CIDR block.
@@ -891,13 +862,11 @@ in
     isIpv6
     isSubnetOf
     isSupernetOf
-    isValid
     lastHost
     make
     netmask
     networkAddress
     overlaps
-    parse
     prefix
     size
     subnets
@@ -905,8 +874,12 @@ in
     supernet
     topAddress
     toString
-    tryParse
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

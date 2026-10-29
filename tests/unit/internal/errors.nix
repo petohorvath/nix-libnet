@@ -18,16 +18,6 @@ in
     expectedError.msg = "^libnet\\.port\\.add: out of range$";
   };
 
-  # ===== detail =====
-  testDetailDropsCallersPrefix = {
-    expr = errors.detail "dnsName.parse" "libnet.dnsName.parse: \"a_b\" is not valid";
-    expected = "\"a_b\" is not valid";
-  };
-  testDetailKeepsOtherText = {
-    expr = errors.detail "dnsName.parse" "libnet.hostname.parse: bad";
-    expected = "libnet.hostname.parse: bad";
-  };
-
   # ===== describe =====
   # No description coerces the value, so none of these can fail.
   testDescribeBuiltinTypes = {

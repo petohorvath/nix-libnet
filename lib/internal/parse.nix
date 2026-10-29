@@ -1,4 +1,7 @@
 let
+  errors = import ./errors.nix;
+  types = import ./types.nix;
+
   digitValues = {
     "0" = 0;
     "1" = 1;
@@ -208,6 +211,70 @@ let
       inputLength = builtins.stringLength input;
     in
     builtins.substring 0 (inputLength - suffixLength) input;
+
+  /*
+    `suite namespace tryParseDetail` builds the parsing suite of the kind
+    `namespace`, such as `ipv4`, from its detail parser, as
+    `comparison.suite` builds ordering from one comparison.
+
+    `tryParseDetail` takes a string and returns a tryResult whose `error`
+    is the detail alone, without the `libnet.<namespace>.parse: ` prefix,
+    so a union or a composite can report a member's failure under its
+    own name. The suite rejects a non-string before calling it and adds
+    the prefix once.
+
+    The public namespaces export the returned functions, so their headers
+    describe public API.
+  */
+  suite =
+    namespace: tryParseDetail:
+    let
+      caller = "${namespace}.parse";
+
+      /*
+        Parse text without throwing, for validating untrusted input or
+        reporting the error yourself.
+
+        `input`: any value; a non-string fails.
+
+        Returns a tryResult `{ success, value, error }`, whose `error` is
+        the message `parse` would throw, naming `<namespace>.parse`.
+      */
+      tryParse =
+        input:
+        let
+          result =
+            if builtins.isString input then tryParseDetail input else types.tryErr (errors.notString input);
+        in
+        if result.success then result else types.tryErr (errors.message caller result.error);
+    in
+    {
+      inherit tryParse;
+
+      /*
+        Parse text, for trusted configuration values.
+
+        `input`: text of the kind.
+
+        Returns a value of the kind; throws on a non-string or invalid
+        input.
+      */
+      parse =
+        input:
+        let
+          result = tryParse input;
+        in
+        if result.success then result.value else throw result.error;
+
+      /*
+        Check whether a value is text that parses as the kind.
+
+        `input`: any value; non-strings yield false.
+
+        Returns a Boolean; never throws.
+      */
+      isValid = input: (tryParse input).success;
+    };
 in
 {
   inherit
@@ -226,5 +293,6 @@ in
     startsWith
     stripPrefix
     stripSuffix
+    suite
     ;
 }

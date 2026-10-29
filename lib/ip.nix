@@ -40,47 +40,25 @@ let
     function: onIpv4: onIpv6: ip:
     if types.isIpv4 (ipArgument function ip) then onIpv4 ip else onIpv6 ip;
 
-  # Report a member's parse failure as `ip.parse`, keeping its detail.
-  fromMember =
-    member: result:
-    if result.success then
-      result
-    else
-      types.tryErr (errors.message "ip.parse" (errors.detail "${member}.parse" result.error));
-
   # ===== Parsing =====
 
   /*
-    Parse an address of either family without throwing, for callers that
-    validate untrusted text.
-
-    `input`: address string; any ':' selects IPv6, otherwise IPv4.
-
-    Returns a tryParse result whose `value` is an ipv4 or ipv6 value.
-  */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      types.tryErr (errors.message "ip.parse" (errors.notString input))
-    else if parsing.countOccurrences ":" input > 0 then
-      fromMember "ipv6" (ipv6.tryParse input)
-    else
-      fromMember "ipv4" (ipv4.tryParse input);
-
-  /*
     Parse an address of either family when the family is not known in
-    advance.
+    advance: the detail parser of the parsing suite.
 
     `input`: address string; any ':' selects IPv6, otherwise IPv4.
 
-    Returns an ipv4 or ipv6 value; throws on invalid input.
+    Returns a tryResult whose `value` is an ipv4 or ipv6 value, or whose
+    `error` is the detail of the family parser.
   */
-  parse =
+  tryParseDetail =
     input:
-    let
-      result = tryParse input;
-    in
-    if result.success then result.value else throw result.error;
+    if parsing.countOccurrences ":" input > 0 then
+      ipv6.tryParseDetail input
+    else
+      ipv4.tryParseDetail input;
+
+  parsers = parsing.suite "ip" tryParseDetail;
 
   /*
     Format an address of either family in its canonical text form.
@@ -99,15 +77,6 @@ let
     Returns 4 or 6; throws for any other value.
   */
   version = dispatch "version" (_: 4) (_: 6);
-
-  /*
-    Check whether a string parses as an address of either family.
-
-    `input`: value to test.
-
-    Returns a Boolean; never throws.
-  */
-  isValid = input: (tryParse input).success;
 
   /*
     Structural check for a tagged address of either family.
@@ -319,15 +288,18 @@ in
     isLoopback
     isMulticast
     isUnspecified
-    isValid
     next
-    parse
     prev
     sub
     toArpa
     toString
-    tryParse
+    tryParseDetail
     version
+    ;
+  inherit (parsers)
+    isValid
+    parse
+    tryParse
     ;
   inherit (ordering)
     compare

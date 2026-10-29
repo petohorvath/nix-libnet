@@ -41,8 +41,6 @@ let
   outOfRange =
     function: text: errors.fail "${typeName}.${function}" "out of range ${rangeText}: ${text}";
 
-  parseError = detail: types.tryErr (errors.message "${typeName}.parse" detail);
-
   # The comparison and offset logic shared by the public functions, each
   # taking the name of the public function its errors report.
   compareFor =
@@ -78,56 +76,30 @@ let
       mk result;
 
   /*
-    Parse a value from its decimal text without throwing, so callers can
-    handle invalid input themselves.
+    Parse a value from its decimal text: the detail parser of the
+    parsing suite.
 
     `input`: decimal string within the inclusive bounds, without sign,
     whitespace or leading zeros.
 
-    Returns a tryResult: `{ success = true; value = <scalar>; }` or
-    `{ success = false; error = <message>; }`.
+    Returns a tryResult holding the tagged value, or the detail of the
+    failure.
   */
-  tryParse =
-    input:
-    if !(builtins.isString input) then
-      parseError (errors.notString input)
-    else
-      let
-        number = parsing.decimal maxValue input;
-      in
-      if parsing.hasLeadingZero input then
-        parseError "leading zero in \"${input}\""
-      else if !(parsing.isDecimal input) then
-        parseError "not a decimal number: \"${input}\""
-      else if number == null || !(inRange number) then
-        parseError "out of range ${rangeText}: ${input}"
-      else
-        types.tryOk (mk number);
-
-  /*
-    Parse a value from its decimal text, for configuration values written
-    as text.
-
-    `input`: decimal string within the inclusive bounds, without sign,
-    whitespace or leading zeros.
-
-    Returns the tagged value; throws on malformed or out-of-range input.
-  */
-  parse =
+  tryParseDetail =
     input:
     let
-      result = tryParse input;
+      number = parsing.decimal maxValue input;
     in
-    if result.success then result.value else throw result.error;
+    if parsing.hasLeadingZero input then
+      types.tryErr "leading zero in \"${input}\""
+    else if !(parsing.isDecimal input) then
+      types.tryErr "not a decimal number: \"${input}\""
+    else if number == null || !(inRange number) then
+      types.tryErr "out of range ${rangeText}: ${input}"
+    else
+      types.tryOk (mk number);
 
-  /*
-    Check whether a string parses as a value of this domain.
-
-    `input`: candidate string.
-
-    Returns true when `tryParse input` succeeds.
-  */
-  isValid = input: (tryParse input).success;
+  parsers = parsing.suite typeName tryParseDetail;
 
   /*
     Recognize a constructed value by its tag, without forcing its payload,
@@ -242,12 +214,14 @@ else
       eq
       fromInt
       is
-      isValid
       maxValue
       minValue
-      parse
       toInt
       toString
+      ;
+    inherit (parsers)
+      isValid
+      parse
       tryParse
       ;
     inherit (ordering)

@@ -1,9 +1,96 @@
-{ helpers, internal, ... }:
+{
+  helpers,
+  internal,
+  libnet,
+  ...
+}:
 let
   parsing = internal.parse;
   inherit (helpers) throws;
+  inherit (internal) types;
+
+  # A kind `digit` whose detail parser reads one decimal digit and
+  # describes other text without a prefix.
+  digit = parsing.suite "digit" (
+    input:
+    let
+      value = parsing.decimal 9 input;
+    in
+    if value == null then types.tryErr "not a digit: \"${input}\"" else types.tryOk value
+  );
 in
 {
+  # ===== suite =====
+  testSuiteTryParseSucceeds = {
+    expr = digit.tryParse "7";
+    expected = {
+      success = true;
+      value = 7;
+      error = null;
+    };
+  };
+  # The suite adds the prefix once, naming `parse`.
+  testSuiteTryParseNamesParse = {
+    expr = digit.tryParse "x";
+    expected = {
+      success = false;
+      value = null;
+      error = "libnet.digit.parse: not a digit: \"x\"";
+    };
+  };
+  # A non-string never reaches the detail parser.
+  testSuiteTryParseNonString = {
+    expr = map (input: (digit.tryParse input).error) [
+      7
+      { _type = "digit"; }
+    ];
+    expected = [
+      "libnet.digit.parse: expected string, got int"
+      "libnet.digit.parse: expected string, got digit value"
+    ];
+  };
+  testSuiteParse = {
+    expr = map digit.parse [
+      "0"
+      "9"
+    ];
+    expected = [
+      0
+      9
+    ];
+  };
+  testSuiteParseThrows = {
+    expr = digit.parse "10";
+    expectedError.msg = "^libnet\\.digit\\.parse: not a digit: \"10\"$";
+  };
+  testSuiteParseNonStringThrows = {
+    expr = digit.parse null;
+    expectedError.msg = "^libnet\\.digit\\.parse: expected string, got null$";
+  };
+  # Namespaces share their detail parsers with each other, not with users.
+  testSuiteDetailIsNotPublic = {
+    expr = builtins.filter (name: builtins.isAttrs libnet.${name} && libnet.${name} ? tryParseDetail) (
+      builtins.attrNames libnet
+    );
+    expected = [ ];
+  };
+  testSuiteIsValid = {
+    expr = map digit.isValid [
+      "3"
+      "x"
+      ""
+      3
+      null
+    ];
+    expected = [
+      true
+      false
+      false
+      false
+      false
+    ];
+  };
+
   # ===== isDecimal =====
   testIsDecimalAccepts = {
     expr = map parsing.isDecimal [
