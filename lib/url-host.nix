@@ -158,9 +158,10 @@ let
 
     `urlHost`: an ipv4, ipv6, or regName value.
 
-    Returns the IP value itself, or the `dnsName` value when the registered
-    name is a valid DNS name; null otherwise (for example, names containing
-    underscores). Throws for any other value.
+    Returns the IP value itself, or the `dnsName` value of a registered
+    name. Throws for a registered name that is not a valid DNS name, such
+    as one containing an underscore; `dnsName.isValid (regName.toString
+    name)` guards the call. Throws for any other value.
   */
   toHost =
     urlHost:
@@ -173,7 +174,7 @@ let
     else if result.success then
       result.value
     else
-      null;
+      errors.fail "urlHost.toHost" "registered name \"${checked.value}\" is not a valid DNS name";
 
   # ===== Comparison =====
   #

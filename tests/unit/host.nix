@@ -97,7 +97,12 @@ in
   };
   testRejectBadIpv6KeepsDetail = {
     expr = parse "::g";
-    expectedError.msg = "^libnet\\.host\\.parse: invalid \"::g\"$";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid group \"g\" in \"::g\"$";
+  };
+  # No DNS name holds a colon, so a name with a port fails as IPv6.
+  testRejectNameWithPort = {
+    expr = parse "example.com:80";
+    expectedError.msg = "^libnet\\.host\\.parse: invalid group \"example\\.com\" in \"example\\.com:80\"$";
   };
   testRejectNumericHostname = {
     expr = map host.isValid [
@@ -133,8 +138,17 @@ in
     expected = false;
   };
   testTryParseBadError = {
-    expr = builtins.isString (host.tryParse "host_name").error;
-    expected = true;
+    expr = (host.tryParse "host_name").error;
+    expected = "libnet.host.parse: invalid hostname \"host_name\" (expected 1-63 ASCII alphanumerics or hyphens, starting and ending with alphanumeric)";
+  };
+  # Text with a colon or only digits and dots keeps the IP's detail.
+  testTryParseColonKeepsIpDetail = {
+    expr = (host.tryParse "nas:22").error;
+    expected = "libnet.host.parse: invalid group \"nas\" in \"nas:22\"";
+  };
+  testTryParseDottedDigitsKeepsIpDetail = {
+    expr = (host.tryParse "1.2.3.256").error;
+    expected = "libnet.host.parse: invalid octet in \"1.2.3.256\"";
   };
 
   # ===== toString (dispatches) =====
@@ -205,6 +219,20 @@ in
   testIsDnsNameDomain = {
     expr = host.isDnsName (parse "example.com");
     expected = true;
+  };
+  # `hostname.parse` accepts a numeric label, which no DNS name is
+  # (ADR 0021).
+  testIsDnsNameNumericHostname = {
+    expr = host.isDnsName (hostname.parse "1234");
+    expected = false;
+  };
+  testIsNumericHostname = {
+    expr = host.is (hostname.parse "0x7f");
+    expected = false;
+  };
+  testToStringRejectsNumericHostname = {
+    expr = host.toString (hostname.parse "1234");
+    expectedError.msg = "^libnet\\.host\\.toString: expected ip, hostname or domain value, got hostname \"1234\", which reads as an IPv4 address$";
   };
   testIsDnsNameIp = {
     expr = host.isDnsName (parse "10.0.0.1");

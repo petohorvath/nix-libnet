@@ -85,11 +85,11 @@ Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bra
 
 Suites: parsing (`toString` brackets IPv6), comparison (IPv4, IPv6, then registered names by their folded text).
 
-| Function    | Signature                | Notes                                                |
-| ----------- | ------------------------ | ---------------------------------------------------- |
-| `isIp`      | `Any → Bool`             | An `ipv4` or `ipv6` value.                           |
-| `isRegName` | `Any → Bool`             | A `regName` value.                                   |
-| `toHost`    | `UrlHost → Host or null` | `null` for a registered name that is not a DNS name. |
+| Function    | Signature        | Notes                                                                                                                                                                                     |
+| ----------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isIp`      | `Any → Bool`     | An `ipv4` or `ipv6` value.                                                                                                                                                                |
+| `isRegName` | `Any → Bool`     | A `regName` value.                                                                                                                                                                        |
+| `toHost`    | `UrlHost → Host` | The IP itself, or the registered name as a `dnsName` value. Throws for a registered name that is not a DNS name, such as `my_host`; guard with `dnsName.isValid (regName.toString name)`. |
 
 ## `libnet.regName`
 

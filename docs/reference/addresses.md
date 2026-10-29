@@ -41,7 +41,7 @@ Predicates, each `Ipv4 → Bool`:
 
 ## `libnet.ipv6`
 
-Value: `{ _type = "ipv6"; words = [Int Int Int Int]; }`, four 32-bit words with the most significant first; `2001:db8::1` is `[ 536939960 0 0 1 ]`. `parse` accepts compression, mixed case, and embedded IPv4 (`::ffff:1.2.3.4`). Canonical text follows RFC 5952.
+Value: `{ _type = "ipv6"; words = [Int Int Int Int]; }`, four 32-bit words with the most significant first; `2001:db8::1` is `[ 536939960 0 0 1 ]`. `parse` accepts compression, mixed case, and embedded IPv4 (`::ffff:1.2.3.4`). A parse error names the first empty or invalid group or IPv4 part, or else the wrong group count: `ipv6.parse "gggg::"` throws `libnet.ipv6.parse: invalid group "gggg" in "gggg::"`, and `ipv6.parse "1:2:3:4:5:6:7"` throws `libnet.ipv6.parse: must have 8 groups, got 7: "1:2:3:4:5:6:7"`. Canonical text follows RFC 5952.
 
 Suites: parsing, comparison (ordered by words), arithmetic (carry and borrow cross words; `diff` throws when the result falls outside the Nix integer range `[−2⁶³, 2⁶³ − 1]`, so a difference of exactly −2⁶³ is returned). There is no `toInt` or `fromInt`.
 
