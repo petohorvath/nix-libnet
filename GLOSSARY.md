@@ -21,7 +21,7 @@ A namespace that accepts several kinds and returns the member's own tagged value
 _Avoid_: sum type, wrapper
 
 **Canonical text**:
-The single text form a value's `toString` emits, such as RFC 5952 IPv6 or the colon-separated lowercase MAC.
+The single text form a value's `toString` emits, such as RFC 5952 IPv6, the colon-separated lowercase MAC or a lowercase domain.
 _Avoid_: normalized string, pretty form
 
 ## Addresses
@@ -101,11 +101,11 @@ A single RFC 1123 label of 1 to 63 characters, the shape of a Linux kernel hostn
 _Avoid_: host, short name
 
 **Domain**:
-A DNS name of two or more labels, at most 253 characters.
+A DNS name of two or more labels, at most 253 characters, whose rightmost label is not numeric.
 _Avoid_: FQDN, zone
 
 **DNS name**:
-A hostname or a domain, never an IP literal.
+A hostname or a domain that no resolver reads as an IPv4 address, so never `127.1`, `010.0.0.1` or `0x7f.0.0.1`.
 _Avoid_: name (unqualified)
 
 **Host**:
@@ -117,7 +117,7 @@ The host component of a URL authority under RFC 3986: an IP literal or a looser 
 _Avoid_: host (when the URL grammar applies)
 
 **Registered name**:
-An RFC 3986 URL host that is not an IP literal: a name that admits `_`, `~`, sub-delimiters and percent-encoding, with no DNS label structure.
+An RFC 3986 URL host that no client reads as an IP address: a name that admits `_`, `~`, sub-delimiters and percent-encoding, with no DNS label structure.
 _Avoid_: hostname, domain (in the URL grammar)
 
 ## Targets
@@ -150,10 +150,10 @@ _Avoid_: any address, unspecified (which names the address `0.0.0.0` / `::` itse
 ## URL forms
 
 **Socket URL**:
-An endpoint paired with a transport, `<scheme>://<endpoint>`, such as `tcp://1.2.3.4:80` or `unix:///run/foo.sock`.
+An endpoint under a socket scheme, `<scheme>://<endpoint>`, such as `tcp://1.2.3.4:80` or `unix:///run/foo.sock`.
 
 **Bind URL**:
-A bindpoint paired with a transport, `<scheme>://<bindpoint>`, such as `tcp://:8080`: the bind-side peer of a socket URL.
+A bindpoint under a socket scheme, `<scheme>://<bindpoint>`, such as `tcp://:8080`: the bind-side peer of a socket URL.
 
 **Secure socket URL**:
 An IP or DNS endpoint reached over TLS, `<scheme>://<endpoint>`, whose scheme is `tls`, `dtls` or `quic`.
@@ -169,8 +169,12 @@ The `[userinfo@]host[:port]` component of a URL, usable on its own.
 The location of a proxy server, `<scheme>://<authority>`, with an HTTP or SOCKS scheme and a required port.
 
 **Scheme registry**:
-The closed set of schemes a URL form accepts, each with its transport, whether it is secure, and, for URLs, its default port.
+The closed set of schemes a URL form accepts, each with its transport, whether it is a secure scheme, and, for URLs, its default port.
 _Avoid_: registry (unqualified, which is the `registry` namespace)
+
+**Secure scheme**:
+A scheme whose protocol encrypts the connection, such as `https`, `ssh` or `tls`.
+_Avoid_: TLS scheme (`ssh` is secure without TLS)
 
 ## Bounded integers
 
