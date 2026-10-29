@@ -88,12 +88,12 @@ in
     expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"@\" ";
   };
   testRejectTooLong = {
-    expr = throws (parse pathOver);
-    expected = true;
+    expr = parse pathOver;
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"/a{107}\" \\(expected ";
   };
   testRejectAbstractTooLong = {
-    expr = throws (parse abstractOver);
-    expected = true;
+    expr = parse abstractOver;
+    expectedError.msg = "^libnet\\.unixSocket\\.parse: invalid socket \"@a{108}\" \\(expected ";
   };
   testRejectNotString = {
     expr = unixSocket.parse 42;

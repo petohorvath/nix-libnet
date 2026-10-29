@@ -121,8 +121,8 @@ in
   };
   # The host reads as IPv4 but is not an `ip` (ADR 0021).
   testRejectNumericName = {
-    expr = throws (parse "tcp://127.1:80");
-    expected = true;
+    expr = parse "tcp://127.1:80";
+    expectedError.msg = "^libnet\\.socketUrl\\.parse: invalid IPv4 in \"127\\.1:80\"$";
   };
   testRejectBadEndpoint = {
     expr = parse "tcp://host_name:1";

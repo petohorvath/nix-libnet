@@ -227,12 +227,12 @@ in
   };
   # Text that reads as IPv4 is not a registered name (ADR 0021).
   testRejectShortQuadHost = {
-    expr = throws (parse "http://127.1/");
-    expected = true;
+    expr = parse "http://127.1/";
+    expectedError.msg = "^libnet\\.url\\.parse: invalid host \"127\\.1\"$";
   };
   testRejectHexQuadHost = {
-    expr = throws (parse "http://0x7f.0.0.1/");
-    expected = true;
+    expr = parse "http://0x7f.0.0.1/";
+    expectedError.msg = "^libnet\\.url\\.parse: invalid host \"0x7f\\.0\\.0\\.1\"$";
   };
   testRejectNumericHost = {
     expr = map url.isValid [
