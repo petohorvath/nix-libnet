@@ -182,8 +182,12 @@ let
   /*
     Uppercase the two hex digits after each `%`, the RFC 3986 §6.2.2.1
     case normalization of percent-encodings, leaving every other byte as
-    it is. The caller validates `input` first, so every `%` starts a full
-    escape.
+    it is.
+
+    `input`: validated text, in which every `%` starts a full escape, or
+    null for an absent optional component.
+
+    Returns the folded text, or null for null.
   */
   uppercasePercentEncodings =
     input:
@@ -195,9 +199,12 @@ let
         upperHex (builtins.substring 0 2 segment)
         + builtins.substring 2 (builtins.stringLength segment) segment;
     in
-    builtins.concatStringsSep "%" (
-      [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
-    );
+    if input == null then
+      null
+    else
+      builtins.concatStringsSep "%" (
+        [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
+      );
 
   # Split a URL at its first `://` into the scheme, as written, and the
   # rest, or return null when `input` has no `://`.

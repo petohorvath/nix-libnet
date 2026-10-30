@@ -160,7 +160,7 @@ let
   isDocumentation = ip: dispatch "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation ip;
 
   /*
-    Check whether an address is globally routable, using the family's rules.
+    Check whether an address is globally reachable, using the family's rules.
 
     `ip`: ipv4 or ipv6 value.
 
@@ -169,7 +169,7 @@ let
   isGlobal = ip: dispatch "isGlobal" ipv4.isGlobal ipv6.isGlobal ip;
 
   /*
-    Check whether an address is not globally routable, using the family's
+    Check whether an address is a bogon, not globally reachable, using the family's
     rules.
 
     `ip`: ipv4 or ipv6 value.

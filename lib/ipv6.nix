@@ -546,7 +546,7 @@ let
   );
 
   /*
-    Check whether an address is not globally routable: unspecified,
+    Check whether an address is a bogon, not globally reachable: unspecified,
     loopback, link-local, unique local, multicast, documentation,
     local-use NAT64, discard, dummy, IETF protocol assignment,
     benchmarking, ORCHID, SRv6 SID, or site-local. Transition forms are

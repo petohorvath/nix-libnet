@@ -197,6 +197,19 @@ in
       "[::1]:81"
     ];
   };
+  # An explicit-family wildcard names an address, so it materializes;
+  # endpoints check syntax, not reachability (ADR 0009).
+  testEndpointsUnspecifiedAddress = {
+    expr = map ipEndpoint.toString (ipBindpoint.endpoints (parse "0.0.0.0:80-81"));
+    expected = [
+      "0.0.0.0:80"
+      "0.0.0.0:81"
+    ];
+  };
+  testEndpointAtUnspecifiedV6 = {
+    expr = ipEndpoint.toString (ipBindpoint.endpointAt 1 (parse "[::]:80-81"));
+    expected = "[::]:81";
+  };
   testEndpointsNull = {
     expr = ipBindpoint.endpoints (parse ":80-82");
     expectedError.msg = "^libnet\\.ipBindpoint\\.endpoints: null address cannot be materialized";

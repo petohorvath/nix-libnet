@@ -1,6 +1,11 @@
 { libnet, ... }:
 let
-  inherit (libnet) ipv4 ipv6 mac;
+  inherit (libnet)
+    cidr
+    ipv4
+    ipv6
+    mac
+    ;
 
   inherit (ipv6) parse;
 
@@ -861,6 +866,11 @@ in
       } (mac.parse "aa:bb:cc:dd:ee:ff")
     );
     expected = "2001:db8::a8bb:ccff:fedd:eeff";
+  };
+  # A prefix shorter than /64 places the address in the block's first /64.
+  testFromMacShortPrefix = {
+    expr = ipv6.toString (ipv6.fromMac (cidr.parse "2001:db8::/48") (mac.parse "00:11:22:33:44:55"));
+    expected = "2001:db8::211:22ff:fe33:4455";
   };
   testFromMacPrefixTooBig = {
     expr = ipv6.fromMac {

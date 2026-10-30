@@ -88,8 +88,8 @@ let
     xmpp = mkScheme wellKnownPorts.tcp.xmpp "tcp" false;
   };
 
-  # Every scheme, in alphabetical order, as the other URL forms list
-  # theirs.
+  # Every scheme, generated from `schemes` so the hint cannot drift from
+  # the registry; `attrNames` lists them alphabetically.
   schemeHint =
     let
       names = builtins.attrNames schemes;
@@ -107,15 +107,12 @@ let
   # their percent-encodings (ADR 0020).
   mk =
     schemeValue: authorityValue: pathValue: queryValue: fragmentValue:
-    let
-      foldOptional = value: if value == null then null else uppercasePercentEncodings value;
-    in
     types.mkStrict "url" {
       scheme = schemeValue;
       authority = authorityValue;
       path = uppercasePercentEncodings pathValue;
-      query = foldOptional queryValue;
-      fragment = foldOptional fragmentValue;
+      query = uppercasePercentEncodings queryValue;
+      fragment = uppercasePercentEncodings fragmentValue;
     };
 
   # Check the url argument of `function`, throwing for any other kind.

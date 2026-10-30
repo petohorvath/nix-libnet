@@ -44,16 +44,12 @@ let
     text:
     text == "" || parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f]" text;
 
-  # Uppercase the percent-encoding hex digits of valid userinfo, or keep
-  # null (ADR 0020).
-  foldUserinfo =
-    userinfoValue:
-    if userinfoValue == null then null else parsing.uppercasePercentEncodings userinfoValue;
-
+  # Build an authority from validated components, uppercasing the hex
+  # digits of the userinfo's percent-encodings (ADR 0020).
   mk =
     userinfoValue: hostValue: portValue:
     types.mkStrict "authority" {
-      userinfo = userinfoValue;
+      userinfo = parsing.uppercasePercentEncodings userinfoValue;
       host = hostValue;
       port = portValue;
     };
@@ -145,9 +141,7 @@ let
           types.tryErr "invalid port \"${hostPort.portText}\""
         else
           types.tryOk (
-            mk (foldUserinfo userinfoValue) hostResult.value (
-              if portResult == null then null else portResult.value
-            )
+            mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
           );
 
   parsers = parsing.suite "authority" tryParseDetail;
@@ -207,7 +201,7 @@ let
     if userinfoValue != null && !(isUserinfo userinfoValue) then
       errors.fail caller "invalid userinfo \"${userinfoValue}\""
     else
-      mk (foldUserinfo userinfoValue) hostValue portValue;
+      mk userinfoValue hostValue portValue;
 
   # ===== Predicates =====
 

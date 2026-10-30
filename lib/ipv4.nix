@@ -353,7 +353,7 @@ let
   is6to4Relay = withValue "is6to4Relay" (value: value >= relay192Start && value <= relay192End);
 
   /*
-    Check whether an address is not globally routable: it matches any of
+    Check whether an address is a bogon, not globally reachable: it matches any of
     the special-purpose predicates in this module.
 
     `ip`: IPv4 value.
@@ -380,7 +380,7 @@ let
     || is6to4Relay ip;
 
   /*
-    Check whether an address is globally routable. IPv4 has no transition
+    Check whether an address is globally reachable. IPv4 has no transition
     forms like IPv6's IPv4-mapped, IPv4-compatible, 6to4, or Teredo
     addresses, so this is exactly `!isBogon`; `ipv6.isGlobal` is
     stricter.

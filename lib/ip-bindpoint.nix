@@ -333,7 +333,7 @@ let
   isDocumentation = forwardToAddress "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation;
 
   /*
-    Test whether the bindpoint's address is globally routable.
+    Test whether the bindpoint's address is globally reachable.
 
     `bindpoint`: ipBindpoint value.
 
