@@ -75,7 +75,7 @@ Constant: `schemes`, `{ dtls = { transport = "udp"; secure = true; }; quic = …
 
 ## `libnet.urlHost`
 
-Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bracketed IPv6 literal, or an RFC 3986 registered name. `parse` returns the member's own value, so `urlHost.parse "[::1]"` is an `ipv6` value and `urlHost.parse "my_host"` a `regName` value. IPs are tried first, so a dotted quad is an `ipv4` value. Other text that reads as IPv4, such as `127.1`, is neither member, so `parse` throws for it. A parse error names `urlHost.parse` and keeps the IPv4 detail for text of only digits and dots and the registered name's otherwise, such as `libnet.urlHost.parse: invalid registered name "bad host"`.
+Pass-through union over `ip` and `regName`: a URL host is an IPv4 address, a bracketed IPv6 literal, or an RFC 3986 registered name. `parse` returns the member's own value, so `urlHost.parse "[::1]"` is an `ipv6` value and `urlHost.parse "my_host"` a `regName` value. IPs are tried first, so a dotted quad is an `ipv4` value. Other text that reads as IPv4, such as `127.1`, is neither member, so `parse` throws for it. A parse error names `urlHost.parse` and keeps the IPv4 detail for text of only digits and dots, says an unbracketed IPv6 address must be bracketed, and keeps the registered name's detail otherwise, such as `libnet.urlHost.parse: invalid registered name "bad host"`.
 
 |           | `host`                            | `urlHost`                                      |
 | --------- | --------------------------------- | ---------------------------------------------- |
