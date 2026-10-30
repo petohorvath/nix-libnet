@@ -8,11 +8,12 @@
 
   - `host` is a `libnet.urlHost` (RFC 3986 IP-literal / IPv4 / reg-name;
     looser than `libnet.host`).
-  - `userinfo` is kept raw and opaque (may carry credentials).
+  - `userinfo` is kept opaque (may carry credentials).
   - `port` is an explicit `port` value, or null when omitted.
 
-  Userinfo is validated against the RFC 3986 grammar and stored
-  verbatim — no percent-decoding or normalization.
+  Userinfo is validated against the RFC 3986 grammar and stored as
+  written, except that the hex digits of its percent-encodings are
+  uppercased (RFC 3986 §6.2.2.1, ADR 0020); nothing is percent-decoded.
   Bounded like the URL forms: no scheme, path, query, or fragment.
 
     { _type = "authority"; userinfo = <string | null>;
@@ -42,6 +43,12 @@ let
   isUserinfo =
     text:
     text == "" || parsing.isRepetitionOf "[-A-Za-z0-9._~!$&'()*+,;=:]|%[0-9A-Fa-f][0-9A-Fa-f]" text;
+
+  # Uppercase the percent-encoding hex digits of valid userinfo, or keep
+  # null (ADR 0020).
+  foldUserinfo =
+    userinfoValue:
+    if userinfoValue == null then null else parsing.uppercasePercentEncodings userinfoValue;
 
   mk =
     userinfoValue: hostValue: portValue:
@@ -105,9 +112,10 @@ let
     `input`: `[userinfo@]host[:port]` text; the host may be a bracketed IPv6
     literal.
 
-    Returns a tryResult holding an authority value, or the detail of the
-    failure: an empty or invalid host, multiple `@`, userinfo outside the
-    RFC 3986 grammar, or a bad port.
+    Returns a tryResult holding an authority value, with the
+    percent-encoding hex digits of the userinfo uppercase, or the detail
+    of the failure: multiple `@`, userinfo outside the RFC 3986 grammar,
+    the host's own detail, or a bad port.
   */
   tryParseDetail =
     input:
@@ -128,16 +136,18 @@ let
         types.tryErr "malformed authority \"${input}\""
       else
         let
-          hostResult = urlHost.tryParse hostPort.hostText;
+          hostResult = urlHost.tryParseDetail hostPort.hostText;
           portResult = if hostPort.portText == null then null else port.tryParse hostPort.portText;
         in
         if !hostResult.success then
-          types.tryErr "invalid host \"${hostPort.hostText}\""
+          hostResult
         else if portResult != null && !portResult.success then
           types.tryErr "invalid port \"${hostPort.portText}\""
         else
           types.tryOk (
-            mk userinfoValue hostResult.value (if portResult == null then null else portResult.value)
+            mk (foldUserinfo userinfoValue) hostResult.value (
+              if portResult == null then null else portResult.value
+            )
           );
 
   parsers = parsing.suite "authority" tryParseDetail;
@@ -165,9 +175,10 @@ let
     `parse` instead.
 
     `host`: urlHost value (ipv4, ipv6, or regName).
-    `userinfo`: raw userinfo string, or null (default). It must match the
-    RFC 3986 userinfo grammar, as `parse` requires, and is stored as
-    given.
+    `userinfo`: userinfo string, or null (default). It must match the
+    RFC 3986 userinfo grammar, as `parse` requires, and is stored with
+    the hex digits of its percent-encodings uppercase, as `parse` stores
+    it.
     `port`: port value, or null (default) to omit it.
 
     Returns an authority value that `parse (toString …)` gives back;
@@ -196,7 +207,7 @@ let
     if userinfoValue != null && !(isUserinfo userinfoValue) then
       errors.fail caller "invalid userinfo \"${userinfoValue}\""
     else
-      mk userinfoValue hostValue portValue;
+      mk (foldUserinfo userinfoValue) hostValue portValue;
 
   # ===== Predicates =====
 
@@ -216,7 +227,7 @@ let
 
     `authority`: an authority value.
 
-    Returns the raw userinfo string, or null when absent.
+    Returns the userinfo string, or null when absent.
   */
   userinfo = authority: (authorityArgument "userinfo" authority).userinfo;
 

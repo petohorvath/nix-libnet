@@ -1,6 +1,6 @@
 # Targets
 
-Endpoints are connect-side and bindpoints are bind-side ([ADR 0009](../adr/0009-endpoint-bindpoint-split.md)).
+Endpoints are connect-side and bindpoints are bind-side ([ADR 0009](../adr/0009-endpoint-bindpoint-split.md)). Endpoints check syntax only, so the unspecified address (`0.0.0.0:80`, `[::]:80`) and port 0 are valid in them.
 
 ## `libnet.ipEndpoint`
 
@@ -52,16 +52,16 @@ Value: `{ _type = "ipBindpoint"; address = Ip or null; portRange = PortRange; }`
 
 Suites: parsing, comparison (null address first, then by family, address and port range), address predicates (`false` for a null address; `toArpa` throws).
 
-| Function               | Signature                              | Notes                                                 |
-| ---------------------- | -------------------------------------- | ----------------------------------------------------- |
-| `make`                 | `Ip or null → PortRange → IpBindpoint` |                                                       |
-| `address`, `portRange` |                                        | Accessors.                                            |
-| `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                            |
-| `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                           |
-| `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.        |
-| `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Index into the port range; throws for a null address. |
-| `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address or more than 4096 ports.    |
-| `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard; throws for a null address.             |
+| Function               | Signature                              | Notes                                                                            |
+| ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| `make`                 | `Ip or null → PortRange → IpBindpoint` |                                                                                  |
+| `address`, `portRange` |                                        | Accessors.                                                                       |
+| `version`              | `IpBindpoint → Int or null`            | `null` for a null address.                                                       |
+| `isIpv4`, `isIpv6`     | `IpBindpoint → Bool`                   | `false` for a null address.                                                      |
+| `isWildcard`           | `IpBindpoint → Bool`                   | The wildcard address: null, `0.0.0.0` or `::`.                                   |
+| `endpointAt`           | `Int → IpBindpoint → IpEndpoint`       | Index into the port range; throws for a null address, not for `0.0.0.0` or `::`. |
+| `endpoints`            | `IpBindpoint → [IpEndpoint]`           | Throws for a null address, then for more than 4096 ports.                        |
+| `endpointsUnbounded`   | `IpBindpoint → [IpEndpoint]`           | No size guard; throws for a null address.                                        |
 
 ## `libnet.bindpoint`
 

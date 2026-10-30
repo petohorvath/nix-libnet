@@ -343,11 +343,11 @@ in
   };
   testPortAtOutOfBounds = {
     expr = portRange.portAt 4 (parse "80-83");
-    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[0, 4\\): 4$";
+    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[-4, 4\\): 4$";
   };
   testPortAtNegativeOutOfBounds = {
     expr = portRange.portAt (-5) (parse "80-83");
-    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[0, 4\\): -5$";
+    expectedError.msg = "^libnet\\.portRange\\.portAt: index out of range \\[-4, 4\\): -5$";
   };
   testPortAtRejectsFloat = {
     expr = portRange.portAt 1.0 (parse "80-83");

@@ -24,8 +24,72 @@ let
   inV4 = input: inAnyV4 (ipv4.parse input);
   inV6 = input: inAnyV6 (ipv6.parse input);
 
+  maxWords = [
+    4294967295
+    4294967295
+    4294967295
+    4294967295
+  ];
+
+  # The addresses on both sides of each edge of a block, within the
+  # address space.
+  edgesV4 =
+    block:
+    let
+      first = cidr.networkAddress block;
+      last = cidr.topAddress block;
+    in
+    [
+      first
+      last
+    ]
+    ++ (if ipv4.toInt first == 0 then [ ] else [ (ipv4.prev first) ])
+    ++ (if ipv4.eq last ipv4.broadcast then [ ] else [ (ipv4.next last) ]);
+  edgesV6 =
+    block:
+    let
+      first = cidr.networkAddress block;
+      last = cidr.topAddress block;
+    in
+    [
+      first
+      last
+    ]
+    ++ (if ipv6.eq first ipv6.unspecified then [ ] else [ (ipv6.prev first) ])
+    ++ (if ipv6.toWords last == maxWords then [ ] else [ (ipv6.next last) ]);
+
+  # The holes that the predicates carve out of a special-purpose block,
+  # which no registry entry edge need touch.
+  holesV4 = map cidr.parse [
+    "192.0.0.9/32"
+    "192.0.0.10/32"
+  ];
+  holesV6 = map cidr.parse [
+    "2001::/32"
+    "2001:1::1/128"
+    "2001:1::2/128"
+    "2001:1::3/128"
+    "2001:3::/32"
+    "2001:4:112::/48"
+    "2001:20::/28"
+    "2001:30::/28"
+    "64:ff9b::/96"
+  ];
+
+  # Probe every edge of every registry entry and hole: on each, the
+  # registry and isBogon must agree in both directions.
+  probesV4 = builtins.concatMap edgesV4 (v4Cidrs ++ holesV4);
+  probesV6 = builtins.concatMap edgesV6 (v6Cidrs ++ holesV6);
+
   wellKnownPorts = registry.ports;
   sharedNames = builtins.attrNames (builtins.intersectAttrs wellKnownPorts.tcp wellKnownPorts.udp);
+
+  hasUniqueNumbers =
+    portTable:
+    let
+      numbers = builtins.attrValues portTable;
+    in
+    builtins.all (number: builtins.length (builtins.filter (n: n == number) numbers) == 1) numbers;
 
   isValidInt = value: builtins.isInt value && value >= 0 && value <= 65535;
   allValidInts =
@@ -65,26 +129,46 @@ in
     expected = true;
   };
 
+  # ===== Canonical text =====
+  testV4Canonical = {
+    expr = builtins.all (input: cidr.toString (cidr.parse input) == input) v4Strings;
+    expected = true;
+  };
+  testV6Canonical = {
+    expr = builtins.all (input: cidr.toString (cidr.parse input) == input) v6Strings;
+    expected = true;
+  };
+
   # ===== isBogon parity =====
-  # Every registry entry's network address (and v4 broadcast) satisfies the
+  # Every registry entry's first and last address satisfies the
   # hand-written isBogon predicate. Keeps registry ↔ predicate in lock-step.
   testV4IsBogonNetworkAddress = {
     expr = builtins.all (block: ipv4.isBogon (cidr.networkAddress block)) v4Cidrs;
     expected = true;
   };
-  testV4IsBogonBroadcast = {
-    expr = builtins.all (block: ipv4.isBogon (cidr.broadcast block)) v4Cidrs;
+  testV4IsBogonTop = {
+    expr = builtins.all (block: ipv4.isBogon (cidr.topAddress block)) v4Cidrs;
     expected = true;
   };
   testV6IsBogonNetworkAddress = {
     expr = builtins.all (block: ipv6.isBogon (cidr.networkAddress block)) v6Cidrs;
     expected = true;
   };
-  # v6 has no broadcast; topAddress is the block's last address. Pairs
-  # with testV4IsBogonBroadcast so both endpoints are checked per family.
   testV6IsBogonTop = {
     expr = builtins.all (block: ipv6.isBogon (cidr.topAddress block)) v6Cidrs;
     expected = true;
+  };
+
+  # On both sides of every registry entry's and hole's edges, an address
+  # is in the registry exactly when isBogon holds, so neither side covers
+  # space the other does not.
+  testV4AgreesAtEdges = {
+    expr = builtins.filter (address: inAnyV4 address != ipv4.isBogon address) probesV4;
+    expected = [ ];
+  };
+  testV6AgreesAtEdges = {
+    expr = builtins.filter (address: inAnyV6 address != ipv6.isBogon address) probesV6;
+    expected = [ ];
   };
 
   # ===== Dispatch parity =====
@@ -147,6 +231,34 @@ in
     expr = inV6 "2001:db8::1";
     expected = true;
   };
+  testCovers6to4RelayV4 = {
+    expr = inV4 "192.88.99.1";
+    expected = true;
+  };
+  testCoversProtocolAssignmentV4 = {
+    expr = inV4 "192.0.0.8";
+    expected = true;
+  };
+  testCoversLocalNat64 = {
+    expr = inV6 "64:ff9b:1::1";
+    expected = true;
+  };
+  testCoversDummy = {
+    expr = inV6 "100:0:0:1::1";
+    expected = true;
+  };
+  testCoversProtocolAssignmentV6 = {
+    expr = inV6 "2001:1::4";
+    expected = true;
+  };
+  testCoversBenchmarkingV6 = {
+    expr = inV6 "2001:2::1";
+    expected = true;
+  };
+  testCoversSrv6Sid = {
+    expr = inV6 "5f00::1";
+    expected = true;
+  };
 
   # ===== Coverage spot checks — negative =====
   testExcludes1111 = {
@@ -159,6 +271,36 @@ in
   };
   testExcludesCloudflareV6 = {
     expr = inV6 "2606:4700:4700::1111";
+    expected = false;
+  };
+  # Globally reachable addresses inside bogon blocks stay out of the
+  # registry.
+  testExcludesPcpAnycastV4 = {
+    expr = inV4 "192.0.0.9";
+    expected = false;
+  };
+  testExcludesTurnAnycastV4 = {
+    expr = inV4 "192.0.0.10";
+    expected = false;
+  };
+  testExcludesReachableV6 = {
+    expr = builtins.any inV6 [
+      "2001:1::1"
+      "2001:1::2"
+      "2001:1::3"
+      "2001:3::1"
+      "2001:4:112::1"
+      "2001:20::1"
+      "2001:30::1"
+    ];
+    expected = false;
+  };
+  testExcludesTeredo = {
+    expr = inV6 "2001::1";
+    expected = false;
+  };
+  testExcludesWellKnownNat64 = {
+    expr = inV6 "64:ff9b::1";
     expected = false;
   };
 
@@ -223,6 +365,19 @@ in
   testPortsUdpDns = {
     expr = wellKnownPorts.udp.dns;
     expected = 53;
+  };
+  testPortsTcpAmqp = {
+    expr = wellKnownPorts.tcp.amqp;
+    expected = 5672;
+  };
+  # One name per number within a protocol: no alias entries.
+  testPortsTcpUnique = {
+    expr = hasUniqueNumbers wellKnownPorts.tcp;
+    expected = true;
+  };
+  testPortsUdpUnique = {
+    expr = hasUniqueNumbers wellKnownPorts.udp;
+    expected = true;
   };
   testPortsUdpNtp = {
     expr = wellKnownPorts.udp.ntp;

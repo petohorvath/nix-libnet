@@ -397,6 +397,33 @@ let
   );
 
   /*
+    Check whether an address is a Teredo address (2001::/32, RFC 4380).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isTeredo = withWords "isTeredo" (
+    words:
+    # The first word is 0x20010000.
+    wordAt 0 words == 536936448
+  );
+
+  /*
+    Check whether an address is in the local-use IPv4/IPv6 translation
+    block (64:ff9b:1::/48, RFC 8215).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isLocalNat64 = withWords "isLocalNat64" (
+    words:
+    # The first word is 0x0064ff9b and the next 16 bits are 0x0001.
+    wordAt 0 words == 6619035 && bits.shr 16 (wordAt 1 words) == 1
+  );
+
+  /*
     Check whether an address is in the discard-only block (100::/64,
     RFC 6666).
 
@@ -411,6 +438,72 @@ let
   );
 
   /*
+    Check whether an address is in the dummy prefix (100:0:0:1::/64,
+    RFC 9780).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isDummy = withWords "isDummy" (
+    words:
+    # The first word is 0x01000000 and the second 0x00000001.
+    wordAt 0 words == 16777216 && wordAt 1 words == 1
+  );
+
+  /*
+    Check whether an address is an IETF protocol assignment (2001::/23,
+    RFC 2928), excluding Teredo (2001::/32) and the globally reachable
+    allocations 2001:1::1, 2001:1::2, 2001:1::3, 2001:3::/32,
+    2001:4:112::/48, 2001:20::/28, and 2001:30::/28.
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isProtocolAssignment = withWords "isProtocolAssignment" (
+    words:
+    let
+      # 2001::/23 is the first group 0x2001 (8193) with the second group
+      # in [0x0000, 0x01ff].
+      group = builtins.bitAnd (wordAt 0 words) bits.mask16;
+      anycast =
+        group == 1
+        && wordAt 1 words == 0
+        && wordAt 2 words == 0
+        && wordAt 3 words >= 1
+        && wordAt 3 words <= 3;
+      # 274 is 0x0112, the third group of 2001:4:112::/48.
+      as112 = group == 4 && bits.shr 16 (wordAt 1 words) == 274;
+      # 2001:20::/28 and 2001:30::/28 together span groups 0x20 to 0x3f.
+      orchidV2OrDet = group >= 32 && group <= 63;
+    in
+    bits.shr 16 (wordAt 0 words) == 8193
+    && group <= 511
+    # Teredo, 2001::/32.
+    && group != 0
+    # AMT, 2001:3::/32.
+    && group != 3
+    && !anycast
+    && !as112
+    && !orchidV2OrDet
+  );
+
+  /*
+    Check whether an address is in the benchmarking block (2001:2::/48,
+    RFC 5180).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isBenchmarking = withWords "isBenchmarking" (
+    words:
+    # The first word is 0x20010002 and the next 16 bits are zero.
+    wordAt 0 words == 536936450 && bits.shr 16 (wordAt 1 words) == 0
+  );
+
+  /*
     Check whether an address is in the deprecated ORCHID block
     (2001:10::/28, RFC 4843).
 
@@ -422,6 +515,20 @@ let
     words:
     # The first 28 bits are 0x2001001.
     bits.shr 4 (wordAt 0 words) == 33558529
+  );
+
+  /*
+    Check whether an address is a segment routing (SRv6) SID
+    (5f00::/16, RFC 9602).
+
+    `ip`: IPv6 value.
+
+    Returns a Boolean.
+  */
+  isSrv6Sid = withWords "isSrv6Sid" (
+    words:
+    # The first 16 bits are 0x5f00.
+    bits.shr 16 (wordAt 0 words) == 24320
   );
 
   /*
@@ -441,7 +548,9 @@ let
   /*
     Check whether an address is not globally routable: unspecified,
     loopback, link-local, unique local, multicast, documentation,
-    discard, ORCHID, or site-local. IPv4 transition forms are not bogons.
+    local-use NAT64, discard, dummy, IETF protocol assignment,
+    benchmarking, ORCHID, SRv6 SID, or site-local. Transition forms are
+    not bogons.
 
     `ip`: IPv6 value.
 
@@ -458,15 +567,21 @@ let
     || isUniqueLocal ip
     || isMulticast ip
     || isDocumentation ip
+    || isLocalNat64 ip
     || isDiscard ip
+    || isDummy ip
+    || isProtocolAssignment ip
+    || isBenchmarking ip
     || isOrchid ip
+    || isSrv6Sid ip
     || isSiteLocal ip;
 
   /*
     Check whether an address is native global unicast. Stricter than
-    `!isBogon`: it also excludes the IPv4-mapped, IPv4-compatible, and
-    6to4 forms, which are routable but not native IPv6. `ipv4.isGlobal`
-    has no such forms, so this asymmetry is intentional (see docs/adr/0014).
+    `!isBogon`: it also excludes the IPv4-mapped, IPv4-compatible, 6to4,
+    and Teredo forms, which are routable but not native IPv6.
+    `ipv4.isGlobal` has no such forms, so this asymmetry is intentional
+    (see docs/adr/0014).
 
     `ip`: IPv6 value.
 
@@ -477,7 +592,7 @@ let
     let
       ip = ipv6Argument "isGlobal" argument;
     in
-    !(isBogon ip || isIpv4Mapped ip || isIpv4Compatible ip || is6to4 ip);
+    !(isBogon ip || isIpv4Mapped ip || isIpv4Compatible ip || is6to4 ip || isTeredo ip);
 
   # ===== Formatting =====
 
@@ -735,17 +850,23 @@ in
     fromWords
     is
     is6to4
+    isBenchmarking
     isBogon
     isDiscard
     isDocumentation
+    isDummy
     isGlobal
     isIpv4Compatible
     isIpv4Mapped
     isLinkLocal
+    isLocalNat64
     isLoopback
     isMulticast
     isOrchid
+    isProtocolAssignment
     isSiteLocal
+    isSrv6Sid
+    isTeredo
     isUniqueLocal
     isUnspecified
     loopback

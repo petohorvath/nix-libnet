@@ -179,6 +179,26 @@ let
 
   countOccurrences = delimiter: input: builtins.length (splitOn delimiter input) - 1;
 
+  /*
+    Uppercase the two hex digits after each `%`, the RFC 3986 §6.2.2.1
+    case normalization of percent-encodings, leaving every other byte as
+    it is. The caller validates `input` first, so every `%` starts a full
+    escape.
+  */
+  uppercasePercentEncodings =
+    input:
+    let
+      segments = splitOn "%" input;
+      upperHex = builtins.replaceStrings [ "a" "b" "c" "d" "e" "f" ] [ "A" "B" "C" "D" "E" "F" ];
+      foldEscape =
+        segment:
+        upperHex (builtins.substring 0 2 segment)
+        + builtins.substring 2 (builtins.stringLength segment) segment;
+    in
+    builtins.concatStringsSep "%" (
+      [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
+    );
+
   # Split a URL at its first `://` into the scheme, as written, and the
   # rest, or return null when `input` has no `://`.
   splitScheme =
@@ -208,8 +228,10 @@ let
     let
       parts = splitOn "/" input;
     in
-    if builtins.length parts != 2 then
+    if builtins.length parts < 2 then
       types.tryErr "missing '/': \"${input}\""
+    else if builtins.length parts > 2 then
+      types.tryErr "more than one '/': \"${input}\""
     else
       let
         addressResult = tryParseAddress (builtins.elemAt parts 0);
@@ -291,8 +313,9 @@ let
     `tryParseDetail` takes a string and returns a tryResult whose `error`
     is the detail alone, without the `libnet.<namespace>.parse: ` prefix,
     so a union or a composite can report a member's failure under its
-    own name. The suite rejects a non-string before calling it and adds
-    the prefix once.
+    own name. The suite rejects a non-string and the empty string before
+    calling it, so every kind words those failures alike, and adds the
+    prefix once.
 
     The public namespaces export the returned functions, so their headers
     describe public API.
@@ -315,7 +338,12 @@ let
         input:
         let
           result =
-            if builtins.isString input then tryParseDetail input else types.tryErr (errors.notString input);
+            if !builtins.isString input then
+              types.tryErr (errors.notString input)
+            else if input == "" then
+              types.tryErr "empty string"
+            else
+              tryParseDetail input;
         in
         if result.success then result else types.tryErr (errors.message caller result.error);
     in
@@ -367,5 +395,6 @@ in
     startsWith
     stripPrefix
     suite
+    uppercasePercentEncodings
     ;
 }

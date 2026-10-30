@@ -88,8 +88,31 @@ in
     expected = true;
   };
   testRejectPortOnly = {
-    expr = throws (parse ":80");
-    expected = true;
+    expr = parse ":80";
+    expectedError.msg = "^libnet\\.authority\\.parse: empty host$";
+  };
+  # A host failure keeps the detail of `urlHost`, under `authority.parse`.
+  testRejectHostKeepsDetail = {
+    expr = map (text: (authority.tryParse text).error) [
+      "u@127.1:80"
+      "bad host"
+      "[::1"
+      "[zz]:80"
+      "::1"
+    ];
+    expected = map (text: "libnet.authority.parse: " + text) [
+      "must have 4 octets, got 2: \"127.1\""
+      "invalid registered name \"bad host\""
+      "malformed authority \"[::1\""
+      "invalid IPv6 literal \"[zz]\""
+      "malformed authority \"::1\""
+    ];
+  };
+  testRejectHostAgreesWithUrlHost = {
+    expr = (authority.tryParse "0x7f.0.0.1:80").error;
+    expected =
+      builtins.replaceStrings [ "libnet.urlHost.parse: " ] [ "libnet.authority.parse: " ]
+        (urlHost.tryParse "0x7f.0.0.1").error;
   };
   testRejectBadPort = {
     expr = throws (parse "h:99999");
@@ -110,8 +133,8 @@ in
     expected = true;
   };
   testRejectSpace = {
-    expr = throws (parse "bad host");
-    expected = true;
+    expr = parse "bad host";
+    expectedError.msg = "^libnet\\.authority\\.parse: invalid registered name \"bad host\"$";
   };
   testRejectNotString = {
     expr = authority.parse 42;
@@ -120,10 +143,15 @@ in
 
   # ===== Userinfo grammar =====
   # userinfo = *( unreserved / pct-encoded / sub-delims / ":" ), stored
-  # verbatim: case and percent-encoding are kept as written.
+  # as written except that percent-encoding hex digits are uppercased
+  # (RFC 3986 §6.2.2.1); nothing is percent-decoded.
   testUserinfoEveryAllowedCharacter = {
     expr = authority.userinfo (parse "AZaz09-._~!$&'()*+,;=:%2f%2F@h");
-    expected = "AZaz09-._~!$&'()*+,;=:%2f%2F";
+    expected = "AZaz09-._~!$&'()*+,;=:%2F%2F";
+  };
+  testUserinfoUppercasesOnlyPercentEncodings = {
+    expr = authority.toString (parse "aB%3a%c3%A9%41:x@h");
+    expected = "aB%3A%C3%A9%41:x@h";
   };
   testUserinfoEmpty = {
     expr = authority.toString (parse "@h");
@@ -241,6 +269,15 @@ in
       parse (authority.toString made) == made;
     expected = true;
   };
+  testMakeUppercasesPercentEncodings = {
+    expr = authority.userinfo (
+      authority.make {
+        host = urlHost.parse "h";
+        userinfo = "a%2fB%c3";
+      }
+    );
+    expected = "a%2FB%C3";
+  };
   testMakeEqualsParse = {
     expr =
       authority.make {
@@ -352,6 +389,20 @@ in
   testEqUserinfoSame = {
     expr = authority.eq (parse "u@h") (parse "u@h");
     expected = true;
+  };
+  testEqUserinfoPercentEncodingCase = {
+    expr = [
+      (authority.eq (parse "u%2f@h") (parse "u%2F@h"))
+      (authority.compare (parse "u%2f@h") (parse "u%2F@h"))
+    ];
+    expected = [
+      true
+      0
+    ];
+  };
+  testEqUserinfoCaseSensitive = {
+    expr = authority.eq (parse "u@h") (parse "U@h");
+    expected = false;
   };
   testEqHostCaseInsensitive = {
     expr = authority.eq (parse "Example.COM:80") (parse "example.com:80");

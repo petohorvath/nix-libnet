@@ -1,6 +1,6 @@
 # Bounded URL forms, not a general URL parser
 
-libnet parses a fixed set of URL shapes, each over a closed scheme registry: `socketUrl`, `bindUrl`, `secureSocketUrl`, `url` and `proxyUrl`, with `authority` and `urlHost` as reusable parts. Components such as userinfo, path, query and fragment are validated, stored verbatim and never percent-decoded or normalized: each must match its RFC 3986 grammar, in ASCII with well-formed percent-encoding. `make` runs the same validators as `parse`, so a value it builds prints text that parses back to that value. Relative references, opaque URIs (`mailto:`, `urn:`) and unknown schemes are rejected.
+libnet parses a fixed set of URL shapes, each over a closed scheme registry: `socketUrl`, `bindUrl`, `secureSocketUrl`, `url` and `proxyUrl`, with `authority` and `urlHost` as reusable parts. Components such as userinfo, path, query and fragment are validated and stored as written, never percent-decoded or otherwise normalized, except that the hex digits of their percent-encodings are uppercased ([ADR 0020](0020-case-folded-at-parse.md)): each must match its RFC 3986 grammar, in ASCII with well-formed percent-encoding. `make` runs the same validators as `parse`, so a value it builds prints text that parses back to that value. Relative references, opaque URIs (`mailto:`, `urn:`) and unknown schemes are rejected.
 
 Choices within the URL forms:
 

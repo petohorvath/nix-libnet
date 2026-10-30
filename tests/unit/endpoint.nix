@@ -38,7 +38,7 @@ in
   # ===== Reject =====
   testRejectEmpty = {
     expr = parse "";
-    expectedError.msg = "^libnet\\.endpoint\\.parse: expected exactly one ':' \\(name:port\\): \"\"$";
+    expectedError.msg = "^libnet\\.endpoint\\.parse: empty string$";
   };
   testRejectNoPort = {
     expr = throws (parse "nas");

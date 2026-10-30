@@ -84,7 +84,7 @@ in
   };
   testParseEmpty = {
     expr = parse "";
-    expectedError.msg = "^libnet\\.mac\\.parse: invalid MAC address \"\"$";
+    expectedError.msg = "^libnet\\.mac\\.parse: empty string$";
   };
   testParseNotString = {
     expr = mac.parse 123;

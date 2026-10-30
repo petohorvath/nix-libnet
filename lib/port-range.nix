@@ -362,7 +362,7 @@ let
       index = if offset < 0 then rangeSize + offset else offset;
     in
     if index < 0 || index >= rangeSize then
-      errors.fail "portRange.portAt" "index out of range [0, ${builtins.toString rangeSize}): ${builtins.toString offset}"
+      errors.fail "portRange.portAt" "index out of range [-${builtins.toString rangeSize}, ${builtins.toString rangeSize}): ${builtins.toString offset}"
     else
       port.add index checked.from;
 

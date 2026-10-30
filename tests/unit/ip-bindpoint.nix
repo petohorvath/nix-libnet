@@ -201,6 +201,11 @@ in
     expr = ipBindpoint.endpoints (parse ":80-82");
     expectedError.msg = "^libnet\\.ipBindpoint\\.endpoints: null address cannot be materialized";
   };
+  # A null address is reported before the size guard.
+  testEndpointsNullTooLarge = {
+    expr = ipBindpoint.endpoints (parse ":0-65535");
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpoints: null address cannot be materialized";
+  };
   testEndpointsAtLimit = {
     expr = builtins.length (ipBindpoint.endpoints (parse "1.2.3.4:0-4095"));
     expected = 4096;
@@ -228,11 +233,11 @@ in
   };
   testEndpointAtOutOfRange = {
     expr = ipBindpoint.endpointAt 3 (parse "1.2.3.4:80-82");
-    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[0, 3\\)$";
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[-3, 3\\): 3$";
   };
   testEndpointAtOutOfRangeFromEnd = {
     expr = ipBindpoint.endpointAt (-4) (parse "1.2.3.4:80-82");
-    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[0, 3\\)$";
+    expectedError.msg = "^libnet\\.ipBindpoint\\.endpointAt: index out of range \\[-3, 3\\): -4$";
   };
   testEndpointAtNull = {
     expr = ipBindpoint.endpointAt 0 (parse ":80-82");

@@ -61,6 +61,21 @@ in
     expr = (authority.host (proxyUrl.authority (parse "socks5://1.2.3.4:1080")))._type;
     expected = "ipv4";
   };
+  # A path of exactly `/` is accepted and dropped from canonical text
+  # (ADR 0013).
+  testParseTrailingSlashDropped = {
+    expr = proxyUrl.toString (parse "http://proxy:3128/");
+    expected = "http://proxy:3128";
+  };
+  testParseTrailingSlashEqualsBare = {
+    expr = parse "socks5://u@h:1080/" == parse "socks5://u@h:1080";
+    expected = true;
+  };
+  # Userinfo percent-encoding hex digits are uppercased by `authority`.
+  testParseUppercasesUserinfoPercentEncodings = {
+    expr = proxyUrl.toString (parse "http://u%2fx:p%c3@h:8080");
+    expected = "http://u%2Fx:p%C3@h:8080";
+  };
   testParseAuthorityPort = {
     expr = port.toInt (authority.port (proxyUrl.authority (parse "socks5://h:1080")));
     expected = 1080;
@@ -68,8 +83,8 @@ in
 
   # ===== Reject =====
   testRejectNoScheme = {
-    expr = throws (parse "127.0.0.1:1080");
-    expected = true;
+    expr = parse "127.0.0.1:1080";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: missing '<scheme>://': \"127\\.0\\.0\\.1:1080\"$";
   };
   testRejectUnknownScheme = {
     expr = throws (parse "ftp://h:1080");
@@ -92,16 +107,40 @@ in
     expected = "libnet.proxyUrl.parse: unknown scheme \"foo\" (expected http, https, socks4, socks4a, socks5, or socks5h)";
   };
   testRejectEmptyHost = {
-    expr = throws (parse "socks5://:1080");
-    expected = true;
+    expr = parse "socks5://:1080";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: empty host$";
+  };
+  # A host failure keeps the detail of `urlHost`, under `proxyUrl.parse`.
+  testRejectHostKeepsDetail = {
+    expr = parse "socks5://127.1:1080";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: must have 4 octets, got 2: \"127\\.1\"$";
   };
   testRejectMultipleAt = {
     expr = throws (parse "socks5://a@b@h:1080");
     expected = true;
   };
   testRejectPath = {
-    expr = throws (parse "http://h:8080/pac");
-    expected = true;
+    expr = parse "http://h:8080/pac";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: nothing may follow the authority: \"http://h:8080/pac\"$";
+  };
+  testRejectAfterAuthority = {
+    expr = map (text: (proxyUrl.tryParse text).error) [
+      "http://proxy:3128?q"
+      "http://proxy:3128#f"
+      "http://proxy:3128//"
+      "http://proxy:3128/?"
+    ];
+    expected = [
+      "libnet.proxyUrl.parse: nothing may follow the authority: \"http://proxy:3128?q\""
+      "libnet.proxyUrl.parse: nothing may follow the authority: \"http://proxy:3128#f\""
+      "libnet.proxyUrl.parse: nothing may follow the authority: \"http://proxy:3128//\""
+      "libnet.proxyUrl.parse: nothing may follow the authority: \"http://proxy:3128/?\""
+    ];
+  };
+  # The port requirement holds with a trailing `/` too.
+  testRejectNoPortTrailingSlash = {
+    expr = parse "socks5://h/";
+    expectedError.msg = "^libnet\\.proxyUrl\\.parse: a proxy URL requires an explicit port: \"socks5://h/\"$";
   };
   testRejectEmpty = {
     expr = throws (parse "");

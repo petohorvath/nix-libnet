@@ -1,6 +1,6 @@
 # Separate connect-side endpoints from bind-side bindpoints
 
-An endpoint answers "connect to where?" and a bindpoint answers "bind where?". Keeping them as separate types gives outbound code a type-level guarantee that it never receives a wildcard address or a port range where a concrete target is required.
+An endpoint answers "connect to where?" and a bindpoint answers "bind where?". Keeping them as separate types gives outbound code a type-level guarantee that it never receives an absent address or a port range where a concrete target is required. Endpoints check syntax, not reachability ([ADR 0003](0003-syntax-not-resolution.md)): the unspecified address and port 0 are valid in an endpoint, and a bindpoint whose address is `0.0.0.0` or `::` materializes into endpoints holding that address. Only the absent address, which means the wildcard and nothing else, has no endpoint form.
 
 The split has deliberate asymmetries:
 

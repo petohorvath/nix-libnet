@@ -28,22 +28,9 @@ let
   comparison = import ./internal/comparison.nix;
   parsing = import ./internal/parse.nix;
 
-  upperHex = builtins.replaceStrings [ "a" "b" "c" "d" "e" "f" ] [ "A" "B" "C" "D" "E" "F" ];
-
   # Lowercase the text, then uppercase the two hex digits after each `%`.
   # Validation guarantees that every `%` starts a full escape.
-  fold =
-    input:
-    let
-      segments = parsing.splitOn "%" (dnsLabel.toLowerAscii input);
-      foldEscape =
-        segment:
-        upperHex (builtins.substring 0 2 segment)
-        + builtins.substring 2 (builtins.stringLength segment) segment;
-    in
-    builtins.concatStringsSep "%" (
-      [ (builtins.head segments) ] ++ map foldEscape (builtins.tail segments)
-    );
+  fold = input: parsing.uppercasePercentEncodings (dnsLabel.toLowerAscii input);
 
   # The stored text of a regName argument of `function`.
   valueOf = function: regName: (errors.expectKind "regName.${function}" "regName" regName).value;

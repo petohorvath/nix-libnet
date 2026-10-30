@@ -68,13 +68,14 @@ in
     expr = urlHost.toString (url.host (parse "http://Example.COM"));
     expected = "example.com";
   };
-  # The host folds; userinfo, path, query and fragment keep their case.
+  # The host folds; userinfo, path, query and fragment keep their case,
+  # except for the hex digits of percent-encodings.
   testToStringFoldsOnlyHost = {
     expr = url.toString (parse "https://User@Example.COM/Path?Q=V#Frag");
     expected = "https://User@example.com/Path?Q=V#Frag";
   };
 
-  # ===== Components (stored raw) =====
+  # ===== Components (stored as written) =====
   testComponentPath = {
     expr = (parse "https://h/a%20b").path;
     expected = "/a%20b";
@@ -114,11 +115,38 @@ in
 
   # ===== Component grammars =====
   # RFC 3986 §3.3-3.5: path segments of pchar, query and fragment of
-  # pchar / "/" / "?". Components stay verbatim, so valid text
-  # round-trips with its case and percent-encoding as written.
+  # pchar / "/" / "?". Components keep their case, except that the hex
+  # digits of percent-encodings are uppercased (RFC 3986 §6.2.2.1).
   testComponentsEveryAllowedCharacter = {
     expr = url.toString (parse "https://h/AZaz09-._~!$&'()*+,;=:@%2f/?/?:@%2F#/?:@%aB");
-    expected = "https://h/AZaz09-._~!$&'()*+,;=:@%2f/?/?:@%2F#/?:@%aB";
+    expected = "https://h/AZaz09-._~!$&'()*+,;=:@%2F/?/?:@%2F#/?:@%AB";
+  };
+  testComponentsUppercasePercentEncodings = {
+    expr =
+      let
+        value = parse "http://u%2f@h/A%2fb?Q=%2fx#F%aa";
+      in
+      [
+        (url.userinfo value)
+        value.path
+        value.query
+        value.fragment
+      ];
+    expected = [
+      "u%2F"
+      "/A%2Fb"
+      "Q=%2Fx"
+      "F%AA"
+    ];
+  };
+  testToStringUppercasesPercentEncodings = {
+    expr = url.toString (parse "http://h/a%2f");
+    expected = "http://h/a%2F";
+  };
+  # Percent-encodings are never decoded, not even of unreserved bytes.
+  testComponentsKeepPercentEncodedUnreserved = {
+    expr = url.toString (parse "http://%41@h/%41?%7e#%2d");
+    expected = "http://%41@h/%41?%7E#%2D";
   };
   testComponentsEmptySegmentsQueryFragment = {
     expr = url.toString (parse "https://h//a//?#");
@@ -202,16 +230,32 @@ in
 
   # ===== Reject =====
   testRejectNoScheme = {
-    expr = throws (parse "example.com/x");
-    expected = true;
+    expr = parse "example.com/x";
+    expectedError.msg = "^libnet\\.url\\.parse: missing '<scheme>://': \"example\\.com/x\"$";
   };
   testRejectUnknownScheme = {
-    expr = throws (parse "gopher://h");
-    expected = true;
+    expr = parse "gopher://h";
+    expectedError.msg = "^libnet\\.url\\.parse: unknown scheme \"gopher\" \\(expected amqp, amqps, coap, .*, wss, or xmpp\\)$";
+  };
+  # The unknown scheme is quoted as written, and the hint lists every
+  # scheme of the registry.
+  testTryParseUnknownSchemeAsWritten = {
+    expr = builtins.substring 0 46 (url.tryParse "GOPHER://h").error;
+    expected = "libnet.url.parse: unknown scheme \"GOPHER\" (exp";
+  };
+  testUnknownSchemeHintListsEveryScheme = {
+    expr =
+      let
+        inherit (url.tryParse "gopher://h") error;
+      in
+      builtins.filter (name: builtins.match ".* ${name}[,)].*" error == null) (
+        builtins.attrNames url.schemes
+      );
+    expected = [ ];
   };
   testRejectEmptyHost = {
-    expr = throws (parse "https:///path");
-    expected = true;
+    expr = parse "https:///path";
+    expectedError.msg = "^libnet\\.url\\.parse: empty host$";
   };
   testRejectBadPort = {
     expr = throws (parse "https://h:99999");
@@ -225,14 +269,34 @@ in
     expr = throws (parse "https://a@b@h");
     expected = true;
   };
-  # Text that reads as IPv4 is not a registered name (ADR 0021).
+  # Text that reads as IPv4 is not a registered name (ADR 0021). A host
+  # failure keeps the detail of `urlHost`, under `url.parse`.
   testRejectShortQuadHost = {
     expr = parse "http://127.1/";
-    expectedError.msg = "^libnet\\.url\\.parse: invalid host \"127\\.1\"$";
+    expectedError.msg = "^libnet\\.url\\.parse: must have 4 octets, got 2: \"127\\.1\"$";
   };
   testRejectHexQuadHost = {
     expr = parse "http://0x7f.0.0.1/";
-    expectedError.msg = "^libnet\\.url\\.parse: invalid host \"0x7f\\.0\\.0\\.1\"$";
+    expectedError.msg = "^libnet\\.url\\.parse: \"0x7f\\.0\\.0\\.1\" reads as an IPv4 address, not a registered name$";
+  };
+  testRejectHostAgreesWithUrlHost = {
+    expr = map (host: (url.tryParse "http://${host}/").error) [
+      "127.1"
+      "my host"
+      "[zz]"
+    ];
+    expected =
+      map
+        (
+          host:
+          builtins.replaceStrings [ "libnet.urlHost.parse: " ] [ "libnet.url.parse: " ]
+            (urlHost.tryParse host).error
+        )
+        [
+          "127.1"
+          "my host"
+          "[zz]"
+        ];
   };
   testRejectNumericHost = {
     expr = map url.isValid [
@@ -253,7 +317,7 @@ in
   # An authority failure names `url.parse` and keeps the detail.
   testRejectEmptyAuthorityNamesParse = {
     expr = url.parse "http://";
-    expectedError.msg = "^libnet\\.url\\.parse: invalid host \"\"$";
+    expectedError.msg = "^libnet\\.url\\.parse: empty host$";
   };
   testTryParseAuthorityErrorNamesParse = {
     expr = (url.tryParse "http://a@b@h").error;
@@ -485,7 +549,7 @@ in
       scheme = "gopher";
       authority = authority.parse "h";
     };
-    expectedError.msg = "^libnet\\.url\\.make: unknown scheme \"gopher\"$";
+    expectedError.msg = "^libnet\\.url\\.make: unknown scheme \"gopher\" \\(expected amqp, amqps, coap, .*, wss, or xmpp\\)$";
   };
   testMakeBadSchemeNonString = {
     expr = url.make {
@@ -616,6 +680,17 @@ in
       parse (url.toString made) == made;
     expected = true;
   };
+  testMakeUppercasesPercentEncodings = {
+    expr =
+      url.make {
+        scheme = "http";
+        authority = authority.parse "u%2f@h";
+        path = "/a%2f";
+        query = "b%2f";
+        fragment = "c%2f";
+      } == parse "http://u%2F@h/a%2F?b%2F#c%2F";
+    expected = true;
+  };
   testMakeEmptyPathOk = {
     expr = url.toString (
       url.make {
@@ -669,6 +744,20 @@ in
       "http://h"
       "http://h/"
     ];
+  };
+  testEqPercentEncodingCase = {
+    expr = [
+      (url.eq (parse "http://h/a%2f?b%2f#c%2f") (parse "http://h/a%2F?b%2F#c%2F"))
+      (url.compare (parse "http://h/a%2f?b%2f#c%2f") (parse "http://h/a%2F?b%2F#c%2F"))
+    ];
+    expected = [
+      true
+      0
+    ];
+  };
+  testEqPathCaseSensitive = {
+    expr = url.eq (parse "http://h/a") (parse "http://h/A");
+    expected = false;
   };
   testEqDifferentPath = {
     expr = url.eq (parse "https://h/a") (parse "https://h/b");

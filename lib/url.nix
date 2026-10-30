@@ -9,13 +9,15 @@
 
   Bounded: absolute hierarchical URLs only — no relative references, no
   opaque URIs (`mailto:`, `urn:`). Components are validated against their
-  RFC 3986 grammars and stored verbatim (no percent-decoding,
-  normalization, or relative resolution; `lib.escapeURL` exists for the
-  encode direction). The host is the URL-authority host
-  (RFC 3986 reg-name / IP-literal), looser than `libnet.host` — see
-  `libnet.urlHost`. `userinfo` is kept raw and opaque; note it may carry
-  credentials. The authority is stored as a `libnet.authority` value, and
-  `host`, `port` and `userinfo` read through it.
+  RFC 3986 grammars and stored as written, except that the hex digits of
+  percent-encodings are uppercased (RFC 3986 §6.2.2.1, ADR 0020): no
+  percent-decoding, other normalization, or relative resolution
+  (`lib.escapeURL` exists for the encode direction). The host is the
+  URL-authority host (RFC 3986 reg-name / IP-literal), looser than
+  `libnet.host` — see `libnet.urlHost`. `userinfo` is kept opaque; note
+  it may carry credentials. The authority is stored as a
+  `libnet.authority` value, and `host`, `port` and `userinfo` read
+  through it.
 
   Example:
     libnet.url.parse "https://user@example.com/p?q=1#f"
@@ -41,6 +43,7 @@ let
   lowerAscii = dnsLabel.toLowerAscii;
   mkPort = port.fromInt;
   wellKnownPorts = registry.ports;
+  inherit (parsing) uppercasePercentEncodings;
 
   # Closed registry of URL schemes. Default ports are sourced from
   # registry.ports (the single source of truth for port numbers); this
@@ -85,14 +88,34 @@ let
     xmpp = mkScheme wellKnownPorts.tcp.xmpp "tcp" false;
   };
 
+  # Every scheme, in alphabetical order, as the other URL forms list
+  # theirs.
+  schemeHint =
+    let
+      names = builtins.attrNames schemes;
+      lastIndex = builtins.length names - 1;
+    in
+    "expected ${builtins.concatStringsSep ", " (builtins.genList (builtins.elemAt names) lastIndex)}, or ${builtins.elemAt names lastIndex}";
+
+  splitKnownScheme = parsing.splitKnownScheme {
+    canonicalize = lowerAscii;
+    inherit schemes;
+    hint = schemeHint;
+  };
+
+  # Build a url from validated components, uppercasing the hex digits of
+  # their percent-encodings (ADR 0020).
   mk =
     schemeValue: authorityValue: pathValue: queryValue: fragmentValue:
+    let
+      foldOptional = value: if value == null then null else uppercasePercentEncodings value;
+    in
     types.mkStrict "url" {
       scheme = schemeValue;
       authority = authorityValue;
-      path = pathValue;
-      query = queryValue;
-      fragment = fragmentValue;
+      path = uppercasePercentEncodings pathValue;
+      query = foldOptional queryValue;
+      fragment = foldOptional fragmentValue;
     };
 
   # Check the url argument of `function`, throwing for any other kind.
@@ -135,56 +158,52 @@ let
     text; the scheme must be a key of `schemes` (matched
     case-insensitively).
 
-    Returns a tryResult holding a url value, or the detail of the
-    failure, which keeps the detail of an authority failure.
+    Returns a tryResult holding a url value, with the percent-encoding
+    hex digits of its userinfo, path, query and fragment uppercase, or
+    the detail of the failure, which keeps the detail of an authority
+    failure.
   */
   tryParseDetail =
     input:
     let
-      split = parsing.splitScheme input;
+      schemeResult = splitKnownScheme input;
+      canonicalScheme = schemeResult.value.scheme;
+      inherit (schemeResult.value) rest;
     in
-    if split == null then
-      types.tryErr "missing \"<scheme>://\": \"${input}\""
+    if !schemeResult.success then
+      schemeResult
     else
       let
-        rawScheme = split.scheme;
-        canonicalScheme = lowerAscii rawScheme;
-        inherit (split) rest;
+        fragmentParts = parsing.splitOn "#" rest;
+        beforeFragment = builtins.elemAt fragmentParts 0;
+        fragmentValue =
+          if builtins.length fragmentParts > 1 then
+            builtins.concatStringsSep "#" (builtins.tail fragmentParts)
+          else
+            null;
+        queryParts = parsing.splitOn "?" beforeFragment;
+        beforeQuery = builtins.elemAt queryParts 0;
+        queryValue =
+          if builtins.length queryParts > 1 then
+            builtins.concatStringsSep "?" (builtins.tail queryParts)
+          else
+            null;
+        slashParts = parsing.splitOn "/" beforeQuery;
+        authorityText = builtins.elemAt slashParts 0;
+        pathValue =
+          if builtins.length slashParts > 1 then
+            "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
+          else
+            "";
+        authorityResult = authority.tryParseDetail authorityText;
+        componentDetail = componentError pathValue queryValue fragmentValue;
       in
-      if !(schemes ? ${canonicalScheme}) then
-        types.tryErr "unknown scheme \"${rawScheme}\": \"${input}\""
+      if !authorityResult.success then
+        authorityResult
+      else if componentDetail != null then
+        types.tryErr componentDetail
       else
-        let
-          fragmentParts = parsing.splitOn "#" rest;
-          beforeFragment = builtins.elemAt fragmentParts 0;
-          fragmentValue =
-            if builtins.length fragmentParts > 1 then
-              builtins.concatStringsSep "#" (builtins.tail fragmentParts)
-            else
-              null;
-          queryParts = parsing.splitOn "?" beforeFragment;
-          beforeQuery = builtins.elemAt queryParts 0;
-          queryValue =
-            if builtins.length queryParts > 1 then
-              builtins.concatStringsSep "?" (builtins.tail queryParts)
-            else
-              null;
-          slashParts = parsing.splitOn "/" beforeQuery;
-          authorityText = builtins.elemAt slashParts 0;
-          pathValue =
-            if builtins.length slashParts > 1 then
-              "/" + builtins.concatStringsSep "/" (builtins.tail slashParts)
-            else
-              "";
-          authorityResult = authority.tryParseDetail authorityText;
-          componentDetail = componentError pathValue queryValue fragmentValue;
-        in
-        if !authorityResult.success then
-          authorityResult
-        else if componentDetail != null then
-          types.tryErr componentDetail
-        else
-          types.tryOk (mk canonicalScheme authorityResult.value pathValue queryValue fragmentValue);
+        types.tryOk (mk canonicalScheme authorityResult.value pathValue queryValue fragmentValue);
 
   parsers = parsing.suite "url" tryParseDetail;
 
@@ -215,11 +234,12 @@ let
     `authority`: authority value; a null port means the scheme default.
     `path`: "" (default) or `/`-separated segments of RFC 3986 pchar,
     starting with `/`.
-    `query`: raw query string without `?`, or null (default).
-    `fragment`: raw fragment string without `#`, or null (default).
+    `query`: query string without `?`, or null (default).
+    `fragment`: fragment string without `#`, or null (default).
 
     The path, query and fragment must match the RFC 3986 grammars that
-    `parse` checks, and are stored as given.
+    `parse` checks, and are stored as `parse` stores them, with the hex
+    digits of their percent-encodings uppercase.
 
     Returns a url value that `parse (toString …)` gives back; throws for
     a non-set argument, a missing or unexpected attribute, an unknown
@@ -253,7 +273,7 @@ let
       componentDetail = componentError pathValue queryValue fragmentValue;
     in
     if !(schemes ? ${canonicalScheme}) then
-      errors.fail caller "unknown scheme \"${schemeValue}\""
+      errors.fail caller "unknown scheme \"${schemeValue}\" (${schemeHint})"
     else if componentDetail != null then
       errors.fail caller componentDetail
     else
@@ -297,7 +317,7 @@ let
 
     `url`: a url value.
 
-    Returns the authority's raw userinfo string, or null when absent.
+    Returns the authority's userinfo string, or null when absent.
   */
   userinfo = url: (urlArgument "userinfo" url).authority.userinfo;
 
@@ -333,7 +353,7 @@ let
 
     `url`: a url value.
 
-    Returns the raw path: "" or a string starting with `/`.
+    Returns the path: "" or a string starting with `/`.
   */
   path = url: (urlArgument "path" url).path;
 
@@ -342,7 +362,7 @@ let
 
     `url`: a url value.
 
-    Returns the raw query string without `?`, or null when absent.
+    Returns the query string without `?`, or null when absent.
   */
   query = url: (urlArgument "query" url).query;
 
@@ -351,7 +371,7 @@ let
 
     `url`: a url value.
 
-    Returns the raw fragment string without `#`, or null when absent.
+    Returns the fragment string without `#`, or null when absent.
   */
   fragment = url: (urlArgument "fragment" url).fragment;
 

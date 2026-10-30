@@ -3,6 +3,23 @@ let
   inherit (libnet) ipv4 ipv6 mac;
 
   inherit (ipv6) parse;
+
+  # Globally reachable allocations inside 2001::/23 (IANA, 2025-10-09),
+  # with the edges of each block.
+  reachableInProtocolBlock = [
+    "2001:1::1"
+    "2001:1::2"
+    "2001:1::3"
+    "2001:3::"
+    "2001:3:ffff:ffff:ffff:ffff:ffff:ffff"
+    "2001:4:112::"
+    "2001:4:112:ffff:ffff:ffff:ffff:ffff"
+    "2001:20::"
+    "2001:20::1"
+    "2001:2f:ffff:ffff:ffff:ffff:ffff:ffff"
+    "2001:30::"
+    "2001:3f:ffff:ffff:ffff:ffff:ffff:ffff"
+  ];
 in
 {
   # ===== Parse: positive (compression) =====
@@ -594,6 +611,183 @@ in
     expected = true;
   };
 
+  # ===== Predicates: special-use (IANA, 2025-10-09) =====
+  testTeredoPositive = {
+    expr = ipv6.isTeredo (parse "2001::1");
+    expected = true;
+  };
+  testTeredoPositiveHigh = {
+    expr = ipv6.isTeredo (parse "2001:0:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testTeredoNegative = {
+    expr = ipv6.isTeredo (parse "2001:1::");
+    expected = false;
+  };
+  testLocalNat64PositiveLow = {
+    expr = ipv6.isLocalNat64 (parse "64:ff9b:1::");
+    expected = true;
+  };
+  testLocalNat64PositiveHigh = {
+    expr = ipv6.isLocalNat64 (parse "64:ff9b:1:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testLocalNat64NegativeWellKnown = {
+    expr = ipv6.isLocalNat64 (parse "64:ff9b::1");
+    expected = false;
+  };
+  testLocalNat64NegativeAbove = {
+    expr = ipv6.isLocalNat64 (parse "64:ff9b:2::");
+    expected = false;
+  };
+  testDummyPositiveLow = {
+    expr = ipv6.isDummy (parse "100:0:0:1::");
+    expected = true;
+  };
+  testDummyPositiveHigh = {
+    expr = ipv6.isDummy (parse "100:0:0:1:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testDummyNegativeDiscard = {
+    expr = ipv6.isDummy (parse "100::1");
+    expected = false;
+  };
+  testDummyNegativeAbove = {
+    expr = ipv6.isDummy (parse "100:0:0:2::");
+    expected = false;
+  };
+  testProtocolPositiveLow = {
+    expr = ipv6.isProtocolAssignment (parse "2001:1::");
+    expected = true;
+  };
+  testProtocolPositiveHigh = {
+    expr = ipv6.isProtocolAssignment (parse "2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testProtocolPositiveBenchmarking = {
+    expr = ipv6.isProtocolAssignment (parse "2001:2::1");
+    expected = true;
+  };
+  testProtocolPositiveOrchid = {
+    expr = ipv6.isProtocolAssignment (parse "2001:10::1");
+    expected = true;
+  };
+  testProtocolPositiveBelowAs112 = {
+    expr = ipv6.isProtocolAssignment (parse "2001:4:111:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testProtocolPositiveAboveAs112 = {
+    expr = ipv6.isProtocolAssignment (parse "2001:4:113::");
+    expected = true;
+  };
+  testProtocolPositiveAboveAnycast = {
+    expr = ipv6.isProtocolAssignment (parse "2001:1::4");
+    expected = true;
+  };
+  testProtocolPositiveBelowOrchidV2 = {
+    expr = ipv6.isProtocolAssignment (parse "2001:1f:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testProtocolPositiveAboveDet = {
+    expr = ipv6.isProtocolAssignment (parse "2001:40::");
+    expected = true;
+  };
+  testProtocolNegativeAbove = {
+    expr = ipv6.isProtocolAssignment (parse "2001:200::");
+    expected = false;
+  };
+  testProtocolNegativeBelow = {
+    expr = ipv6.isProtocolAssignment (parse "2000:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = false;
+  };
+  testProtocolNegativeTeredo = {
+    expr = ipv6.isProtocolAssignment (parse "2001::1");
+    expected = false;
+  };
+  # The globally reachable allocations inside 2001::/23 are neither
+  # protocol assignments nor bogons, and are global.
+  testProtocolExcludesReachable = {
+    expr = builtins.any (input: ipv6.isProtocolAssignment (parse input)) reachableInProtocolBlock;
+    expected = false;
+  };
+  testBogonExcludesReachable = {
+    expr = builtins.any (input: ipv6.isBogon (parse input)) reachableInProtocolBlock;
+    expected = false;
+  };
+  testGlobalReachable = {
+    expr = builtins.all (input: ipv6.isGlobal (parse input)) reachableInProtocolBlock;
+    expected = true;
+  };
+  testBenchmarkingPositiveLow = {
+    expr = ipv6.isBenchmarking (parse "2001:2::");
+    expected = true;
+  };
+  testBenchmarkingPositiveHigh = {
+    expr = ipv6.isBenchmarking (parse "2001:2:0:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testBenchmarkingNegativeAbove = {
+    expr = ipv6.isBenchmarking (parse "2001:2:1::");
+    expected = false;
+  };
+  testBenchmarkingNegativeBelow = {
+    expr = ipv6.isBenchmarking (parse "2001:1:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = false;
+  };
+  testSrv6SidPositiveLow = {
+    expr = ipv6.isSrv6Sid (parse "5f00::");
+    expected = true;
+  };
+  testSrv6SidPositiveHigh = {
+    expr = ipv6.isSrv6Sid (parse "5f00:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = true;
+  };
+  testSrv6SidNegativeBelow = {
+    expr = ipv6.isSrv6Sid (parse "5eff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+    expected = false;
+  };
+  testSrv6SidNegativeAbove = {
+    expr = ipv6.isSrv6Sid (parse "5f01::");
+    expected = false;
+  };
+  testBogonLocalNat64 = {
+    expr = ipv6.isBogon (parse "64:ff9b:1::1");
+    expected = true;
+  };
+  testBogonDummy = {
+    expr = ipv6.isBogon (parse "100:0:0:1::1");
+    expected = true;
+  };
+  testBogonProtocolAssignment = {
+    expr = ipv6.isBogon (parse "2001:5::1");
+    expected = true;
+  };
+  testBogonBenchmarking = {
+    expr = ipv6.isBogon (parse "2001:2::1");
+    expected = true;
+  };
+  testBogonSrv6Sid = {
+    expr = ipv6.isBogon (parse "5f00::1");
+    expected = true;
+  };
+  testGlobalNegativeProtocolAssignment = {
+    expr = ipv6.isGlobal (parse "2001:5::1");
+    expected = false;
+  };
+  testGlobalNegativeSrv6Sid = {
+    expr = ipv6.isGlobal (parse "5f00::1");
+    expected = false;
+  };
+  # 64:ff9b::/96, the well-known NAT64 prefix, is globally reachable.
+  testGlobalWellKnownNat64 = {
+    expr = ipv6.isGlobal (parse "64:ff9b::1");
+    expected = true;
+  };
+  testBogonExcludesWellKnownNat64 = {
+    expr = ipv6.isBogon (parse "64:ff9b::1");
+    expected = false;
+  };
+
   testGlobalPositive = {
     expr = ipv6.isGlobal (parse "2606:4700:4700::1111");
     expected = true;
@@ -602,8 +796,8 @@ in
     expr = ipv6.isGlobal (parse "::1");
     expected = false;
   };
-  # isGlobal is stricter than !isBogon: IPv4-mapped, IPv4-compatible, and
-  # 6to4 addresses are also not global.
+  # isGlobal is stricter than !isBogon: IPv4-mapped, IPv4-compatible,
+  # 6to4, and Teredo addresses are also not global.
   testGlobalNegativeV4Mapped = {
     expr = ipv6.isGlobal (parse "::ffff:8.8.8.8");
     expected = false;
@@ -616,9 +810,17 @@ in
     expr = ipv6.isGlobal (parse "2002::1");
     expected = false;
   };
-  # isBogon stays narrower: 6to4 and IPv4-mapped addresses are not bogons.
+  testGlobalNegativeTeredo = {
+    expr = ipv6.isGlobal (parse "2001::1");
+    expected = false;
+  };
+  # isBogon stays narrower: transition forms are not bogons.
   testBogonExcludes6to4 = {
     expr = ipv6.isBogon (parse "2002::1");
+    expected = false;
+  };
+  testBogonExcludesTeredo = {
+    expr = ipv6.isBogon (parse "2001::1");
     expected = false;
   };
   testBogonPositive = {

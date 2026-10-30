@@ -477,7 +477,7 @@ let
       rangeSize = sizeOrNull checked;
     in
     if rangeSize != null && (offset >= rangeSize || offset < 0 - rangeSize) then
-      errors.fail "ipRange.addressAt" "index out of range [0, ${builtins.toString rangeSize}): ${builtins.toString offset}"
+      errors.fail "ipRange.addressAt" "index out of range [-${builtins.toString rangeSize}, ${builtins.toString rangeSize}): ${builtins.toString offset}"
     else if offset < 0 then
       # Counting back from `to` avoids the size, and `offset + 1` cannot
       # overflow, even for -2^63.

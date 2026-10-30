@@ -31,7 +31,7 @@ in
   # ===== Parse: negative =====
   testParseEmpty = {
     expr = parse "";
-    expectedError.msg = "^libnet\\.ipv4\\.parse: must have 4 octets, got 1: \"\"$";
+    expectedError.msg = "^libnet\\.ipv4\\.parse: empty string$";
   };
   testParse3Octets = {
     expr = parse "1.2.3";
@@ -475,6 +475,76 @@ in
   testProtocolNegativeDocumentation = {
     expr = ipv4.isProtocolAssignment (parse "192.0.2.1");
     expected = false;
+  };
+  testProtocolPositiveLow = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.0");
+    expected = true;
+  };
+  testProtocolPositiveHigh = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.255");
+    expected = true;
+  };
+  testProtocolNegativeBelow = {
+    expr = ipv4.isProtocolAssignment (parse "191.255.255.255");
+    expected = false;
+  };
+  # The PCP (RFC 7723) and TURN (RFC 8155) anycast addresses are globally
+  # reachable, so they are carved out of 192.0.0.0/24.
+  testProtocolExcludesPcpAnycast = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.9");
+    expected = false;
+  };
+  testProtocolExcludesTurnAnycast = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.10");
+    expected = false;
+  };
+  testProtocolPositiveAboveAnycast = {
+    expr = ipv4.isProtocolAssignment (parse "192.0.0.11");
+    expected = true;
+  };
+  testGlobalPcpAnycast = {
+    expr = ipv4.isGlobal (parse "192.0.0.9");
+    expected = true;
+  };
+  testGlobalTurnAnycast = {
+    expr = ipv4.isGlobal (parse "192.0.0.10");
+    expected = true;
+  };
+  testBogonProtocolAssignment = {
+    expr = ipv4.isBogon (parse "192.0.0.8");
+    expected = true;
+  };
+  test6to4RelayPositiveLow = {
+    expr = ipv4.is6to4Relay (parse "192.88.99.0");
+    expected = true;
+  };
+  test6to4RelayPositive6a44 = {
+    expr = ipv4.is6to4Relay (parse "192.88.99.2");
+    expected = true;
+  };
+  test6to4RelayPositiveHigh = {
+    expr = ipv4.is6to4Relay (parse "192.88.99.255");
+    expected = true;
+  };
+  test6to4RelayNegativeBelow = {
+    expr = ipv4.is6to4Relay (parse "192.88.98.255");
+    expected = false;
+  };
+  test6to4RelayNegativeAbove = {
+    expr = ipv4.is6to4Relay (parse "192.88.100.0");
+    expected = false;
+  };
+  testBogon6to4Relay = {
+    expr = ipv4.isBogon (parse "192.88.99.1");
+    expected = true;
+  };
+  testGlobalNegative6to4Relay = {
+    expr = ipv4.isGlobal (parse "192.88.99.1");
+    expected = false;
+  };
+  testGlobalPositiveAbove6to4Relay = {
+    expr = ipv4.isGlobal (parse "192.88.100.0");
+    expected = true;
   };
   testBenchmarkingPositive = {
     expr = ipv4.isBenchmarking (parse "198.18.0.1");

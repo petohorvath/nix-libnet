@@ -28,8 +28,9 @@ in
 
 - **String types** accept a string that the matching core `isValid` accepts and merge to that string unchanged ([ADR 0016](../adr/0016-module-types-keep-strings.md)). Definitions merge with `mergeEqualOption`: conflicting definitions are an error.
 - **Integer types** (`types.port`, `types.vlanId`, `types.mtu`, `types.icmpType`) accept an integer in the namespace's range or its decimal string, both validated by its `isValid`, and merge to an integer.
-- **`mk`**: every type has `mk value`, which returns a valid value unchanged and throws a `libnet.types.<name>.mk` error otherwise, describing a wrong argument as every other function does, such as `expected string, got portRange value`, so `default` and `example` fail at definition. The integer types' `mk` also converts a string to an integer.
-- **Documentation**: every type has a noun-phrase `description`.
+- **`mk`**: every type has `mk value`, which returns a valid value unchanged and throws a `libnet.types.<name>.mk` error otherwise, so `default` and `example` fail at definition. The error carries the detail that the core `tryParse` reports, without its `libnet.<namespace>.parse` prefix, such as `libnet.types.dnsName.mk: "1.2.3.4" is an IP address, not a DNS name`. A family-restricted type names the family, such as `libnet.types.ipv4Cidr.mk: "::/0" is an IPv6 CIDR, not an IPv4 CIDR`. A wrong argument is described as every other function describes it, such as `expected string, got portRange value`. The integer types' `mk` also converts a string to an integer.
+- **Declarations**: two declarations of an option with the same type, such as `types.ipv4` or `listOf types.cidr`, merge to that type, as nixpkgs types do. Declarations with different types, such as `types.ipv4` and `types.ipv6`, conflict.
+- **Documentation**: every type's `name` is its libnet name, such as `vlanId`, and its `description` is a noun phrase without an article, as nixpkgs writes its own, so `listOf types.ipv4` reads `list of IPv4 address (dotted-quad)`. The integer types' descriptions give the range and both forms, such as `VLAN ID (1–4094, integer or decimal string)`.
 
 ## Types
 

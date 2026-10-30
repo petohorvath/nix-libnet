@@ -441,10 +441,11 @@ let
       checked = ipBindpointArgument "endpoints" bindpoint;
       size = portRange.size checked.portRange;
     in
-    if size > 4096 then
-      errors.fail "ipBindpoint.endpoints" "range too large (${builtins.toString size} > 4096); use endpointsUnbounded"
+    # A null address is the more basic fault, so it is reported first.
+    if checked.address == null || size <= 4096 then
+      endpointsFor "endpoints" checked
     else
-      endpointsFor "endpoints" checked;
+      errors.fail "ipBindpoint.endpoints" "range too large (${builtins.toString size} > 4096); use endpointsUnbounded";
 
   /*
     Pick one port from the range as a concrete endpoint.
@@ -469,7 +470,7 @@ let
         index = if offset < 0 then size + offset else offset;
       in
       if index < 0 || index >= size then
-        errors.fail "ipBindpoint.endpointAt" "index out of range [0, ${builtins.toString size})"
+        errors.fail "ipBindpoint.endpointAt" "index out of range [-${builtins.toString size}, ${builtins.toString size}): ${builtins.toString offset}"
       else
         ipEndpoint.make checked.address (port.add index checked.portRange.from);
 
