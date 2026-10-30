@@ -182,8 +182,12 @@ let
   shared100End = 100 * bits.pow2_24 + 128 * bits.pow2_16 - 1;
   protocol192Start = 192 * bits.pow2_24;
   protocol192End = 192 * bits.pow2_24 + bits.pow2_8 - 1;
+  pcpAnycast = protocol192Start + 9;
+  turnAnycast = protocol192Start + 10;
   benchmarking198Start = 198 * bits.pow2_24 + 18 * bits.pow2_16;
   benchmarking198End = 198 * bits.pow2_24 + 20 * bits.pow2_16 - 1;
+  relay192Start = 192 * bits.pow2_24 + 88 * bits.pow2_16 + 99 * bits.pow2_8;
+  relay192End = 192 * bits.pow2_24 + 88 * bits.pow2_16 + 100 * bits.pow2_8 - 1;
 
   /*
     Check whether an address is loopback (127.0.0.0/8).
@@ -314,14 +318,16 @@ let
 
   /*
     Check whether an address is an IETF protocol assignment
-    (192.0.0.0/24, RFC 6890).
+    (192.0.0.0/24, RFC 6890), excluding the globally reachable anycast
+    addresses 192.0.0.9 (PCP, RFC 7723) and 192.0.0.10 (TURN, RFC 8155).
 
     `ip`: IPv4 value.
 
     Returns a Boolean.
   */
   isProtocolAssignment = withValue "isProtocolAssignment" (
-    value: value >= protocol192Start && value <= protocol192End
+    value:
+    value >= protocol192Start && value <= protocol192End && value != pcpAnycast && value != turnAnycast
   );
 
   /*
@@ -337,7 +343,17 @@ let
   );
 
   /*
-    Check whether an address is not globally routable: it matches any of
+    Check whether an address is in the deprecated 6to4 relay anycast
+    block (192.88.99.0/24, RFC 7526).
+
+    `ip`: IPv4 value.
+
+    Returns a Boolean.
+  */
+  is6to4Relay = withValue "is6to4Relay" (value: value >= relay192Start && value <= relay192End);
+
+  /*
+    Check whether an address is a bogon, not globally reachable: it matches any of
     the special-purpose predicates in this module.
 
     `ip`: IPv4 value.
@@ -360,12 +376,14 @@ let
     || isThisNetwork ip
     || isSharedAddressSpace ip
     || isProtocolAssignment ip
-    || isBenchmarking ip;
+    || isBenchmarking ip
+    || is6to4Relay ip;
 
   /*
-    Check whether an address is globally routable. IPv4 has no transition
-    forms like IPv6's IPv4-mapped, IPv4-compatible, or 6to4 addresses, so
-    this is exactly `!isBogon`; `ipv6.isGlobal` is stricter.
+    Check whether an address is globally reachable. IPv4 has no transition
+    forms like IPv6's IPv4-mapped, IPv4-compatible, 6to4, or Teredo
+    addresses, so this is exactly `!isBogon`; `ipv6.isGlobal` is
+    stricter.
 
     `ip`: IPv4 value.
 
@@ -467,6 +485,7 @@ in
     fromBytes
     fromInt
     is
+    is6to4Relay
     isBenchmarking
     isBogon
     isBroadcast

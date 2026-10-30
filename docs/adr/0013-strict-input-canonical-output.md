@@ -9,6 +9,7 @@ Parsers accept every standard spelling but reject ambiguous ones, and `toString`
 - Endpoints require brackets around IPv6 (`[::1]:80`), per RFC 3986 §3.2.2.
 - CIDRs reject host bits (`10.0.0.5/24`); that text is an interface address ([ADR 0010](0010-interface-address-is-not-cidr.md)).
 - Port ranges emit `-` and also accept the iptables `:` separator.
+- A proxy URL accepts a trailing `/` after its authority, the common spelling of `http_proxy`, and emits none; any other path is rejected.
 - Hostnames reject the underscore that nixpkgs' `networking.hostName` tolerates, keeping to RFC 1123.
 
-Canonical output means `parse` then `toString` is stable on canonical input. Wildcard bindpoint spellings (`*:80`, `any:80`, `:80`) all print as `:80`.
+Canonical output means `parse` then `toString` is stable on canonical input. Wildcard bindpoint spellings (`*:80`, `any:80`, `:80`) all print as `:80`, and `http://proxy:3128/` prints as `http://proxy:3128`.

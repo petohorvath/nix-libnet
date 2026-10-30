@@ -40,7 +40,7 @@ in
   };
   testRejectEmpty = {
     expr = parse "";
-    expectedError.msg = "^libnet\\.port\\.parse: not a decimal number: \"\"$";
+    expectedError.msg = "^libnet\\.port\\.parse: empty string$";
   };
   testRejectLeadingWhitespace = {
     expr = parse " 80";

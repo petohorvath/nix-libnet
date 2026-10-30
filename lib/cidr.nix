@@ -446,7 +446,7 @@ let
       offsetAddress = if isV4 block.networkAddress then ipv4.add else ipv6.add;
     in
     if hostBits <= 62 && (offset >= addressCount || offset < 0 - addressCount) then
-      errors.fail "cidr.addressAt" "index out of range [0, ${builtins.toString addressCount}): ${builtins.toString offset}"
+      errors.fail "cidr.addressAt" "index out of range [-${builtins.toString addressCount}, ${builtins.toString addressCount}): ${builtins.toString offset}"
     else if offset < 0 then
       # Counting back from the top address avoids the size, and
       # `offset + 1` cannot overflow, even for -2^63.

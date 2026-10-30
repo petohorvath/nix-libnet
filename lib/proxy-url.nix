@@ -11,7 +11,8 @@
   `a` / `h` variants resolve DNS at the proxy). Every scheme runs over
   TCP. Schemes match case-insensitively, are emitted lowercase, and sort
   by name. The port is required — proxy default ports are not
-  standardized.
+  standardized. Nothing may follow the authority but a path of exactly
+  `/`, which `parse` accepts and `toString` drops (ADR 0013).
 
     { _type = "proxyUrl"; scheme = <scheme>; authority = <authority>; }
 
@@ -73,11 +74,12 @@ let
   /*
     Parse a proxy URL: the detail parser of the parsing suite.
 
-    `input`: `<scheme>://[userinfo@]host:port` text; the scheme is matched
-    case-insensitively and nothing may follow the authority.
+    `input`: `<scheme>://[userinfo@]host:port` text, optionally followed
+    by a path of exactly `/`; the scheme is matched case-insensitively.
 
     Returns a tryResult holding a proxyUrl value, or the detail of the
-    failure: an unknown scheme, an invalid authority, or a missing port.
+    failure: an unknown scheme, an invalid authority, anything but `/`
+    after the authority, or a missing port.
   */
   tryParseDetail =
     input:
@@ -90,10 +92,16 @@ let
       schemeResult
     else
       let
-        authorityResult = authority.tryParseDetail rest;
+        # No authority character is `/`, `?` or `#`, so the authority
+        # ends at the first of them.
+        authorityText = builtins.head (builtins.split "[/?#]" rest);
+        after = parsing.stripPrefix authorityText rest;
+        authorityResult = authority.tryParseDetail authorityText;
       in
       if !authorityResult.success then
         authorityResult
+      else if after != "" && after != "/" then
+        types.tryErr "nothing may follow the authority: \"${input}\""
       else if authority.port authorityResult.value == null then
         types.tryErr "a proxy URL requires an explicit port: \"${input}\""
       else

@@ -4,7 +4,7 @@ The flake is assembled with `flake-parts.lib.mkFlake`, following the layout the 
 
 The previous plain `outputs` function inlined the system loop, the check derivations and the development shell in `flake.nix`. With the partition, evaluating `lib` loads no development code, and each development output lives in its own file under `dev/`.
 
-`tests/default.nix` assembles the checks, as in the shared layout, so the nix-unit entry point moves to `tests/unit.nix`. `dev/checks.nix` passes the partition's formatter and package set to it.
+`dev/default.nix` runs the unit suites listed in `tests/unit/default.nix` on nix-unit's flake-parts module ([ADR 0018](0018-nix-unit-flake-module.md)), and `dev/checks.nix` adds the `lint` check.
 
 ## Consequences
 

@@ -3,7 +3,7 @@
 
   Validated multi-label DNS name (≥ 2 labels). Each label follows the
   same RFC 1123 syntax as `libnet.hostname` (delegated to the shared
-  internal helper); the domain itself adds zone-arithmetic operations
+  internal helper); the domain itself adds label-hierarchy operations
   (`parent`, `isSubdomainOf`, `isSuperdomainOf`, `toHostname`).
 
   Validation: ≥ 2 labels separated by `.`, each label 1..63 ASCII
@@ -15,7 +15,7 @@
 
   Domains are case-insensitive (DNS semantics), so `parse` lowercases
   them (ADR 0020): `toString` prints canonical text, and equality,
-  ordering and the zone relations compare the stored text.
+  ordering and the subdomain relations compare the stored text.
 
   Example:
     libnet.domain.parse "Foo.Example.com"
@@ -46,8 +46,8 @@ let
 
   labelsOf = function: domain: parsing.splitOn "." (valueOf function domain);
 
-  # Whether `a` lies within `b`'s zone, for the zone relation named
-  # `function`.
+  # Whether `a` is `b` or lies below it, for the subdomain relation
+  # named `function`.
   subdomainFor =
     function: a: b:
     let
@@ -154,10 +154,10 @@ let
   */
   labels = labelsOf "labels";
 
-  # ===== Zone arithmetic =====
+  # ===== Label hierarchy =====
 
   /*
-    Get the enclosing zone of a domain by dropping its leftmost label.
+    Get the enclosing domain by dropping the leftmost label.
 
     `domain`: domain value.
 
@@ -175,7 +175,7 @@ let
       mk (builtins.concatStringsSep "." parentLabels);
 
   /*
-    Test whether one domain lies within another's zone.
+    Test whether one domain is another or lies below it.
 
     `a`: candidate subdomain.
     `b`: candidate enclosing domain.
@@ -186,7 +186,7 @@ let
   isSubdomainOf = subdomainFor "isSubdomainOf";
 
   /*
-    Test whether one domain's zone contains another; the converse of
+    Test whether one domain is another or lies above it; the converse of
     `isSubdomainOf`.
 
     `a`: candidate enclosing domain.

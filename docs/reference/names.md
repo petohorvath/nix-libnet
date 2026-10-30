@@ -2,7 +2,7 @@
 
 ## `libnet.hostname`
 
-Value: `{ _type = "hostname"; value = String; }`, one RFC 1123 label: 1–63 characters of `[A-Za-z0-9-]`, starting and ending alphanumeric. The 63-character cap is Linux's `HOST_NAME_MAX` less the terminator. Underscores are rejected ([ADR 0013](../adr/0013-strict-input-canonical-output.md)). `parse` lowercases the name, so text is the name in lowercase: `hostname.parse "MyHost"` prints `myhost` ([ADR 0020](../adr/0020-case-folded-at-parse.md)). A numeric label such as `1234` or `0x7f` is a valid Linux kernel hostname but not a DNS name, so `dnsName` rejects it, as text and as a value ([ADR 0021](../adr/0021-no-numeric-dns-names.md)).
+Value: `{ _type = "hostname"; value = String; }`, one RFC 1123 label: 1–63 characters of `[A-Za-z0-9-]`, starting and ending alphanumeric. The 63-character cap is the RFC 1035 label limit, one less than Linux's `HOST_NAME_MAX` of 64. Underscores are rejected ([ADR 0013](../adr/0013-strict-input-canonical-output.md)). `parse` lowercases the name, so text is the name in lowercase: `hostname.parse "MyHost"` prints `myhost` ([ADR 0020](../adr/0020-case-folded-at-parse.md)). A numeric label such as `1234` or `0x7f` is a valid Linux kernel hostname but not a DNS name, so `dnsName` rejects it, as text and as a value ([ADR 0021](../adr/0021-no-numeric-dns-names.md)).
 
 Suites: parsing, comparison (byte-wise on the lowercase text).
 

@@ -195,6 +195,7 @@ in
     isRegName
     toHost
     toString
+    tryParseDetail
     ;
   inherit (parsers)
     isValid

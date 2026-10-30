@@ -459,11 +459,11 @@ in
   };
   testAddressAtOutOfRangePositive = {
     expr = cidr.addressAt 16 (parse "10.0.0.0/28");
-    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[0, 16\\): 16$";
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[-16, 16\\): 16$";
   };
   testAddressAtOutOfRangeNegative = {
     expr = cidr.addressAt (-17) (parse "10.0.0.0/28");
-    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[0, 16\\): -17$";
+    expectedError.msg = "^libnet\\.cidr\\.addressAt: index out of range \\[-16, 16\\): -17$";
   };
   testAddressAtRejectsFloat = {
     expr = cidr.addressAt 1.0 (parse "10.0.0.0/28");

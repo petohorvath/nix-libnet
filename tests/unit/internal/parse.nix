@@ -681,14 +681,14 @@ in
       }
     ];
   };
-  testAddressPrefixMissingSlash = {
+  testAddressPrefixSlashCount = {
     expr = map addressPrefix [
       "v4"
       "v4/1/2"
     ];
     expected = [
       (types.tryErr "missing '/': \"v4\"")
-      (types.tryErr "missing '/': \"v4/1/2\"")
+      (types.tryErr "more than one '/': \"v4/1/2\"")
     ];
   };
   # The address's detail comes back unchanged.
@@ -765,5 +765,34 @@ in
   testStripPrefixEmpty = {
     expr = parsing.stripPrefix "" "abc";
     expected = "abc";
+  };
+
+  # ===== uppercasePercentEncodings =====
+  # Only the two hex digits after each `%` change case.
+  testUppercasePercentEncodingsHexDigits = {
+    expr = map parsing.uppercasePercentEncodings [
+      "a%2fb"
+      "%aB%Cd%ef"
+      "%2f"
+      "abc%4a%4A"
+    ];
+    expected = [
+      "a%2Fb"
+      "%AB%CD%EF"
+      "%2F"
+      "abc%4A%4A"
+    ];
+  };
+  testUppercasePercentEncodingsKeepsOtherText = {
+    expr = map parsing.uppercasePercentEncodings [
+      ""
+      "abc"
+      "aBc%2fdef"
+    ];
+    expected = [
+      ""
+      "abc"
+      "aBc%2Fdef"
+    ];
   };
 }

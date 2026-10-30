@@ -1,8 +1,8 @@
 # URL forms
 
-Every URL form is bounded: a closed scheme registry, components stored verbatim, and no relative or opaque URIs ([ADR 0011](../adr/0011-bounded-url-forms.md)). Every form matches schemes case-insensitively and prints them lowercase; `transport` stays case-sensitive ([ADR 0012](../adr/0012-transport-enum.md)).
+Every URL form is bounded: a closed scheme registry, components stored as written and never percent-decoded, and no relative or opaque URIs ([ADR 0011](../adr/0011-bounded-url-forms.md)). Every form reports an unknown scheme with the list of its schemes, such as `libnet.proxyUrl.parse: unknown scheme "ftp" (expected http, https, socks4, socks4a, socks5, or socks5h)`, and text without one as `missing '<scheme>://'`. Every form matches schemes case-insensitively and prints them lowercase; `transport` stays case-sensitive ([ADR 0012](../adr/0012-transport-enum.md)).
 
-Hosts are case-insensitive, so every form folds its host at parse, as `regName`, `hostname` and `domain` do, and prints it in lowercase ([ADR 0020](../adr/0020-case-folded-at-parse.md)). Userinfo, path, query, fragment and Unix socket paths keep their case.
+Hosts are case-insensitive, so every form folds its host at parse, as `regName`, `hostname` and `domain` do, and prints it in lowercase ([ADR 0020](../adr/0020-case-folded-at-parse.md)). Userinfo, path, query and fragment keep their case, except that `parse` and `make` uppercase the two hex digits of every percent-encoding (RFC 3986 §6.2.2.1), so `url.parse "http://h/a%2f"` prints `http://h/a%2F` and equals `url.parse "http://h/a%2F"`. Unix socket paths keep their case.
 
 | Form              | Text                                               | Schemes                                                   | Holds                                    |
 | ----------------- | -------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------- |
@@ -64,12 +64,12 @@ Value: `{ _type = "secureSocketUrl"; scheme = "dtls" | "quic" | "tls"; endpoint 
 
 Suites: parsing (`parse` and `make` also accept `ssl`, an input spelling that canonicalizes to `tls`), comparison (by scheme, `dtls < quic < tls`, then endpoint; `dtls` never equals `quic`).
 
-| Function             | Signature                             | Notes                                           |
-| -------------------- | ------------------------------------- | ----------------------------------------------- |
-| `make`               | `String → Endpoint → SecureSocketUrl` | Accepts `ssl` for `tls`; rejects a Unix socket. |
-| `scheme`, `endpoint` |                                       | Accessors.                                      |
-| `transport`          | `SecureSocketUrl → Transport`         | `tcp` for `tls`, `udp` otherwise.               |
-| `isSecure`           | `SecureSocketUrl → Bool`              | Always `true`.                                  |
+| Function             | Signature                                              | Notes                                           |
+| -------------------- | ------------------------------------------------------ | ----------------------------------------------- |
+| `make`               | `String → IpEndpoint or DnsEndpoint → SecureSocketUrl` | Accepts `ssl` for `tls`; rejects a Unix socket. |
+| `scheme`, `endpoint` |                                                        | Accessors.                                      |
+| `transport`          | `SecureSocketUrl → Transport`                          | `tcp` for `tls`, `udp` otherwise.               |
+| `isSecure`           | `SecureSocketUrl → Bool`                               | Always `true`.                                  |
 
 Constant: `schemes`, `{ dtls = { transport = "udp"; secure = true; }; quic = …; tls = { transport = "tcp"; secure = true; }; }`.
 
@@ -101,7 +101,9 @@ Suites: parsing, comparison (byte-wise on the folded text).
 
 Value: `{ _type = "authority"; userinfo = String or null; host = UrlHost; port = Port or null; }`. Text is `[userinfo@]host[:port]`: `example.com`, `host:8443`, `user@[::1]:443`. `userinfo` is opaque and may carry credentials; a missing port stays `null`, because an authority has no scheme default. The port rejects leading zeros (`host:0080`), although RFC 3986 allows them, so every port round-trips ([ADR 0013](../adr/0013-strict-input-canonical-output.md)).
 
-Userinfo must match RFC 3986 `*( unreserved / pct-encoded / sub-delims / ":" )`: ASCII only, with every `%` followed by two hex digits, so `a b@h`, `a/b@h` and `%zz@h` are rejected. It is stored verbatim, keeping its case and percent-encoding ([ADR 0011](../adr/0011-bounded-url-forms.md)).
+Userinfo must match RFC 3986 `*( unreserved / pct-encoded / sub-delims / ":" )`: ASCII only, with every `%` followed by two hex digits, so `a b@h`, `a/b@h` and `%zz@h` are rejected. It keeps its case and is never percent-decoded, but `parse` and `make` uppercase the hex digits of its percent-encodings, so `a%2f@h` prints `a%2F@h` ([ADR 0011](../adr/0011-bounded-url-forms.md), [ADR 0020](../adr/0020-case-folded-at-parse.md)).
+
+A parse error keeps the host's detail from `urlHost`, under the name of the function called, as `endpoint` keeps its member's: `authority.parse "127.1:80"` reports `libnet.authority.parse: must have 4 octets, got 2: "127.1"`, and `authority.parse ":80"` reports `libnet.authority.parse: empty host`. `url` and `proxyUrl` keep the same detail.
 
 Suites: parsing, comparison (by host, port with `null` first, then userinfo with `null` first; `eq` includes userinfo).
 
@@ -114,7 +116,7 @@ Suites: parsing, comparison (by host, port with `null` first, then userinfo with
 
 Value: `{ _type = "url"; scheme; authority = Authority; path; query; fragment; }`. `path` is `""` or starts with `/`; `query` and `fragment` are strings or `null`. `toString` round-trips, printing a port only when the input had one.
 
-Each component must match its RFC 3986 grammar, in ASCII with every `%` followed by two hex digits: the path is `/`-separated segments of `pchar` (unreserved, percent-encoded, sub-delimiters, `:` and `@`), and the query and fragment are `pchar`, `/` and `?`. A space, `"`, `<`, `>`, a control character such as a newline, a non-ASCII byte, `%zz` or a second `#` is rejected. Components are stored verbatim, never percent-decoded ([ADR 0011](../adr/0011-bounded-url-forms.md)).
+Each component must match its RFC 3986 grammar, in ASCII with every `%` followed by two hex digits: the path is `/`-separated segments of `pchar` (unreserved, percent-encoded, sub-delimiters, `:` and `@`), and the query and fragment are `pchar`, `/` and `?`. A space, `"`, `<`, `>`, a control character such as a newline, a non-ASCII byte, `%zz` or a second `#` is rejected. Components keep their case and are never percent-decoded; `parse` and `make` only uppercase the hex digits of percent-encodings, so `%2f` and `%2F` are one value ([ADR 0011](../adr/0011-bounded-url-forms.md)). An unknown scheme is reported with the list of every scheme in `url.schemes`.
 
 `url.schemes` maps each scheme to `{ defaultPort; transport; secure; }`, with default ports from `registry.ports`: `amqp`, `amqps`, `coap`, `coaps`, `ftp`, `ftps`, `git`, `http`, `https`, `irc`, `ircs`, `ldap`, `ldaps`, `mongodb`, `mqtt`, `mqtts`, `mysql`, `postgres`, `rdp`, `redis`, `rsync`, `sftp`, `ssh`, `svn`, `telnet`, `tftp`, `vnc`, `ws`, `wss`, `xmpp`.
 
@@ -135,7 +137,7 @@ Suites: parsing, comparison. `eq` compares the scheme, the authority with its ef
 
 ## `libnet.proxyUrl`
 
-Value: `{ _type = "proxyUrl"; scheme = String; authority = Authority; }`. The port is required, and nothing may follow the authority: `socks5://127.0.0.1:1080`, `http://user:pass@proxy.corp:8080`.
+Value: `{ _type = "proxyUrl"; scheme = String; authority = Authority; }`. The port is required: `socks5://127.0.0.1:1080`, `http://user:pass@proxy.corp:8080`. `parse` accepts a path of exactly `/` after the authority, which `toString` drops, so `http://proxy:3128/` prints `http://proxy:3128` ([ADR 0013](../adr/0013-strict-input-canonical-output.md)). Anything else after the authority, such as `/pac`, `?q`, `#f` or `//`, is rejected with `libnet.proxyUrl.parse: nothing may follow the authority: "<input>"`.
 
 Suites: parsing, comparison (by scheme, then authority; `socks5` never equals `socks5h`).
 

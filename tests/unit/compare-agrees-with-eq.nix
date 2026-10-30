@@ -13,6 +13,8 @@ let
       "example.com:443"
       "u@example.com:443"
       "v@example.com:443"
+      "u%2f@example.com:443"
+      "u%2F@example.com:443"
     ];
     bindUrl = [
       "tcp://:8080"
@@ -144,6 +146,8 @@ let
       "SOCKS5://H:1080"
       "socks5h://h:1080"
       "socks5://u@h:1080"
+      "socks5://u%2f@h:1080"
+      "socks5://u%2F@h:1080/"
       "http://h:1080"
     ];
     regName = [
@@ -188,6 +192,8 @@ let
       "https://example.com/p"
       "https://example.com/p?q"
       "https://example.com/p#f"
+      "https://example.com/a%2f?b%2f#c%2f"
+      "https://example.com/a%2F?b%2F#c%2F"
       "http://example.com"
     ];
     urlHost = [

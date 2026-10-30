@@ -973,6 +973,11 @@ let
       ) anyValues;
       expected = map (_: true) anyValues;
     };
+    # Every kind words an empty input alike.
+    testTryParseEmptyString = {
+      expr = (case.module.tryParse "").error;
+      expected = "libnet.${namespace}.parse: empty string";
+    };
   };
 
   mkTests =

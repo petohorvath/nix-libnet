@@ -41,11 +41,11 @@ The upper and lower 24 bits of a MAC address: the organization identifier and th
 The 64-bit IPv6 interface identifier derived from a MAC address per RFC 4291, with `ff:fe` inserted and the universal/local bit flipped.
 
 **Bogon**:
-An address that is not globally routable because a special-purpose RFC block contains it.
+An address in a special-purpose block that IANA marks as not globally reachable, or in a multicast or deprecated block.
 _Avoid_: martian, reserved address
 
 **Global address**:
-An address that is publicly routable. For IPv6 this also excludes the IPv4 transition forms.
+An address in no bogon block. For IPv6 this also excludes the IPv4 transition forms.
 _Avoid_: public address
 
 ## Networks
@@ -123,7 +123,7 @@ _Avoid_: hostname, domain (in the URL grammar)
 ## Targets
 
 **Endpoint**:
-A complete connection target answering "connect to where?": an IP endpoint, a DNS endpoint or a Unix socket. It never holds a wildcard or a port range.
+A complete connection target answering "connect to where?": an IP endpoint, a DNS endpoint or a Unix socket. It never holds an absent address or a port range; the unspecified address and port 0 are valid in it and are not wildcards.
 _Avoid_: address, destination, socket address
 
 **IP endpoint**:
@@ -159,7 +159,7 @@ A bindpoint under a socket scheme, `<scheme>://<bindpoint>`, such as `tcp://:808
 An IP or DNS endpoint reached over TLS, `<scheme>://<endpoint>`, whose scheme is `tls`, `dtls` or `quic`.
 
 **URL**:
-An absolute hierarchical URL over a closed scheme registry, with components stored verbatim.
+An absolute hierarchical URL over a closed scheme registry, with components stored as written, never percent-decoded.
 _Avoid_: URI, link
 
 **Authority**:

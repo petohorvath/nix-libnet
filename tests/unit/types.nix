@@ -27,6 +27,26 @@ let
         }
       ];
     }).config.value;
+
+  # Declare the option once per type in `optionTypes`, as separate modules
+  # may, and merge one definition.
+  declaredAs =
+    optionTypes: value:
+    (lib.evalModules {
+      modules = map (type: { options.value = lib.mkOption { inherit type; }; }) optionTypes ++ [
+        { config = { inherit value; }; }
+      ];
+    }).config.value;
+
+  # The option type that two declarations of `type` merge to.
+  mergedType =
+    type:
+    (lib.evalModules {
+      modules = [
+        { options.value = lib.mkOption { inherit type; }; }
+        { options.value = lib.mkOption { inherit type; }; }
+      ];
+    }).options.value.type;
 in
 if lib == null then
   { }
@@ -58,8 +78,8 @@ else
       expected = true;
     };
     testIpv4Description = {
-      expr = builtins.isString types.ipv4.description;
-      expected = true;
+      expr = types.ipv4.description;
+      expected = "IPv4 address (dotted-quad)";
     };
 
     # ===== ipv6 =====
@@ -240,7 +260,7 @@ else
     };
     testPortMkBadString = {
       expr = types.port.mk "abc";
-      expectedError.msg = "^libnet\\.types\\.port\\.mk: invalid value \"abc\"$";
+      expectedError.msg = "^libnet\\.types\\.port\\.mk: not a decimal number: \"abc\"$";
     };
 
     # ===== portRange =====
@@ -394,7 +414,7 @@ else
     };
     testUnixSocketMkBad = {
       expr = types.unixSocket.mk "foo.sock";
-      expectedError.msg = "^libnet\\.types\\.unixSocket\\.mk: invalid value \"foo\\.sock\"$";
+      expectedError.msg = "^libnet\\.types\\.unixSocket\\.mk: invalid socket \"foo\\.sock\"";
     };
     # One character must follow the leading `/` or `@`.
     testUnixSocketMinimum = {
@@ -456,7 +476,7 @@ else
     };
     testSocketUrlMkBad = {
       expr = types.socketUrl.mk "ftp://x:1";
-      expectedError.msg = "^libnet\\.types\\.socketUrl\\.mk: invalid value \"ftp://x:1\"$";
+      expectedError.msg = "^libnet\\.types\\.socketUrl\\.mk: unknown scheme \"ftp\"";
     };
     testSocketUrlUnixHostPortRejected = {
       expr = types.socketUrl.check "unix://1.2.3.4:80";
@@ -507,7 +527,7 @@ else
     };
     testBindUrlMkBad = {
       expr = types.bindUrl.mk "ftp://:1";
-      expectedError.msg = "^libnet\\.types\\.bindUrl\\.mk: invalid value \"ftp://:1\"$";
+      expectedError.msg = "^libnet\\.types\\.bindUrl\\.mk: unknown scheme \"ftp\"";
     };
     testBindUrlUnixHostPortRejected = {
       expr = types.bindUrl.check "unix://:80";
@@ -549,7 +569,7 @@ else
     };
     testSecureSocketUrlMkBad = {
       expr = types.secureSocketUrl.mk "tcp://x:1";
-      expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: invalid value \"tcp://x:1\"$";
+      expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: unknown scheme \"tcp\"";
     };
     # `ssl` is an input spelling of `tls`; the merged value keeps it.
     testSecureSocketUrlMergeKeepsSpelling = {
@@ -786,7 +806,7 @@ else
     };
     testProxyUrlMkBad = {
       expr = types.proxyUrl.mk "socks5://h";
-      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: invalid value \"socks5://h\"$";
+      expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: a proxy URL requires an explicit port: \"socks5://h\"$";
     };
     testProxyUrlMkRejectsSet = {
       expr = types.proxyUrl.mk { };
@@ -820,7 +840,7 @@ else
     };
     testIpBindpointMkBad = {
       expr = types.ipBindpoint.mk "::1:80";
-      expectedError.msg = "^libnet\\.types\\.ipBindpoint\\.mk: invalid value \"::1:80\"$";
+      expectedError.msg = "^libnet\\.types\\.ipBindpoint\\.mk: invalid port field \":1:80\"$";
     };
     testIpBindpointDescription = {
       expr = builtins.isString types.ipBindpoint.description;
@@ -854,7 +874,7 @@ else
     };
     testBindpointMkNameRejected = {
       expr = types.bindpoint.mk "localhost:80";
-      expectedError.msg = "^libnet\\.types\\.bindpoint\\.mk: invalid value \"localhost:80\"$";
+      expectedError.msg = "^libnet\\.types\\.bindpoint\\.mk: invalid IPv4 in \"localhost:80\"$";
     };
     testBindpointMkUnix = {
       expr = types.bindpoint.mk "/run/foo.sock";
@@ -1094,7 +1114,7 @@ else
     };
     testDomainMkNumericThrows = {
       expr = types.domain.mk "127.1.0x1";
-      expectedError.msg = "^libnet\\.types\\.domain\\.mk: invalid value \"127\\.1\\.0x1\"$";
+      expectedError.msg = "^libnet\\.types\\.domain\\.mk: \"127\\.1\\.0x1\" reads as an IPv4 address";
     };
     testDomainCheckUnderscore = {
       expr = types.domain.check "host_name.com";
@@ -1320,11 +1340,11 @@ else
     };
     testVlanIdMkInvalidStringThrows = {
       expr = types.vlanId.mk "0";
-      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: invalid value \"0\"$";
+      expectedError.msg = "^libnet\\.types\\.vlanId\\.mk: out of range \\[1, 4094\\]: 0$";
     };
     testVlanIdDescription = {
-      expr = builtins.isString types.vlanId.description;
-      expected = true;
+      expr = types.vlanId.description;
+      expected = "VLAN ID (1–4094, integer or decimal string)";
     };
 
     # ===== mtu =====
@@ -1434,7 +1454,7 @@ else
     };
     testMtuMkInvalidStringThrows = {
       expr = types.mtu.mk "67";
-      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: invalid value \"67\"$";
+      expectedError.msg = "^libnet\\.types\\.mtu\\.mk: out of range \\[68, 65535\\]: 67$";
     };
     testMtuDescription = {
       expr = builtins.isString types.mtu.description;
@@ -1539,7 +1559,7 @@ else
     };
     testIcmpTypeMkInvalidStringThrows = {
       expr = types.icmpType.mk "256";
-      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: invalid value \"256\"$";
+      expectedError.msg = "^libnet\\.types\\.icmpType\\.mk: out of range \\[0, 255\\]: 256$";
     };
     testIcmpTypeDescription = {
       expr = builtins.isString types.icmpType.description;
@@ -1617,7 +1637,108 @@ else
       expected = true;
     };
     testMkCidrWrongFamily = {
-      expr = throws (types.ipv4Cidr.mk "::/0");
+      expr = types.ipv4Cidr.mk "::/0";
+      expectedError.msg = "^libnet\\.types\\.ipv4Cidr\\.mk: \"::/0\" is an IPv6 CIDR, not an IPv4 CIDR$";
+    };
+    testMkIpv6CidrWrongFamily = {
+      expr = types.ipv6Cidr.mk "10.0.0.0/8";
+      expectedError.msg = "^libnet\\.types\\.ipv6Cidr\\.mk: \"10\\.0\\.0\\.0/8\" is an IPv4 CIDR, not an IPv6 CIDR$";
+    };
+    testMkIpv4InterfaceAddressWrongFamily = {
+      expr = types.ipv4InterfaceAddress.mk "2001:db8::1/64";
+      expectedError.msg = "^libnet\\.types\\.ipv4InterfaceAddress\\.mk: \"2001:db8::1/64\" is an IPv6 interface address, not an IPv4 interface address$";
+    };
+    testMkIpv6InterfaceAddressWrongFamily = {
+      expr = types.ipv6InterfaceAddress.mk "10.0.0.1/8";
+      expectedError.msg = "^libnet\\.types\\.ipv6InterfaceAddress\\.mk: \"10\\.0\\.0\\.1/8\" is an IPv4 interface address, not an IPv6 interface address$";
+    };
+    # A family-restricted type reports a malformed value with the parse
+    # detail, not as a family mismatch.
+    testMkIpv4CidrMalformedKeepsDetail = {
+      expr = types.ipv4Cidr.mk "bad";
+      expectedError.msg = "^libnet\\.types\\.ipv4Cidr\\.mk: missing '/'";
+    };
+    # `mk` reports the parse detail under its own name only, without the
+    # `libnet.<namespace>.parse` prefix of the core error.
+    testMkDnsNameDetail = {
+      expr = types.dnsName.mk "1.2.3.4";
+      expectedError.msg = "^libnet\\.types\\.dnsName\\.mk: \"1\\.2\\.3\\.4\" is an IP address";
+    };
+    testMkCidrDetail = {
+      expr = types.cidr.mk "10.0.0.5/24";
+      expectedError.msg = "^libnet\\.types\\.cidr\\.mk: host bits set in \"10\\.0\\.0\\.5/24\"";
+    };
+
+    # ===== declarations =====
+    # Two declarations of the same libnet type merge to that type, as
+    # nixpkgs merges two declarations of `types.str`.
+    testDeclaredTwiceStringType = {
+      expr = declaredAs [ types.ipv4 types.ipv4 ] "192.0.2.1";
+      expected = "192.0.2.1";
+    };
+    testDeclaredTwiceIntType = {
+      expr = declaredAs [ types.port types.port ] "8080";
+      expected = 8080;
+    };
+    testDeclaredTwiceListOf = {
+      expr = declaredAs [ (lib.types.listOf types.cidr) (lib.types.listOf types.cidr) ] [ "10.0.0.0/8" ];
+      expected = [ "10.0.0.0/8" ];
+    };
+    testDeclaredTwiceKeepsType = {
+      expr = {
+        inherit (mergedType types.vlanId) name description;
+        mk = (mergedType types.vlanId).mk "7";
+      };
+      expected = {
+        name = "vlanId";
+        description = "VLAN ID (1–4094, integer or decimal string)";
+        mk = 7;
+      };
+    };
+    testDeclaredAsDifferentTypesConflicts = {
+      expr = throws (declaredAs [ types.ipv4 types.ipv6 ] "::1");
       expected = true;
+    };
+    testDeclaredAsDifferentIntTypesConflicts = {
+      expr = throws (declaredAs [ types.port types.vlanId ] 1);
+      expected = true;
+    };
+    testDeclaredAsDifferentListOfConflicts = {
+      expr = throws (declaredAs [ (lib.types.listOf types.ipv4) (lib.types.listOf types.ipv6) ] [ ]);
+      expected = true;
+    };
+
+    # ===== names and descriptions =====
+    testNamesAreLibnetNames = {
+      expr = builtins.filter (name: types.${name}.name != name) (builtins.attrNames types);
+      expected = [ ];
+    };
+    testDescriptionsAreNouns = {
+      expr = builtins.filter (name: types.${name}.descriptionClass != "noun") (builtins.attrNames types);
+      expected = [ ];
+    };
+    # nixpkgs writes descriptions without an article, so `listOf` reads
+    # "list of <description>".
+    testDescriptionsHaveNoArticle = {
+      expr = builtins.filter (name: builtins.match "(a|an|the) .*" types.${name}.description != null) (
+        builtins.attrNames types
+      );
+      expected = [ ];
+    };
+    testPortDescription = {
+      expr = types.port.description;
+      expected = "port (0–65535, integer or decimal string)";
+    };
+    testIpv4CidrDescription = {
+      expr = types.ipv4Cidr.description;
+      expected = "IPv4 CIDR block";
+    };
+    testListOfDescription = {
+      expr = (lib.types.listOf types.ipv4).description;
+      expected = "list of IPv4 address (dotted-quad)";
+    };
+    testListOfIntTypeDescription = {
+      expr = (lib.types.listOf types.vlanId).description;
+      expected = "list of VLAN ID (1–4094, integer or decimal string)";
     };
   }

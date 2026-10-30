@@ -1,6 +1,6 @@
 # Case is folded at parse
 
-Hostnames, domains, registered names and the hosts of URL forms are case-insensitive, so `parse` lowercases them and `toString` prints the lowercase form, as it already did for IPv6, MAC addresses and URL schemes. A registered name also uppercases the hex digits of its percent-encodings (RFC 3986 §6.2.2.1). Every value then has one stored spelling, `eq` and `compare` are structural, and no kind needs a `normalize`.
+Hostnames, domains, registered names and the hosts of URL forms are case-insensitive, so `parse` lowercases them and `toString` prints the lowercase form, as it already did for IPv6, MAC addresses and URL schemes. A registered name also uppercases the hex digits of its percent-encodings (RFC 3986 §6.2.2.1), and so do the userinfo of an authority and the path, query and fragment of a URL, which otherwise keep their case. Nothing is percent-decoded, not even an unreserved character (RFC 3986 §6.2.2.2), so `%41` stays distinct from `A`. Every value then has one stored spelling, `eq` and `compare` are structural, and no kind needs a `normalize`.
 
 ## Considered Options
 
@@ -8,4 +8,4 @@ Hostnames, domains, registered names and the hosts of URL forms are case-insensi
 
 ## Consequences
 
-`hostname.toString (hostname.parse "MyHost")` is `"myhost"`. NixOS option values keep the user's spelling, because module types merge to the input string ([ADR 0016](0016-module-types-keep-strings.md)). Components that are case-sensitive keep their case: userinfo, path, query and fragment ([ADR 0011](0011-bounded-url-forms.md)), interface names and Unix socket paths.
+`hostname.toString (hostname.parse "MyHost")` is `"myhost"`. NixOS option values keep the user's spelling, because module types merge to the input string ([ADR 0016](0016-module-types-keep-strings.md)). Components that are case-sensitive keep their case: interface names, Unix socket paths, and userinfo, path, query and fragment ([ADR 0011](0011-bounded-url-forms.md)), of which only the hex digits of percent-encodings are uppercased, so `url.toString (url.parse "http://h/A%2f")` is `"http://h/A%2F"`.

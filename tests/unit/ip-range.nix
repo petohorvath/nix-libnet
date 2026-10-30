@@ -253,11 +253,11 @@ in
   };
   testAddressAtOutOfBounds = {
     expr = ipRange.addressAt 3 (parse "1.2.3.4-1.2.3.6");
-    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[0, 3\\): 3$";
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[-3, 3\\): 3$";
   };
   testAddressAtNegativeOutOfBounds = {
     expr = ipRange.addressAt (-4) (parse "1.2.3.4-1.2.3.6");
-    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[0, 3\\): -4$";
+    expectedError.msg = "^libnet\\.ipRange\\.addressAt: index out of range \\[-3, 3\\): -4$";
   };
   testAddressAtRejectsFloat = {
     expr = ipRange.addressAt 0.0 (parse "1.2.3.4-1.2.3.6");

@@ -49,7 +49,7 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 
 | Function    | Signature                    | Notes                                                                                                                                                                        |
 | ----------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `subnets`   | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer. `subnets 2` of a `/24` gives four `/26`s.                                                                                            |
+| `subnets`   | `Int → Cidr → [Cidr]`        | Splits into 2ⁿ blocks, `n` bits longer, with `n` at most 16 ([ADR 0015](../adr/0015-enumeration-size-guards.md)). `subnets 2` of a `/24` gives four `/26`s.                  |
 | `supernet`  | `Int → Cidr → Cidr`          | `n` bits shorter. `supernet 8` of `10.1.0.0/24` gives `10.1.0.0/16`.                                                                                                         |
 | `summarize` | `[Cidr] → [Cidr]`            | Minimal sorted cover: merges siblings, drops duplicates and covered blocks, handles each family separately. Python's `collapse_addresses`.                                   |
 | `exclude`   | `Cidr → Cidr → [Cidr]`       | `exclude child parent` covers `parent \ child` minimally, so `concatMap (exclude reserved) pools` works. Throws when `child` is outside `parent`, including across families. |

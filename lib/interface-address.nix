@@ -256,7 +256,7 @@ let
     forwardToAddress "isDocumentation" ipv4.isDocumentation ipv6.isDocumentation interfaceAddress;
 
   /*
-    Check whether the address is globally routable, using the family's
+    Check whether the address is globally reachable, using the family's
     rules (IPv6 also excludes transition forms).
 
     `interfaceAddress`: interfaceAddress value.
@@ -267,7 +267,7 @@ let
     interfaceAddress: forwardToAddress "isGlobal" ipv4.isGlobal ipv6.isGlobal interfaceAddress;
 
   /*
-    Check whether the address is a bogon (not globally routable).
+    Check whether the address is a bogon (not globally reachable).
 
     `interfaceAddress`: interfaceAddress value.
 

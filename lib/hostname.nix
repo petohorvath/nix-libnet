@@ -2,9 +2,9 @@
   libnet.hostname
 
   Validated single-label RFC 1123 hostname — the shape Linux uses for
-  kernel hostnames (what `gethostname(2)` returns, what
-  `networking.hostName` accepts). Multi-label / FQDN names live in
-  `libnet.domain`, not here.
+  kernel hostnames (what `gethostname(2)` returns). Stricter than
+  NixOS's `networking.hostName`, which also admits `_` (ADR 0013).
+  Multi-label / FQDN names live in `libnet.domain`, not here.
 
   Validation: 1..63 ASCII chars from `[A-Za-z0-9-]`, must start and
   end with an alphanumeric character, no dots, no underscores. Leading
