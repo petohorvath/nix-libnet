@@ -71,6 +71,8 @@ let
       # registered name of only digits and dots reads as IPv4 (ADR 0021).
       else if parsing.isDottedDigits input then
         ipv4Result
+      else if (ipv6.tryParse input).success then
+        types.tryErr "IPv6 address \"${input}\" must be bracketed, as \"[${input}]\""
       else
         regNameResult;
 

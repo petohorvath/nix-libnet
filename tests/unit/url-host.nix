@@ -63,6 +63,14 @@ in
     expr = (tryParse "::1").success;
     expected = false;
   };
+  testIpv6UnbracketedNamesBrackets = {
+    expr = urlHost.parse "2001:db8::1";
+    expectedError.msg = "^libnet\\.urlHost\\.parse: IPv6 address \"2001:db8::1\" must be bracketed, as \"\\[2001:db8::1]\"$";
+  };
+  testColonNameKeepsRegNameDetail = {
+    expr = urlHost.parse "a:b";
+    expectedError.msg = "^libnet\\.urlHost\\.parse: invalid registered name \"a:b\"$";
+  };
   testRegName = {
     expr = parseValue "example.com";
     expected = {
