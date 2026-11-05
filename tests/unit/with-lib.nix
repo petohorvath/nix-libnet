@@ -3,6 +3,14 @@
 let
   extended = libnet.withLib lib;
   coreNames = builtins.attrNames (removeAttrs libnet [ "withLib" ]);
+
+  # A `lib` whose option types carry a marker, so a test can tell which
+  # `lib` built them.
+  markedLib = lib // {
+    types = lib.types // {
+      mkOptionType = attrs: lib.types.mkOptionType attrs // { libMarker = true; };
+    };
+  };
 in
 if lib == null then
   { }
@@ -18,9 +26,24 @@ else
       expr = builtins.filter (name: extended.${name} != libnet.${name}) coreNames;
       expected = [ ];
     };
-    testAddsOnlyTypes = {
+    testAddsOnlyTypesAndWithLib = {
       expr = builtins.filter (name: !(builtins.elem name coreNames)) (builtins.attrNames extended);
-      expected = [ "types" ];
+      expected = [
+        "types"
+        "withLib"
+      ];
+    };
+    testBuildsTypesFromCallerLib = {
+      expr = (libnet.withLib markedLib).types.ipv4 ? libMarker;
+      expected = true;
+    };
+    testWithLibAgainRebuildsTypes = {
+      expr = ((libnet.withLib markedLib).withLib lib).types.ipv4 ? libMarker;
+      expected = false;
+    };
+    testWithLibAgainKeepsAttributes = {
+      expr = builtins.attrNames ((libnet.withLib markedLib).withLib lib);
+      expected = builtins.attrNames extended;
     };
     testTypesAreOptionTypes = {
       expr = builtins.all lib.isOptionType (builtins.attrValues extended.types);

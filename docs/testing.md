@@ -2,18 +2,19 @@
 
 All tests are [nix-unit](https://github.com/nix-community/nix-unit) unit suites.
 
-`tests/unit/default.nix` is the entry point. It lists each suite by hand, so a suite file missing from the list does not run. Suite attribute names are the kebab-case file names, such as `bind-url`, rather than the camelCase names that the library and `testContext` use, so an attribute path reads as the file path. Each suite mirrors a `lib/` file at the same path, such as `tests/unit/internal/parse.nix` (attribute `unit.internal.parse`) for `lib/internal/parse.nix`. `tests/unit/cross-type-equality.nix`, `tests/unit/compare-agrees-with-eq.nix`, `tests/unit/long-input.nix` and `tests/unit/wrong-kind.nix` test behavior across every kind, so they match no source file.
+`tests/unit/default.nix` is the entry point. It lists each suite by hand, so a suite file missing from the list does not run. Suite attribute names are the kebab-case file names, such as `bind-url`, rather than the camelCase names that the library and `testContext` use, so an attribute path reads as the file path. Each suite mirrors a `lib/` file at the same path, such as `tests/unit/internal/parse.nix` (attribute `unit.internal.parse`) for `lib/internal/parse.nix`. `tests/unit/cross-type-equality.nix`, `tests/unit/compare-agrees-with-eq.nix`, `tests/unit/long-input.nix` and `tests/unit/wrong-kind.nix` test behavior across every kind, and `tests/unit/flake-lib.nix` tests the flake's `lib` output, so they match no source file.
 
 Every suite takes `testContext`, built by `tests/test-context.nix`, and destructures what it uses:
 
 - `libnet`: the library, imported from source as `import ../.`.
 - `internal`: the modules of `lib/internal/`, which `libnet` does not export.
 - `lib`: `nixpkgs.lib`, or `null` without nixpkgs.
+- `flakeLib`: the flake's `lib` output, which `dev/default.nix` passes as `self.lib`, or `null` without nixpkgs, since the output carries the module types.
 - `helpers`: assertion helpers from `tests/helpers/`. `helpers.throws expr` is `true` when forcing `expr` throws.
 
-Suites return cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`, or `testName = { expr; expectedError.msg; };` for an error. `tests/unit/types.nix` and `tests/unit/with-lib.nix` test the module types and `withLib`, which need `nixpkgs.lib`, so they return no cases when `lib` is `null`.
+Suites return cases of the form `testName = { expr; expected; };` with camelCase names that start with `test`, or `testName = { expr; expectedError.msg; };` for an error. `tests/unit/types.nix`, `tests/unit/with-lib.nix` and `tests/unit/flake-lib.nix` test the module types, `withLib` and the flake's `lib` output, which need `nixpkgs.lib`, so they return no cases when `lib` is `null`.
 
-`dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input, which adds the module-type and `withLib` suites. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. treefmt-nix's module adds `treefmt`, which fails on files that `nix fmt` would change, and `dev/checks.nix` adds `lint`, which runs `statix check`.
+`dev/default.nix` runs the suites on [nix-unit's flake-parts module](https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix), which exposes them as the flake's `tests.systems.<system>` output. They appear there twice: `unit-core` passes `nixpkgs = null`, proving the core needs none, and `unit` passes the flake's `nixpkgs` input and `lib` output, which adds the module-type, `withLib` and flake `lib` suites. A git flake's `self` holds only tracked files, so `git add` a new suite before running it. The module adds the `nix-unit` check, which runs both in the build sandbox, with the flake's inputs passed as `--override-input`. treefmt-nix's module adds `treefmt`, which fails on files that `nix fmt` would change, and `dev/checks.nix` adds `lint`, which runs `statix check`.
 
 ```sh
 nix develop --command nix-unit --flake .#tests.systems.x86_64-linux                                         # all suites

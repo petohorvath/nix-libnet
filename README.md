@@ -15,7 +15,7 @@ Namespaces share standard suites for parsing, comparison and, where a kind suppo
 ## Requirements
 
 - Nix 2.18 or later.
-- `nixpkgs.lib`, only for the NixOS option types.
+- `nixpkgs.lib`, only for the NixOS option types. The flake supplies it through its `nixpkgs` input.
 
 The library evaluates on any system. The flake's checks and development shell cover `x86_64-linux` and `aarch64-linux`.
 
@@ -25,7 +25,13 @@ With flakes, add the repository as an input and take the library from its `lib` 
 
 ```nix
 {
-  inputs.nix-libnet.url = "github:petohorvath/nix-libnet";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    nix-libnet = {
+      url = "github:petohorvath/nix-libnet";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
     { nix-libnet, ... }:
@@ -37,6 +43,8 @@ With flakes, add the repository as an input and take the library from its `lib` 
     };
 }
 ```
+
+The `follows` line builds the flake's NixOS option types against your nixpkgs and keeps a second nixpkgs out of your lock file.
 
 To pin a release, append its tag to the URL: `github:petohorvath/nix-libnet/v0.2.0`. The flake's `nix-unit` and `treefmt-nix` inputs serve only its tests and formatting, so a consumer can leave them out of its lock file with `inputs.nix-libnet.inputs.nix-unit.follows = "";` and `inputs.nix-libnet.inputs.treefmt-nix.follows = "";`.
 
@@ -64,14 +72,14 @@ The [API reference](docs/reference/README.md) documents every namespace and func
 
 ## NixOS option types
 
-`libnet.withLib lib` returns the library plus `types`, a set of NixOS option types that validate with the core parsers. String option values stay strings after merge, so code that needs structure calls `parse`. `types.port`, `types.vlanId`, `types.mtu` and `types.icmpType` merge to integers.
+The flake's `lib` output includes `types`, a set of NixOS option types that validate with the core parsers, built against the flake's `nixpkgs` input. String option values stay strings after merge, so code that needs structure calls `parse`. `types.port`, `types.vlanId`, `types.mtu` and `types.icmpType` merge to integers.
 
-In a NixOS module that receives `libnet` as an argument, for example through `specialArgs`:
+In a NixOS module that receives the flake's `lib` as `libnet`, for example through `specialArgs`:
 
 ```nix
 { lib, libnet, ... }:
 let
-  inherit (libnet.withLib lib) types;
+  inherit (libnet) types;
 in
 {
   options.services.example = {
@@ -90,6 +98,8 @@ in
   };
 }
 ```
+
+A library imported without flakes has no `types`; `libnet.withLib lib` returns the library plus `types` built against `lib`. Use it as well to build the types against another nixpkgs than the flake's, such as when your flake does not set `follows`.
 
 [Module types](docs/reference/module-types.md) lists every type and its merge behavior.
 

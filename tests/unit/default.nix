@@ -1,9 +1,10 @@
 # nix-unit entry point for the unit suites. `dev/default.nix` passes the
-# flake's inputs, or `nixpkgs = null` for the `unit-core` suites; the
-# module-type and `withLib` suites then have no tests.
-{ nixpkgs }:
+# flake's `nixpkgs` input and `lib` output, or `null` for both in the
+# `unit-core` suites; the module-type, `withLib` and flake `lib` suites then
+# have no tests.
+{ nixpkgs, flakeLib }:
 let
-  testContext = import ../test-context.nix { inherit nixpkgs; };
+  testContext = import ../test-context.nix { inherit flakeLib nixpkgs; };
 in
 # Suite names are the kebab-case file names, unlike the camelCase library
 # attributes, so an attribute path such as `internal.dns-label` reads as
@@ -19,6 +20,7 @@ in
   dns-name = import ./dns-name.nix testContext;
   domain = import ./domain.nix testContext;
   endpoint = import ./endpoint.nix testContext;
+  flake-lib = import ./flake-lib.nix testContext;
   host = import ./host.nix testContext;
   hostname = import ./hostname.nix testContext;
   icmp-type = import ./icmp-type.nix testContext;
