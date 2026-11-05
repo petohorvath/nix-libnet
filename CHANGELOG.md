@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The flake's `lib` output includes `types`, the NixOS option types built against the flake's `nixpkgs` input, so a flake consumer reads `nix-libnet.lib.types.ipv4` without calling `withLib`. With `inputs.nix-libnet.inputs.nixpkgs.follows = "nixpkgs"`, the types are built against the consumer's own `lib` ([ADR 0022](docs/adr/0022-flake-lib-includes-module-types.md)).
+
+### Changed
+
+- `withLib lib` returns `withLib` as well as the core and `types`, so calling `withLib` on its result, or on the flake's `lib`, builds the types against another `lib`.
+
 ## [0.2.0] - 2026-10-30
 
 This release makes the API consistent and breaks it wherever consistency required. Every entry marked **Breaking** says how to migrate from 0.1.0.

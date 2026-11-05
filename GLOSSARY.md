@@ -197,5 +197,5 @@ Static lookup tables of plain literals: bogon CIDRs, well-known service ports an
 _Avoid_: constants, database
 
 **Module type**:
-A NixOS option type for a libnet kind, available only through `libnet.withLib lib`.
+A NixOS option type for a libnet kind, available through `libnet.withLib lib` and, prebuilt, in the flake's `lib` output.
 _Avoid_: option type (unqualified), NixOS type

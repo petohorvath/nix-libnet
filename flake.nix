@@ -40,6 +40,8 @@
         tests = "dev";
       };
 
-      flake.lib = import ./.;
+      # The types follow the flake's nixpkgs, a consumer's own when it sets
+      # `inputs.nix-libnet.inputs.nixpkgs.follows`; `withLib` rebuilds them.
+      flake.lib = (import ./.).withLib inputs.nixpkgs.lib;
     };
 }

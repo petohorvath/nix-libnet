@@ -1,10 +1,11 @@
 # Module types
 
-`libnet.withLib lib` returns the core library plus `types`, a set of NixOS option types; `lib` is `nixpkgs.lib` ([ADR 0001](../adr/0001-pure-nix-core.md)).
+`libnet.withLib lib` returns the core library plus `types`, a set of NixOS option types, and `withLib` itself; `lib` is `nixpkgs.lib` ([ADR 0001](../adr/0001-pure-nix-core.md)). The core that `import` returns has no `types`. The flake's `lib` output is `withLib` applied to the flake's `nixpkgs` input, so it has `types` already; with `inputs.nix-libnet.inputs.nixpkgs.follows = "nixpkgs"`, they are built against the consumer's own `lib` ([ADR 0022](../adr/0022-flake-lib-includes-module-types.md)). Calling `withLib` on any result, the flake's `lib` included, returns the core with `types` built against the new `lib`.
 
 ```nix
 let
   libnet = (import ./nix-libnet).withLib lib;
+  # With flakes: libnet = inputs.nix-libnet.lib;
 in
 {
   options.services.example = {

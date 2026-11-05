@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   imports = [
     inputs.nix-unit.modules.flake.default
@@ -18,10 +18,17 @@
         inputs = removeAttrs inputs [ "self" ];
         enableSystemAgnostic = false;
         tests = {
-          unit = import ../tests/unit { inherit (inputs) nixpkgs; };
+          unit = import ../tests/unit {
+            inherit (inputs) nixpkgs;
+            flakeLib = self.lib;
+          };
           # The core needs no nixpkgs, so run the same suites without it;
-          # the module-type and `withLib` suites then have no tests.
-          unit-core = import ../tests/unit { nixpkgs = null; };
+          # the module-type, `withLib` and flake `lib` suites then have no
+          # tests. The flake's `lib` carries nixpkgs, so it stays out too.
+          unit-core = import ../tests/unit {
+            nixpkgs = null;
+            flakeLib = null;
+          };
         };
       };
     };

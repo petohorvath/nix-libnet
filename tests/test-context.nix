@@ -1,8 +1,10 @@
 # Build `testContext`, the single argument of every nix-unit suite. The
 # library comes from source, as `flake.nix` imports it. Without nixpkgs,
 # `lib` is null, so the suites prove that the core needs none.
-{ nixpkgs }:
+# `flakeLib` is the flake's `lib` output, or null without nixpkgs.
+{ nixpkgs, flakeLib }:
 {
+  inherit flakeLib;
   lib = if nixpkgs == null then null else nixpkgs.lib;
   libnet = import ../.;
   # `lib/internal/` is not public API, so `libnet` does not export it.

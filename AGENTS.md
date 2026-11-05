@@ -13,7 +13,7 @@
 
 ## Contribution rules
 
-- Keep the core library pure Nix builtins with zero `nixpkgs` dependency. `nixpkgs.lib` is allowed only through the opt-in `withLib`/module-type integration.
+- Keep the core library pure Nix builtins with zero `nixpkgs` dependency. `nixpkgs.lib` is allowed only through the `withLib`/module-type integration, which the flake's `lib` output applies to its `nixpkgs` input.
 - Preserve pure evaluation: no evaluation-time network access, impure host inputs, or import-from-derivation unless explicitly designed, documented, and tested.
 - Preserve the minimum supported Nix version, 2.18; do not use newer builtins without an explicit compatibility change.
 - Treat public API changes as contract changes. Keep `default.nix`, `docs/reference/`, `README.md`, tests, and `CHANGELOG.md` consistent.
