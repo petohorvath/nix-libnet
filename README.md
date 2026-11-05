@@ -1,6 +1,6 @@
 # nix-libnet
 
-nix-libnet provides `libnet`, a pure-Nix library that parses, validates, formats and computes on network values: IPv4, IPv6 and MAC addresses, CIDR blocks and ranges, ports, DNS names, connect and bind targets, and bounded URL forms. It serves Nix code that handles network configuration, such as NixOS modules, flakes and CI tooling, where nixpkgs offers no IP arithmetic. The core uses only Nix builtins, so it also works without nixpkgs; NixOS option types are opt-in.
+nix-libnet provides `libnet`, a pure-Nix library that parses, validates, formats and computes on network values: IPv4, IPv6 and MAC addresses, CIDR blocks and ranges, ports, DNS names, connect and bind targets, and bounded URL forms. It serves Nix code that handles network configuration, such as NixOS modules, flakes and CI tooling, where nixpkgs offers no IP arithmetic. The core uses only Nix builtins, so it also works without nixpkgs; NixOS option types need `nixpkgs.lib`, and the flake's `lib` output builds them with its own.
 
 ## Overview
 

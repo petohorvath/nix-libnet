@@ -10,7 +10,7 @@
 
   Returns `core` extended with a `types` attrset of option types and with
   `withLib` itself, so the result can rebuild its types against another
-  `lib`. The flake's `lib` output is this result for the flake's nixpkgs.
+  `lib`.
 
   Example:
     libnet.withLib pkgs.lib

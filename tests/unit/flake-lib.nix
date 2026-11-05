@@ -2,20 +2,14 @@
 # `nixpkgs.lib`; without it `flakeLib` is null and the suite has no tests.
 {
   flakeLib,
+  helpers,
   lib,
   libnet,
   ...
 }:
 let
   coreNames = builtins.attrNames (removeAttrs libnet [ "withLib" ]);
-
-  # A `lib` whose option types carry a marker, so a test can tell which
-  # `lib` built them.
-  markedLib = lib // {
-    types = lib.types // {
-      mkOptionType = attrs: lib.types.mkOptionType attrs // { libMarker = true; };
-    };
-  };
+  markedLib = helpers.markLib lib;
 in
 if flakeLib == null then
   { }
