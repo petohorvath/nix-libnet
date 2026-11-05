@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
 ### Added
 
 - The flake's `lib` output includes `types`, the NixOS option types built against the flake's `nixpkgs` input, so a flake consumer reads `nix-libnet.lib.types.ipv4` without calling `withLib`. With `inputs.nix-libnet.inputs.nixpkgs.follows = "nixpkgs"`, the types are built against the consumer's own `lib` ([ADR 0022](docs/adr/0022-flake-lib-includes-module-types.md)).
@@ -163,6 +165,7 @@ First release. The [API reference](docs/reference/README.md) documents every nam
 - Flake checks, development shell and formatter for `x86_64-linux` and `aarch64-linux`.
 - MIT license.
 
-[Unreleased]: https://github.com/petohorvath/nix-libnet/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/petohorvath/nix-libnet/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/petohorvath/nix-libnet/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/petohorvath/nix-libnet/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/petohorvath/nix-libnet/releases/tag/v0.1.0
