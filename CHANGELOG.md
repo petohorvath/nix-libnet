@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - `ip.toBytes` and `ip.fromBytes`, the byte conversions that `ipv4` and `ipv6` have, for an address of either family. `ip.fromBytes` builds IPv4 from 4 bytes and IPv6 from 16, an IPv4-mapped address included, so `ip.fromBytes (ip.toBytes a)` returns `a`.
+- `cidr.addresses` and `cidr.addressesUnbounded`, which list every address of a block, network and broadcast included, as `ipRange.addresses` does for a range. `addresses` throws above 2¹⁶ addresses like `cidr.hosts`, and is shorthand for `ipRange.addresses (ipRange.fromCidr c)`.
 
 ### Changed
 

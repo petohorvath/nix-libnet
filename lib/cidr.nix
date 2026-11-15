@@ -454,14 +454,39 @@ let
     else
       offsetAddress offset block.networkAddress;
 
-  # The usable hosts of `block`, counted on behalf of `function`.
-  listHosts =
-    function: block:
+  # The `count` consecutive addresses of `block` from `first` up.
+  listFrom =
+    block: first: count:
     let
-      first = firstHostOf block;
       offsetAddress = if isV4 block.networkAddress then ipv4.add else ipv6.add;
     in
-    builtins.genList (i: offsetAddress i first) (hostCountFor function block);
+    builtins.genList (i: offsetAddress i first) count;
+
+  # The usable hosts of `block`, counted on behalf of `function`.
+  listHosts = function: block: listFrom block (firstHostOf block) (hostCountFor function block);
+
+  # Every address of `block`, counted on behalf of `function`.
+  listAddresses = function: block: listFrom block block.networkAddress (sizeFor function block);
+
+  # List a CIDR with `list` on behalf of the public function `function`,
+  # throwing above 2^16 addresses and naming its `<function>Unbounded`
+  # sibling where that can list the block.
+  listWithGuard =
+    function: list: cidr:
+    let
+      block = cidrArgument function cidr;
+      hostBits = maxPrefix block.networkAddress - block.prefix;
+      # The unbounded sibling throws where a Nix int cannot hold the size.
+      fitsInt = hostBits <= 62;
+      addressCount =
+        if fitsInt then builtins.toString (bits.pow2 hostBits) else "2^${builtins.toString hostBits}";
+    in
+    if hostBits > 16 then
+      errors.fail "cidr.${function}" "block too large (${addressCount} addresses > 2^16); use addressAt${
+        if fitsInt then " or ${function}Unbounded" else ""
+      }"
+    else
+      list function block;
 
   /*
     List every usable host address with no size guard; the caller accepts
@@ -482,22 +507,30 @@ let
     Returns the same list as `hostsUnbounded`; throws when the block holds
     more than 2^16 addresses.
   */
-  hosts =
-    cidr:
-    let
-      block = cidrArgument "hosts" cidr;
-      hostBits = maxPrefix block.networkAddress - block.prefix;
-      # `hostsUnbounded` throws where a Nix int cannot hold the size.
-      fitsInt = hostBits <= 62;
-      addressCount =
-        if fitsInt then builtins.toString (bits.pow2 hostBits) else "2^${builtins.toString hostBits}";
-    in
-    if hostBits > 16 then
-      errors.fail "cidr.hosts" "block too large (${addressCount} addresses > 2^16); use addressAt${
-        if fitsInt then " or hostsUnbounded" else ""
-      }"
-    else
-      listHosts "hosts" block;
+  hosts = listWithGuard "hosts" listHosts;
+
+  /*
+    List every address in a CIDR block with no size guard; the caller
+    accepts the memory cost.
+
+    `cidr`: cidr value.
+
+    Returns `size` addresses from `networkAddress` to `topAddress` in
+    ascending order; throws where `size` throws.
+  */
+  addressesUnbounded =
+    cidr: listAddresses "addressesUnbounded" (cidrArgument "addressesUnbounded" cidr);
+
+  /*
+    List every address in a CIDR block, guarding against accidental huge
+    lists.
+
+    `cidr`: cidr value.
+
+    Returns the same list as `addressesUnbounded`; throws when the block
+    holds more than 2^16 addresses.
+  */
+  addresses = listWithGuard "addresses" listAddresses;
 
   # ===== Containment =====
 
@@ -829,6 +862,8 @@ in
 {
   inherit
     addressAt
+    addresses
+    addressesUnbounded
     broadcast
     contains
     eq
