@@ -44,15 +44,6 @@ let
     in
     builtins.seq words (f words);
 
-  # Check a list of `count` integers in [0, maxValue] for `function`,
-  # and build an address from the checked list with `build`.
-  fromParts =
-    function: part: count: maxValue: build: list:
-    let
-      parts = address.intList "ipv6.${function}" { inherit count part maxValue; } list;
-    in
-    builtins.seq parts (build parts);
-
   wordAt = i: words: builtins.elemAt words i;
 
   groupsOf = builtins.concatMap (word: [
@@ -80,7 +71,7 @@ let
 
     Returns an IPv6 value; throws on a wrong length or an invalid word.
   */
-  fromWords = fromParts "fromWords" "word" 4 bits.mask32 mk;
+  fromWords = address.ipv6.fromWords "ipv6.fromWords";
 
   /*
     Get the four 32-bit words of an address.
@@ -99,19 +90,7 @@ let
 
     Returns an IPv6 value; throws on a wrong length or an invalid group.
   */
-  fromGroups = fromParts "fromGroups" "group" 8 bits.mask16 (
-    groups:
-    let
-      groupAt = i: builtins.elemAt groups i;
-      pair = i: j: (groupAt i) * bits.pow2_16 + (groupAt j);
-    in
-    mk [
-      (pair 0 1)
-      (pair 2 3)
-      (pair 4 5)
-      (pair 6 7)
-    ]
-  );
+  fromGroups = address.ipv6.fromGroups "ipv6.fromGroups";
 
   /*
     Split an address into its eight 16-bit groups.
@@ -129,24 +108,7 @@ let
 
     Returns an IPv6 value; throws on a wrong length or an invalid byte.
   */
-  fromBytes = fromParts "fromBytes" "byte" 16 255 (
-    bytes:
-    let
-      byteAt = i: builtins.elemAt bytes i;
-      quad =
-        i:
-        (byteAt i) * bits.pow2_24
-        + (byteAt (i + 1)) * bits.pow2_16
-        + (byteAt (i + 2)) * bits.pow2_8
-        + (byteAt (i + 3));
-    in
-    mk [
-      (quad 0)
-      (quad 4)
-      (quad 8)
-      (quad 12)
-    ]
-  );
+  fromBytes = address.ipv6.fromBytes "ipv6.fromBytes";
 
   /*
     Split an address into its sixteen bytes.
@@ -244,7 +206,7 @@ let
         else if groupCount != 8 then
           types.tryErr "must have 8 groups, got ${builtins.toString groupCount}: \"${input}\""
         else
-          types.tryOk (fromGroups result.groups)
+          types.tryOk (address.ipv6.fromGroupsUnchecked result.groups)
       else
         let
           halves = parsing.splitOn "::" input;
@@ -261,7 +223,11 @@ let
         else if groupCount > 7 then
           types.tryErr "must have at most 7 groups with \"::\", got ${builtins.toString groupCount}: \"${input}\""
         else
-          types.tryOk (fromGroups (left.groups ++ builtins.genList (_: 0) (8 - groupCount) ++ right.groups));
+          types.tryOk (
+            address.ipv6.fromGroupsUnchecked (
+              left.groups ++ builtins.genList (_: 0) (8 - groupCount) ++ right.groups
+            )
+          );
 
   parsers = parsing.suite "ipv6" tryParseDetail;
 

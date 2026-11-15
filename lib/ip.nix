@@ -113,19 +113,11 @@ let
     bytes:
     let
       length = builtins.length (errors.expectType "ip.fromBytes" "list" bytes);
-      # `bytes`, checked as `count` bytes under the union's name.
-      checkedBytes =
-        count:
-        address.intList "ip.fromBytes" {
-          inherit count;
-          part = "byte";
-          maxValue = 255;
-        } bytes;
     in
     if length == 4 then
-      ipv4.fromBytes (checkedBytes 4)
+      address.ipv4.fromBytes "ip.fromBytes" bytes
     else if length == 16 then
-      ipv6.fromBytes (checkedBytes 16)
+      address.ipv6.fromBytes "ip.fromBytes" bytes
     else
       errors.fail "ip.fromBytes" "expected 4 or 16 bytes, got ${builtins.toString length}";
 
