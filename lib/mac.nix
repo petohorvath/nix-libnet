@@ -10,7 +10,7 @@
 
   Example:
     libnet.mac.parse "a0:36:9f:1b:1e:55"
-    => { _type = "mac"; value = 176028872726357; }
+    => { _type = "mac"; value = 176156458032725; }
 
     libnet.mac.toString (libnet.mac.parse "a036.9f1b.1e55")
     => "a0:36:9f:1b:1e:55"

@@ -161,7 +161,7 @@ let
         module = mac;
         inherit value;
         rejects = {
-          toString.int = mac.toString 176028872726357;
+          toString.int = mac.toString 176156458032725;
           toStringCisco.ipv4Operand = mac.toStringCisco (libnet.ipv4.parse "192.0.2.1");
           fromInt = {
             string = mac.fromInt "1";
@@ -181,7 +181,7 @@ let
           };
           add = {
             floatOffset = mac.add 1.5 value;
-            intOperand = mac.add 1 176028872726357;
+            intOperand = mac.add 1 176156458032725;
           };
           sub.nullOffset = mac.sub null value;
           next.set = mac.next { };
