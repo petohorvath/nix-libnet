@@ -8,4 +8,4 @@ Hostnames, domains, registered names and the hosts of URL forms are case-insensi
 
 ## Consequences
 
-`hostname.toString (hostname.parse "MyHost")` is `"myhost"`. NixOS option values keep the user's spelling, because module types merge to the input string ([ADR 0016](0016-module-types-keep-strings.md)). Components that are case-sensitive keep their case: interface names, Unix socket paths, and userinfo, path, query and fragment ([ADR 0011](0011-bounded-url-forms.md)), of which only the hex digits of percent-encodings are uppercased, so `url.toString (url.parse "http://h/A%2f")` is `"http://h/A%2F"`.
+`hostname.toString (hostname.parse "MyHost")` is `"myhost"`. NixOS option values merge to the lowercase form, because module types merge to canonical text ([ADR 0023](0023-module-types-merge-to-canonical-values.md)). Components that are case-sensitive keep their case: interface names, Unix socket paths, and userinfo, path, query and fragment ([ADR 0011](0011-bounded-url-forms.md)), of which only the hex digits of percent-encodings are uppercased, so `url.toString (url.parse "http://h/A%2f")` is `"http://h/A%2F"`.

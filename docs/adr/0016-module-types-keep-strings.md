@@ -1,3 +1,7 @@
+---
+Status: superseded by ADR-0023
+---
+
 # Module types validate but keep strings
 
 Option values typed with `libnet.types.*` stay strings after merge, matching NixOS idioms such as `networking.hostName`. Code that needs structure calls `parse` explicitly.

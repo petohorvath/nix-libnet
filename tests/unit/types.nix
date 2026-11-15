@@ -16,17 +16,20 @@ let
     icmpTypes:
     builtins.all (name: types.icmpType.check icmpTypes.${name}) (builtins.attrNames icmpTypes);
 
-  # Merge one definition through the module system, as an option would.
-  merged =
-    type: value:
+  # Merge each value in `values` as a definition from its own module.
+  mergedAll =
+    type: values:
     (lib.evalModules {
       modules = [
-        {
-          options.value = lib.mkOption { inherit type; };
-          config = { inherit value; };
-        }
-      ];
+        { options.value = lib.mkOption { inherit type; }; }
+      ]
+      ++ map (value: {
+        config = { inherit value; };
+      }) values;
     }).config.value;
+
+  # Merge one definition through the module system, as an option would.
+  merged = type: value: mergedAll type [ value ];
 
   # Declare the option once per type in `optionTypes`, as separate modules
   # may, and merge one definition.
@@ -47,6 +50,184 @@ let
         { options.value = lib.mkOption { inherit type; }; }
       ];
     }).options.value.type;
+
+  intTypeNames = [
+    "icmpType"
+    "mtu"
+    "port"
+    "vlanId"
+  ];
+
+  # A canonical value of each string type.
+  canonicalSamples = {
+    authority = "user@example.com:8443";
+    bindUrl = "tcp://:8080";
+    bindpoint = ":80-90";
+    cidr = "2001:db8::/32";
+    dnsEndpoint = "pool.ntp.org:123";
+    dnsName = "pool.ntp.org";
+    domain = "example.com";
+    endpoint = "[2001:db8::1]:80";
+    host = "2001:db8::1";
+    hostname = "nas";
+    interfaceAddress = "2001:db8::1/64";
+    interfaceName = "Eth0";
+    ip = "2001:db8::1";
+    ipBindpoint = ":80";
+    ipEndpoint = "[2001:db8::1]:80";
+    ipRange = "::1-::ff";
+    ipv4 = "192.0.2.1";
+    ipv4Cidr = "10.0.0.0/8";
+    ipv4InterfaceAddress = "10.0.0.5/24";
+    ipv6 = "2001:db8::1";
+    ipv6Cidr = "2001:db8::/32";
+    ipv6InterfaceAddress = "2001:db8::1/64";
+    mac = "02:00:00:00:00:0a";
+    portRange = "80-90";
+    proxyUrl = "http://proxy:3128";
+    regName = "my_host%2F";
+    secureSocketUrl = "tls://h:443";
+    socketUrl = "unix:///run/Foo.sock";
+    transport = "tcp";
+    unixSocket = "@Foo";
+    url = "https://example.com/P?Q#F";
+    urlHost = "[2001:db8::1]";
+  };
+
+  # Non-canonical spellings and the canonical text they merge to, for
+  # every string type whose input can differ from its canonical text.
+  respellings = [
+    {
+      type = "authority";
+      value = "User@Example.COM:80";
+      canonical = "User@example.com:80";
+    }
+    {
+      type = "bindUrl";
+      value = "TCP://*:8080";
+      canonical = "tcp://:8080";
+    }
+    {
+      type = "bindpoint";
+      value = "any:80-90";
+      canonical = ":80-90";
+    }
+    {
+      type = "cidr";
+      value = "2001:DB8:0::/32";
+      canonical = "2001:db8::/32";
+    }
+    {
+      type = "dnsEndpoint";
+      value = "Pool.NTP.org:123";
+      canonical = "pool.ntp.org:123";
+    }
+    {
+      type = "dnsName";
+      value = "NAS";
+      canonical = "nas";
+    }
+    {
+      type = "domain";
+      value = "Example.COM";
+      canonical = "example.com";
+    }
+    {
+      type = "endpoint";
+      value = "[2001:DB8::1]:80";
+      canonical = "[2001:db8::1]:80";
+    }
+    {
+      type = "host";
+      value = "2001:DB8:0:0::1";
+      canonical = "2001:db8::1";
+    }
+    {
+      type = "hostname";
+      value = "MyHost";
+      canonical = "myhost";
+    }
+    {
+      type = "interfaceAddress";
+      value = "2001:DB8::1/64";
+      canonical = "2001:db8::1/64";
+    }
+    {
+      type = "ip";
+      value = "::FFFF";
+      canonical = "::ffff";
+    }
+    {
+      type = "ipBindpoint";
+      value = "*:80";
+      canonical = ":80";
+    }
+    {
+      type = "ipEndpoint";
+      value = "[::FFFF:192.0.2.1]:80";
+      canonical = "[::ffff:192.0.2.1]:80";
+    }
+    {
+      type = "ipRange";
+      value = "::1-::FF";
+      canonical = "::1-::ff";
+    }
+    {
+      type = "ipv6";
+      value = "2001:0DB8:0000::1";
+      canonical = "2001:db8::1";
+    }
+    {
+      type = "ipv6Cidr";
+      value = "2001:DB8::/32";
+      canonical = "2001:db8::/32";
+    }
+    {
+      type = "ipv6InterfaceAddress";
+      value = "2001:DB8::1/64";
+      canonical = "2001:db8::1/64";
+    }
+    {
+      type = "mac";
+      value = "02-00-00-00-00-0A";
+      canonical = "02:00:00:00:00:0a";
+    }
+    {
+      type = "portRange";
+      value = "80:90";
+      canonical = "80-90";
+    }
+    {
+      type = "proxyUrl";
+      value = "http://proxy:3128/";
+      canonical = "http://proxy:3128";
+    }
+    {
+      type = "regName";
+      value = "My_Host%2f";
+      canonical = "my_host%2F";
+    }
+    {
+      type = "secureSocketUrl";
+      value = "SSL://h:443";
+      canonical = "tls://h:443";
+    }
+    {
+      type = "socketUrl";
+      value = "UDP://[2001:DB8::1]:53";
+      canonical = "udp://[2001:db8::1]:53";
+    }
+    {
+      type = "url";
+      value = "HTTPS://Example.COM/P?Q#F";
+      canonical = "https://example.com/P?Q#F";
+    }
+    {
+      type = "urlHost";
+      value = "[2001:DB8::1]";
+      canonical = "[2001:db8::1]";
+    }
+  ];
 in
 if lib == null then
   { }
@@ -95,9 +276,9 @@ else
       expr = types.ipv6.mk "2001:db8::1";
       expected = "2001:db8::1";
     };
-    testIpv6MkNotNormalized = {
+    testIpv6MkReturnsCanonicalText = {
       expr = types.ipv6.mk "2001:DB8::1";
-      expected = "2001:DB8::1";
+      expected = "2001:db8::1";
     };
 
     # ===== ip =====
@@ -134,6 +315,15 @@ else
     testMacMkOk = {
       expr = types.mac.mk "aa:bb:cc:dd:ee:ff";
       expected = "aa:bb:cc:dd:ee:ff";
+    };
+
+    # Two spellings of one MAC address merge instead of conflicting.
+    testMacMergesTwoSpellings = {
+      expr = mergedAll types.mac [
+        "02-00-00-00-00-0A"
+        "02:00:00:00:00:0a"
+      ];
+      expected = "02:00:00:00:00:0a";
     };
 
     # ===== cidr =====
@@ -195,7 +385,7 @@ else
         false
       ];
     };
-    testCidrMergesToInput = {
+    testCidrMergesCanonicalTextUnchanged = {
       expr = merged types.ipv6Cidr "2001:db8::/32";
       expected = "2001:db8::/32";
     };
@@ -482,10 +672,9 @@ else
       expr = types.socketUrl.check "unix://1.2.3.4:80";
       expected = false;
     };
-    # The merged value keeps the scheme's input spelling (ADR 0016).
-    testSocketUrlMergeKeepsSpelling = {
+    testSocketUrlMergeLowercasesScheme = {
       expr = merged types.socketUrl "TCP://1.2.3.4:80";
-      expected = "TCP://1.2.3.4:80";
+      expected = "tcp://1.2.3.4:80";
     };
     testSocketUrlDescription = {
       expr = builtins.isString types.socketUrl.description;
@@ -533,9 +722,9 @@ else
       expr = types.bindUrl.check "unix://:80";
       expected = false;
     };
-    testBindUrlMergeKeepsSpelling = {
+    testBindUrlMergeLowercasesScheme = {
       expr = merged types.bindUrl "Udp://:53";
-      expected = "Udp://:53";
+      expected = "udp://:53";
     };
     testBindUrlDescription = {
       expr = builtins.isString types.bindUrl.description;
@@ -571,10 +760,10 @@ else
       expr = types.secureSocketUrl.mk "tcp://x:1";
       expectedError.msg = "^libnet\\.types\\.secureSocketUrl\\.mk: unknown scheme \"tcp\"";
     };
-    # `ssl` is an input spelling of `tls`; the merged value keeps it.
-    testSecureSocketUrlMergeKeepsSpelling = {
+    # `ssl` is an input spelling of `tls`, so the merged value is `tls`.
+    testSecureSocketUrlMergeSpellsSslAsTls = {
       expr = merged types.secureSocketUrl "SSL://h:443";
-      expected = "SSL://h:443";
+      expected = "tls://h:443";
     };
     testSecureSocketUrlDescription = {
       expr = builtins.isString types.secureSocketUrl.description;
@@ -622,9 +811,10 @@ else
       expr = types.url.check "https://example.com/%zz";
       expected = false;
     };
-    testUrlMkKeepsSpelling = {
+    # The scheme and host fold case; the path, query and fragment keep it.
+    testUrlMkReturnsCanonicalText = {
       expr = types.url.mk "HTTPS://Example.COM/P?Q#F";
-      expected = "HTTPS://Example.COM/P?Q#F";
+      expected = "https://example.com/P?Q#F";
     };
     testUrlMkOk = {
       expr = types.url.mk "https://example.com/p";
@@ -812,9 +1002,9 @@ else
       expr = types.proxyUrl.mk { };
       expectedError.msg = "^libnet\\.types\\.proxyUrl\\.mk: expected string, got set$";
     };
-    testProxyUrlMergeKeepsSpelling = {
+    testProxyUrlMergeLowercasesScheme = {
       expr = merged types.proxyUrl "Socks5://h:1080";
-      expected = "Socks5://h:1080";
+      expected = "socks5://h:1080";
     };
     testProxyUrlDescription = {
       expr = builtins.isString types.proxyUrl.description;
@@ -942,7 +1132,7 @@ else
         false
       ];
     };
-    testInterfaceAddressMergesToInput = {
+    testInterfaceAddressMergesCanonicalTextUnchanged = {
       expr = merged types.ipv4InterfaceAddress "10.0.0.5/24";
       expected = "10.0.0.5/24";
     };
@@ -1074,8 +1264,12 @@ else
       expected = false;
     };
     testHostnameMkOk = {
+      expr = types.hostname.mk "nas";
+      expected = "nas";
+    };
+    testHostnameMkFoldsCase = {
       expr = types.hostname.mk "MyHost";
-      expected = "MyHost";
+      expected = "myhost";
     };
     testHostnameMkBad = {
       expr = throws (types.hostname.mk "host_name");
@@ -1575,14 +1769,14 @@ else
     };
 
     # ===== .mk smart constructors =====
-    # `mk` returns its input as written, without normalizing it.
-    testMkPreservesCase = {
-      expr = types.mac.mk "AA:BB:CC:DD:EE:FF";
-      expected = "AA:BB:CC:DD:EE:FF";
+    # `mk` returns the canonical text, the value the option merges to.
+    testMkReturnsCanonicalText = {
+      expr = types.mac.mk "AA-BB-CC-DD-EE-FF";
+      expected = "aa:bb:cc:dd:ee:ff";
     };
-    # Parsing folds the case of names (ADR 0020), but string types merge
-    # to the definition as written (ADR 0016).
-    testMergeKeepsNameSpelling = {
+    # Parsing folds the case of names (ADR 0020), so string types merge to
+    # the lowercase form; interface names are case-sensitive.
+    testMergeFoldsNameCase = {
       expr = map ({ type, value }: merged types.${type} value) [
         {
           type = "hostname";
@@ -1618,14 +1812,14 @@ else
         }
       ];
       expected = [
-        "MyHost"
-        "Example.COM"
-        "Pool.NTP.org"
-        "NAS"
-        "My_Host%2f"
-        "Example.COM"
+        "myhost"
+        "example.com"
+        "pool.ntp.org"
+        "nas"
+        "my_host%2F"
+        "example.com"
         "Eth0"
-        "https://Example.COM/Path"
+        "https://example.com/Path"
       ];
     };
     testInterfaceNameCheckByte160 = {
@@ -1667,6 +1861,72 @@ else
     testMkCidrDetail = {
       expr = types.cidr.mk "10.0.0.5/24";
       expectedError.msg = "^libnet\\.types\\.cidr\\.mk: host bits set in \"10\\.0\\.0\\.5/24\"";
+    };
+
+    # ===== canonical merge =====
+    # One canonical sample per string type merges unchanged.
+    testMergeCanonicalUnchanged = {
+      expr = builtins.filter (
+        name: merged types.${name} canonicalSamples.${name} != canonicalSamples.${name}
+      ) (builtins.attrNames canonicalSamples);
+      expected = [ ];
+    };
+    # Every string type has a canonical sample, so the case above covers
+    # them all.
+    testCanonicalSamplesCoverStringTypes = {
+      expr = builtins.attrNames canonicalSamples;
+      expected = builtins.filter (name: !(builtins.elem name intTypeNames)) (builtins.attrNames types);
+    };
+    # Every string type whose canonical text can differ from its input
+    # merges a non-canonical spelling to its canonical text.
+    testMergeToCanonicalText = {
+      expr = map ({ type, value, ... }: merged types.${type} value) respellings;
+      expected = map ({ canonical, ... }: canonical) respellings;
+    };
+    # A definition merges to the same text that `mk` returns.
+    testMergeAgreesWithMk = {
+      expr = builtins.filter (
+        { type, value, ... }: merged types.${type} value != types.${type}.mk value
+      ) respellings;
+      expected = [ ];
+    };
+    testMergesTwoSpellingsOfOneValue = {
+      expr = mergedAll types.ipBindpoint [
+        "*:80"
+        "any:80"
+        ":80"
+      ];
+      expected = ":80";
+    };
+    testListOfMergesEachElementToCanonicalText = {
+      expr = mergedAll (lib.types.listOf types.mac) [
+        [ "02-00-00-00-00-0A" ]
+        [ "0200.0000.000B" ]
+      ];
+      expected = [
+        "02:00:00:00:00:0b"
+        "02:00:00:00:00:0a"
+      ];
+    };
+    # The conflict names the definitions as written, not their canonical
+    # text, and skips a definition that differs only in spelling. The
+    # module system lists the definitions last module first.
+    testMergeConflictShowsDefinitionsAsWritten = {
+      expr = mergedAll types.mac [
+        "0200.0000.000B"
+        "02:00:00:00:00:0a"
+        "02-00-00-00-00-0A"
+      ];
+      expectedError.msg = "^The option `value' has conflicting definition values:\n- In `<unknown-file>': \"02-00-00-00-00-0A\"\n- In `<unknown-file>': \"0200\\.0000\\.000B\"\n";
+    };
+    testMergeConflictDifferentValues = {
+      expr = throws (
+        mergedAll types.cidr [
+          "10.0.0.0/8"
+          "10.0.0.0/16"
+        ]
+      );
+      expected = true;
     };
 
     # ===== declarations =====
