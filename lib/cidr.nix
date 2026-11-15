@@ -468,11 +468,11 @@ let
   # Every address of `block`, counted on behalf of `function`.
   listAddresses = function: block: listFrom block block.networkAddress (sizeFor function block);
 
-  # The public function `function`, which lists a CIDR's addresses with
-  # `list`, throwing above 2^16 addresses and naming its `unbounded`
+  # List a CIDR with `list` on behalf of the public function `function`,
+  # throwing above 2^16 addresses and naming its `<function>Unbounded`
   # sibling where that can list the block.
-  guarded =
-    function: unbounded: list: cidr:
+  listWithGuard =
+    function: list: cidr:
     let
       block = cidrArgument function cidr;
       hostBits = maxPrefix block.networkAddress - block.prefix;
@@ -483,7 +483,7 @@ let
     in
     if hostBits > 16 then
       errors.fail "cidr.${function}" "block too large (${addressCount} addresses > 2^16); use addressAt${
-        if fitsInt then " or ${unbounded}" else ""
+        if fitsInt then " or ${function}Unbounded" else ""
       }"
     else
       list function block;
@@ -507,7 +507,7 @@ let
     Returns the same list as `hostsUnbounded`; throws when the block holds
     more than 2^16 addresses.
   */
-  hosts = guarded "hosts" "hostsUnbounded" listHosts;
+  hosts = listWithGuard "hosts" listHosts;
 
   /*
     List every address in a CIDR block with no size guard; the caller
@@ -530,7 +530,7 @@ let
     Returns the same list as `addressesUnbounded`; throws when the block
     holds more than 2^16 addresses.
   */
-  addresses = guarded "addresses" "addressesUnbounded" listAddresses;
+  addresses = listWithGuard "addresses" listAddresses;
 
   # ===== Containment =====
 

@@ -604,6 +604,14 @@ in
     expr = builtins.length (cidr.addresses (parse "10.0.0.0/16"));
     expected = 65536;
   };
+  testAddressesV6AtLimit = {
+    expr = builtins.length (cidr.addresses (parse "2001:db8::/112"));
+    expected = 65536;
+  };
+  testAddressesV6TooLargeThrows = {
+    expr = cidr.addresses (parse "2001:db8::/111");
+    expectedError.msg = "^libnet\\.cidr\\.addresses: block too large \\(131072 addresses > 2\\^16\\); use addressAt or addressesUnbounded$";
+  };
   testAddressesTooLargeThrows = {
     expr = cidr.addresses (parse "10.0.0.0/15");
     expectedError.msg = "^libnet\\.cidr\\.addresses: block too large \\(131072 addresses > 2\\^16\\); use addressAt or addressesUnbounded$";
@@ -649,7 +657,7 @@ in
       libnet.ipRange.addresses (libnet.ipRange.fromCidr (parse "2001:db8::/125"))
     );
   };
-  testAddressesPartialApplication = {
+  testAddressesMapsOverBlocks = {
     expr = map (block: builtins.length (cidr.addresses block)) (
       map parse [
         "10.0.0.0/30"
