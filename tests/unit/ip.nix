@@ -1,4 +1,4 @@
-{ libnet, helpers, ... }:
+{ libnet, ... }:
 let
   inherit (libnet) ip;
   inherit (ip) parse;
@@ -423,18 +423,19 @@ in
     expr = ip.fromBytes [ ];
     expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 0$";
   };
-  # Each length beside a family's length throws rather than picking it.
-  testFromBytesRejectsNeighbouringLengths = {
-    expr = map (length: helpers.throws (ip.fromBytes (builtins.genList (_: 0) length))) [
-      5
-      15
-      17
-    ];
-    expected = [
-      true
-      true
-      true
-    ];
+  # A length beside a family's length names the union rather than
+  # reaching the family builder, whose error names the family.
+  testFromBytesFiveThrows = {
+    expr = ip.fromBytes (builtins.genList (_: 0) 5);
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 5$";
+  };
+  testFromBytesFifteenThrows = {
+    expr = ip.fromBytes (builtins.genList (_: 0) 15);
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 15$";
+  };
+  testFromBytesSeventeenThrows = {
+    expr = ip.fromBytes (builtins.genList (_: 0) 17);
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 17$";
   };
   # A bad byte names the union, not the family that would build it.
   testFromBytesV4ByteOutOfRangeNamesIp = {
@@ -467,6 +468,19 @@ in
   testFromBytesKeepsIpv4MappedAsIpv6 = {
     expr = ip.toString (ip.fromBytes (ip.toBytes (parse "::ffff:192.0.2.1")));
     expected = "::ffff:192.0.2.1";
+  };
+  # The round trip returns the value itself, not just one that prints alike.
+  testBytesRoundTripReturnsSameValue = {
+    expr = map (a: ip.fromBytes (ip.toBytes a) == a) [
+      (parse "192.0.2.1")
+      (parse "::ffff:192.0.2.1")
+      (parse "2001:db8::1")
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
   };
   testBytesRoundTripMixedFamilies = {
     expr = map (a: ip.toString (ip.fromBytes a)) (
