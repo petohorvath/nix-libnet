@@ -93,10 +93,11 @@ Pass-through union over `ipv4` and `ipv6`; `parse` picks IPv6 when the input con
 
 Suites: parsing, comparison (IPv4 before IPv6), arithmetic (dispatched by family, with errors naming the `ip` function called; `diff` across families throws), address predicates.
 
-| Function           | Signature    | Notes       |
-| ------------------ | ------------ | ----------- |
-| `version`          | `Ip → Int`   | `4` or `6`. |
-| `isIpv4`, `isIpv6` | `Any → Bool` |             |
+| Function               | Signature    | Notes                                                                                                                                                                                                                                                                                                                                |
+| ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `version`              | `Ip → Int`   | `4` or `6`.                                                                                                                                                                                                                                                                                                                          |
+| `isIpv4`, `isIpv6`     | `Any → Bool` |                                                                                                                                                                                                                                                                                                                                      |
+| `fromBytes`, `toBytes` | `[Int] ↔ Ip` | Four bytes for IPv4, sixteen for IPv6, most significant first. `fromBytes` picks the family from the length and throws `libnet.ip.fromBytes: expected 4 or 16 bytes, got <n>` for any other. Sixteen bytes always build IPv6, an IPv4-mapped address included, so `fromBytes (toBytes a)` returns `a`; unmap one with `ipv6.toIpv4`. |
 
 ## `libnet.mac`
 

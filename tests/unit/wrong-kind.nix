@@ -140,6 +140,16 @@ let
           isLoopback.string = ip.isLoopback "127.0.0.1";
           isBogon.int = ip.isBogon 1;
           toArpa.mac = ip.toArpa (libnet.mac.parse "a0:36:9f:1b:1e:55");
+          toBytes.int = ip.toBytes 3221225985;
+          fromBytes = {
+            string = ip.fromBytes "192.0.2.1";
+            floatByte = ip.fromBytes [
+              192
+              0
+              2
+              1.0
+            ];
+          };
         };
       };
     mac =

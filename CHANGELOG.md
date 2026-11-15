@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `ip.toBytes` and `ip.fromBytes`, the byte conversions that `ipv4` and `ipv6` have, for an address of either family. `ip.fromBytes` builds IPv4 from 4 bytes and IPv6 from 16, an IPv4-mapped address included, so `ip.fromBytes (ip.toBytes a)` returns `a`.
+
 ### Changed
 
 - **Breaking:** every string module type merges to its canonical text, `toString (parse value)`, instead of the definition as written, and its `mk` returns the canonical text instead of its input. Two spellings of one value from different modules merge instead of conflicting; two different values still conflict, and the error shows each definition as written ([ADR 0023](docs/adr/0023-module-types-merge-to-canonical-values.md)). Option values are respelled: `MyHost` merges to `myhost`, IPv6 addresses to RFC 5952 text, MAC addresses to lowercase colon-separated text, `80:90` to `80-90`, `*:80` and `any:80` to `:80`, `ssl://h:443` to `tls://h:443`, and `http://proxy:3128/` to `http://proxy:3128`. Wrapping option values in `toString (parse …)` or an `apply` is now redundant. A consumer that needs the user's spelling can declare `lib.types.addCheck lib.types.str libnet.<namespace>.isValid`.
