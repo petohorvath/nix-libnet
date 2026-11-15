@@ -1,4 +1,4 @@
-{ libnet, ... }:
+{ libnet, helpers, ... }:
 let
   inherit (libnet) ip;
   inherit (ip) parse;
@@ -340,6 +340,149 @@ in
   testPrevV6 = {
     expr = ip.toString (ip.prev (parse "::2"));
     expected = "::1";
+  };
+
+  # ===== Bytes =====
+  testToBytesV4 = {
+    expr = ip.toBytes (parse "192.0.2.1");
+    expected = [
+      192
+      0
+      2
+      1
+    ];
+  };
+  testToBytesV6 = {
+    expr = ip.toBytes (parse "2001:db8::ff");
+    expected = [
+      32
+      1
+      13
+      184
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      255
+    ];
+  };
+  testToBytesNonIpThrows = {
+    expr = ip.toBytes (libnet.mac.parse "a0:36:9f:1b:1e:55");
+    expectedError.msg = "^libnet\\.ip\\.toBytes: expected ipv4 or ipv6 value, got mac value$";
+  };
+  testFromBytesFourIsIpv4 = {
+    expr = ip.toString (
+      ip.fromBytes [
+        192
+        0
+        2
+        1
+      ]
+    );
+    expected = "192.0.2.1";
+  };
+  testFromBytesSixteenIsIpv6 = {
+    expr = ip.toString (
+      ip.fromBytes [
+        32
+        1
+        13
+        184
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        255
+      ]
+    );
+    expected = "2001:db8::ff";
+  };
+  testFromBytesThreeThrows = {
+    expr = ip.fromBytes [
+      192
+      0
+      2
+    ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 3$";
+  };
+  testFromBytesEmptyThrows = {
+    expr = ip.fromBytes [ ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 or 16 bytes, got 0$";
+  };
+  # Each length beside a family's length throws rather than picking it.
+  testFromBytesRejectsNeighbouringLengths = {
+    expr = map (length: helpers.throws (ip.fromBytes (builtins.genList (_: 0) length))) [
+      5
+      15
+      17
+    ];
+    expected = [
+      true
+      true
+      true
+    ];
+  };
+  # A bad byte names the union, not the family that would build it.
+  testFromBytesV4ByteOutOfRangeNamesIp = {
+    expr = ip.fromBytes [
+      192
+      0
+      2
+      256
+    ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
+  };
+  testFromBytesV6NegativeByteNamesIp = {
+    expr = ip.fromBytes ((builtins.genList (_: 0) 15) ++ [ (-1) ]);
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: byte out of range \\[0, 255\\]: -1$";
+  };
+  testFromBytesNonIntByteNamesIp = {
+    expr = ip.fromBytes [
+      192
+      0
+      2
+      "1"
+    ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected int byte, got string$";
+  };
+  testFromBytesNonListThrows = {
+    expr = ip.fromBytes { };
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected list, got set$";
+  };
+  # Sixteen bytes stay IPv6 even when they spell an IPv4-mapped address.
+  testFromBytesKeepsIpv4MappedAsIpv6 = {
+    expr = ip.toString (ip.fromBytes (ip.toBytes (parse "::ffff:192.0.2.1")));
+    expected = "::ffff:192.0.2.1";
+  };
+  testBytesRoundTripMixedFamilies = {
+    expr = map (a: ip.toString (ip.fromBytes a)) (
+      map ip.toBytes [
+        (parse "0.0.0.0")
+        (parse "255.255.255.255")
+        (parse "::")
+        (parse "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+      ]
+    );
+    expected = [
+      "0.0.0.0"
+      "255.255.255.255"
+      "::"
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+    ];
   };
 
   # ===== Non-IP input throws (dispatch / accessor guards) =====

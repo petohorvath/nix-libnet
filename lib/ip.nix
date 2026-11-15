@@ -85,6 +85,49 @@ let
   */
   version = dispatch "version" (_: 4) (_: 6);
 
+  # ===== Bytes =====
+
+  /*
+    Split an address of either family into its bytes, most significant
+    first.
+
+    `ip`: ipv4 or ipv6 value.
+
+    Returns 4 bytes for IPv4 or 16 for IPv6, each in [0, 255]; throws for
+    any other value.
+  */
+  toBytes = dispatch "toBytes" ipv4.toBytes ipv6.toBytes;
+
+  /*
+    Build an address from its bytes, most significant first, picking the
+    family from the length. Sixteen bytes always build an IPv6 address,
+    an IPv4-mapped one included, so `fromBytes (toBytes ip)` returns `ip`;
+    `ipv6.toIpv4` unmaps one.
+
+    `bytes`: list of 4 or 16 integers, each in [0, 255].
+
+    Returns an IPv4 value for 4 bytes or an IPv6 value for 16; throws on
+    any other length or an invalid byte.
+  */
+  fromBytes =
+    bytes:
+    let
+      length = builtins.length (errors.expectType "ip.fromBytes" "list" bytes);
+      checked =
+        count:
+        address.intList "ip.fromBytes" {
+          inherit count;
+          part = "byte";
+          maxValue = 255;
+        } bytes;
+    in
+    if length == 4 then
+      ipv4.fromBytes (checked 4)
+    else if length == 16 then
+      ipv6.fromBytes (checked 16)
+    else
+      errors.fail "ip.fromBytes" "expected 4 or 16 bytes, got ${builtins.toString length}";
+
   /*
     Structural check for a tagged address of either family.
 
@@ -289,6 +332,7 @@ in
     add
     diff
     eq
+    fromBytes
     is
     isBogon
     isDocumentation
@@ -303,6 +347,7 @@ in
     prev
     sub
     toArpa
+    toBytes
     toString
     tryParseDetail
     version
