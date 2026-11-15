@@ -1,7 +1,7 @@
 let
   # A namespace's `tryParseDetail`, its parse failure without the
   # `libnet.<ns>.parse: ` prefix, serves the namespaces built on it and is
-  # not public API.
+  # not public API (ADR 0024).
   public = namespace: removeAttrs namespace [ "tryParseDetail" ];
 
   core = builtins.mapAttrs (_: public) {

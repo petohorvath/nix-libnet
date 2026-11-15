@@ -317,7 +317,6 @@ in
     make
     toArpa
     toString
-    tryParseDetail
     version
     ;
   inherit (parsers)
@@ -344,4 +343,8 @@ in
     Returns a port value.
   */
   port = endpoint: (ipEndpointArgument "port" endpoint).port;
+  # Not public API: the namespaces built on this one call it to report
+  # its failures under their own names, and `default.nix` removes it
+  # from `libnet` (ADR 0024).
+  inherit tryParseDetail;
 }

@@ -289,7 +289,6 @@ in
     is
     make
     toString
-    tryParseDetail
     userinfo
     ;
   inherit (parsers)
@@ -317,4 +316,8 @@ in
     Returns the port value, or null when omitted (no default applies).
   */
   port = authority: (authorityArgument "port" authority).port;
+  # Not public API: the namespaces built on this one call it to report
+  # its failures under their own names, and `default.nix` removes it
+  # from `libnet` (ADR 0024).
+  inherit tryParseDetail;
 }
