@@ -30,11 +30,13 @@ Suites: parsing, comparison. Comparison orders by family, network address, then 
 
 **Enumeration**
 
-| Function         | Signature         | Notes                                                                                                                                    |
-| ---------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `addressAt`      | `Int → Cidr → Ip` | Offset from `networkAddress`, as in `ipRange.addressAt`; `-1` is `topAddress`. A block of 2⁶³ addresses or more holds every `Int` index. |
-| `hosts`          | `Cidr → [Ip]`     | Usable hosts, from `firstHost`. Throws above 2¹⁶ addresses.                                                                              |
-| `hostsUnbounded` | `Cidr → [Ip]`     | No guard. Throws where `size` does.                                                                                                      |
+| Function             | Signature         | Notes                                                                                                                                    |
+| -------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `addressAt`          | `Int → Cidr → Ip` | Offset from `networkAddress`, as in `ipRange.addressAt`; `-1` is `topAddress`. A block of 2⁶³ addresses or more holds every `Int` index. |
+| `hosts`              | `Cidr → [Ip]`     | Usable hosts, from `firstHost`. Throws above 2¹⁶ addresses.                                                                              |
+| `hostsUnbounded`     | `Cidr → [Ip]`     | No guard. Throws where `size` does.                                                                                                      |
+| `addresses`          | `Cidr → [Ip]`     | Every address, from `networkAddress` to `topAddress`, as in `ipRange.addresses`. Throws above 2¹⁶ addresses.                             |
+| `addressesUnbounded` | `Cidr → [Ip]`     | No guard. Throws where `size` does.                                                                                                      |
 
 **Relationships**, all `false` across families:
 

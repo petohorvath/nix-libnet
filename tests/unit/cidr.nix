@@ -590,6 +590,102 @@ in
     expr = builtins.length (cidr.hostsUnbounded (parse "10.0.0.0/24"));
     expected = 254;
   };
+  # Unlike `hosts`, the network and broadcast addresses are included.
+  testAddressesPrefix30 = {
+    expr = map formatIpv4 (cidr.addresses (parse "10.0.0.0/30"));
+    expected = [
+      "10.0.0.0"
+      "10.0.0.1"
+      "10.0.0.2"
+      "10.0.0.3"
+    ];
+  };
+  testAddressesAtLimit = {
+    expr = builtins.length (cidr.addresses (parse "10.0.0.0/16"));
+    expected = 65536;
+  };
+  testAddressesTooLargeThrows = {
+    expr = cidr.addresses (parse "10.0.0.0/15");
+    expectedError.msg = "^libnet\\.cidr\\.addresses: block too large \\(131072 addresses > 2\\^16\\); use addressAt or addressesUnbounded$";
+  };
+  testAddressesV6Prefix64NamesAddresses = {
+    expr = cidr.addresses (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.addresses: block too large \\(2\\^64 addresses > 2\\^16\\); use addressAt$";
+  };
+  # Unlike `hosts`, the Subnet-Router anycast address is included.
+  testAddressesV6Prefix126 = {
+    expr = map formatIpv6 (cidr.addresses (parse "2001:db8::/126"));
+    expected = [
+      "2001:db8::"
+      "2001:db8::1"
+      "2001:db8::2"
+      "2001:db8::3"
+    ];
+  };
+  # Every address of a /31, /32, /127 or /128 is a host.
+  testAddressesPointToPointEqualHosts = {
+    expr = map (block: cidr.addresses block == cidr.hosts block) (
+      map parse [
+        "10.0.0.0/31"
+        "10.0.0.1/32"
+        "2001:db8::/127"
+        "2001:db8::1/128"
+      ]
+    );
+    expected = [
+      true
+      true
+      true
+      true
+    ];
+  };
+  testAddressesPrefix32 = {
+    expr = map formatIpv4 (cidr.addresses (parse "10.0.0.1/32"));
+    expected = [ "10.0.0.1" ];
+  };
+  testAddressesMatchIpRangeFromCidr = {
+    expr = map libnet.ip.toString (cidr.addresses (parse "2001:db8::/125"));
+    expected = map libnet.ip.toString (
+      libnet.ipRange.addresses (libnet.ipRange.fromCidr (parse "2001:db8::/125"))
+    );
+  };
+  testAddressesPartialApplication = {
+    expr = map (block: builtins.length (cidr.addresses block)) (
+      map parse [
+        "10.0.0.0/30"
+        "10.0.0.0/29"
+      ]
+    );
+    expected = [
+      4
+      8
+    ];
+  };
+  testAddressesWrongKindThrows = {
+    expr = cidr.addresses (ipv4.parse "10.0.0.1");
+    expectedError.msg = "^libnet\\.cidr\\.addresses: expected cidr value, got ipv4 value$";
+  };
+  testAddressesUnbounded = {
+    expr = builtins.length (cidr.addressesUnbounded (parse "10.0.0.0/15"));
+    expected = 131072;
+  };
+  testAddressesUnboundedV6Prefix126 = {
+    expr = map formatIpv6 (cidr.addressesUnbounded (parse "2001:db8::/126"));
+    expected = [
+      "2001:db8::"
+      "2001:db8::1"
+      "2001:db8::2"
+      "2001:db8::3"
+    ];
+  };
+  testAddressesUnboundedV6Prefix64NamesItself = {
+    expr = cidr.addressesUnbounded (parse "2001:db8::/64");
+    expectedError.msg = "^libnet\\.cidr\\.addressesUnbounded: block too large for a Nix integer \\(2\\^64 addresses\\)$";
+  };
+  testAddressesUnboundedWrongKindThrows = {
+    expr = cidr.addressesUnbounded (ipv4.parse "10.0.0.1");
+    expectedError.msg = "^libnet\\.cidr\\.addressesUnbounded: expected cidr value, got ipv4 value$";
+  };
 
   # ===== Containment =====
   testContainsAddressInside = {
