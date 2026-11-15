@@ -87,16 +87,7 @@ let
 
     Returns an IPv4 value; throws on a wrong length or an invalid byte.
   */
-  fromBytes =
-    bytes:
-    let
-      checkedBytes = address.intList "ipv4.fromBytes" {
-        count = 4;
-        part = "byte";
-        maxValue = 255;
-      } bytes;
-    in
-    builtins.seq checkedBytes (mk (bits.fromBytes checkedBytes));
+  fromBytes = address.ipv4.fromBytes "ipv4.fromBytes";
 
   /*
     Split an address into its four bytes, named like `ipv6.toBytes` and
@@ -131,7 +122,7 @@ let
     else if builtins.elem null octets then
       types.tryErr "invalid octet in \"${input}\""
     else
-      types.tryOk (fromBytes octets);
+      types.tryOk (address.ipv4.fromBytesUnchecked octets);
 
   parsers = parsing.suite "ipv4" tryParseDetail;
 

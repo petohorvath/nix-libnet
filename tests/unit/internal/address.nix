@@ -32,6 +32,11 @@ let
     inherit value;
   };
 
+  mkMac = value: {
+    _type = "mac";
+    inherit value;
+  };
+
   words = address.words { format = value: builtins.toJSON value.words; };
   mkWords = words: {
     _type = "ipv6";
@@ -276,66 +281,194 @@ in
     expectedError.msg = "^libnet\\.ip\\.diff: difference out of the Nix integer range: ";
   };
 
-  # ===== intList =====
-  testIntListReturnsList = {
-    expr =
-      address.intList "mac.fromBytes"
-        {
-          count = 2;
-          part = "byte";
-          maxValue = 255;
-        }
-        [
-          0
-          255
-        ];
-    expected = [
+  # ===== Builders =====
+  testIpv4FromBytes = {
+    expr = address.ipv4.fromBytes "ipv4.fromBytes" [
+      192
       0
-      255
+      2
+      1
+    ];
+    expected = mkIpv4 3221225985;
+  };
+  testIpv4FromBytesUnchecked = {
+    expr = address.ipv4.fromBytesUnchecked [
+      192
+      0
+      2
+      1
+    ];
+    expected = mkIpv4 3221225985;
+  };
+  testIpv4FromBytesNamesCaller = {
+    expr = address.ipv4.fromBytes "ip.fromBytes" [
+      192
+      0
+      2
+    ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 4 bytes, got 3$";
+  };
+  testIpv4FromBytesRejectsNonList = {
+    expr = address.ipv4.fromBytes "ip.fromBytes" "192.0.2.1";
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected list, got string$";
+  };
+  testIpv4FromBytesRejectsElementType = {
+    expr = address.ipv4.fromBytes "ip.fromBytes" [
+      192
+      0
+      2
+      { }
+    ];
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected int byte, got set$";
+  };
+  # Forced only to weak head normal form, so the check must run at the
+  # call rather than when a field of the value is read.
+  testIpv4FromBytesChecksAtCall = {
+    expr = builtins.seq (address.ipv4.fromBytes "ip.fromBytes" [
+      256
+      0
+      2
+      1
+    ]) true;
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
+  };
+
+  testIpv6FromWords = {
+    expr = address.ipv6.fromWords "ipv6.fromWords" [
+      536939960
+      0
+      0
+      1
+    ];
+    expected = mkWords [
+      536939960
+      0
+      0
+      1
     ];
   };
-  testIntListRejectsLength = {
-    expr = address.intList "mac.fromBytes" {
-      count = 2;
-      part = "byte";
-      maxValue = 255;
-    } [ 0 ];
-    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected 2 bytes, got 1$";
+  testIpv6FromWordsChecksAtCall = {
+    expr = builtins.seq (address.ipv6.fromWords "ipv6.fromWords" [
+      4294967296
+      0
+      0
+      0
+    ]) true;
+    expectedError.msg = "^libnet\\.ipv6\\.fromWords: word out of range \\[0, 4294967295\\]: 4294967296$";
   };
-  testIntListRejectsElementType = {
-    expr =
-      address.intList "mac.fromBytes"
-        {
-          count = 2;
-          part = "byte";
-          maxValue = 255;
-        }
-        [
-          0
-          { }
-        ];
-    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected int byte, got set$";
+  testIpv6FromGroups = {
+    expr = address.ipv6.fromGroups "ipv6.fromGroups" [
+      8193
+      3512
+      0
+      0
+      0
+      0
+      0
+      1
+    ];
+    expected = mkWords [
+      536939960
+      0
+      0
+      1
+    ];
   };
-  testIntListRejectsElementRange = {
-    expr =
-      address.intList "mac.fromBytes"
-        {
-          count = 2;
-          part = "byte";
-          maxValue = 255;
-        }
-        [
-          0
-          256
-        ];
-    expectedError.msg = "^libnet\\.mac\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
+  testIpv6FromGroupsUnchecked = {
+    expr = address.ipv6.fromGroupsUnchecked [
+      8193
+      3512
+      0
+      0
+      0
+      0
+      0
+      1
+    ];
+    expected = mkWords [
+      536939960
+      0
+      0
+      1
+    ];
   };
-  testIntListRejectsNonList = {
-    expr = address.intList "mac.fromBytes" {
-      count = 2;
-      part = "byte";
-      maxValue = 255;
-    } "0 255";
-    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected list, got string$";
+  testIpv6FromGroupsChecksAtCall = {
+    expr = builtins.seq (address.ipv6.fromGroups "ipv6.fromGroups" [
+      8193
+      3512
+    ]) true;
+    expectedError.msg = "^libnet\\.ipv6\\.fromGroups: expected 8 groups, got 2$";
+  };
+  testIpv6FromBytes = {
+    expr = address.ipv6.fromBytes "ipv6.fromBytes" [
+      32
+      1
+      13
+      184
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      1
+    ];
+    expected = mkWords [
+      536939960
+      0
+      0
+      1
+    ];
+  };
+  testIpv6FromBytesNamesCaller = {
+    expr = address.ipv6.fromBytes "ip.fromBytes" (builtins.genList (_: 0) 15 ++ [ 256 ]);
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: byte out of range \\[0, 255\\]: 256$";
+  };
+  testIpv6FromBytesChecksAtCall = {
+    expr = builtins.seq (address.ipv6.fromBytes "ip.fromBytes" (builtins.genList (_: 0) 15)) true;
+    expectedError.msg = "^libnet\\.ip\\.fromBytes: expected 16 bytes, got 15$";
+  };
+
+  testMacFromBytes = {
+    expr = address.mac.fromBytes "mac.fromBytes" [
+      160
+      54
+      159
+      27
+      30
+      85
+    ];
+    expected = mkMac 176156458032725;
+  };
+  testMacFromBytesUnchecked = {
+    expr = address.mac.fromBytesUnchecked [
+      160
+      54
+      159
+      27
+      30
+      85
+    ];
+    expected = mkMac 176156458032725;
+  };
+  testMacFromBytesRejectsLength = {
+    expr = address.mac.fromBytes "mac.fromBytes" [ 160 ];
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected 6 bytes, got 1$";
+  };
+  testMacFromBytesChecksAtCall = {
+    expr = builtins.seq (address.mac.fromBytes "mac.fromBytes" [
+      160
+      54
+      159
+      27
+      30
+      (-1)
+    ]) true;
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: byte out of range \\[0, 255\\]: -1$";
   };
 }

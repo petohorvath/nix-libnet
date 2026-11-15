@@ -104,16 +104,7 @@ let
 
     Returns a mac value; throws on a wrong length or an invalid byte.
   */
-  fromBytes =
-    bytes:
-    let
-      checkedBytes = address.intList "mac.fromBytes" {
-        count = 6;
-        part = "byte";
-        maxValue = 255;
-      } bytes;
-    in
-    mkChecked (bits.fromBytes checkedBytes);
+  fromBytes = address.mac.fromBytes "mac.fromBytes";
 
   /*
     Split a MAC address into its six octets.
@@ -136,7 +127,7 @@ let
     let
       bytes = map parsing.hexByte pairs;
     in
-    if builtins.elem null bytes then null else mk (bits.fromBytes bytes);
+    if builtins.elem null bytes then null else address.mac.fromBytesUnchecked bytes;
 
   parseBare = input: fromHexPairs (builtins.genList (i: builtins.substring (i * 2) 2 input) 6);
 
