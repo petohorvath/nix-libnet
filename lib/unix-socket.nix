@@ -145,7 +145,6 @@ in
     isAbstract
     isPathname
     toString
-    tryParseDetail
     ;
   inherit (parsers)
     isValid
@@ -161,4 +160,8 @@ in
     max
     min
     ;
+  # Not public API: the namespaces built on this one call it to report
+  # its failures under their own names, and `default.nix` removes it
+  # from `libnet` (ADR 0024).
+  inherit tryParseDetail;
 }

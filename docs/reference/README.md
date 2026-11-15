@@ -14,7 +14,7 @@ This reference is the contract for libnet's public API: the value each namespace
 | [Registry](registry.md)                 | `registry`                                                                                      |
 | [Module types](module-types.md)         | `withLib`, `types`                                                                              |
 
-Signatures are Haskell-style reading aids; Nix is dynamically typed. `lib/internal/` is not reachable through `libnet` and is not part of the contract.
+Signatures are Haskell-style reading aids; Nix is dynamically typed. The contract covers `libnet` only, not the files under `lib/`: a namespace file may export helpers that `libnet` removes, and `lib/internal/` is not reachable through `libnet` at all ([ADR 0024](../adr/0024-shared-code-placement.md)).
 
 ## Standard suites
 
