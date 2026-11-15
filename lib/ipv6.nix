@@ -46,17 +46,9 @@ let
 
   wordAt = i: words: builtins.elemAt words i;
 
-  groupsOf = builtins.concatMap (word: [
-    (bits.shr 16 word)
-    (builtins.bitAnd word bits.mask16)
-  ]);
+  groupsOf = bits.wordsToParts 16;
 
-  bytesOf = builtins.concatMap (word: [
-    (bits.bits 24 8 word)
-    (bits.bits 16 8 word)
-    (bits.bits 8 8 word)
-    (bits.bits 0 8 word)
-  ]);
+  bytesOf = bits.wordsToParts 8;
 
   inIpv4Mapped = words: wordAt 0 words == 0 && wordAt 1 words == 0 && wordAt 2 words == 65535;
 
@@ -147,17 +139,11 @@ let
         let
           octetTexts = parsing.splitOn "." part;
           octets = map parsing.octet octetTexts;
-          octetAt = builtins.elemAt octets;
         in
         if builtins.length octetTexts != 4 || builtins.elem null octets then
           { error = "invalid IPv4 part \"${part}\" in \"${input}\""; }
         else
-          {
-            groups = [
-              (octetAt 0 * 256 + octetAt 1)
-              (octetAt 2 * 256 + octetAt 3)
-            ];
-          };
+          { groups = bits.toParts 16 2 (bits.fromParts 8 octets); };
       isIpv4Part = index: part: allowIpv4 && index == count - 1 && parsing.countOccurrences "." part > 0;
       results = builtins.genList (
         index:
@@ -688,21 +674,17 @@ let
         # The network address has no host bits, so its upper two words
         # are the prefix and its lower two are zero.
         networkWords = cidrValue.networkAddress.words;
-        euiBytes = mac.toEui64 macValue;
-        euiByteAt = i: builtins.elemAt euiBytes i;
-        interfaceWord =
-          i:
-          (euiByteAt i) * bits.pow2_24
-          + (euiByteAt (i + 1)) * bits.pow2_16
-          + (euiByteAt (i + 2)) * bits.pow2_8
-          + (euiByteAt (i + 3));
+        interfaceWords = bits.partsToWords 8 (mac.toEui64 macValue);
       in
-      builtins.seq macValue (mk [
-        (builtins.elemAt networkWords 0)
-        (builtins.elemAt networkWords 1)
-        (interfaceWord 0)
-        (interfaceWord 4)
-      ]);
+      builtins.seq macValue (
+        mk (
+          [
+            (builtins.elemAt networkWords 0)
+            (builtins.elemAt networkWords 1)
+          ]
+          ++ interfaceWords
+        )
+      );
 
   # ===== Arithmetic =====
 

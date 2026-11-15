@@ -42,12 +42,7 @@ let
     in
     builtins.seq value (f value);
 
-  bytesOf = value: [
-    (bits.bits 24 8 value)
-    (bits.bits 16 8 value)
-    (bits.bits 8 8 value)
-    (bits.bits 0 8 value)
-  ];
+  bytesOf = bits.toParts 8 4;
 
   arithmetic = address.ipv4;
 

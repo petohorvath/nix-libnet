@@ -274,7 +274,7 @@ let
 
   ipv4FromBytes = bytes: {
     _type = "ipv4";
-    value = bits.fromBytes bytes;
+    value = bits.fromParts 8 bytes;
   };
 
   ipv6FromWords = words: {
@@ -282,40 +282,13 @@ let
     inherit words;
   };
 
-  ipv6FromGroups =
-    groups:
-    let
-      groupAt = i: builtins.elemAt groups i;
-      pair = i: j: (groupAt i) * bits.pow2_16 + (groupAt j);
-    in
-    ipv6FromWords [
-      (pair 0 1)
-      (pair 2 3)
-      (pair 4 5)
-      (pair 6 7)
-    ];
+  ipv6FromGroups = groups: ipv6FromWords (bits.partsToWords 16 groups);
 
-  ipv6FromBytes =
-    bytes:
-    let
-      byteAt = i: builtins.elemAt bytes i;
-      quad =
-        i:
-        (byteAt i) * bits.pow2_24
-        + (byteAt (i + 1)) * bits.pow2_16
-        + (byteAt (i + 2)) * bits.pow2_8
-        + (byteAt (i + 3));
-    in
-    ipv6FromWords [
-      (quad 0)
-      (quad 4)
-      (quad 8)
-      (quad 12)
-    ];
+  ipv6FromBytes = bytes: ipv6FromWords (bits.partsToWords 8 bytes);
 
   macFromBytes = bytes: {
     _type = "mac";
-    value = bits.fromBytes bytes;
+    value = bits.fromParts 8 bytes;
   };
 in
 {

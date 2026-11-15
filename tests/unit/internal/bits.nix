@@ -184,9 +184,9 @@ in
     ];
   };
 
-  # Bytes read most significant first.
-  testFromBytes = {
-    expr = map bits.fromBytes [
+  # Parts read most significant first.
+  testFromPartsBytes = {
+    expr = map (bits.fromParts 8) [
       [ ]
       [ 255 ]
       [
@@ -214,6 +214,189 @@ in
       256
       3221225985
       281474976710655
+    ];
+  };
+
+  # The groups 2001:db8 make one IPv6 word, and the groups 0200.0000.00ab
+  # the MAC address 02:00:00:00:00:ab.
+  testFromPartsGroups = {
+    expr = map (bits.fromParts 16) [
+      [
+        8193
+        3512
+      ]
+      [
+        512
+        0
+        171
+      ]
+    ];
+    expected = [
+      536939960
+      2199023255723
+    ];
+  };
+  testFromPartsInvertsToParts = {
+    expr = bits.fromParts 16 (bits.toParts 16 3 2199023255723);
+    expected = 2199023255723;
+  };
+
+  # Parts read most significant first: 192.0.2.1, the IPv6 word
+  # 2001:db8, and the MAC address 02:00:00:00:00:ab.
+  testToPartsBytesOfIpv4 = {
+    expr = bits.toParts 8 4 3221225985;
+    expected = [
+      192
+      0
+      2
+      1
+    ];
+  };
+  testToPartsGroupsOfWord = {
+    expr = bits.toParts 16 2 536939960;
+    expected = [
+      8193
+      3512
+    ];
+  };
+  testToPartsBytesOfMac = {
+    expr = bits.toParts 8 6 2199023255723;
+    expected = [
+      2
+      0
+      0
+      0
+      0
+      171
+    ];
+  };
+  testToPartsZeroIsZeroParts = {
+    expr = bits.toParts 8 4 0;
+    expected = [
+      0
+      0
+      0
+      0
+    ];
+  };
+  # Bits above the `count` parts are dropped: 0x12345 has the low bytes
+  # 0x23 and 0x45.
+  testToPartsDropsHigherBits = {
+    expr = bits.toParts 8 2 74565;
+    expected = [
+      35
+      69
+    ];
+  };
+  testToPartsNoParts = {
+    expr = bits.toParts 8 0 255;
+    expected = [ ];
+  };
+  testToPartsInvertsFromParts = {
+    expr = bits.toParts 8 4 (
+      bits.fromParts 8 [
+        192
+        0
+        2
+        1
+      ]
+    );
+    expected = [
+      192
+      0
+      2
+      1
+    ];
+  };
+  testToPartsAllOnes = {
+    expr = bits.toParts 8 4 4294967295;
+    expected = [
+      255
+      255
+      255
+      255
+    ];
+  };
+  # A part above bit 62 needs a shift that a Nix integer cannot hold.
+  testToPartsRejectsPartPastBit62 = {
+    expr = throws (builtins.deepSeq (bits.toParts 8 9 0) null);
+    expected = true;
+  };
+
+  # The words of 2001:db8::1 from its groups and from its bytes.
+  testPartsToWordsGroups = {
+    expr = bits.partsToWords 16 [
+      8193
+      3512
+      0
+      0
+      0
+      0
+      0
+      1
+    ];
+    expected = [
+      536939960
+      0
+      0
+      1
+    ];
+  };
+  testPartsToWordsBytes = {
+    expr = bits.partsToWords 8 [
+      32
+      1
+      13
+      184
+      0
+      0
+      0
+      1
+    ];
+    expected = [
+      536939960
+      1
+    ];
+  };
+  testPartsToWordsNoParts = {
+    expr = bits.partsToWords 8 [ ];
+    expected = [ ];
+  };
+  testWordsToPartsGroups = {
+    expr = bits.wordsToParts 16 [
+      536939960
+      1
+    ];
+    expected = [
+      8193
+      3512
+      0
+      1
+    ];
+  };
+  testWordsToPartsBytes = {
+    expr = bits.wordsToParts 8 [ 536939960 ];
+    expected = [
+      32
+      1
+      13
+      184
+    ];
+  };
+  testPartsToWordsInvertsWordsToParts = {
+    expr = bits.partsToWords 16 (
+      bits.wordsToParts 16 [
+        536939960
+        0
+        0
+        1
+      ]
+    );
+    expected = [
+      536939960
+      0
+      0
+      1
     ];
   };
 }

@@ -46,14 +46,7 @@ let
     in
     builtins.seq value (f value);
 
-  bytesOf = value: [
-    (bits.bits 40 8 value)
-    (bits.bits 32 8 value)
-    (bits.bits 24 8 value)
-    (bits.bits 16 8 value)
-    (bits.bits 8 8 value)
-    (bits.bits 0 8 value)
-  ];
+  bytesOf = bits.toParts 8 6;
 
   # Join the six bytes as lowercase hex pairs.
   hexBytes =
@@ -152,9 +145,13 @@ let
         null
       else
         mk (
-          (parsing.hexInt group0) * bits.pow2_32
-          + (parsing.hexInt group1) * bits.pow2_16
-          + (parsing.hexInt group2)
+          bits.fromParts 16 (
+            map parsing.hexInt [
+              group0
+              group1
+              group2
+            ]
+          )
         );
 
   parseSeparated =
@@ -395,8 +392,10 @@ let
   fromOuiNic =
     ouiValue: nicValue:
     mkChecked (
-      boundedInt "fromOuiNic" "OUI out of range" bits.mask24 ouiValue * bits.pow2_24
-      + boundedInt "fromOuiNic" "NIC out of range" bits.mask24 nicValue
+      bits.fromParts 24 [
+        (boundedInt "fromOuiNic" "OUI out of range" bits.mask24 ouiValue)
+        (boundedInt "fromOuiNic" "NIC out of range" bits.mask24 nicValue)
+      ]
     );
 
   /*
@@ -410,11 +409,8 @@ let
     mac:
     let
       ouiValue = bits.shr 24 (valueOf "toStringOui" mac);
-      high = bits.bits 16 8 ouiValue;
-      middle = bits.bits 8 8 ouiValue;
-      low = bits.bits 0 8 ouiValue;
     in
-    "${formatting.hex2 high}:${formatting.hex2 middle}:${formatting.hex2 low}";
+    builtins.concatStringsSep ":" (map formatting.hex2 (bits.toParts 8 3 ouiValue));
 
   # ===== EUI-64 =====
 
