@@ -49,20 +49,51 @@ let
     offset: width: x:
     builtins.bitAnd (shr offset x) (mask width);
 
-  # The integer of a list of bytes, most significant first, such as the
-  # bytes of an IPv4 or a MAC address.
-  fromBytes = builtins.foldl' (accumulated: byte: accumulated * pow2_8 + byte) 0;
+  # The integer of a list of parts of `width` bits, most significant
+  # first, such as the bytes of an IPv4 or a MAC address: the inverse of
+  # `toParts`.
+  fromParts =
+    width:
+    let
+      base = pow2 width;
+    in
+    builtins.foldl' (accumulated: part: accumulated * base + part) 0;
+
+  # Split the low `count` parts of `width` bits off `x`, most significant
+  # first, such as the four bytes of an IPv4 address or the two groups of
+  # an IPv6 word.
+  toParts =
+    width: count: x:
+    builtins.genList (i: bits ((count - 1 - i) * width) width x) count;
+
+  # Join a list of parts of `width` bits, which divides 32, into 32-bit
+  # words, `32 / width` parts each, such as the groups or the bytes of an
+  # IPv6 address into its four words.
+  partsToWords =
+    width: parts:
+    let
+      partsPerWord = 32 / width;
+    in
+    builtins.genList (
+      word:
+      fromParts width (builtins.genList (i: builtins.elemAt parts (word * partsPerWord + i)) partsPerWord)
+    ) (builtins.length parts / partsPerWord);
+
+  # Split 32-bit words into parts of `width` bits, which divides 32: the
+  # inverse of `partsToWords`.
+  wordsToParts = width: builtins.concatMap (toParts width (32 / width));
 in
 {
   inherit
     bits
-    fromBytes
+    fromParts
     mask
     mask16
     mask24
     mask32
     mask48
     mask8
+    partsToWords
     pow2
     pow2_16
     pow2_24
@@ -71,5 +102,7 @@ in
     pow2_8
     shl
     shr
+    toParts
+    wordsToParts
     ;
 }

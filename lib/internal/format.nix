@@ -83,16 +83,7 @@ let
     scan 0 (-1) 0 (-1) 0;
 
   # The dotted-quad text of an IPv4 address held as one u32.
-  ipv4 =
-    value:
-    builtins.concatStringsSep "." (
-      map (shift: builtins.toString (bits.bits shift 8 value)) [
-        24
-        16
-        8
-        0
-      ]
-    );
+  ipv4 = value: builtins.concatStringsSep "." (map builtins.toString (bits.toParts 8 4 value));
 
   /*
     The RFC 5952 canonical text of an IPv6 address held as four u32
@@ -109,10 +100,7 @@ let
       "::ffff:${ipv4 (wordAt 3)}"
     else
       let
-        groups = builtins.concatMap (word: [
-          (bits.shr 16 word)
-          (builtins.bitAnd word bits.mask16)
-        ]) words;
+        groups = bits.wordsToParts 16 words;
         zeroRun = longestZeroRun groups;
         groupTexts = map hex groups;
       in
