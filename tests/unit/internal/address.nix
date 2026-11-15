@@ -347,14 +347,14 @@ in
       1
     ];
   };
-  testIpv6FromWordsNamesCaller = {
-    expr = address.ipv6.fromWords "ip.fromWords" [
+  testIpv6FromWordsChecksAtCall = {
+    expr = builtins.seq (address.ipv6.fromWords "ipv6.fromWords" [
       4294967296
       0
       0
       0
-    ];
-    expectedError.msg = "^libnet\\.ip\\.fromWords: word out of range \\[0, 4294967295\\]: 4294967296$";
+    ]) true;
+    expectedError.msg = "^libnet\\.ipv6\\.fromWords: word out of range \\[0, 4294967295\\]: 4294967296$";
   };
   testIpv6FromGroups = {
     expr = address.ipv6.fromGroups "ipv6.fromGroups" [
@@ -392,12 +392,12 @@ in
       1
     ];
   };
-  testIpv6FromGroupsNamesCaller = {
-    expr = address.ipv6.fromGroups "ip.fromGroups" [
+  testIpv6FromGroupsChecksAtCall = {
+    expr = builtins.seq (address.ipv6.fromGroups "ipv6.fromGroups" [
       8193
       3512
-    ];
-    expectedError.msg = "^libnet\\.ip\\.fromGroups: expected 8 groups, got 2$";
+    ]) true;
+    expectedError.msg = "^libnet\\.ipv6\\.fromGroups: expected 8 groups, got 2$";
   };
   testIpv6FromBytes = {
     expr = address.ipv6.fromBytes "ipv6.fromBytes" [
@@ -456,9 +456,9 @@ in
     ];
     expected = mkMac 176156458032725;
   };
-  testMacFromBytesNamesCaller = {
-    expr = address.mac.fromBytes "caller.fromBytes" [ 160 ];
-    expectedError.msg = "^libnet\\.caller\\.fromBytes: expected 6 bytes, got 1$";
+  testMacFromBytesRejectsLength = {
+    expr = address.mac.fromBytes "mac.fromBytes" [ 160 ];
+    expectedError.msg = "^libnet\\.mac\\.fromBytes: expected 6 bytes, got 1$";
   };
   testMacFromBytesChecksAtCall = {
     expr = builtins.seq (address.mac.fromBytes "mac.fromBytes" [

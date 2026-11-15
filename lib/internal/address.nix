@@ -1,11 +1,11 @@
 /*
-  Arithmetic and checked builders shared by the address kinds, the `ip`
-  union and the bounded integers. Each function takes `caller`, the
-  public function its errors name, so `ip.next` reports `libnet.ip.next`
-  even though the IPv4 arithmetic does the work. They check every
-  argument: the kind of the operands, the offset and the lists of parts.
-  The `…Unchecked` builders skip the check, for parsers whose parts are
-  in range by construction.
+  Arithmetic and builders shared by the address kinds, the `ip` union
+  and the bounded integers. Each arithmetic function and checked builder
+  takes `caller`, the public function its errors name, so `ip.next`
+  reports `libnet.ip.next` even though the IPv4 arithmetic does the
+  work. They check every argument: the kind of the operands, the offset
+  and the lists of parts. The `…Unchecked` builders take no `caller` and
+  check nothing, for parsers whose parts are in range by construction.
 
   Every range check runs before the arithmetic it guards, since Nix 2.18
   wraps integer overflow silently.
@@ -221,7 +221,7 @@ let
 
   ipv6Arithmetic = words { format = ip: formatting.ipv6 ip.words; };
 
-  # ===== Builders =====
+  # ===== Part lists =====
 
   # Check a list of `count` integers in [0, maxValue], such as the bytes
   # of an address, each called a `part` in errors. Returns the list, or
@@ -251,20 +251,22 @@ let
     else
       builtins.seq (builtins.foldl' (_: check) null checked) checked;
 
+  # ===== Builders =====
+
   /*
     `build`, checking its list of parts for `caller` first, with the
     `count`, `part` and `maxValue` of `intList`. The check is forced when
     the builder is called, so a bad list throws there rather than when a
     field of the value is read.
   */
-  checked =
+  withCheckedParts =
     settings: build: caller: list:
     let
       parts = intList caller settings list;
     in
     builtins.seq parts (build parts);
 
-  byteList = count: {
+  byteParts = count: {
     inherit count;
     part = "byte";
     maxValue = bits.mask8;
@@ -324,27 +326,27 @@ in
     ;
 
   ipv4 = ipv4Arithmetic // {
-    fromBytes = checked (byteList 4) ipv4FromBytes;
+    fromBytes = withCheckedParts (byteParts 4) ipv4FromBytes;
     fromBytesUnchecked = ipv4FromBytes;
   };
 
   ipv6 = ipv6Arithmetic // {
-    fromWords = checked {
+    fromWords = withCheckedParts {
       count = 4;
       part = "word";
       maxValue = bits.mask32;
     } ipv6FromWords;
-    fromGroups = checked {
+    fromGroups = withCheckedParts {
       count = 8;
       part = "group";
       maxValue = bits.mask16;
     } ipv6FromGroups;
     fromGroupsUnchecked = ipv6FromGroups;
-    fromBytes = checked (byteList 16) ipv6FromBytes;
+    fromBytes = withCheckedParts (byteParts 16) ipv6FromBytes;
   };
 
   mac = {
-    fromBytes = checked (byteList 6) macFromBytes;
+    fromBytes = withCheckedParts (byteParts 6) macFromBytes;
     fromBytesUnchecked = macFromBytes;
   };
 }
