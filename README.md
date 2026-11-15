@@ -72,7 +72,7 @@ The [API reference](docs/reference/README.md) documents every namespace and func
 
 ## NixOS option types
 
-The flake's `lib` output includes `types`, a set of NixOS option types that validate with the core parsers, built against the flake's `nixpkgs` input. String option values stay strings after merge, so code that needs structure calls `parse`. `types.port`, `types.vlanId`, `types.mtu` and `types.icmpType` merge to integers.
+The flake's `lib` output includes `types`, a set of NixOS option types that validate with the core parsers, built against the flake's `nixpkgs` input. String option values merge to their canonical text, so `02-00-00-00-00-0A` merges to `02:00:00:00:00:0a` and two spellings of one value do not conflict; code that needs structure calls `parse`. `types.port`, `types.vlanId`, `types.mtu` and `types.icmpType` merge to integers.
 
 In a NixOS module that receives the flake's `lib` as `libnet`, for example through `specialArgs`:
 

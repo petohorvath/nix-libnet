@@ -11,8 +11,8 @@
   through `libnet.withLib pkgs.lib`.
 
   Example:
-    (libnet.withLib pkgs.lib).types.ipv4.mk "192.0.2.1"
-    => "192.0.2.1"
+    (libnet.withLib pkgs.lib).types.mac.mk "02-00-00-00-00-0A"
+    => "02:00:00:00:00:0a"
 */
 { lib }:
 let
@@ -136,14 +136,18 @@ let
 
   /*
     Build a string option type whose values a libnet parser accepts.
-    Values stay strings after merge; consumers parse them when they need
-    structure.
+    Values merge to their canonical text (ADR 0023), so two spellings of
+    one value merge and option values compare as strings; consumers parse
+    them when they need structure.
 
     `typeName`: option type name, also used in `mk` error messages.
     `description`: article-less noun phrase for generated option
     documentation.
-    `parser`: detail parser on a string; defaults to the namespace of
-    the same name, through `detailParser`.
+    `namespaceName`: the key of `namespaces` that parses and prints the
+    value; defaults to `typeName`.
+    `family`: `{ kind, version }` to accept one address family only,
+    through `restrictFamily`, or `null` to accept every value of the
+    namespace.
 
     Returns a nixpkgs option type extended with `mk`.
   */
@@ -151,13 +155,39 @@ let
     {
       typeName,
       description,
-      parser ? detailParser typeName,
+      namespaceName ? typeName,
+      family ? null,
     }:
+    let
+      parser =
+        if family == null then
+          detailParser namespaceName
+        else
+          restrictFamily (family // { inherit namespaceName; });
+      # Only called on a definition that `check` has accepted.
+      canonicalText = input: namespaces.${namespaceName}.toString (parser input).value;
+    in
     withIdentity { inherit typeName description; } (
       lib.types.mkOptionType {
         name = typeName;
         check = value: builtins.isString value && (parser value).success;
-        merge = lib.options.mergeEqualOption;
+        # Merge to the canonical text that every definition shares. On a
+        # conflict, `mergeEqualOption` reports the first definition and the
+        # first that differs from it in canonical text, both as written.
+        merge =
+          loc: defs:
+          let
+            first = builtins.head defs;
+            firstText = canonicalText first.value;
+            conflict = lib.findFirst (def: canonicalText def.value != firstText) null (builtins.tail defs);
+          in
+          if conflict == null then
+            firstText
+          else
+            lib.options.mergeEqualOption loc [
+              first
+              conflict
+            ];
       }
       // {
         /*
@@ -166,8 +196,9 @@ let
 
           `input`: candidate string.
 
-          Returns `input` unchanged; throws when it is not a string or does
-          not parse, with the parser's detail.
+          Returns the canonical text of `input`, the value an option merges
+          to; throws when it is not a string or does not parse, with the
+          parser's detail.
         */
         mk =
           input:
@@ -175,7 +206,10 @@ let
             caller = "types.${typeName}.mk";
             result = parser (errors.expectType caller "string" input);
           in
-          if result.success then input else errors.fail caller result.error;
+          if result.success then
+            namespaces.${namespaceName}.toString result.value
+          else
+            errors.fail caller result.error;
       }
     );
 
@@ -272,20 +306,20 @@ let
 
   ipv4CidrType = mkStringType {
     typeName = "ipv4Cidr";
+    namespaceName = "cidr";
     description = "IPv4 CIDR block";
-    parser = restrictFamily {
+    family = {
       kind = "CIDR";
-      namespaceName = "cidr";
       version = 4;
     };
   };
 
   ipv6CidrType = mkStringType {
     typeName = "ipv6Cidr";
+    namespaceName = "cidr";
     description = "IPv6 CIDR block";
-    parser = restrictFamily {
+    family = {
       kind = "CIDR";
-      namespaceName = "cidr";
       version = 6;
     };
   };
@@ -377,20 +411,20 @@ let
 
   ipv4InterfaceAddressType = mkStringType {
     typeName = "ipv4InterfaceAddress";
+    namespaceName = "interfaceAddress";
     description = "IPv4 interface address";
-    parser = restrictFamily {
+    family = {
       kind = "interface address";
-      namespaceName = "interfaceAddress";
       version = 4;
     };
   };
 
   ipv6InterfaceAddressType = mkStringType {
     typeName = "ipv6InterfaceAddress";
+    namespaceName = "interfaceAddress";
     description = "IPv6 interface address";
-    parser = restrictFamily {
+    family = {
       kind = "interface address";
-      namespaceName = "interfaceAddress";
       version = 6;
     };
   };
